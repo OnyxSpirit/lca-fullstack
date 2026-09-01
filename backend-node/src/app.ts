@@ -1,0 +1,24 @@
+import cors from 'cors';
+import express from 'express';
+import helmet from 'helmet';
+import { pool } from './config/database.js';
+import { env } from './config/env.js';
+import { authenticate } from './middleware/authenticate.js';
+import { enforceAgencyScope } from './middleware/agency-scope.js';
+import { asyncHandler, errorHandler, notFound } from './middleware/error-handler.js';
+import { authRouter } from './modules/auth/auth.routes.js';
+import { coreRouter } from './modules/core/core.routes.js';
+
+export function createApp() {
+  const app=express();
+  app.disable('x-powered-by');
+  app.use(helmet());
+  app.use(cors({origin:env.frontendUrl,credentials:true}));
+  app.use(express.json({limit:'2mb'}));
+  app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
+  app.use('/api/auth',authRouter);
+  app.use('/api',authenticate,enforceAgencyScope,coreRouter);
+  app.use(notFound);
+  app.use(errorHandler);
+  return app;
+}

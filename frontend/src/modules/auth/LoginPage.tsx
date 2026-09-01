@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-5xl bg-white rounded-md shadow-[0_24px_70px_rgba(15,15,16,.16)] border border-[#d5d1cc] overflow-hidden grid lg:grid-cols-[1.05fr_.95fr] relative">
         <div className="hidden lg:flex bg-[#0b0b0c] text-white p-12 flex-col justify-between min-h-[620px] relative overflow-hidden after:absolute after:-right-32 after:-bottom-32 after:w-80 after:h-80 after:border-[70px] after:border-[#8f1722]/15 after:rounded-full">
           <div>
-            <div className="flex items-center gap-4"><div className="w-11 h-11 border border-[#a51d2a] flex items-center justify-center font-black tracking-[-.08em]">LC</div><div><div className="text-2xl font-black tracking-[.16em] leading-none">LCA</div><div className="mt-1.5 text-[9px] uppercase tracking-[.25em] text-zinc-500">La Congolaise de l'Automobile</div></div></div>
+            <div className="flex items-center gap-4"><div className="w-[60%] p-5"><img alt='LCA Logo' src='https://congolaise-automobile.com/wp-content/uploads/2024/11/Design-sans-titre-54-1024x725.png'/></div><div></div></div>
             <div className="mt-20 max-w-md">
               <p className="text-[10px] font-black uppercase tracking-[.24em] text-[#d2767e]">Espace professionnel</p>
               <h1 className="mt-4 text-[42px] font-bold leading-[1.08] tracking-[-.035em]">La performance automobile, pilotée avec précision.</h1>
@@ -44,7 +44,7 @@ export const LoginPage: React.FC = () => {
         <div className="p-7 sm:p-10 lg:p-14 flex items-center bg-white">
           <div className="w-full max-w-md mx-auto">
             <div className="lg:hidden flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-[#0b0b0c] text-white flex items-center justify-center font-black">LC</div><div className="font-black tracking-[.15em]">LCA</div>
+              <div className="font-black tracking-[.15em]"><div className="w-[50%] p-2 bg-slate-950 rounded-2xl"><img alt='LCA Logo' src='https://congolaise-automobile.com/wp-content/uploads/2024/11/Design-sans-titre-54-1024x725.png'/></div></div>
             </div>
             <div className="mb-8"><div className="w-8 h-0.5 bg-[#8f1722] mb-4"/><h2 className="text-[28px] font-bold text-[#111113] tracking-[-.025em]">Connexion</h2><p className="mt-1.5 text-sm text-zinc-500">Accédez à votre environnement de travail.</p></div>
 

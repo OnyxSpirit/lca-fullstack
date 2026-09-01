@@ -206,8 +206,8 @@ export const Sidebar: React.FC = () => {
           className="flex items-center gap-3 group"
         >
          
-          <div className="w-9 h-9 border border-[#a51d2a] flex items-center justify-center text-white font-black tracking-[-0.08em]">LC</div>
-          {!sidebarCollapsed && <div><div className="text-white font-black text-lg tracking-[0.14em] leading-none">LCA</div><div className="text-[9px] mt-1.5 text-zinc-500 uppercase tracking-[0.22em]">Automobile ERP</div></div>}
+         
+          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='https://congolaise-automobile.com/wp-content/uploads/2024/11/Design-sans-titre-54-1024x725.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='https://congolaise-automobile.com/wp-content/uploads/2024/11/Design-sans-titre-54-1024x725.png'/></div>}
         </NavLink>
 
         {/* Mobile close button */}

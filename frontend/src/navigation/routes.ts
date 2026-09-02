@@ -45,6 +45,7 @@ export function notificationRoute(referenceType: string, referenceId: string): s
     part: detailRoutes.part(referenceId),
     lead: ROUTES.crm,
     reservation: ROUTES.sales,
+    vehicle: detailRoutes.vehicle(referenceId),
   };
   return routes[referenceType] ?? ROUTES.notifications;
 }

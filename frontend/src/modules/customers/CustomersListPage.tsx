@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -21,15 +21,19 @@ import { Card } from '../../components/ui/Card';
 import { formatCurrency } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
 import { useUiStore } from '../../stores/uiStore';
+import { useAuthStore } from '../../stores/authStore';
 
 export const CustomersListPage: React.FC = () => {
-  const customersQuery = useCustomersQuery(); const customers = customersQuery.data ?? []; const createCustomer = useCreateCustomer();
   const { addToast } = useUiStore();
+  const { currentUser, currentAgency } = useAuthStore();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedType, setSelectedType] = useState<'ALL' | 'Particulier' | 'Professionnel'>('ALL');
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
+  const customersQuery = useCustomersQuery(debouncedSearch,selectedType==='ALL'?'':selectedType==='Particulier'?'individual':'company'); const customers = customersQuery.data ?? []; const createCustomer = useCreateCustomer();
+  useEffect(()=>{const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);return()=>window.clearTimeout(timer)},[searchQuery]);
 
   const [newCustomerForm, setNewCustomerForm] = useState({
     type: 'Particulier' as 'Particulier' | 'Professionnel',
@@ -40,26 +44,15 @@ export const CustomersListPage: React.FC = () => {
     email: '',
     phone: '',
     address: '',
-    postalCode: '75016',
+    postalCode: '',
     city: 'Brazzaville',
   });
 
-  const filteredCustomers = customers.filter((c) => {
-    const matchesSearch =
-      c.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.phone.includes(searchQuery) ||
-      (c.company && c.company.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesType = selectedType === 'ALL' || c.type === selectedType;
-    return matchesSearch && matchesType;
-  });
+  const filteredCustomers = customers;
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCustomerForm.lastName || !newCustomerForm.phone) {
+    if ((newCustomerForm.type==='Particulier'&&!newCustomerForm.lastName) || (newCustomerForm.type==='Professionnel'&&!newCustomerForm.company) || !newCustomerForm.phone) {
       addToast({
         type: 'error',
         title: 'Champs requis manquants',
@@ -70,6 +63,7 @@ export const CustomersListPage: React.FC = () => {
 
     try { await createCustomer.mutateAsync({
       customerType: newCustomerForm.type === 'Particulier' ? 'individual' : 'company',
+      civility:newCustomerForm.civility,
       firstName: newCustomerForm.firstName,
       lastName: newCustomerForm.lastName,
       companyName: newCustomerForm.company || undefined,
@@ -77,9 +71,11 @@ export const CustomersListPage: React.FC = () => {
       phone: newCustomerForm.phone,
       secondaryPhone: newCustomerForm.phone,
       address: newCustomerForm.address,
+      postalCode:newCustomerForm.postalCode,
       city: newCustomerForm.city,
       country: 'Congo',
-      assignedUserId: undefined,
+      agencyId:currentAgency?.id,
+      assignedUserId: currentUser?.id,
     });
     addToast({
       type: 'success',
@@ -139,6 +135,7 @@ export const CustomersListPage: React.FC = () => {
 
       {/* Customers Table */}
       <Card padding="none">
+        {customersQuery.isError&&<div className="p-4 text-sm text-red-700 bg-red-50 border-b border-red-200">Chargement des clients impossible : {customersQuery.error instanceof Error?customersQuery.error.message:'Erreur API'}</div>}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
@@ -237,6 +234,21 @@ export const CustomersListPage: React.FC = () => {
                 <option value="Mme">Mme</option>
                 <option value="Société">Société</option>
               </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Adresse</label>
+              <input type="text" value={newCustomerForm.address} onChange={e=>setNewCustomerForm({...newCustomerForm,address:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Code postal</label>
+              <input type="text" value={newCustomerForm.postalCode} onChange={e=>setNewCustomerForm({...newCustomerForm,postalCode:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Ville</label>
+              <input type="text" value={newCustomerForm.city} onChange={e=>setNewCustomerForm({...newCustomerForm,city:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white" />
             </div>
           </div>
 

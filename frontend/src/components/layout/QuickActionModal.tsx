@@ -20,7 +20,7 @@ import { NewInvoiceModal } from '../../modules/billing/NewInvoiceModal';
 import { NewDeliveryModal } from '../../modules/deliveries/NewDeliveryModal';
 
 export const QuickActionModal: React.FC = () => {
-  const { activeQuickActionModal, setActiveQuickActionModal } = useUiStore();
+  const { activeQuickActionModal, quickActionContext, setActiveQuickActionModal } = useUiStore();
 
   const actions = [
     {
@@ -117,10 +117,14 @@ export const QuickActionModal: React.FC = () => {
       <SaleWizardModal
         isOpen={activeQuickActionModal === 'sale'}
         onClose={() => setActiveQuickActionModal(null)}
+        initialCustomerId={quickActionContext?.customerId}
+        initialVehicleId={quickActionContext?.vehicleId}
       />
       <NewRepairOrderModal
         isOpen={activeQuickActionModal === 'or'}
         onClose={() => setActiveQuickActionModal(null)}
+        initialCustomerId={quickActionContext?.customerId}
+        initialVehicleId={quickActionContext?.vehicleId}
       />
       <NewInvoiceModal
         isOpen={activeQuickActionModal === 'invoice'}

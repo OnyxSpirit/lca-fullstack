@@ -1,287 +1,48 @@
-import React, { useState } from 'react';
-import { useCreateVehicle } from '../../api/erpHooks';
+import React, { useEffect, useState } from 'react';
+import { ImagePlus, Star, Trash2 } from 'lucide-react';
+import { useCreateVehicle, useVehicleReferencesQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import { FuelType, TransmissionType, VehicleStatus } from '../../types';
 
-interface NewVehicleModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface Props { isOpen:boolean; onClose:()=>void }
+interface CatalogImage { dataUrl:string; name:string; primary:boolean }
+const initial={vin:'',registrationNumber:'',brand:'',model:'',version:'',vehicleType:'used',bodyType:'SUV',year:new Date().getFullYear(),firstRegistrationDate:'',mileage:0,color:'',interiorColor:'',fuelType:'Essence',engine:'',transmission:'Automatique',fiscalPower:0,realPower:0,co2Emissions:0,status:'received',locationId:'',supplierId:'',purchasePrice:0,refurbishmentCost:0,transportCost:0,administrativeCost:0,additionalCosts:0,catalogPrice:0,salePrice:0,minimumPrice:0,features:'',notes:''};
+
+export async function optimizeImage(file:File):Promise<CatalogImage>{
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error(`${file.name}: format non accepté`);
+  if(file.size>8*1024*1024)throw new Error(`${file.name}: taille supérieure à 8 Mo`);
+  const bitmap=await createImageBitmap(file),scale=Math.min(1,1600/bitmap.width,1200/bitmap.height),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext('2d')!.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();return{dataUrl:canvas.toDataURL('image/webp',.84),name:file.name,primary:false};
 }
 
-export const NewVehicleModal: React.FC<NewVehicleModalProps> = ({ isOpen, onClose }) => {
-  const createVehicle = useCreateVehicle();
-  const { currentAgency } = useAuthStore();
-  const { addToast } = useUiStore();
-
-  const [formData, setFormData] = useState({
-    vin: '',
-    registrationNumber: '',
-    brand: 'BMW',
-    model: '',
-    version: '',
-    type: 'Occasion' as 'Neuf' | 'Occasion' | 'Démo',
-    bodyType: 'SUV' as 'Berline' | 'SUV' | 'Break' | 'Coupé' | 'Citadine' | 'Utilitaire',
-    year: 2024,
-    firstRegistrationDate: '2024-03-15',
-    mileage: 18500,
-    color: 'Gris Minéral Métallisé',
-    interiorColor: 'Cuir Noir',
-    fuel: 'Hybride Rechargeable' as FuelType,
-    transmission: 'Automatique' as TransmissionType,
-    fiscalPower: 8,
-    realPower: 225,
-    co2Emissions: 42,
-    status: 'DISPONIBLE' as VehicleStatus,
-    location: 'Parc Extérieur',
-    stockDays: 1,
-    purchasePriceHT: 28000,
-    refurbishCostHT: 600,
-    otherCostsHT: 250,
-    catalogPriceTTC: 49500,
-    sellingPriceTTC: 39900,
-    minimumPriceTTC: 38500,
-    targetMarginHT: 3500,
-    supplier: 'Reprise Concessionnaire',
-    photos: ['https://images.unsplash.com/photo-1555215695-3004980ad54e?w=900&auto=format&fit=crop&q=80'],
-    features: ['GPS Navigation Pro', 'Caméra de recul', 'Sièges chauffants', 'Régulateur adaptatif'],
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.brand || !formData.model || !formData.vin) {
-      addToast({
-        type: 'error',
-        title: 'Champs manquants',
-        description: 'Veuillez saisir au minimum la marque, le modèle et le numéro VIN.',
-      });
-      return;
-    }
-
-    try {
-      await createVehicle.mutateAsync({vin:formData.vin,registrationNumber:formData.registrationNumber||undefined,brand:formData.brand,model:formData.model,version:formData.version,agencyId:currentAgency?.id,year:formData.year,color:formData.color,fuelType:formData.fuel,transmission:formData.transmission,mileage:formData.mileage,purchasePrice:formData.purchasePriceHT,additionalCosts:formData.refurbishCostHT+formData.otherCostsHT,catalogPrice:formData.catalogPriceTTC,salePrice:formData.sellingPriceTTC});
-      addToast({ type: 'success', title: 'Véhicule ajouté au stock', description: `${formData.brand} ${formData.model} a été enregistré dans le parc.` });
-      onClose();
-    } catch (error) {
-      addToast({ type: 'error', title: 'Ajout impossible', description: error instanceof Error ? error.message : 'Erreur API' });
-    }
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Entrée en stock d'un véhicule (VN / VO)"
-      description="Renseignez l'identification, la mécanique, les coûts et le prix de vente."
-      maxWidth="2xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Row 1 */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Type de véhicule</label>
-            <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="Neuf">Véhicule Neuf (VN)</option>
-              <option value="Occasion">Véhicule d'Occasion (VO)</option>
-              <option value="Démo">Véhicule de Démonstration</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Marque *</label>
-            <input
-              type="text"
-              required
-              value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              placeholder="ex: BMW, Audi, Peugeot..."
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Modèle *</label>
-            <input
-              type="text"
-              required
-              value={formData.model}
-              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-              placeholder="ex: X3, 3008, Q5..."
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Row 2 */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Version & Finition</label>
-            <input
-              type="text"
-              value={formData.version}
-              onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-              placeholder="ex: xDrive30e M Sport 292ch BVA8"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Carrosserie</label>
-            <select
-              value={formData.bodyType}
-              onChange={(e) => setFormData({ ...formData, bodyType: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="SUV">SUV</option>
-              <option value="Berline">Berline</option>
-              <option value="Break">Break</option>
-              <option value="Coupé">Coupé</option>
-              <option value="Citadine">Citadine</option>
-              <option value="Utilitaire">Utilitaire</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Row 3: VIN & Plate & Fuel */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Numéro VIN (17 car.) *</label>
-            <input
-              type="text"
-              required
-              maxLength={17}
-              value={formData.vin}
-              onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
-              placeholder="ex: WBA31AY00P0987123"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white uppercase font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Immatriculation</label>
-            <input
-              type="text"
-              value={formData.registrationNumber}
-              onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value.toUpperCase() })}
-              placeholder="ex: GH-450-LK"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white uppercase font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Énergie</label>
-            <select
-              value={formData.fuel}
-              onChange={(e) => setFormData({ ...formData, fuel: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="Hybride Rechargeable">Hybride Rechargeable</option>
-              <option value="Électrique">Électrique</option>
-              <option value="Hybride">Hybride</option>
-              <option value="Essence">Essence</option>
-              <option value="Diesel">Diesel</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Row 4: Mileage & Year & Colors */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Kilométrage</label>
-            <input
-              type="number"
-              value={formData.mileage}
-              onChange={(e) => setFormData({ ...formData, mileage: Number(e.target.value) })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Année</label>
-            <input
-              type="number"
-              value={formData.year}
-              onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Couleur Extérieure</label>
-            <input
-              type="text"
-              value={formData.color}
-              onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Transmission</label>
-            <select
-              value={formData.transmission}
-              onChange={(e) => setFormData({ ...formData, transmission: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="Automatique">Automatique</option>
-              <option value="Manuelle">Manuelle</option>
-              <option value="Double Débrayage">Double Débrayage</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Row 5: Financials & Margins */}
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-            Données Financières & Marge Cible
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">Prix Achat HT (FCFA)</label>
-              <input
-                type="number"
-                value={formData.purchasePriceHT}
-                onChange={(e) => setFormData({ ...formData, purchasePriceHT: Number(e.target.value) })}
-                className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">Frais remise en état HT</label>
-              <input
-                type="number"
-                value={formData.refurbishCostHT}
-                onChange={(e) => setFormData({ ...formData, refurbishCostHT: Number(e.target.value) })}
-                className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">Prix Vente TTC (FCFA)</label>
-              <input
-                type="number"
-                value={formData.sellingPriceTTC}
-                onChange={(e) => setFormData({ ...formData, sellingPriceTTC: Number(e.target.value) })}
-                className="w-full text-xs p-2 rounded-lg border border-blue-400 bg-white font-bold text-blue-700 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">Marge Cible HT (FCFA)</label>
-              <input
-                type="number"
-                value={formData.targetMarginHT}
-                onChange={(e) => setFormData({ ...formData, targetMarginHT: Number(e.target.value) })}
-                className="w-full text-xs p-2 rounded-lg border border-emerald-400 bg-white font-bold text-emerald-700 focus:outline-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-          <Button variant="outline" type="button" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button variant="primary" type="submit">
-            Enregistrer le véhicule en stock
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
+export const NewVehicleModal:React.FC<Props>=({isOpen,onClose})=>{
+  const createVehicle=useCreateVehicle(),references=useVehicleReferencesQuery(),currentAgency=useAuthStore(s=>s.currentAgency),addToast=useUiStore(s=>s.addToast);const [form,setForm]=useState(initial),[images,setImages]=useState<CatalogImage[]>([]);
+  useEffect(()=>{if(isOpen)setForm(current=>({...current,locationId:current.locationId||String(references.data?.locations?.[0]?.id??'')}))},[isOpen,references.data]);
+  const field=(name:keyof typeof initial)=>(event:React.ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>)=>setForm({...form,[name]:event.target.type==='number'?Number(event.target.value):event.target.value});
+  const selectImages=async(event:React.ChangeEvent<HTMLInputElement>)=>{try{const files=Array.from(event.target.files??[]);if(images.length+files.length>8)throw new Error('Maximum 8 photos par véhicule');const next=await Promise.all(files.map(optimizeImage));setImages(current=>[...current,...next].map((image,index)=>({...image,primary:index===0})));}catch(error){addToast({type:'error',title:'Photo refusée',description:error instanceof Error?error.message:'Image invalide'})}event.target.value=''};
+  const submit=async(event:React.FormEvent)=>{event.preventDefault();if(images.length===0){addToast({type:'error',title:'Photo principale requise',description:'Ajoutez au moins une photo pour publier le véhicule dans le catalogue.'});return}try{await createVehicle.mutateAsync({...form,agencyId:currentAgency?.id,vin:form.vin.toUpperCase(),registrationNumber:form.registrationNumber.toUpperCase(),features:form.features.split(',').map(value=>value.trim()).filter(Boolean),images:images.map(({dataUrl,name})=>({dataUrl,name}))});addToast({type:'success',title:'Véhicule ajouté',description:`${form.brand} ${form.model} est disponible dans le catalogue.`});setForm(initial);setImages([]);onClose()}catch(error){addToast({type:'error',title:'Entrée en stock impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  return <Modal isOpen={isOpen} onClose={onClose} title="Entrée en stock d’un véhicule VN / VO" description="Identification, données financières et photos du catalogue." maxWidth="2xl"><form onSubmit={submit} className="space-y-5">
+    <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <label className="text-xs font-semibold">Type<select value={form.vehicleType} onChange={field('vehicleType')} className="mt-1 w-full p-2.5 border rounded-lg"><option value="new">Véhicule neuf (VN)</option><option value="used">Véhicule d’occasion (VO)</option><option value="demo">Démonstration</option><option value="courtesy">Courtoisie</option></select></label>
+      <label className="text-xs font-semibold">Marque *<input required value={form.brand} onChange={field('brand')} list="vehicle-brands" className="mt-1 w-full p-2.5 border rounded-lg"/><datalist id="vehicle-brands">{references.data?.brands?.map((item:any)=><option key={item.id} value={item.name}/>)}</datalist></label>
+      <label className="text-xs font-semibold">Modèle *<input required value={form.model} onChange={field('model')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">Version / finition<input value={form.version} onChange={field('version')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">VIN (17 caractères) *<input required minLength={17} maxLength={17} value={form.vin} onChange={field('vin')} className="mt-1 w-full p-2.5 border rounded-lg uppercase font-mono"/></label>
+      <label className="text-xs font-semibold">Immatriculation<input value={form.registrationNumber} onChange={field('registrationNumber')} className="mt-1 w-full p-2.5 border rounded-lg uppercase"/></label>
+      <label className="text-xs font-semibold">Carrosserie<input value={form.bodyType} onChange={field('bodyType')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">Année<input type="number" value={form.year} onChange={field('year')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">1ère mise en circulation<input type="date" value={form.firstRegistrationDate} onChange={field('firstRegistrationDate')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">Kilométrage<input type="number" min="0" value={form.mileage} onChange={field('mileage')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">Énergie<select value={form.fuelType} onChange={field('fuelType')} className="mt-1 w-full p-2.5 border rounded-lg"><option>Essence</option><option>Diesel</option><option>Hybride</option><option>Hybride Rechargeable</option><option>Électrique</option></select></label>
+      <label className="text-xs font-semibold">Transmission<select value={form.transmission} onChange={field('transmission')} className="mt-1 w-full p-2.5 border rounded-lg"><option>Automatique</option><option>Manuelle</option><option>Double Débrayage</option></select></label>
+      <label className="text-xs font-semibold">Couleur extérieure<input value={form.color} onChange={field('color')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">Couleur intérieure<input value={form.interiorColor} onChange={field('interiorColor')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+      <label className="text-xs font-semibold">Emplacement<select value={form.locationId} onChange={field('locationId')} className="mt-1 w-full p-2.5 border rounded-lg"><option value="">Non affecté</option>{references.data?.locations?.map((item:any)=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+    </section>
+    <section className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border">{([['purchasePrice','Prix achat HT'],['refurbishmentCost','Remise en état'],['additionalCosts','Autres frais'],['catalogPrice','Prix catalogue'],['salePrice','Prix de vente'],['minimumPrice','Prix minimum']] as const).map(([name,label])=><label key={name} className="text-xs font-semibold">{label} (XAF)<input type="number" min="0" value={form[name]} onChange={field(name)} className="mt-1 w-full p-2 border rounded-lg"/></label>)}</section>
+    <section className="space-y-3"><div className="flex items-center justify-between"><div><h4 className="text-sm font-bold">Photos du catalogue *</h4><p className="text-xs text-slate-500">1 à 8 images JPEG, PNG ou WebP. La première est l’image principale.</p></div><label className="inline-flex items-center gap-2 px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold cursor-pointer"><ImagePlus className="w-4 h-4"/>Ajouter<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={selectImages} className="hidden"/></label></div>{images.length?<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{images.map((image,index)=><div key={`${image.name}-${index}`} className="relative aspect-4/3 rounded-lg overflow-hidden border"><img src={image.dataUrl} alt={image.name} className="w-full h-full object-cover"/>{index===0&&<span className="absolute top-1 left-1 bg-red-800 text-white text-[10px] px-2 py-1 rounded flex gap-1"><Star className="w-3 h-3"/>Principale</span>}<button type="button" aria-label={`Supprimer ${image.name}`} onClick={()=>setImages(current=>current.filter((_,i)=>i!==index).map((item,i)=>({...item,primary:i===0})))} className="absolute top-1 right-1 bg-white/90 p-1 rounded"><Trash2 className="w-4 h-4 text-red-700"/></button></div>)}</div>:<div className="p-8 text-center border-2 border-dashed rounded-xl text-xs text-slate-500">Aucune photo : le véhicule ne peut pas être publié.</div>}</section>
+    <label className="text-xs font-semibold block">Équipements (séparés par des virgules)<input value={form.features} onChange={field('features')} className="mt-1 w-full p-2.5 border rounded-lg" placeholder="Climatisation, caméra de recul, GPS"/></label><label className="text-xs font-semibold block">Notes internes<textarea value={form.notes} onChange={field('notes')} className="mt-1 w-full p-2.5 border rounded-lg"/></label>
+    <div className="flex justify-end gap-2 border-t pt-3"><Button type="button" variant="outline" onClick={onClose}>Annuler</Button><Button type="submit" disabled={createVehicle.isPending||images.length===0}>{createVehicle.isPending?'Enregistrement…':'Enregistrer dans le stock'}</Button></div>
+  </form></Modal>
 };

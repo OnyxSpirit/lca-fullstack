@@ -8,9 +8,11 @@ import { Button } from '../../components/ui/Button';
 interface NewRepairOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialCustomerId?: string;
+  initialVehicleId?: string;
 }
 
-export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen, onClose }) => {
+export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen, onClose, initialCustomerId, initialVehicleId }) => {
   const customersQuery = useCustomersQuery();
   const vehiclesQuery = useVehiclesQuery();
   const techniciansQuery = useTechniciansQuery();
@@ -53,6 +55,7 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
       return { ...current, customerId, customerName, vehicleId, technicianId };
     });
   }, [isOpen, firstCustomer?.id, firstCustomer?.firstName, firstCustomer?.lastName, firstVehicleId, firstTechnicianId]);
+  useEffect(()=>{if(!isOpen)return;setFormData(current=>({...current,customerId:initialCustomerId&&customers.some(c=>c.id===initialCustomerId)?initialCustomerId:current.customerId,vehicleId:initialVehicleId&&vehicles.some(v=>v.id===initialVehicleId)?initialVehicleId:current.vehicleId}))},[isOpen,initialCustomerId,initialVehicleId,customers,vehicles]);
 
   const handleCustomerChange = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
@@ -117,7 +120,8 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-slate-700 mb-1">Véhicule existant *</label>
-            <select required value={formData.vehicleId} onChange={e=>setFormData({...formData,vehicleId:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none"><option value="">Sélectionner…</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.brand} {v.model} {v.version} — {v.registrationNumber||v.vin}</option>)}</select>
+          <select required value={formData.vehicleId} onChange={e=>setFormData({...formData,vehicleId:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none"><option value="">Sélectionner…</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.brand} {v.model} {v.version} — {v.registrationNumber||v.vin}</option>)}</select>
+            {!vehicles.length&&<p className="text-[11px] text-amber-700 mt-1">Aucun véhicule présent dans la base de données.</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Kilométrage actuel</label>
@@ -188,7 +192,7 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
           <Button variant="outline" type="button" onClick={onClose}>
             Annuler
           </Button>
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" disabled={!vehicles.length||!formData.vehicleId||!formData.customerId}>
             Ouvrir l'Ordre de Réparation
           </Button>
         </div>

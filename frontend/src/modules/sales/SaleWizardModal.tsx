@@ -22,9 +22,11 @@ import { Badge } from '../../components/ui/Badge';
 interface SaleWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialCustomerId?: string;
+  initialVehicleId?: string;
 }
 
-export const SaleWizardModal: React.FC<SaleWizardModalProps> = ({ isOpen, onClose }) => {
+export const SaleWizardModal: React.FC<SaleWizardModalProps> = ({ isOpen, onClose, initialCustomerId, initialVehicleId }) => {
   const customers=useCustomersQuery().data??[],vehicles=useVehiclesQuery().data??[]; const createSale=useCreateSale();
   const { currentUser, currentAgency } = useAuthStore();
   const { addToast } = useUiStore();
@@ -51,6 +53,8 @@ export const SaleWizardModal: React.FC<SaleWizardModalProps> = ({ isOpen, onClos
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
 
   useEffect(() => { if (!selectedCustomerId && customers[0]) setSelectedCustomerId(customers[0].id); }, [customers, selectedCustomerId]);
+  useEffect(()=>{if(isOpen&&initialCustomerId&&customers.some(c=>c.id===initialCustomerId))setSelectedCustomerId(initialCustomerId)},[isOpen,initialCustomerId,customers]);
+  useEffect(()=>{if(isOpen&&initialVehicleId&&vehicles.some(v=>v.id===initialVehicleId&&v.status==='DISPONIBLE'))setSelectedVehicleId(initialVehicleId)},[isOpen,initialVehicleId,vehicles]);
   useEffect(() => { if (!selectedVehicleId) { const available = vehicles.find(v => v.status === 'DISPONIBLE'); if (available) setSelectedVehicleId(available.id); } }, [vehicles, selectedVehicleId]);
 
   const vehicleBasePrice = selectedVehicle?.sellingPriceTTC || 40000;
@@ -190,7 +194,8 @@ export const SaleWizardModal: React.FC<SaleWizardModalProps> = ({ isOpen, onClos
               2. Sélectionner le véhicule en stock
             </h4>
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {vehicles.map((v) => {
+              {!vehicles.length&&<div className="p-6 text-center text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl">Aucun véhicule disponible dans la base de données.</div>}
+              {vehicles.filter(v=>v.status==='DISPONIBLE').map((v) => {
                 const isSelected = selectedVehicleId === v.id;
                 return (
                   <div
@@ -204,7 +209,7 @@ export const SaleWizardModal: React.FC<SaleWizardModalProps> = ({ isOpen, onClos
                   >
                     <div className="flex items-center gap-3">
                       <img
-                        src={v.photos[0]}
+                        src={v.photos[0]||'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="120"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3C/svg%3E'}
                         alt={v.model}
                         className="w-12 h-10 object-cover rounded-lg border border-slate-200 shrink-0"
                       />
@@ -514,6 +519,7 @@ export const SaleWizardModal: React.FC<SaleWizardModalProps> = ({ isOpen, onClos
                 variant="primary"
                 size="sm"
                 type="button"
+                disabled={(step===1&&!selectedCustomerId)||(step===2&&(!vehicles.length||!selectedVehicleId))}
                 onClick={() => setStep((s) => Math.min(6, s + 1))}
                 icon={<ChevronRight className="w-4 h-4" />}
                 iconPosition="right"

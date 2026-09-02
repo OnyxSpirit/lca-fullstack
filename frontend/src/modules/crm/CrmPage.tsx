@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Users,
   Plus,
@@ -32,17 +32,24 @@ import { NewLeadModal } from './NewLeadModal';
 import { Modal } from '../../components/ui/Modal';
 
 export const CrmPage: React.FC = () => {
-  const leads = useLeadsQuery().data ?? []; const stageMutation = useLeadStageMutation();
-  const activityMutation = useCreateActivity();
-  const { setActiveQuickActionModal, addToast } = useUiStore();
-
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('ALL');
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [newInteractionNote, setNewInteractionNote] = useState('');
   const [interactionType, setInteractionType] = useState<'Appel' | 'Email' | 'Visite' | 'Essai'>('Appel');
+  const priorityToDb: Record<string,string> = { Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent' };
+  const leads = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority]).data ?? [];
+  const stageMutation = useLeadStageMutation();
+  const activityMutation = useCreateActivity();
+  const { setActiveQuickActionModal, addToast } = useUiStore();
+
+  useEffect(() => {
+    const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);
+    return()=>window.clearTimeout(timer);
+  },[searchQuery]);
 
   const stages: { stage: LeadStage; label: string; color: string }[] = [
     { stage: 'NOUVEAU', label: 'Nouveaux', color: 'border-blue-400 bg-blue-50/50' },
@@ -55,16 +62,7 @@ export const CrmPage: React.FC = () => {
     { stage: 'GAGNE', label: 'Gagné (Vente)', color: 'border-emerald-400 bg-emerald-50/50' },
   ];
 
-  const filteredLeads = leads.filter((lead) => {
-    const matchesSearch =
-      lead.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.targetVehicle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.phone.includes(searchQuery);
-
-    const matchesPriority = selectedPriority === 'ALL' || lead.priority === selectedPriority;
-    return matchesSearch && matchesPriority;
-  });
+  const filteredLeads = leads;
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     const stage = opportunityStageToDb[newStage]; try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage }); addToast({
@@ -393,6 +391,7 @@ export const CrmPage: React.FC = () => {
                 <span className="text-slate-400 block mb-1">Budget prévisionnel</span>
                 <div className="font-bold text-blue-700 text-sm">{formatCurrency(selectedLead.targetBudget)}</div>
                 <div className="text-slate-500 mt-1">Score opportunité : {selectedLead.score}/100</div>
+                <div className="text-slate-500 mt-1">Enregistré par : {selectedLead.createdByName || 'Non renseigné'}</div>
               </div>
             </div>
 

@@ -43,7 +43,8 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose }) =
     }
 
     try {
-      await createLead.mutateAsync({ firstName: formData.firstName, lastName: formData.lastName, companyName: formData.company || undefined, email: formData.email || undefined, phone: formData.phone, source: formData.source, assignedUserId: currentUser?.id, title: formData.targetVehicle || 'Opportunité véhicule', expectedValue: formData.targetBudget, probability: 75, notes: formData.notes });
+      const priorityToDb={Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent'} as const;
+      await createLead.mutateAsync({ firstName: formData.firstName, lastName: formData.lastName, companyName: formData.company || undefined, email: formData.email || undefined, phone: formData.phone, source: formData.source, assignedUserId: currentUser?.id, title: formData.targetVehicle || 'Opportunité véhicule', expectedValue: formData.targetBudget, probability: 75, priority:priorityToDb[formData.priority], notes: formData.notes });
       addToast({ type: 'success', title: 'Prospect créé avec succès', description: `${formData.firstName} ${formData.lastName} a été ajouté au pipeline CRM.` });
       onClose();
     } catch (error) {

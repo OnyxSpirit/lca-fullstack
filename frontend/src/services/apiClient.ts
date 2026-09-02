@@ -1,4 +1,6 @@
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api';
+export const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
+export const assetUrl = (value?: string | null) => value ? (/^https?:\/\//.test(value) ? value : `${API_ORIGIN}${value}`) : '';
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {

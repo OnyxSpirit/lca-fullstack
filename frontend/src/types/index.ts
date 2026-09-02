@@ -79,6 +79,8 @@ export interface Lead {
   targetBudget: number;
   assignedToId: string;
   assignedToName: string;
+  createdById?: string;
+  createdByName?: string;
   agencyId: string;
   priority: 'Basse' | 'Moyenne' | 'Haute' | 'Urgente';
   nextActionDate?: string;
@@ -110,6 +112,11 @@ export interface Customer {
   salesRepId: string;
   salesRepName: string;
   agencyId: string;
+  agencyName?: string;
+  createdById?: string;
+  createdByName?: string;
+  segment?: string;
+  score?: number;
   clientSince: string;
   totalRevenue: number;
   openBalance: number;

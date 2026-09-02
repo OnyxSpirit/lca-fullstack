@@ -7,6 +7,7 @@ import { useAuthStore } from '../stores/authStore';
 const eventKeys: Record<string, readonly string[]> = {
   'sales:created': erpKeys.sales, 'sales:status': erpKeys.sales,
   'reservations:created': erpKeys.vehicles, 'reservations:cancelled': erpKeys.vehicles,
+  'vehicles:created': erpKeys.vehicles, 'vehicles:updated': erpKeys.vehicles, 'vehicles:status-changed': erpKeys.vehicles, 'vehicles:transferred': erpKeys.vehicles, 'vehicles:image-added': erpKeys.vehicles,
   'workshop:repair-order-created': erpKeys.repairOrders, 'workshop:status': erpKeys.repairOrders, 'workshop:assigned': erpKeys.repairOrders,
   'parts:stock-changed': erpKeys.parts,
   'deliveries:created': erpKeys.deliveries, 'deliveries:checklist': erpKeys.deliveries, 'deliveries:delivered': erpKeys.deliveries,

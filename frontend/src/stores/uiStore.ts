@@ -13,6 +13,7 @@ interface UiState {
   globalSearchOpen: boolean;
   quickActionOpen: boolean;
   activeQuickActionModal: string | null;
+  quickActionContext: { customerId?: string; vehicleId?: string } | null;
   toasts: ToastMessage[];
 
   toggleSidebar: () => void;
@@ -20,7 +21,7 @@ interface UiState {
   setMobileMenuOpen: (open: boolean) => void;
   setGlobalSearchOpen: (open: boolean) => void;
   setQuickActionOpen: (open: boolean) => void;
-  setActiveQuickActionModal: (modalId: string | null) => void;
+  setActiveQuickActionModal: (modalId: string | null, context?: { customerId?: string; vehicleId?: string }) => void;
   
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   removeToast: (id: string) => void;
@@ -32,6 +33,7 @@ export const useUiStore = create<UiState>((set) => ({
   globalSearchOpen: false,
   quickActionOpen: false,
   activeQuickActionModal: null,
+  quickActionContext: null,
   toasts: [],
 
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -39,7 +41,7 @@ export const useUiStore = create<UiState>((set) => ({
   setMobileMenuOpen: (open) => set({ mobileMenuOpen: open }),
   setGlobalSearchOpen: (open) => set({ globalSearchOpen: open }),
   setQuickActionOpen: (open) => set({ quickActionOpen: open }),
-  setActiveQuickActionModal: (modalId) => set({ activeQuickActionModal: modalId }),
+  setActiveQuickActionModal: (modalId,context) => set({ activeQuickActionModal: modalId,quickActionContext:modalId?(context??null):null }),
 
   addToast: (toast) => {
     const id = `toast-${Date.now()}`;

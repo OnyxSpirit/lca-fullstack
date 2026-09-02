@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { useVehicleDetailQuery, useVehicleStatusMutation } from '../../api/erpHooks';
+import { useVehicle360Query, useVehicleImages, useVehicleStatusMutation } from '../../api/erpHooks';
+import { optimizeImage } from './NewVehicleModal';
 import { vehicleStatusToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -32,14 +33,16 @@ import { openBusinessPdf } from '../../services/businessPdf';
 export const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const vehicleQuery=useVehicleDetailQuery(id); const statusMutation = useVehicleStatusMutation();
+  const vehicleQuery=useVehicle360Query(id); const statusMutation = useVehicleStatusMutation();
+  const imageMutations=useVehicleImages();
   const { setActiveQuickActionModal, addToast } = useUiStore();
 
-  const vehicle = vehicleQuery.data;
+  const vehicle = vehicleQuery.data?.vehicle;
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
 
   if(vehicleQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement du véhicule…</div>;
+  if (vehicleQuery.isError) return <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-800"><strong>Lecture impossible.</strong> {vehicleQuery.error instanceof Error?vehicleQuery.error.message:'Erreur API'}<div className="mt-4"><Button variant="outline" onClick={()=>navigate('/vehicles')}>Retour au stock</Button></div></div>;
   if (!vehicle) {
     return (
       <div className="p-8 text-center">
@@ -62,6 +65,7 @@ export const VehicleDetailPage: React.FC = () => {
   const handlePrintFlyer = () => {
     openBusinessPdf('vehicle',vehicle.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}));
   };
+  const addImages=async(event:React.ChangeEvent<HTMLInputElement>)=>{try{const images=await Promise.all(Array.from(event.target.files??[]).map(optimizeImage));await imageMutations.add.mutateAsync({id:vehicle.id,images:images.map(({dataUrl,name})=>({dataUrl,name}))});addToast({type:'success',title:'Galerie mise à jour',description:`${images.length} photo(s) ajoutée(s).`})}catch(error){addToast({type:'error',title:'Ajout impossible',description:error instanceof Error?error.message:'Erreur image'})}event.target.value=''};
 
   return (
     <div className="space-y-6">
@@ -105,7 +109,7 @@ export const VehicleDetailPage: React.FC = () => {
               variant="primary"
               size="sm"
               icon={<BadgePercent className="w-4 h-4" />}
-              onClick={() => setActiveQuickActionModal('sale')}
+              onClick={() => setActiveQuickActionModal('sale',{vehicleId:vehicle.id})}
             >
               Créer Vente
             </Button>
@@ -146,6 +150,7 @@ export const VehicleDetailPage: React.FC = () => {
               ))}
             </div>
           )}
+          <div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label>{vehicleQuery.data?.images?.map((image:any,index:number)=><div key={image.id} className="flex gap-1"><Button size="xs" variant="outline" disabled={Boolean(image.is_primary)} onClick={()=>imageMutations.primary.mutate({id:vehicle.id,imageId:String(image.id)})}>{index===0?'Principale':'Définir principale'}</Button><Button size="xs" variant="outline" onClick={()=>{if(window.confirm('Supprimer cette photo du catalogue ?'))imageMutations.remove.mutate({id:vehicle.id,imageId:String(image.id)})}}>Supprimer</Button></div>)}</div>
         </div>
 
         {/* Commercial Highlights Card */}
@@ -191,14 +196,14 @@ export const VehicleDetailPage: React.FC = () => {
             <Button
               variant="primary"
               className="w-full"
-              onClick={() => setActiveQuickActionModal('sale')}
+              onClick={() => setActiveQuickActionModal('sale',{vehicleId:vehicle.id})}
             >
               Établir une Proposition Commerciale
             </Button>
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => setActiveQuickActionModal('or')}
+              onClick={() => setActiveQuickActionModal('or',{vehicleId:vehicle.id})}
             >
               Ouvrir OR Atelier (SAV / Prépa)
             </Button>
@@ -327,36 +332,9 @@ export const VehicleDetailPage: React.FC = () => {
             <CardTitle>Historique et Traçabilité du Véhicule</CardTitle>
           </CardHeader>
           <div className="space-y-4 text-xs">
-            <div className="flex gap-4 items-start">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold">
-                ✓
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-slate-900">Entrée en stock concession</div>
-                <p className="text-slate-500 text-[11px] mt-0.5">Véhicule réceptionné et contrôlé sur parc ({vehicle.agencyName}).</p>
-                <span className="text-[10px] text-slate-400">Il y a {vehicle.stockDays} jours</span>
-              </div>
-            </div>
-
-            <div className="flex gap-4 items-start">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 font-bold">
-                ✓
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-slate-900">Préparation esthétique et mécanique</div>
-                <p className="text-slate-500 text-[11px] mt-0.5">Checklist de remise en état validée par le chef d'atelier.</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 items-start">
-              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold">
-                ●
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-slate-900">Disponible à la commercialisation</div>
-                <p className="text-slate-500 text-[11px] mt-0.5">Présent en showroom et publié sur les portails d'annonces.</p>
-              </div>
-            </div>
+            {vehicleQuery.data?.statusHistory?.map((event:any)=><div key={`status-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-red-100 text-red-800 flex items-center justify-center shrink-0 font-bold">●</div><div><div className="font-bold text-slate-900">Statut : {event.old_status||'entrée'} → {event.new_status}</div><p className="text-slate-500 text-[11px]">{event.reason||'Changement de statut'} · {event.changed_by_name||'Système'}</p><span className="text-[10px] text-slate-400">{formatDate(event.changed_at)}</span></div></div>)}
+            {vehicleQuery.data?.movements?.map((event:any)=><div key={`movement-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shrink-0"><ArrowRight className="w-4 h-4"/></div><div><div className="font-bold text-slate-900">Mouvement : {event.movement_type}</div><p className="text-slate-500 text-[11px]">{event.from_location_name||event.from_agency_name||'Entrée'} → {event.to_location_name||event.to_agency_name||vehicle.agencyName}</p><span className="text-[10px] text-slate-400">{formatDate(event.moved_at)}</span></div></div>)}
+            {!vehicleQuery.data?.statusHistory?.length&&!vehicleQuery.data?.movements?.length&&<p className="text-slate-500">Aucun historique enregistré.</p>}
           </div>
         </Card>
       )}
@@ -367,29 +345,7 @@ export const VehicleDetailPage: React.FC = () => {
           <CardHeader>
             <CardTitle>Documents Électroniques (GED Automobile)</CardTitle>
           </CardHeader>
-          <div className="divide-y divide-slate-100 text-xs">
-            <div className="py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-blue-600" />
-                <div>
-                  <div className="font-semibold text-slate-800">Certificat d'Immatriculation (Carte Grise)</div>
-                  <div className="text-[11px] text-slate-400">PDF • 1.2 Mo • Validé</div>
-                </div>
-              </div>
-              <Button size="xs" variant="outline">Télécharger</Button>
-            </div>
-
-            <div className="py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <div className="font-semibold text-slate-800">Rapport de Contrôle Technique & 100 Points</div>
-                  <div className="text-[11px] text-slate-400">PDF • 850 Ko • Conforme</div>
-                </div>
-              </div>
-              <Button size="xs" variant="outline">Télécharger</Button>
-            </div>
-          </div>
+          <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><Button size="xs" variant="outline" onClick={()=>window.open(document.file_url,'_blank','noopener,noreferrer')}>Télécharger</Button></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
         </Card>
       )}
     </div>

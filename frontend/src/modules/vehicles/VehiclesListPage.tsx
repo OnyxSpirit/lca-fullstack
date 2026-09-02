@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useDeferredValue, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Car,
@@ -25,15 +25,19 @@ import { formatCurrency } from '../../lib/utils';
 import { NewVehicleModal } from './NewVehicleModal';
 
 export const VehiclesListPage: React.FC = () => {
-  const vehicles = useVehiclesQuery().data ?? [];
   const navigate = useNavigate();
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedFuel, setSelectedFuel] = useState<string>('ALL');
+  const [selectedType, setSelectedType] = useState<string>('ALL');
   const [onlyDormant, setOnlyDormant] = useState(false);
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
+  const deferredSearch=useDeferredValue(searchQuery);
+  const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
+  const vehiclesQuery=useVehiclesQuery({search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,dormant:onlyDormant});
+  const vehicles = vehiclesQuery.data ?? [];
 
   const filteredVehicles = vehicles.filter((v) => {
     const matchesSearch =
@@ -154,6 +158,9 @@ export const VehiclesListPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <select value={selectedType} onChange={(e)=>setSelectedType(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium">
+            <option value="ALL">Tous types</option><option value="new">VN</option><option value="used">VO</option><option value="demo">Démonstration</option><option value="courtesy">Courtoisie</option>
+          </select>
           {/* Status Filter */}
           <select
             value={selectedStatus}
@@ -185,6 +192,10 @@ export const VehiclesListPage: React.FC = () => {
         </div>
       </div>
 
+      {vehiclesQuery.isLoading&&<div className="p-8 text-center text-sm text-slate-500">Chargement du stock…</div>}
+      {vehiclesQuery.isError&&<div className="p-5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800"><strong>Stock indisponible.</strong> {vehiclesQuery.error instanceof Error?vehiclesQuery.error.message:'Erreur API'}</div>}
+      {!vehiclesQuery.isLoading&&!vehiclesQuery.isError&&vehicles.length===0&&<div className="p-10 bg-white border border-dashed rounded-xl text-center"><Car className="w-10 h-10 mx-auto text-slate-300 mb-2"/><p className="font-semibold text-slate-700">Aucun véhicule ne correspond aux critères.</p><p className="text-xs text-slate-500">Ajoutez un véhicule avec sa photo principale pour démarrer le catalogue.</p></div>}
+
       {/* GRID VIEW */}
       {viewMode === 'grid' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -198,7 +209,7 @@ export const VehiclesListPage: React.FC = () => {
                 {/* Photo & Status Overlay */}
                 <div className="relative aspect-16/9 bg-slate-100 overflow-hidden">
                   <img
-                    src={v.photos[0]}
+                    src={v.photos[0]||'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="450"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%2364748b" font-size="24"%3EAucune photo%3C/text%3E%3C/svg%3E'}
                     alt={`${v.brand} ${v.model}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
@@ -298,7 +309,7 @@ export const VehiclesListPage: React.FC = () => {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={v.photos[0]}
+                          src={v.photos[0]||'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="120"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3C/svg%3E'}
                           alt={v.model}
                           className="w-12 h-9 object-cover rounded-md border border-slate-200 shrink-0"
                         />

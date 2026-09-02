@@ -13,18 +13,17 @@ import { crmRouter } from './modules/crm/crm.routes.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { customerRouter } from './modules/customers/customer.routes.js';
 import { vehicleRouter } from './modules/vehicles/vehicle.routes.js';
-
 export function createApp() {
-  const app=express();
-  app.disable('x-powered-by');
-  app.use(helmet());
-  app.use(cors({origin:env.frontendUrl,credentials:true}));
-  app.use(express.json({limit:'50mb'}));
-  app.use('/uploads',express.static(path.resolve(process.env.UPLOAD_DIR??'uploads')));
-  app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
-  app.use('/api/auth',authRouter);
-  app.use('/api',authenticate,enforceAgencyScope,customerRouter,crmRouter,notificationRouter,vehicleRouter,coreRouter);
-  app.use(notFound);
-  app.use(errorHandler);
-  return app;
+    const app = express();
+    app.disable('x-powered-by');
+    app.use(helmet());
+    app.use(cors({ origin: env.frontendUrl, credentials: true }));
+    app.use(express.json({ limit: '50mb' }));
+    app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR ?? 'uploads')));
+    app.get('/api/health', asyncHandler(async (_request, response) => { await pool.query('SELECT 1'); response.json({ status: 'ok', service: 'lca-backend-node' }); }));
+    app.use('/api/auth', authRouter);
+    app.use('/api', authenticate, enforceAgencyScope, customerRouter, crmRouter, notificationRouter, vehicleRouter, coreRouter);
+    app.use(notFound);
+    app.use(errorHandler);
+    return app;
 }

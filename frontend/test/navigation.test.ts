@@ -21,13 +21,14 @@ test('les routes profondes liste → détail sont encodées', () => {
   assert.equal(detailRoutes.delivery('42'), '/deliveries/42');
   assert.equal(detailRoutes.repairOrder('42'), '/service/repair-orders/42');
   assert.equal(detailRoutes.part('42'), '/parts/42');
+  assert.equal(detailRoutes.invoice('42'), '/billing/42');
 });
 
 test('les notifications ouvrent uniquement des écrans déclarés', () => {
   assert.equal(notificationRoute('sale', '7'), '/sales/7');
   assert.equal(notificationRoute('delivery', '7'), '/deliveries/7');
   assert.equal(notificationRoute('repair_order', '7'), '/service/repair-orders/7');
-  assert.equal(notificationRoute('invoice', '7'), ROUTES.billing);
+  assert.equal(notificationRoute('invoice', '7'), '/billing/7');
   assert.equal(notificationRoute('unknown', '7'), ROUTES.notifications);
 });
 
@@ -62,3 +63,15 @@ test('le modal OR fermé ne peut plus déclencher une boucle de rendu', () => {
   assert.match(modal, /return current;/);
   assert.doesNotMatch(modal, /\[customers,vehicles,technicians\]/);
 });
+
+test('les compteurs notifications utilisent unreadCount serveur',()=>{const header=readFileSync(new URL('../src/components/layout/Header.tsx',import.meta.url),'utf8'),sidebar=readFileSync(new URL('../src/components/layout/Sidebar.tsx',import.meta.url),'utf8');assert.match(header,/unreadCount/);assert.match(sidebar,/unreadCount/);assert.doesNotMatch(sidebar,/badge: (8|20|3|2)/);assert.doesNotMatch(sidebar,/2 Alertes/);});
+
+test('Header et Dashboard marquent une notification avant navigation',()=>{const header=readFileSync(new URL('../src/components/layout/Header.tsx',import.meta.url),'utf8'),dashboard=readFileSync(new URL('../src/modules/dashboard/DashboardPage.tsx',import.meta.url),'utf8');assert.match(header,/markAsRead\.mutateAsync/);assert.match(dashboard,/markAsRead\.mutateAsync/);});
+test('les permissions utilisent tous les rôles et les routes sensibles possèdent un garde',()=>{assert.equal(canAccessModule(['TECHNICIAN','ACCOUNTANT'],'view','billing'),true);const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8'),store=readFileSync(new URL('../src/stores/authStore.ts',import.meta.url),'utf8');assert.match(app,/function ModuleGuard/);for(const module of ['users','billing','reports','documents'])assert.match(app,new RegExp(`ModuleGuard module="${module}"`));assert.match(app,/AccessDeniedPage/);assert.match(store,/currentUser\.roles/);assert.match(store,/canAccessModule\(currentUser\.roles/)});
+test('l’administration et l’annuaire Users sont séparés',()=>{const hooks=readFileSync(new URL('../src/api/erpHooks.ts',import.meta.url),'utf8'),admin=readFileSync(new URL('../src/api/userHooks.ts',import.meta.url),'utf8');assert.match(hooks,/\/users\/directory/);assert.match(admin,/\/users\?/);assert.match(admin,/\/users\/:id\/status|`\/users\/\$\{id\}\/status`/)});
+test('Paramètres possède un garde admin et des hooks dédiés typés',()=>{const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8'),hooks=readFileSync(new URL('../src/api/settingHooks.ts',import.meta.url),'utf8');assert.match(app,/ModuleGuard module="settings"/);assert.match(hooks,/interface ConcessionSettings/);assert.match(hooks,/interface WorkshopRates/);assert.doesNotMatch(hooks,/apiRequest<any>/);});
+test('l’écran Paramètres ne simule aucune intégration et édite T1 à T4',()=>{const page=readFileSync(new URL('../src/modules/settings/SettingsPage.tsx',import.meta.url),'utf8');for(const code of ['T1','T2','T3','T4'])assert.match(page,new RegExp(`'${code}'`));assert.match(page,/Aucune intégration configurée/);assert.doesNotMatch(page,/Connecté|Certifié|SIRET|TVA Intracommunautaire/);assert.match(page,/Identifiant fiscal \/ NIU/);});
+test('l’atelier sélectionne les barèmes backend sans TVA codée en dur',()=>{const page=readFileSync(new URL('../src/modules/service/RepairOrderDetailPage.tsx',import.meta.url),'utf8');assert.match(page,/useWorkshopConfigQuery/);assert.match(page,/rateCode:'T1'/);assert.doesNotMatch(page,/taxRate:18\.9/);});
+test('les agences inactives sont exclues des nouvelles affectations utilisateur',()=>{const page=readFileSync(new URL('../src/modules/users/UsersManagementPage.tsx',import.meta.url),'utf8');assert.match(page,/filter\(a=>a\.isActive\)/);});
+test('le wizard Vente ne contient plus de données de démonstration et protège le double submit',()=>{const wizard=readFileSync(new URL('../src/modules/sales/SaleWizardModal.tsx',import.meta.url),'utf8');for(const demo of ['Peugeot 308','Pack livraison confort','setDiscountTTC','setOptionsTotalTTC','hasTradeIn','registrationFeesTTC','administrativeFeesTTC'])assert.doesNotMatch(wizard,new RegExp(demo));assert.match(wizard,/idempotencyKey/);assert.match(wizard,/createSale\.isPending/);assert.match(wizard,/status==='active'/);assert.match(wizard,/status==='DISPONIBLE'/)});
+test('les mutations Sales invalident ventes et véhicules',()=>{const hooks=readFileSync(new URL('../src/api/erpHooks.ts',import.meta.url),'utf8');assert.match(hooks,/interface CreateSalePayload/);assert.match(hooks,/queryKey:erpKeys\.sales/);assert.match(hooks,/queryKey:erpKeys\.vehicles/)});

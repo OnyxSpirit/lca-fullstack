@@ -1,281 +1,57 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Settings,
-  Building,
-  Wrench,
-  Percent,
-  CreditCard,
-  Shield,
-  Save,
-  CheckCircle2,
-  Car,
-  Globe,
-  Mail,
-  Plus,
-} from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
-import { useUiStore } from '../../stores/uiStore';
+import { Building2, Plus, Save } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import { useSaveSettings, useSettingsQuery } from '../../api/erpHooks';
+import { Button } from '../../components/ui/Button';
+import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
+import { useUiStore } from '../../stores/uiStore';
+import { type AgencyInput, type ConcessionIdentity, type SettingsAgency, type WorkshopRates, useAgencyActions, useCurrentConcessionQuery, useSettingsAgenciesQuery, useSettingsQuery, useUpdateConcession, useUpdateSettings } from '../../api/settingHooks';
+
+type Tab = 'general' | 'workshop' | 'agencies' | 'integrations';
+const field = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
+const emptyIdentity: Omit<ConcessionIdentity, 'id'> = { name: '', legalName: null, taxIdentifier: null, address: null, city: null, country: 'République du Congo', currencyCode: 'XAF', timezone: 'Africa/Brazzaville' };
+const emptyAgency: AgencyInput = { name: '', code: '', address: '', city: '', phone: '', email: '' };
 
 export const SettingsPage: React.FC = () => {
-  const { allAgencies } = useAuthStore();
-  const agencies = allAgencies;
-  const { addToast } = useUiStore();
-  const settingsQuery=useSettingsQuery(); const saveSettings=useSaveSettings();
+  const [tab, setTab] = useState<Tab>('general');
+  const [identity, setIdentity] = useState(emptyIdentity);
+  const [vat, setVat] = useState(18.9);
+  const [rates, setRates] = useState<WorkshopRates>({ T1: 35000, T2: 45000, T3: 55000, T4: 45000 });
+  const [agencyForm, setAgencyForm] = useState<AgencyInput>(emptyAgency);
+  const [editedAgency, setEditedAgency] = useState<SettingsAgency | null>(null);
+  const settings = useSettingsQuery(), concession = useCurrentConcessionQuery(), agencies = useSettingsAgenciesQuery();
+  const updateSettings = useUpdateSettings(), updateConcession = useUpdateConcession(), agencyActions = useAgencyActions();
+  const addToast = useUiStore(s => s.addToast);
 
-  const [activeTab, setActiveTab] = useState<'general' | 'rates' | 'agencies' | 'integrations'>('general');
+  useEffect(() => { if (concession.data) setIdentity({ name: concession.data.name, legalName: concession.data.legalName, taxIdentifier: concession.data.taxIdentifier, address: concession.data.address, city: concession.data.city, country: concession.data.country, currencyCode: concession.data.currencyCode, timezone: concession.data.timezone }) }, [concession.data]);
+  useEffect(() => { if (settings.data) { setVat(settings.data.billing.defaultVatRate); setRates(settings.data.workshop.rates); } }, [settings.data]);
+  const notify = (title: string) => addToast({ type: 'success', title });
+  const fail = (error: unknown) => addToast({ type: 'error', title: 'Opération impossible', description: error instanceof Error ? error.message : 'Erreur API' });
+  const saveIdentity = async (e: React.FormEvent) => { e.preventDefault(); try { await updateConcession.mutateAsync(identity); notify('Identité de la concession enregistrée'); } catch (error) { fail(error); } };
+  const saveBusiness = async (e: React.FormEvent) => { e.preventDefault(); try { await updateSettings.mutateAsync({ billing: { defaultVatRate: vat }, workshop: { rates } }); notify('Paramètres métier enregistrés'); } catch (error) { fail(error); } };
+  const createAgency = async (e: React.FormEvent) => { e.preventDefault(); try { await agencyActions.create.mutateAsync(agencyForm); setAgencyForm(emptyAgency); notify('Agence créée'); } catch (error) { fail(error); } };
+  const saveAgency = async (e: React.FormEvent) => { e.preventDefault(); if (!editedAgency) return; try { await agencyActions.update.mutateAsync(editedAgency); setEditedAgency(null); notify('Agence mise à jour'); } catch (error) { fail(error); } };
+  const toggleAgency = async (agency: SettingsAgency) => { try { await agencyActions.status.mutateAsync({ id: agency.id, isActive: !agency.isActive }); notify(agency.isActive ? 'Agence désactivée' : 'Agence réactivée'); } catch (error) { fail(error); } };
+  const updateIdentity = (key: keyof typeof identity, value: string) => setIdentity(current => ({ ...current, [key]: value || null }));
 
-  const [generalConfig, setGeneralConfig] = useState({
-    groupName: 'La Congolaise de l’Automobile',
-    siret: '',
-    vatNumber: '',
-    headquartersAddress: 'Brazzaville, République du Congo',
-    defaultVatRate: 18.9,
-    registrationFeeStandard: 0,
-    administrativeFeeStandard: 0,
-  });
+  return <div className="space-y-6">
+    <PageHeader title="Paramètres concession" subtitle="Identité légale, fiscalité, barèmes atelier et agences." breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Paramètres' }]} />
+    <div className="flex gap-1 overflow-x-auto border-b border-slate-200">{(['general','workshop','agencies','integrations'] as Tab[]).map(key => <button key={key} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${tab === key ? 'border-[#8f1722] text-[#8f1722]' : 'border-transparent text-slate-500'}`} onClick={() => setTab(key)}>{({ general:'Identité & fiscalité', workshop:'Barèmes atelier', agencies:`Agences (${agencies.data?.length ?? 0})`, integrations:'Intégrations' })[key]}</button>)}</div>
 
-  const [workshopRates, setWorkshopRates] = useState({
-    rateT1_Maintenance: 35000,
-    rateT2_Mechanics: 45000,
-    rateT3_DiagElectric: 55000,
-    rateT4_Bodywork: 45000,
-  });
-  useEffect(()=>{const data=settingsQuery.data;if(data?.generalConfig)setGeneralConfig(current=>({...current,...data.generalConfig}));if(data?.workshopRates)setWorkshopRates(current=>({...current,...data.workshopRates}));},[settingsQuery.data]);
+    {tab === 'general' && <Card><CardHeader><div><CardTitle>Informations de la concession</CardTitle><CardDescription>Ces données alimentent notamment les documents commerciaux et comptables.</CardDescription></div></CardHeader><form onSubmit={saveIdentity} className="grid gap-4 md:grid-cols-2">
+      {[['name','Nom commercial'],['legalName','Raison sociale'],['taxIdentifier','Identifiant fiscal / NIU'],['address','Adresse'],['city','Ville'],['country','Pays'],['currencyCode','Devise ISO'],['timezone','Fuseau horaire']].map(([key,label]) => <label key={key} className="text-xs font-semibold text-slate-700">{label}<input required={['name','currencyCode','timezone'].includes(key)} className={`${field} mt-1`} value={String(identity[key as keyof typeof identity] ?? '')} onChange={e => updateIdentity(key as keyof typeof identity, e.target.value)} /></label>)}
+      <label className="text-xs font-semibold text-slate-700">TVA par défaut (%)<input className={`${field} mt-1`} type="number" min="0" max="100" step="0.01" value={vat} onChange={e => setVat(Number(e.target.value))} /></label>
+      <div className="flex items-end gap-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateConcession.isPending}>Enregistrer l’identité</Button><Button type="button" variant="outline" onClick={saveBusiness} loading={updateSettings.isPending}>Enregistrer la TVA</Button></div>
+    </form></Card>}
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try{await saveSettings.mutateAsync({generalConfig,workshopRates});addToast({
-      type: 'success',
-      title: 'Paramètres enregistrés',
-      description: 'La configuration générale de la concession a été mise à jour.',
-    });}catch(error){addToast({type:'error',title:'Enregistrement impossible',description:error instanceof Error?error.message:'Erreur API'});}
-  };
+    {tab === 'workshop' && <Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Tarifs HT en XAF appliqués aux nouvelles lignes de main-d’œuvre.</CardDescription></div></CardHeader><form onSubmit={saveBusiness} className="grid gap-4 md:grid-cols-2">{([['T1','T1 · Entretien rapide'],['T2','T2 · Mécanique'],['T3','T3 · Diagnostic et électronique'],['T4','T4 · Carrosserie et peinture']] as const).map(([key,label]) => <label key={key} className="text-xs font-semibold text-slate-700">{label}<div className="mt-1 flex items-center gap-2"><input className={field} type="number" min="0" step="1" value={rates[key]} onChange={e => setRates(current => ({ ...current, [key]: Number(e.target.value) }))} /><span className="whitespace-nowrap text-slate-500">XAF HT/h</span></div></label>)}<div className="md:col-span-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateSettings.isPending}>Enregistrer les barèmes</Button></div></form></Card>}
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Paramètres Généraux de la Concession"
-        subtitle="Configuration du groupe automobile, barèmes de main d'œuvre après-vente, multi-sites et passerelles."
-        breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Administration' }, { label: 'Paramètres' }]}
-        actions={
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Save className="w-4 h-4" />}
-            onClick={handleSave}
-            loading={saveSettings.isPending}
-          >
-            Enregistrer les Modifications
-          </Button>
-        }
-      />
+    {tab === 'agencies' && <div className="space-y-4"><Card><CardHeader><div><CardTitle>Créer une agence</CardTitle><CardDescription>Les codes doivent être uniques dans la base.</CardDescription></div></CardHeader><form onSubmit={createAgency} className="grid gap-3 md:grid-cols-3">{(['name','code','address','city','phone','email'] as const).map(key => <input key={key} required={key === 'name' || key === 'code'} className={field} placeholder={({name:'Nom',code:'Code',address:'Adresse',city:'Ville',phone:'Téléphone',email:'E-mail'})[key]} value={String(agencyForm[key] ?? '')} onChange={e => setAgencyForm(current => ({ ...current, [key]: e.target.value }))} />)}<div><Button type="submit" icon={<Plus className="h-4 w-4" />} loading={agencyActions.create.isPending}>Créer l’agence</Button></div></form></Card>
+      {agencies.isError && <Card className="border-red-200 text-sm text-red-700">{agencies.error instanceof Error ? agencies.error.message : 'Chargement impossible'}</Card>}
+      <div className="grid gap-4 md:grid-cols-2">{agencies.data?.map(agency => <Card key={agency.id}><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{agency.name}</h3><p className="text-xs text-slate-500">{agency.code} · {agency.city || 'Ville non renseignée'}</p></div><Badge variant={agency.isActive ? 'success' : 'default'}>{agency.isActive ? 'Active' : 'Inactive'}</Badge></div><p className="mt-3 text-xs text-slate-600">{agency.address || 'Adresse non renseignée'}<br />{agency.phone || 'Téléphone non renseigné'} · {agency.email || 'E-mail non renseigné'}</p><div className="mt-4 flex gap-2 border-t pt-3"><Button size="xs" variant="outline" onClick={() => setEditedAgency(agency)}>Modifier</Button><Button size="xs" variant={agency.isActive ? 'danger' : 'success'} onClick={() => toggleAgency(agency)} loading={agencyActions.status.isPending}>{agency.isActive ? 'Désactiver' : 'Réactiver'}</Button></div></Card>)}</div>
+      {editedAgency && <Card><CardHeader><div><CardTitle>Modifier {editedAgency.name}</CardTitle><CardDescription>L’historique métier reste rattaché à cette agence.</CardDescription></div></CardHeader><form onSubmit={saveAgency} className="grid gap-3 md:grid-cols-3">{(['name','code','address','city','phone','email'] as const).map(key => <input key={key} required={key === 'name' || key === 'code'} className={field} value={String(editedAgency[key] ?? '')} onChange={e => setEditedAgency(current => current ? ({ ...current, [key]: e.target.value }) : current)} />)}<div className="flex gap-2"><Button type="submit" loading={agencyActions.update.isPending}>Enregistrer</Button><Button type="button" variant="outline" onClick={() => setEditedAgency(null)}>Annuler</Button></div></form></Card>}
+    </div>}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
-        {[
-          { key: 'general', label: 'Identité Juridique & Siège' },
-          { key: 'rates', label: 'Taux Horaires Atelier SAV (T1/T2/T3)' },
-          { key: 'agencies', label: `Points de Vente & Agences (${agencies.length})` },
-          { key: 'integrations', label: 'Passerelles VO & DMS' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === tab.key
-                ? 'border-blue-600 text-blue-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* TAB 1: GENERAL */}
-      {activeTab === 'general' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Raison Sociale & Informations Légales Facturation</CardTitle>
-            <CardDescription>Mentions obligatoires sur les bons de commande et factures</CardDescription>
-          </CardHeader>
-
-          <form onSubmit={handleSave} className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nom du Groupe Automobile</label>
-                <input
-                  type="text"
-                  value={generalConfig.groupName}
-                  onChange={(e) => setGeneralConfig({ ...generalConfig, groupName: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border border-slate-300 bg-white"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Numéro SIRET</label>
-                <input
-                  type="text"
-                  value={generalConfig.siret}
-                  onChange={(e) => setGeneralConfig({ ...generalConfig, siret: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border border-slate-300 bg-white font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">TVA Intracommunautaire</label>
-                <input
-                  type="text"
-                  value={generalConfig.vatNumber}
-                  onChange={(e) => setGeneralConfig({ ...generalConfig, vatNumber: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border border-slate-300 bg-white font-mono"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Taux de TVA par défaut (%)</label>
-                <input
-                  type="number"
-                  value={generalConfig.defaultVatRate}
-                  onChange={(e) => setGeneralConfig({ ...generalConfig, defaultVatRate: parseFloat(e.target.value) || 20 })}
-                  className="w-full p-2.5 rounded-lg border border-slate-300 bg-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Adresse Siège Social</label>
-              <input
-                type="text"
-                value={generalConfig.headquartersAddress}
-                onChange={(e) => setGeneralConfig({ ...generalConfig, headquartersAddress: e.target.value })}
-                className="w-full p-2.5 rounded-lg border border-slate-300 bg-white"
-              />
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
-              <Button variant="primary" type="submit">Enregistrer</Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* TAB 2: WORKSHOP RATES */}
-      {activeTab === 'rates' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Barèmes Horaires Atelier (Main d'Œuvre SAV)</CardTitle>
-            <CardDescription>Taux appliqués automatiquement lors de la création d'un ordre de réparation</CardDescription>
-          </CardHeader>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-slate-900">Taux T1 : Entretien Rapide & Vidange</span>
-                <span className="font-bold text-blue-700 text-sm">{workshopRates.rateT1_Maintenance.toLocaleString('fr-CG')} FCFA HT / h</span>
-              </div>
-              <p className="text-[11px] text-slate-500">Vidange, filtration, bougies, remplacement balais d'essuie-glace.</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-slate-900">Taux T2 : Mécanique & Liaisons au Sol</span>
-                <span className="font-bold text-blue-700 text-sm">{workshopRates.rateT2_Mechanics.toLocaleString('fr-CG')} FCFA HT / h</span>
-              </div>
-              <p className="text-[11px] text-slate-500">Plaquettes, disques, embrayage, distribution, suspensions.</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-slate-900">Taux T3 : Diagnostic & Électronique</span>
-                <span className="font-bold text-blue-700 text-sm">{workshopRates.rateT3_DiagElectric.toLocaleString('fr-CG')} FCFA HT / h</span>
-              </div>
-              <p className="text-[11px] text-slate-500">Recherche de panne valise OBD, habilitation batterie haute tension VE/VH.</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-slate-900">Taux T4 : Carrosserie & Peinture</span>
-                <span className="font-bold text-blue-700 text-sm">{workshopRates.rateT4_Bodywork.toLocaleString('fr-CG')} FCFA HT / h</span>
-              </div>
-              <p className="text-[11px] text-slate-500">Débosselage, vitrage, préparation éléments et cabine de peinture.</p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* TAB 3: AGENCIES */}
-      {activeTab === 'agencies' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {agencies.map((agency) => (
-              <Card key={agency.id} className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900">{agency.name}</h4>
-                    <div className="text-xs text-slate-500">{agency.city}</div>
-                  </div>
-                  <Badge variant="primary" size="sm">Code: {agency.code}</Badge>
-                </div>
-
-                <div className="text-xs text-slate-600 space-y-1">
-                  <div>{agency.address}</div>
-                  <div>Tél : {agency.phone}</div>
-                  <div>Email : {agency.email}</div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Concession Ouverte
-                  </span>
-                  <Button size="xs" variant="outline">Modifier Fiche</Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: INTEGRATIONS */}
-      {activeTab === 'integrations' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Passerelles Portails d'Annonces VO & DMS Constructeur</CardTitle>
-            <CardDescription>Publication automatique de votre stock sur les portails majeurs</CardDescription>
-          </CardHeader>
-
-          <div className="divide-y divide-slate-100 text-xs">
-            <div className="py-3.5 flex items-center justify-between">
-              <div>
-                <div className="font-bold text-slate-900">LaCentrale / Promoneuf</div>
-                <div className="text-slate-500">Flux quotidien automatique des véhicules disponibles</div>
-              </div>
-              <Badge variant="success" size="sm">Connecté</Badge>
-            </div>
-
-            <div className="py-3.5 flex items-center justify-between">
-              <div>
-                <div className="font-bold text-slate-900">Leboncoin Pro Auto</div>
-                <div className="text-slate-500">Diffusion multidiffusion de votre catalogue d'occasions</div>
-              </div>
-              <Badge variant="success" size="sm">Connecté</Badge>
-            </div>
-
-            <div className="py-3.5 flex items-center justify-between">
-              <div>
-                <div className="font-bold text-slate-900">Passerelle SIV (Système d'Immatriculation des Véhicules)</div>
-                <div className="text-slate-500">Télétransmission des cartes grises et déclarations d'achat (DA)</div>
-              </div>
-              <Badge variant="success" size="sm">Certifié ANTS</Badge>
-            </div>
-          </div>
-        </Card>
-      )}
-    </div>
-  );
+    {tab === 'integrations' && <Card><CardHeader><div><CardTitle>Intégrations externes</CardTitle><CardDescription>Aucun connecteur ne doit être présenté comme actif sans configuration technique réelle.</CardDescription></div></CardHeader><div className="flex items-center gap-3 rounded-md border border-dashed border-slate-300 p-6 text-sm text-slate-600"><Building2 className="h-5 w-5" /><div><b>Aucune intégration configurée</b><p className="text-xs">Connecteurs DMS et portails d’annonces : à venir.</p></div></div></Card>}
+  </div>;
 };

@@ -1,0 +1,15 @@
+import { HttpError } from '../../shared/http-error.js';
+
+export const SALE_STATUSES = ['draft','reserved','ordered','confirmed','preparation','ready_for_delivery','delivered','cancelled'] as const;
+export type SaleStatus = typeof SALE_STATUSES[number];
+export const SALE_TRANSITIONS: Record<SaleStatus, readonly SaleStatus[]> = {
+  draft: ['reserved','cancelled'], reserved: ['ordered','cancelled'], ordered: ['confirmed','cancelled'],
+  confirmed: ['preparation','cancelled'], preparation: ['ready_for_delivery','cancelled'],
+  ready_for_delivery: ['delivered','cancelled'], delivered: [], cancelled: [],
+};
+export interface CreateSaleInput { customerId:string;vehicleId:string;agencyId?:string;salespersonId?:string;opportunityId?:string;discount:number;depositAmount:number;notes:string|null;idempotencyKey:string }
+const identifier=(value:unknown,label:string,required=true)=>{const result=String(value??'').trim();if(required&&!/^[1-9]\d*$/.test(result))throw new HttpError(400,`${label} invalide`);if(!required&&result&&!/^[1-9]\d*$/.test(result))throw new HttpError(400,`${label} invalide`);return result||undefined};
+const amount=(value:unknown,label:string)=>{const result=Number(value??0);if(!Number.isFinite(result)||result<0)throw new HttpError(400,`${label} invalide`);return Math.round(result*100)/100};
+export function validateCreateSale(body:unknown):CreateSaleInput{if(!body||typeof body!=='object'||Array.isArray(body))throw new HttpError(400,'Vente invalide');const b=body as Record<string,unknown>,notes=String(b.notes??'').trim(),key=String(b.idempotencyKey??'').trim();if(key.length<8||key.length>120)throw new HttpError(400,"Clé d’idempotence de vente requise");if(notes.length>10000)throw new HttpError(400,'Notes trop longues');return{customerId:identifier(b.customerId,'Client')!,vehicleId:identifier(b.vehicleId,'Véhicule')!,agencyId:identifier(b.agencyId,'Agence',false),salespersonId:identifier(b.salespersonId,'Commercial',false),opportunityId:identifier(b.opportunityId,'Opportunité',false),discount:amount(b.discount,'Remise'),depositAmount:amount(b.depositAmount,'Acompte'),notes:notes||null,idempotencyKey:key}}
+export function saleTotals(vehiclePrice:unknown,discount:unknown,deposit:unknown){const price=amount(vehiclePrice,'Prix véhicule'),reduction=amount(discount,'Remise'),depositAmount=amount(deposit,'Acompte');if(reduction>price)throw new HttpError(400,'La remise dépasse le prix du véhicule');const total=Math.round((price-reduction)*100)/100;if(depositAmount>total)throw new HttpError(400,'L’acompte commercial dépasse le total de la vente');return{subtotal:price,discount:reduction,total,depositAmount,balanceDue:Math.round((total-depositAmount)*100)/100}}
+export function assertSaleTransition(from:string,to:unknown):SaleStatus{if(!SALE_STATUSES.includes(to as SaleStatus))throw new HttpError(400,'Statut de vente invalide');const target=to as SaleStatus;if(!SALE_TRANSITIONS[from as SaleStatus]?.includes(target))throw new HttpError(409,`Transition ${from} → ${target} interdite`);return target}

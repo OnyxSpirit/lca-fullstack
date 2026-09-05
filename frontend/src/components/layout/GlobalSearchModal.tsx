@@ -14,10 +14,11 @@ import {
 import { useUiStore } from '../../stores/uiStore';
 import { useCustomersQuery, useInvoicesQuery, useLeadsQuery, usePartsQuery, useRepairOrdersQuery, useSalesQuery, useVehiclesQuery } from '../../api/erpHooks';
 import { formatCurrency } from '../../lib/utils';
+import { useAuthStore } from '../../stores/authStore';
 
 export const GlobalSearchModal: React.FC = () => {
   const { globalSearchOpen, setGlobalSearchOpen } = useUiStore();
-  const customers=useCustomersQuery().data??[],vehicles=useVehiclesQuery().data??[],leads=useLeadsQuery().data??[],sales=useSalesQuery().data??[],repairOrders=useRepairOrdersQuery().data??[],invoices=useInvoicesQuery().data??[],spareParts=usePartsQuery().data??[];
+  const agencyId=useAuthStore(s=>s.currentAgency?.id);const customers=useCustomersQuery().data??[],vehicles=useVehiclesQuery().data??[],leads=useLeadsQuery().data??[],sales=useSalesQuery().data??[],repairOrders=useRepairOrdersQuery().data??[],invoices=useInvoicesQuery().data??[],spareParts=usePartsQuery(agencyId).data??[];
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
 

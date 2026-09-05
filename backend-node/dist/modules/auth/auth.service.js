@@ -18,13 +18,13 @@ async function issueTokens(user, roles) {
     return { accessToken, refreshToken };
 }
 export async function login(email, password) {
-    const [user] = await query('SELECT id,agency_id,first_name,last_name,email,password_hash,is_active FROM users WHERE email=? LIMIT 1', [email.trim().toLowerCase()]);
+    const [user] = await query('SELECT u.id,u.agency_id,u.first_name,u.last_name,u.email,u.password_hash,u.is_active,u.avatar_path,a.name agency_name,a.code agency_code FROM users u JOIN agencies a ON a.id=u.agency_id WHERE u.email=? LIMIT 1', [email.trim().toLowerCase()]);
     if (!user || !user.is_active || !(await argon2.verify(user.password_hash, password)))
         throw new HttpError(401, 'Identifiants invalides');
     const roles = await rolesFor(String(user.id));
     const tokens = await issueTokens(user, roles);
     await execute('UPDATE users SET last_login_at=NOW() WHERE id=?', [user.id]);
-    return { ...tokens, user: { id: String(user.id), firstName: user.first_name, lastName: user.last_name, email: user.email, agencyId: user.agency_id == null ? null : String(user.agency_id), roles } };
+    return { ...tokens, user: { id: String(user.id), firstName: user.first_name, lastName: user.last_name, email: user.email, agencyId: String(user.agency_id), agencyName: user.agency_name, agencyCode: user.agency_code, avatar: user.avatar_path ?? null, roles } };
 }
 export async function refresh(refreshToken) {
     try {

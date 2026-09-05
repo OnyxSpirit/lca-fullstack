@@ -1,0 +1,5 @@
+import { IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+export class CreateRepairOrderDto { @IsString() customerId!:string;@IsString() vehicleId!:string;@IsString() agencyId!:string;@IsOptional()@IsString() appointmentId?:string;@IsOptional()@IsString() advisorId?:string;@IsOptional()@IsNumber()@Min(0)mileage?:number;@IsString() complaint!:string;@IsOptional()@IsString()diagnosisSummary?:string;}
+export class UpdateRepairStatusDto{@IsIn(['planned','received','diagnosis','waiting_approval','in_progress','quality_control','ready','invoiced','delivered','closed','cancelled'])status!:string;}
+export class AssignRepairOrderDto{@IsString()technicianId!:string;@IsOptional()@IsString()bayId?:string;@IsString()startsAt!:string;@IsString()endsAt!:string;}
+export class AddRepairOrderItemDto{@IsIn(['part','labor','accessory','other'])itemType!:string;@IsOptional()@IsString()partId?:string;@IsOptional()@IsString()locationId?:string;@IsString()description!:string;@IsNumber()@Min(0.01)quantity!:number;@IsNumber()@Min(0)unitPrice!:number;@IsOptional()@IsNumber()@Min(0)discount?:number;@IsOptional()@IsNumber()@Min(0)taxRate?:number;}

@@ -14,7 +14,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
-import { useRepairOrdersQuery } from '../../api/erpHooks';
+import { useRepairOrdersQuery, useRepairStatsQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -25,7 +25,9 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewRepairOrderModal } from './NewRepairOrderModal';
 
 export const ServiceDashboardPage: React.FC = () => {
-  const repairOrders = useRepairOrdersQuery().data ?? [];
+  const repairQuery=useRepairOrdersQuery();
+  const repairOrders = repairQuery.data ?? [];
+  const stats=useRepairStatsQuery();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,7 +40,7 @@ export const ServiceDashboardPage: React.FC = () => {
       or.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       or.vehiclePlate.toLowerCase().includes(searchQuery.toLowerCase()) ||
       or.vehicleModel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      or.technicianName.toLowerCase().includes(searchQuery.toLowerCase());
+      (or.technicianName??'').toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = selectedStatus === 'ALL' || or.status === selectedStatus;
     return matchesSearch && matchesStatus;
@@ -90,10 +92,10 @@ export const ServiceDashboardPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 font-medium">Taux d'Occupation des Ponts</span>
             <div className="text-xl font-bold text-emerald-600 mt-0.5">
-              88%
+              {Number(stats.data?.baysTotal)?Math.round(Number(stats.data.baysOccupied)/Number(stats.data.baysTotal)*100):0}%
             </div>
           </div>
-          <Badge variant="success" size="md">7/8 ponts</Badge>
+          <Badge variant="success" size="md">{Number(stats.data?.baysOccupied??0)}/{Number(stats.data?.baysTotal??0)} ponts</Badge>
         </div>
 
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
@@ -108,6 +110,7 @@ export const ServiceDashboardPage: React.FC = () => {
       </div>
 
       {/* Search and Filters */}
+      {repairQuery.isError&&<div className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800">{repairQuery.error instanceof Error?repairQuery.error.message:'Erreur API SAV'}</div>}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -130,10 +133,12 @@ export const ServiceDashboardPage: React.FC = () => {
             <option value="PLANIFIE">Planifié</option>
             <option value="RECEPTIONNE">Réceptionné</option>
             <option value="DIAGNOSTIC">En diagnostic</option>
+            <option value="ATTENTE_VALIDATION">Attente validation client</option>
             <option value="EN_COURS">Travaux en cours</option>
             <option value="CONTROLE_QUALITE">Contrôle qualité</option>
-            <option value="PRET_FACTURATION">Prêt à facturer</option>
+            <option value="PRET">Prêt</option>
             <option value="FACTURE">Facturé</option>
+            <option value="LIVRE">Véhicule remis</option>
             <option value="CLOTURE">Clôturé</option>
           </select>
         </div>

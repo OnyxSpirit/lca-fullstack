@@ -1,0 +1,27 @@
+import { Router } from 'express';
+import { asyncHandler } from '../../middleware/error-handler.js';
+import { authorize } from '../../middleware/authorize.js';
+import { documentMultipart, type MultipartRequest } from '../documents/document-multipart.js';
+import { removeAvatar, saveAvatar } from './user-avatar.js';
+import * as service from './user.service.js';
+import { assertCanManage } from './user-access.js';
+
+export const userRouter=Router();
+const admin=authorize('SUPER_ADMIN','DIRECTOR');
+const routeId=(value:string|string[]|undefined)=>String(Array.isArray(value)?value[0]:value??'');
+userRouter.get('/users/directory',asyncHandler(async(req,res)=>res.json(await service.directory(req.query,req))));
+userRouter.get('/users/me',asyncHandler(async(req,res)=>res.json(await service.one(req.user!.sub))));
+userRouter.patch('/users/me',asyncHandler(async(req,res)=>res.json(await service.update(req.user!.sub,{phone:req.body.phone},req))));
+userRouter.patch('/users/me/password',asyncHandler(async(req,res)=>res.json(await service.changeOwnPassword(req.body,req))));
+userRouter.post('/users/me/avatar',documentMultipart,asyncHandler(async(req,res)=>{const current=await service.one(req.user!.sub),avatar=await saveAvatar((req as MultipartRequest).documentFile),updated=await service.avatarChanged(req.user!.sub,avatar,req);await removeAvatar(current.avatar);res.status(201).json(updated)}));
+userRouter.delete('/users/me/avatar',asyncHandler(async(req,res)=>{const current=await service.one(req.user!.sub),updated=await service.avatarChanged(req.user!.sub,null,req);await removeAvatar(current.avatar);res.json(updated)}));
+userRouter.get('/users',admin,asyncHandler(async(req,res)=>res.json(await service.list(req.query))));
+userRouter.get('/users/:id',admin,asyncHandler(async(req,res)=>res.json(await service.one(routeId(req.params.id)))));
+userRouter.post('/users',admin,asyncHandler(async(req,res)=>res.status(201).json(await service.create(req.body,req))));
+userRouter.patch('/users/:id',admin,asyncHandler(async(req,res)=>res.json(await service.update(routeId(req.params.id),req.body,req))));
+userRouter.patch('/users/:id/status',admin,asyncHandler(async(req,res)=>res.json(await service.status(routeId(req.params.id),req.body.isActive,req))));
+userRouter.patch('/users/:id/password',admin,asyncHandler(async(req,res)=>res.json(await service.resetPassword(routeId(req.params.id),req.body,req))));
+userRouter.post('/users/:id/avatar',admin,documentMultipart,asyncHandler(async(req,res)=>{const id=routeId(req.params.id);await assertCanManage(req,id);const current=await service.one(id),avatar=await saveAvatar((req as MultipartRequest).documentFile),updated=await service.avatarChanged(id,avatar,req);await removeAvatar(current.avatar);res.status(201).json(updated)}));
+userRouter.delete('/users/:id/avatar',admin,asyncHandler(async(req,res)=>{const id=routeId(req.params.id);await assertCanManage(req,id);const current=await service.one(id),updated=await service.avatarChanged(id,null,req);await removeAvatar(current.avatar);res.json(updated)}));
+userRouter.get('/roles',admin,asyncHandler(async(_req,res)=>res.json(await service.rolesList())));
+userRouter.get('/roles/:id/permissions',admin,asyncHandler(async(req,res)=>res.json(await service.rolePermissions(routeId(req.params.id)))));

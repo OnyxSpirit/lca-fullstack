@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-const BACKEND_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api').replace(/\/api\/?$/, '');
+const apiUrl = import.meta.env.VITE_API_URL || '/api';
+const BACKEND_URL = new URL(apiUrl, window.location.origin).origin;
 let socket: Socket | null = null;
 export function connectRealtime(token: string) {
   socket?.disconnect();
@@ -8,3 +9,4 @@ export function connectRealtime(token: string) {
 }
 export function disconnectRealtime() { socket?.disconnect(); socket = null; }
 export function getRealtimeSocket() { return socket; }
+export function refreshRealtimeToken(token:string){if(!socket)return;socket.auth={token};if(!socket.connected)socket.connect()}

@@ -1,0 +1,5 @@
+export type DocumentEntityType='customer'|'vehicle'|'sale'|'invoice'|'repair_order'|'delivery'|'supplier';
+export interface DocumentRecord{id:string;documentType:string;fileName:string;mimeType:string;fileSize:number;version:number;entityType:DocumentEntityType;entityId:string;entityLabel:string;businessId:string;agencyId:string|null;agencyName:string|null;isArchived:boolean;fileHash:string|null;expiresAt:string|null;parentDocumentId:string|null;uploadedBy:{id:string|null;name:string};archivedAt:string|null;archivedBy:{id:string;name:string}|null;archiveReason:string|null;createdAt:string}
+export interface DocumentFilters{page:number;pageSize:number;search?:string;entityType?:DocumentEntityType|'';documentType?:string;agencyId?:string;archived?:'true'|'false'|'all';from?:string;to?:string}
+export interface DocumentListResponse{items:DocumentRecord[];total:number;page:number;pageSize:number;totalPages:number}
+export interface DocumentEntityResult{entityType:DocumentEntityType;entityId:string;agencyId:string|null;agencyName:string|null;label:string;businessId:string}

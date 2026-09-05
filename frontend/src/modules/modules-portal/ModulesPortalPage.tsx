@@ -154,8 +154,6 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <Package className="w-6 h-6 text-rose-600" />,
           route: ROUTES.parts,
           permissionKey: 'parts',
-          badgeText: '2 Alertes',
-          badgeVariant: 'danger',
           features: ['Gestion des casiers', 'Seuils mini/maxi', 'Commandes usine', 'Vente comptoir'],
         },
       ],

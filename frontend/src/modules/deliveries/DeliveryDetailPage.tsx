@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { ArrowLeft, CheckCircle2, Circle, FileCheck, Printer } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, CheckCircle2, Circle, FileCheck, Printer, Upload } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useDeliveryChecklist, useDeliveryDetailQuery, useSignDelivery } from '../../api/erpHooks';
+import { useDeliveryActions, useDeliveryChecklist, useDeliveryDetailQuery, useSignDelivery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -10,63 +10,24 @@ import { useUiStore } from '../../stores/uiStore';
 import { formatDate } from '../../lib/utils';
 import { openBusinessPdf } from '../../services/businessPdf';
 
-export const DeliveryDetailPage: React.FC = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { addToast } = useUiStore();
-  const deliveryQuery = useDeliveryDetailQuery(id);
-  const checklistMutation = useDeliveryChecklist();
-  const signMutation = useSignDelivery();
-  const [signerName, setSignerName] = useState('');
-  const [mileage, setMileage] = useState('');
-  const [accepted, setAccepted] = useState(false);
-  const delivery = deliveryQuery.data;
-
-  if (deliveryQuery.isLoading) return <div className="p-8 text-sm text-slate-500">Chargement de la livraison…</div>;
-  if (deliveryQuery.isError || !delivery) return <div className="p-8"><p className="text-sm text-red-700">{deliveryQuery.error instanceof Error ? deliveryQuery.error.message : 'Livraison introuvable.'}</p><Button className="mt-4" variant="outline" onClick={() => navigate('/deliveries')}>Retour</Button></div>;
-
-  const checklist = Array.isArray(delivery.checklist) ? delivery.checklist : [];
-  const ready = checklist.length > 0 && checklist.filter((item: any) => Boolean(item.is_required)).every((item: any) => Boolean(item.is_completed));
-  const delivered = delivery.status === 'delivered';
-
-  const updateItem = async (item: any) => {
-    try {
-      await checklistMutation.mutateAsync({ deliveryId: id, itemId: String(item.id), completed: !Boolean(item.is_completed) });
-    } catch (error) {
-      addToast({ type: 'error', title: 'Mise à jour impossible', description: error instanceof Error ? error.message : 'Erreur API' });
-    }
-  };
-
-  const sign = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!ready || !accepted || !signerName.trim()) return;
-    try {
-      await signMutation.mutateAsync({ deliveryId: id, signerName: signerName.trim(), signatureData: `ACCEPTED:${signerName.trim()}`, mileageAtDelivery: mileage ? Number(mileage) : undefined });
-      addToast({ type: 'success', title: 'Livraison signée', description: 'Le véhicule et la vente ont été marqués comme livrés.' });
-    } catch (error) {
-      addToast({ type: 'error', title: 'Signature impossible', description: error instanceof Error ? error.message : 'Erreur API' });
-    }
-  };
-
+export const DeliveryDetailPage:React.FC=()=>{
+  const {id}=useParams(),navigate=useNavigate(),addToast=useUiStore(s=>s.addToast),deliveryQuery=useDeliveryDetailQuery(id),check=useDeliveryChecklist(),signMutation=useSignDelivery(),actions=useDeliveryActions();
+  const [signer,setSigner]=useState(''),[mileage,setMileage]=useState(''),[signature,setSignature]=useState(''),[accepted,setAccepted]=useState(false),[documentName,setDocumentName]=useState(''),[file,setFile]=useState<File|null>(null);
+  const delivery=deliveryQuery.data,fail=(title:string,error:unknown)=>addToast({type:'error',title,description:error instanceof Error?error.message:'Erreur API'});
+  if(deliveryQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement de la livraison…</div>;
+  if(deliveryQuery.isError||!delivery)return <div className="p-8"><p className="text-sm text-red-700">{deliveryQuery.error instanceof Error?deliveryQuery.error.message:'Livraison introuvable.'}</p><Button className="mt-4" variant="outline" onClick={()=>navigate('/deliveries')}>Retour</Button></div>;
+  const checklist=delivery.checklist??[],ready=checklist.length>0&&checklist.filter((item:any)=>item.is_required).every((item:any)=>item.is_completed),delivered=delivery.status==='delivered';
+  const updateItem=async(item:any)=>{try{await check.mutateAsync({deliveryId:id,itemId:String(item.id),completed:!item.is_completed})}catch(error){fail('Contrôle impossible',error)}};
+  const changeStatus=async(status:string)=>{try{await actions.status.mutateAsync({deliveryId:id,status});addToast({type:'success',title:'Workflow actualisé',description:`Nouveau statut : ${status}`})}catch(error){fail('Transition impossible',error)}};
+  const upload=async()=>{try{let dataBase64:string|undefined;if(file)dataBase64=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.readAsDataURL(file)});await actions.addDocument.mutateAsync({deliveryId:id,documentName,fileName:file?.name,mimeType:file?.type,dataBase64,isRequired:true});setDocumentName('');setFile(null)}catch(error){fail('Document impossible',error)}};
+  const sign=async(event:React.FormEvent)=>{event.preventDefault();try{await signMutation.mutateAsync({deliveryId:id,signerName:signer,signatureData:signature,consentText:'Le client confirme la réception du véhicule, de ses clés et des documents.',mileageAtDelivery:Number(mileage)});addToast({type:'success',title:'Véhicule livré',description:'La vente, le véhicule et le PV ont été actualisés.'})}catch(error){fail('Signature impossible',error)}};
   return <div className="space-y-6">
-    <PageHeader title={`Livraison ${delivery.delivery_number}`} subtitle={`${delivery.customer_name} · ${delivery.vehicle_label}`} breadcrumbs={[{ label: 'Livraisons', href: '/deliveries' }, { label: delivery.delivery_number }]} actions={<div className="flex gap-2"><Button variant="outline" size="sm" icon={<ArrowLeft className="w-4 h-4" />} onClick={() => navigate('/deliveries')}>Retour</Button>{delivered && <Button size="sm" icon={<Printer className="w-4 h-4" />} onClick={() => openBusinessPdf('delivery',String(id)).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>Imprimer le PV</Button>}</div>} />
-
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      <Card className="lg:col-span-2">
-        <CardHeader><CardTitle>Checklist de préparation</CardTitle><Badge variant={delivered || ready ? 'success' : 'warning'}>{delivered ? 'Livrée' : ready ? 'Prête' : 'En préparation'}</Badge></CardHeader>
-        <div className="divide-y divide-slate-100">
-          {checklist.map((item: any) => <button key={item.id} type="button" disabled={delivered || checklistMutation.isPending} onClick={() => updateItem(item)} className="w-full flex items-center justify-between py-3 text-left disabled:cursor-default">
-            <span className="flex items-center gap-3 text-sm font-medium text-slate-800">{item.is_completed ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Circle className="w-5 h-5 text-slate-300" />}{item.item_name}</span>
-            <span className="text-xs text-slate-500">{item.is_completed ? `Validé${item.completed_at ? ` le ${formatDate(item.completed_at)}` : ''}` : 'À contrôler'}</span>
-          </button>)}
-          {!checklist.length && <p className="py-6 text-sm text-slate-500">Aucun élément de contrôle n’est configuré.</p>}
-        </div>
-      </Card>
-
-      <div className="space-y-5">
-        <Card><CardHeader><CardTitle>Rendez-vous</CardTitle></CardHeader><dl className="space-y-3 text-sm"><div><dt className="text-slate-500">Date</dt><dd className="font-semibold">{formatDate(delivery.scheduled_at)}</dd></div><div><dt className="text-slate-500">Client</dt><dd className="font-semibold">{delivery.customer_name}</dd><dd className="text-slate-600">{delivery.phone || '—'}</dd></div><div><dt className="text-slate-500">Véhicule</dt><dd className="font-semibold">{delivery.vehicle_label}</dd><dd className="font-mono text-xs">VIN {delivery.vin || '—'}</dd></div></dl></Card>
-        {!delivered && <Card><CardHeader><CardTitle>Signature de remise</CardTitle></CardHeader><form className="space-y-3" onSubmit={sign}><label className="block text-xs font-semibold text-slate-700">Nom du signataire<input required value={signerName} onChange={e => setSignerName(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></label><label className="block text-xs font-semibold text-slate-700">Kilométrage à la livraison<input type="number" min="0" value={mileage} onChange={e => setMileage(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />Le client confirme la réception du véhicule et des documents.</label><Button type="submit" className="w-full" icon={<FileCheck className="w-4 h-4" />} disabled={!ready || !accepted || !signerName.trim()} loading={signMutation.isPending}>Signer et livrer</Button>{!ready && <p className="text-xs text-amber-700">Tous les contrôles obligatoires doivent être validés.</p>}</form></Card>}
-      </div>
-    </div>
+    <PageHeader title={`Livraison ${delivery.delivery_number}`} subtitle={`${delivery.customer_name} · ${delivery.vehicle_label}`} breadcrumbs={[{label:'Livraisons',href:'/deliveries'},{label:delivery.delivery_number}]} actions={<div className="flex gap-2"><Button variant="outline" size="sm" icon={<ArrowLeft className="w-4 h-4"/>} onClick={()=>navigate('/deliveries')}>Retour</Button><Button size="sm" icon={<Printer className="w-4 h-4"/>} onClick={()=>openBusinessPdf('delivery',String(id)).catch(error=>fail('PV indisponible',error))}>PV PDF</Button></div>}/>
+    <Card><div className="flex gap-2 flex-wrap items-center"><Badge variant={delivered?'success':'primary'}>{delivery.status}</Badge>{delivery.status==='planned'&&<Button size="xs" onClick={()=>changeStatus('preparing')}>Démarrer la préparation</Button>}{delivery.status==='preparing'&&<Button size="xs" onClick={()=>changeStatus('quality_control')}>Contrôle qualité</Button>}{delivery.status==='quality_control'&&<Button size="xs" disabled={!ready} onClick={()=>changeStatus('ready')}>Valider pour livraison</Button>}<span className="text-xs text-slate-500 ml-auto">Solde vente : {Number(delivery.balance_due).toLocaleString('fr-FR')} XAF</span></div></Card>
+    <div className="grid lg:grid-cols-3 gap-5"><Card className="lg:col-span-2"><CardHeader><CardTitle>Checklist configurable</CardTitle><Badge variant={ready?'success':'warning'}>{ready?'Complète':'À compléter'}</Badge></CardHeader><div className="divide-y">{checklist.map((item:any)=><button key={item.id} disabled={delivered||!['preparing','quality_control'].includes(delivery.status)} onClick={()=>updateItem(item)} className="w-full py-3 flex justify-between text-left disabled:cursor-default"><span className="flex gap-3 text-sm">{item.is_completed?<CheckCircle2 className="w-5 h-5 text-emerald-600"/>:<Circle className="w-5 h-5 text-slate-300"/>}{item.item_name}</span><span className="text-xs text-slate-500">{item.completed_by_name||'À contrôler'}</span></button>)}</div></Card><Card><CardHeader><CardTitle>Rendez-vous</CardTitle></CardHeader><dl className="text-sm space-y-3"><div><dt className="text-slate-500">Date</dt><dd className="font-semibold">{formatDate(delivery.scheduled_at)}</dd></div><div><dt className="text-slate-500">Lieu</dt><dd>{delivery.delivery_location||'Concession'}</dd></div><div><dt className="text-slate-500">Client</dt><dd>{delivery.customer_name}<br/>{delivery.phone}</dd></div><div><dt className="text-slate-500">Véhicule</dt><dd>{delivery.vehicle_label}<br/><span className="font-mono text-xs">{delivery.vin}</span></dd></div></dl></Card></div>
+    <div className="grid lg:grid-cols-2 gap-5"><Card><CardHeader><CardTitle>Documents remis</CardTitle></CardHeader><div className="space-y-2">{(delivery.documents??[]).map((doc:any)=><label key={doc.id} className="flex gap-2 text-sm"><input type="checkbox" checked={Boolean(doc.received)} onChange={e=>actions.markDocument.mutate({deliveryId:id,documentId:String(doc.id),received:e.target.checked})}/>{doc.document_name}{doc.is_required&&' *'}</label>)}<input value={documentName} onChange={e=>setDocumentName(e.target.value)} placeholder="Nom du document" className="w-full border rounded p-2 text-sm"/><input type="file" accept="application/pdf,image/png,image/jpeg" onChange={e=>setFile(e.target.files?.[0]??null)} className="text-xs"/><Button size="xs" icon={<Upload className="w-3 h-3"/>} disabled={!documentName} onClick={upload}>Ajouter</Button></div></Card>
+    <Card><CardHeader><CardTitle>Signature réelle du client</CardTitle></CardHeader>{delivered?<p className="text-sm text-emerald-700">Remise signée par {delivery.signatures?.[0]?.signer_name}.</p>:<form onSubmit={sign} className="space-y-3"><input required value={signer} onChange={e=>setSigner(e.target.value)} placeholder="Nom du signataire" className="w-full border rounded p-2 text-sm"/><input required type="number" min={delivery.vehicle_mileage} value={mileage} onChange={e=>setMileage(e.target.value)} placeholder="Kilométrage à la remise" className="w-full border rounded p-2 text-sm"/><SignaturePad onChange={setSignature}/><label className="flex gap-2 text-xs"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/>Le client confirme la réception du véhicule, des clés et des documents.</label><Button type="submit" className="w-full" icon={<FileCheck className="w-4 h-4"/>} disabled={delivery.status!=='ready'||!accepted||!signature||!signer||!mileage}>Signer et livrer</Button></form>}</Card></div>
   </div>;
 };
+
+const SignaturePad:React.FC<{onChange:(value:string)=>void}>=({onChange})=>{const ref=useRef<HTMLCanvasElement>(null),drawing=useRef(false);useEffect(()=>{const canvas=ref.current;if(!canvas)return;canvas.width=canvas.clientWidth*2;canvas.height=160;const context=canvas.getContext('2d');if(context){context.scale(2,2);context.lineWidth=2;context.lineCap='round'}},[]);const point=(event:React.PointerEvent<HTMLCanvasElement>)=>{const rect=event.currentTarget.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top}};return <div><canvas ref={ref} aria-label="Zone de signature" className="w-full h-20 border rounded bg-white touch-none" onPointerDown={e=>{drawing.current=true;const p=point(e);ref.current?.getContext('2d')?.beginPath();ref.current?.getContext('2d')?.moveTo(p.x,p.y)}} onPointerMove={e=>{if(!drawing.current)return;const p=point(e),context=ref.current?.getContext('2d');context?.lineTo(p.x,p.y);context?.stroke()}} onPointerUp={()=>{drawing.current=false;if(ref.current)onChange(ref.current.toDataURL('image/png'))}}/><button type="button" className="text-xs underline" onClick={()=>{const canvas=ref.current;canvas?.getContext('2d')?.clearRect(0,0,canvas.width,canvas.height);onChange('')}}>Effacer la signature</button></div>};

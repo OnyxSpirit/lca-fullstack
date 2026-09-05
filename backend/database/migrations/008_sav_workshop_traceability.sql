@@ -1,0 +1,14 @@
+ALTER TABLE repair_orders
+ ADD COLUMN promised_completion_at DATETIME NULL AFTER received_at,
+ ADD COLUMN warranty_covered BOOLEAN NOT NULL DEFAULT FALSE AFTER diagnosis_summary,
+ ADD COLUMN warranty_reference VARCHAR(100) NULL AFTER warranty_covered,
+ ADD COLUMN courtesy_vehicle_id BIGINT UNSIGNED NULL AFTER warranty_reference,
+ ADD COLUMN cancellation_reason VARCHAR(500) NULL AFTER actual_total,
+ ADD COLUMN created_by BIGINT UNSIGNED NULL AFTER cancellation_reason,
+ ADD CONSTRAINT fk_ro_courtesy_vehicle FOREIGN KEY(courtesy_vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL,
+ ADD CONSTRAINT fk_ro_created_by FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE TABLE repair_order_status_history(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,repair_order_id BIGINT UNSIGNED NOT NULL,old_status VARCHAR(40) NULL,new_status VARCHAR(40) NOT NULL,reason VARCHAR(500) NULL,changed_by BIGINT UNSIGNED NULL,changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,INDEX idx_ro_history(repair_order_id,changed_at),FOREIGN KEY(repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,FOREIGN KEY(changed_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;
+CREATE TABLE vehicle_reception_inspections(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,repair_order_id BIGINT UNSIGNED NOT NULL UNIQUE,fuel_level VARCHAR(50) NULL,cleanliness VARCHAR(100) NULL,bodywork_damage TEXT NULL,items_in_vehicle TEXT NULL,customer_signature LONGTEXT NULL,inspected_by BIGINT UNSIGNED NULL,inspected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,FOREIGN KEY(inspected_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;
+CREATE TABLE repair_approvals(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,repair_order_id BIGINT UNSIGNED NOT NULL,approved BOOLEAN NOT NULL,approved_amount DECIMAL(18,2) NULL,customer_name VARCHAR(200) NOT NULL,signature_data LONGTEXT NULL,notes TEXT NULL,recorded_by BIGINT UNSIGNED NULL,recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,FOREIGN KEY(recorded_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;
+CREATE TABLE part_reservations(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,repair_order_id BIGINT UNSIGNED NOT NULL,part_id BIGINT UNSIGNED NOT NULL,agency_id BIGINT UNSIGNED NOT NULL,quantity DECIMAL(12,2) NOT NULL,status ENUM('reserved','consumed','released') NOT NULL DEFAULT 'reserved',created_by BIGINT UNSIGNED NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,FOREIGN KEY(part_id) REFERENCES parts(id) ON DELETE RESTRICT,FOREIGN KEY(agency_id) REFERENCES agencies(id),FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;

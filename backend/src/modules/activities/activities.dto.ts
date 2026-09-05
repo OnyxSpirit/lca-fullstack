@@ -1,0 +1,2 @@
+import { IsIn,IsOptional,IsString } from 'class-validator';
+export class CreateActivityDto{@IsOptional()@IsString()customerId?:string;@IsOptional()@IsString()leadId?:string;@IsIn(['call','email','task','appointment','test_drive','note','other'])type!:string;@IsString()subject!:string;@IsOptional()@IsString()description?:string;@IsOptional()@IsIn(['planned','completed','cancelled'])status?:string;@IsOptional()@IsString()dueAt?:string;}

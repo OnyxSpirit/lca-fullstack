@@ -1,16 +1,11 @@
-import { execute, query } from '../../config/database.js';
-import { emitToUser } from '../../realtime/socket.js';
-export async function notifyCrm(input) {
-    const recipients = new Set();
-    if (input.assignedUserId)
-        recipients.add(String(input.assignedUserId));
-    if (input.agencyId) {
-        const managers = await query(`SELECT DISTINCT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.is_active=TRUE AND u.agency_id=? AND r.code='SALES_MANAGER'`, [input.agencyId]);
-        managers.forEach(row => recipients.add(String(row.id)));
+import { createUserNotification, notifyRoles } from '../notifications/notification.service.js';
+export async function notifyCrm(input) { let count = 0; if (input.assignedUserId && String(input.assignedUserId) !== String(input.actorUserId)) {
+    try {
+        if (await createUserNotification({ userId: String(input.assignedUserId), subject: input.subject, message: input.message, eventType: 'crm.lead_assigned', referenceType: 'lead', referenceId: input.leadId, priority: 'normal' }))
+            count++;
     }
-    for (const userId of recipients) {
-        const result = await execute(`INSERT INTO notifications(user_id,channel,subject,message,status,sent_at,reference_type,reference_id) VALUES(?,'notification',?,?,'sent',NOW(),'lead',?)`, [userId, input.subject, input.message, input.leadId]);
-        emitToUser(userId, 'notifications:created', { id: String(result.insertId), userId, subject: input.subject, message: input.message, status: 'sent', referenceType: 'lead', referenceId: input.leadId, createdAt: new Date().toISOString() });
+    catch (error) {
+        console.error('Notification CRM non créée', error);
     }
-    return recipients.size;
-}
+} if (input.agencyId)
+    count += await notifyRoles({ agencyId: input.agencyId, roles: ['SALES_MANAGER'], includeGlobalRoles: ['DIRECTOR', 'SUPER_ADMIN'], excludeUserIds: [input.actorUserId, input.assignedUserId ?? ''], subject: input.subject, message: input.message, eventType: 'crm.lead_assigned', referenceType: 'lead', referenceId: input.leadId, priority: 'normal' }); return count; }

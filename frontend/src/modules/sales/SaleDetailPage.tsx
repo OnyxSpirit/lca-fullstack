@@ -44,10 +44,11 @@ export const SaleDetailPage: React.FC = () => {
     );
   }
 
-  const handleStatusChange = async (newStatus: keyof typeof saleStatusToDb) => {
+  const handleStatusChange = async (newStatus: keyof typeof saleStatusToDb, reason?:string) => {
     const status = saleStatusToDb[newStatus];
+    if (!status) { addToast({type:'error',title:'Transition impossible',description:'Statut backend non défini.'}); return; }
     try {
-      await saleStatus.mutateAsync({ id: sale.id, status });
+      await saleStatus.mutateAsync({ id: sale.id, status, reason });
       addToast({ type: 'success', title: 'Statut du dossier mis à jour', description: `Le dossier est maintenant : ${newStatus}.` });
     } catch (error) {
       addToast({ type: 'error', title: 'Transition impossible', description: error instanceof Error ? error.message : 'Erreur API' });
@@ -83,6 +84,7 @@ export const SaleDetailPage: React.FC = () => {
 
             {nextStatus[sale.status] && <Button variant="primary" size="sm" loading={saleStatus.isPending} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(nextStatus[sale.status]!)}>{nextLabel[nextStatus[sale.status]!]}</Button>}
             {sale.status === 'PRET_LIVRAISON' && <Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate('/deliveries')}>Planifier la livraison</Button>}
+            {!['LIVRE','ANNULE'].includes(sale.status) && <Button variant="danger" size="sm" loading={saleStatus.isPending} onClick={()=>{const reason=window.prompt("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button>}
           </div>
         }
       />
@@ -115,7 +117,7 @@ export const SaleDetailPage: React.FC = () => {
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     Vendeur / Concession
                   </span>
-                  <div className="font-bold text-slate-900 text-sm">La Congolaise de l'Automobile</div>
+                  <div className="font-bold text-slate-900 text-sm">{sale.agencyName || 'Concession'}</div>
                   <div className="text-slate-500 mt-1">Conseiller : {sale.salesRepName}</div>
                 </div>
               </div>

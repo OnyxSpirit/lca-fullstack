@@ -14,7 +14,7 @@ function positiveInteger(name: string, fallback: number): number {
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
-  port: positiveInteger('PORT', 3002),
+  port: positiveInteger('PORT', 3001),
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:3000',
   db: {
     host: required('DB_HOST'), port: positiveInteger('DB_PORT', 3306), user: required('DB_USER'),

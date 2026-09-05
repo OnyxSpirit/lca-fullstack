@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useCreateRepairOrder, useCustomersQuery, useTechniciansQuery, useVehiclesQuery } from '../../api/erpHooks';
+import React, { useEffect, useState } from 'react';
+import { useCreateRepairOrder, useCustomersQuery, useVehiclesQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { Modal } from '../../components/ui/Modal';
@@ -15,10 +15,8 @@ interface NewRepairOrderModalProps {
 export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen, onClose, initialCustomerId, initialVehicleId }) => {
   const customersQuery = useCustomersQuery();
   const vehiclesQuery = useVehiclesQuery();
-  const techniciansQuery = useTechniciansQuery();
   const customers = customersQuery.data ?? [];
   const vehicles = vehiclesQuery.data ?? [];
-  const technicians = useMemo(() => (techniciansQuery.data ?? []).map((technician: any) => ({ id: String(technician.id), name: technician.name, specialty: technician.specialty ?? '' })), [techniciansQuery.data]);
   const createRepairOrder=useCreateRepairOrder();
   const { currentUser, currentAgency } = useAuthStore();
   const { addToast } = useUiStore();
@@ -28,33 +26,25 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
     customerName: '',
     customerPhone: customers[0]?.phone || '',
     vehicleId: vehicles[0]?.id || '',
-    vehicleModel: 'Peugeot 3008 GT Hybrid',
-    vehiclePlate: 'FR-392-XX',
-    vehicleVin: 'VR3FPHNSSMY551829',
-    mileage: 42000,
-    technicianId: technicians[0]?.id || '',
-    bayNumber: 'Pont 02 - Entretien & Freinage',
-    appointmentDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    mileage: 0,
     promisedCompletionDate: new Date(Date.now() + 86400000).toISOString().slice(0, 16).replace('T', ' '),
-    symptomsReported: 'Révision annuelle des 45 000 km + contrôle bruit train avant.',
-    diagnosticNotes: 'Contrôle visuel plaquettes et vidange huile moteur 5W30.',
+    symptomsReported: '',
+    diagnosticNotes: '',
     warrantyCovered: false,
-    courtesyCarAssigned: 'Renault Clio Démo',
+    warrantyReference: '',
   });
   const firstCustomer = customers[0];
   const firstVehicleId = vehicles[0]?.id ?? '';
-  const firstTechnicianId = technicians[0]?.id ?? '';
   useEffect(() => {
     if (!isOpen) return;
     setFormData((current) => {
       const customerId = current.customerId || firstCustomer?.id || '';
       const customerName = current.customerName || (firstCustomer ? `${firstCustomer.firstName} ${firstCustomer.lastName}`.trim() : '');
       const vehicleId = current.vehicleId || firstVehicleId;
-      const technicianId = current.technicianId || firstTechnicianId;
-      if (customerId === current.customerId && customerName === current.customerName && vehicleId === current.vehicleId && technicianId === current.technicianId) return current;
-      return { ...current, customerId, customerName, vehicleId, technicianId };
+      if (customerId === current.customerId && customerName === current.customerName && vehicleId === current.vehicleId) return current;
+      return { ...current, customerId, customerName, vehicleId };
     });
-  }, [isOpen, firstCustomer?.id, firstCustomer?.firstName, firstCustomer?.lastName, firstVehicleId, firstTechnicianId]);
+  }, [isOpen, firstCustomer?.id, firstCustomer?.firstName, firstCustomer?.lastName, firstVehicleId]);
   useEffect(()=>{if(!isOpen)return;setFormData(current=>({...current,customerId:initialCustomerId&&customers.some(c=>c.id===initialCustomerId)?initialCustomerId:current.customerId,vehicleId:initialVehicleId&&vehicles.some(v=>v.id===initialVehicleId)?initialVehicleId:current.vehicleId}))},[isOpen,initialCustomerId,initialVehicleId,customers,vehicles]);
 
   const handleCustomerChange = (custId: string) => {
@@ -80,12 +70,15 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
       agencyId: currentAgency?.id,
       complaint: formData.symptomsReported,
       diagnosisSummary: formData.diagnosticNotes,
+      warrantyCovered: formData.warrantyCovered,
+      warrantyReference: formData.warrantyCovered?formData.warrantyReference:undefined,
+      promisedCompletionAt: formData.promisedCompletionDate,
     });
 
     addToast({
       type: 'success',
       title: 'Ordre de Réparation créé (OR)',
-      description: `L’OR a été ouvert pour ${formData.customerName} (${formData.vehiclePlate}).`,
+      description: `L’OR a été ouvert pour ${formData.customerName} (${vehicle.registrationNumber || vehicle.vin}).`,
     });
 
     onClose();}catch(error){addToast({type:'error',title:'Création impossible',description:error instanceof Error?error.message:'Erreur API'});}
@@ -134,31 +127,9 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
           </div>
         </div>
 
-        {/* Tech & Bay */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Technicien assigné</label>
-            <select
-              value={formData.technicianId}
-              onChange={(e) => setFormData({ ...formData, technicianId: e.target.value })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none"
-            >
-              {technicians.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.specialty})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Pont / Emplacement</label>
-            <input
-              type="text"
-              value={formData.bayNumber}
-              onChange={(e) => setFormData({ ...formData, bayNumber: e.target.value })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none"
-            />
-          </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Fin promise</label>
+          <input type="datetime-local" value={formData.promisedCompletionDate.replace(' ', 'T')} onChange={(e)=>setFormData({...formData,promisedCompletionDate:e.target.value.replace('T',' ')})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none" />
         </div>
 
         {/* Symptoms */}
@@ -187,6 +158,7 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
             Prise en charge sous Garantie Constructeur
           </label>
         </div>
+        {formData.warrantyCovered&&<div><label className="block text-xs font-semibold text-slate-700 mb-1">Référence de garantie *</label><input required value={formData.warrantyReference} onChange={e=>setFormData({...formData,warrantyReference:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300" /></div>}
 
         <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
           <Button variant="outline" type="button" onClick={onClose}>

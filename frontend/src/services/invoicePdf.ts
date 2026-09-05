@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api';
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
 async function invoicePdfBlob(invoiceId: string): Promise<Blob> {
   const token = localStorage.getItem('lca-access-token');
   const response = await fetch(`${API_URL}/invoices/${invoiceId}/pdf`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });

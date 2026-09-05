@@ -1,0 +1,10 @@
+import{Router}from'express';import{authorize}from'../../middleware/authorize.js';import{asyncHandler}from'../../middleware/error-handler.js';import{HttpError}from'../../shared/http-error.js';import*as service from'./setting.service.js';
+export const settingRouter=Router();const admin=authorize('SUPER_ADMIN','DIRECTOR'),rid=(v:unknown)=>{const x=String(v??'');if(!/^[1-9]\d*$/.test(x))throw new HttpError(400,'Identifiant invalide');return x};
+settingRouter.get('/settings',admin,asyncHandler(async(r,res)=>res.json(await service.get(r))));
+settingRouter.put('/settings',admin,asyncHandler(async(r,res)=>res.json(await service.update(r.body,r))));
+settingRouter.get('/concessions/current',admin,asyncHandler(async(r,res)=>res.json(await service.currentConcession(r))));
+settingRouter.patch('/concessions/current',admin,asyncHandler(async(r,res)=>res.json(await service.updateConcession(r.body,r))));
+settingRouter.get('/agencies',asyncHandler(async(r,res)=>res.json(await service.agencies(r))));
+settingRouter.post('/agencies',admin,asyncHandler(async(r,res)=>res.status(201).json(await service.createAgency(r.body,r))));
+settingRouter.patch('/agencies/:id',admin,asyncHandler(async(r,res)=>res.json(await service.updateAgency(rid(r.params.id),r.body,r))));
+settingRouter.patch('/agencies/:id/status',admin,asyncHandler(async(r,res)=>res.json(await service.agencyStatus(rid(r.params.id),r.body.isActive,r))));

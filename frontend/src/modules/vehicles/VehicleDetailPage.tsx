@@ -28,6 +28,7 @@ import { Card, CardHeader, CardTitle } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { VehicleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { apiDownload } from '../../services/apiClient';
 import { openBusinessPdf } from '../../services/businessPdf';
 
 export const VehicleDetailPage: React.FC = () => {
@@ -40,6 +41,7 @@ export const VehicleDetailPage: React.FC = () => {
   const vehicle = vehicleQuery.data?.vehicle;
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
+  const downloadDocument=async(document:any)=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.file_name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
 
   if(vehicleQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement du véhicule…</div>;
   if (vehicleQuery.isError) return <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-800"><strong>Lecture impossible.</strong> {vehicleQuery.error instanceof Error?vehicleQuery.error.message:'Erreur API'}<div className="mt-4"><Button variant="outline" onClick={()=>navigate('/vehicles')}>Retour au stock</Button></div></div>;
@@ -345,7 +347,7 @@ export const VehicleDetailPage: React.FC = () => {
           <CardHeader>
             <CardTitle>Documents Électroniques (GED Automobile)</CardTitle>
           </CardHeader>
-          <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><Button size="xs" variant="outline" onClick={()=>window.open(document.file_url,'_blank','noopener,noreferrer')}>Télécharger</Button></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
+          <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
         </Card>
       )}
     </div>

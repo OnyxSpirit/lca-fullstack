@@ -34,6 +34,7 @@ export const detailRoutes = {
   delivery: (id: string) => `${ROUTES.deliveries}/${encodeURIComponent(id)}`,
   repairOrder: (id: string) => `${ROUTES.service}/repair-orders/${encodeURIComponent(id)}`,
   part: (id: string) => `${ROUTES.parts}/${encodeURIComponent(id)}`,
+  invoice: (id: string) => `${ROUTES.billing}/${encodeURIComponent(id)}`,
 };
 
 export function notificationRoute(referenceType: string, referenceId: string): string {
@@ -41,11 +42,17 @@ export function notificationRoute(referenceType: string, referenceId: string): s
     sale: detailRoutes.sale(referenceId),
     delivery: detailRoutes.delivery(referenceId),
     repair_order: detailRoutes.repairOrder(referenceId),
-    invoice: ROUTES.billing,
+    invoice: detailRoutes.invoice(referenceId),
     part: detailRoutes.part(referenceId),
     lead: ROUTES.crm,
     reservation: ROUTES.sales,
     vehicle: detailRoutes.vehicle(referenceId),
+    showroom: ROUTES.showroom,
+    payment: ROUTES.billing,
+    credit_note: ROUTES.billing,
+    document: ROUTES.documents,
+    purchase_order: ROUTES.parts,
+    customer: detailRoutes.customer(referenceId),
   };
   return routes[referenceType] ?? ROUTES.notifications;
 }

@@ -1,0 +1,3 @@
+import { IsArray, IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+export class CreateUserDto{@IsString()firstName!:string;@IsString()lastName!:string;@IsEmail()email!:string;@IsOptional()@IsString()phone?:string;@IsOptional()@IsString()jobTitle?:string;@IsOptional()@IsString()agencyId?:string;@IsString()roleCode!:string;@IsString()@MinLength(8)password!:string;}
+export class UpdateUserDto{@IsOptional()@IsString()firstName?:string;@IsOptional()@IsString()lastName?:string;@IsOptional()@IsString()phone?:string;@IsOptional()@IsString()jobTitle?:string;@IsOptional()@IsString()agencyId?:string;@IsOptional()@IsBoolean()isActive?:boolean;@IsOptional()@IsArray()@IsString({each:true})roles?:string[];}

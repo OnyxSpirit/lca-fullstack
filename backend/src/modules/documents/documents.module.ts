@@ -1,0 +1,1 @@
+import { Module } from '@nestjs/common';import { DocumentsController } from './documents.controller';import { DocumentsService } from './documents.service';import{BusinessPdfService}from'./business-pdf.service';@Module({controllers:[DocumentsController],providers:[DocumentsService,BusinessPdfService]})export class DocumentsModule{}

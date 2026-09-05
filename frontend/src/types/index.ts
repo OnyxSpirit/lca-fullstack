@@ -18,12 +18,14 @@ export type UserRole =
 export type PermissionAction =
   | 'view'
   | 'create'
-  | 'edit'
+  | 'update'
   | 'delete'
   | 'validate'
   | 'cancel'
   | 'export'
-  | 'print';
+  | 'print'
+  | 'approve'
+  | 'assign';
 
 export type PermissionScope = 'groupe' | 'agence' | 'departement' | 'equipe' | 'utilisateur';
 
@@ -32,6 +34,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  roles: UserRole[];
+  primaryRole: UserRole;
   roleTitle: string;
   avatar: string;
   agencyId: string;
@@ -51,6 +55,7 @@ export interface Agency {
   phone: string;
   email: string;
   isMain: boolean;
+  isActive: boolean;
 }
 
 // CRM & Prospects
@@ -209,6 +214,7 @@ export interface Sale {
   salesRepId: string;
   salesRepName: string;
   agencyId: string;
+  agencyName: string;
   status: SaleStatus;
   vehiclePriceTTC: number;
   optionsTotalTTC: number;
@@ -256,6 +262,7 @@ export interface ServiceOperation {
 }
 
 export interface ServicePartUsage {
+  id?: string;
   partId: string;
   partReference: string;
   description: string;
@@ -263,6 +270,15 @@ export interface ServicePartUsage {
   unitPriceHT: number;
   totalHT: number;
 }
+
+export interface RepairOrderInspection {id:string;fuelLevel:string;cleanliness:string;bodyworkDamage:string;itemsInVehicle:string;mileage:number|null;observations:string;customerSignature:string;inspectedBy:string;inspectedAt:string;}
+export interface RepairOrderDiagnostic {id:string;technicianId:string;technicianName:string;diagnosis:string;recommendations:string;estimatedHours:number;diagnosedAt:string;}
+export interface RepairApproval {id:string;approved:boolean;approvedAmount:number|null;customerName:string;signatureData:string;notes:string;recordedByName:string;recordedAt:string;}
+export interface RepairIntervention {id:string;technicianId:string;technicianName:string;description:string;interventionType:string;plannedHours:number;actualHours:number;unitPrice:number;lineTotal:number;status:'planned'|'assigned'|'in_progress'|'completed'|'cancelled';}
+export interface WorkSession {id:string;technicianId:string;technicianName:string;interventionId:string;bayId:string;startedAt:string;endedAt:string|null;status:'running'|'paused'|'completed'|'cancelled';}
+export interface PartReservation {id:string;partId:string;partReference:string;partName:string;locationName:string;quantity:number;status:'reserved'|'consumed'|'released';createdAt:string;}
+export interface RepairQualityControl {id:string;plannedWorkCompleted:boolean;defectCorrected:boolean;roadTestPerformed:boolean;noLeaks:boolean;levelsChecked:boolean;cleanlinessChecked:boolean;result:'passed'|'failed';reason:string;observations:string;controlledByName:string;controlledAt:string;}
+export interface RepairOrderHistory {id:string;oldStatus:string|null;newStatus:string;reason:string;changedByName:string;changedAt:string;}
 
 export interface RepairOrder {
   id: string;
@@ -291,13 +307,25 @@ export interface RepairOrder {
     bodyworkDamage: string;
     itemsInVehicle: string;
   };
+  inspection?: RepairOrderInspection|null;
+  diagnostics?: RepairOrderDiagnostic[];
+  approvals?: RepairApproval[];
+  interventions?: RepairIntervention[];
+  sessions?: WorkSession[];
+  reservations?: PartReservation[];
+  qualityControls?: RepairQualityControl[];
+  history?: RepairOrderHistory[];
+  handover?: {customerName:string;mileageOut:number|null;observations:string;signatureData:string;handedOverAt:string}|null;
+  invoice?: {id:string;invoiceNumber:string;subtotal:number;taxTotal:number;total:number;status:string}|null;
   symptomsReported: string;
   diagnosticNotes: string;
   operations: ServiceOperation[];
   parts: ServicePartUsage[];
+  laborItems?: Array<{id:string;interventionId:string;description:string;quantity:number;unitPrice:number;taxRate:number;lineTotal:number}>;
   estimatedTotalTTC: number;
   finalTotalTTC: number;
   warrantyCovered: boolean;
+  warrantyReference?: string;
   courtesyCarAssigned?: string;
   createdAt: string;
 }
@@ -306,25 +334,66 @@ export interface RepairOrder {
 export interface WorkshopBay {
   id: string;
   name: string;
-  code: string;
-  type: 'Mécanique Rapide' | 'Grosse Mécanique' | 'Diagnostic Électronique' | 'Carrosserie' | 'Géométrie' | 'Préparation Véhicule Neuf';
-  activeTechnicianId?: string;
-  activeTechnicianName?: string;
-  currentOrId?: string;
-  currentOrNumber?: string;
-  currentVehicle?: string;
-  status: 'Libre' | 'Occupé' | 'En Pause' | 'Maintenance';
+  agencyId: string;
+  bayType: string;
+  capacity: number;
+  status: 'available' | 'occupied' | 'maintenance' | 'inactive';
+  occupiedNow: boolean;
 }
 
 export interface Technician {
   id: string;
+  userId: string;
+  agencyId: string;
   name: string;
   specialty: string;
-  dailyCapacityHours: number;
-  assignedHoursToday: number;
-  efficiencyRate: number; // % (e.g. 108%)
-  status: 'Disponible' | 'En Intervention' | 'Formation' | 'Absent';
-  currentBay?: string;
+  employeeCode: string;
+  hourlyRate: number;
+  availableHoursPerDay: number;
+  isActive: boolean;
+}
+
+export interface WorkshopSchedule {
+  id: string;
+  agencyId: string;
+  technicianId: string;
+  bayId: string;
+  repairOrderId: string;
+  interventionId: string;
+  startsAt: string;
+  endsAt: string;
+  status: 'planned' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  orderNumber: string;
+  customerName: string;
+  vehicleLabel: string;
+  registrationNumber: string;
+  technicianName: string;
+  bayName: string;
+  bayStatus: WorkshopBay['status'];
+  bayOccupiedNow: boolean;
+  interventionDescription: string;
+}
+
+export interface TechnicianUnavailability {
+  id: string;
+  technicianId: string;
+  technicianName: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string;
+}
+
+export interface WorkshopStats {
+  technicians: number;
+  bays: number;
+  assignments: number;
+  scheduledHours: number;
+  actualHours: number;
+  capacityHours: number;
+  bayCapacityHours: number;
+  technicianOccupationRate: number;
+  bayOccupationRate: number;
+  productivityRate: number;
 }
 
 // Spare Parts (Magasin pièces)
@@ -335,10 +404,17 @@ export interface SparePart {
   reference: string;
   oemReference: string;
   name: string;
-  category: 'Freinage' | 'Filtration' | 'Moteur' | 'Électrique' | 'Carrosserie' | 'Suspension' | 'Pneumatique' | 'Fluides & Huiles';
+  category: string;
+  categoryId: string;
   supplier: string;
+  supplierId: string;
+  brand: string;
+  description: string;
   locationBin: string; // e.g. "A-04-2"
   stockQuantity: number;
+  physicalStock: number;
+  reservedStock: number;
+  availableStock: number;
   minStockAlert: number;
   maxStockLevel: number;
   pendingOrderQuantity: number;
@@ -349,6 +425,8 @@ export interface SparePart {
   status: PartStockStatus;
   lastRestockedDate: string;
   compatibilityList: string[];
+  stocks?: Array<{id:string;agencyId:string;agencyName:string;locationId:string;locationName:string;physicalStock:number;reservedStock:number;availableStock:number;minStock:number;maxStock:number}>;
+  orders?: Array<{id:string;orderNumber:string;status:string;expectedAt:string;quantityOrdered:number;quantityReceived:number;pendingQuantity:number}>;
 }
 
 export interface PartStockMovement {
@@ -406,10 +484,13 @@ export interface Delivery {
   checklist: DeliveryChecklist;
   notes: string;
   customerRating?: number;
+  checklistProgress?: { total: number; completed: number };
+  rawStatus?: string;
+  deliveryLocation?: string;
 }
 
 // Billing & Invoices
-export type InvoiceType = 'FACTURE_VENTE_VN_VO' | 'FACTURE_ATELIER_SAV' | 'FACTURE_PIECES' | 'AVOIR' | 'ACOMPTE';
+export type InvoiceType = 'FACTURE_VENTE_VN_VO' | 'FACTURE_ATELIER_SAV' | 'FACTURE_PIECES' | 'FACTURE_MANUELLE';
 export type InvoiceStatus =
   | 'BROUILLON'
   | 'EN_ATTENTE'
@@ -419,7 +500,7 @@ export type InvoiceStatus =
   | 'EN_RETARD'
   | 'ANNULEE';
 
-export type PaymentMethod = 'Virement' | 'Carte Bancaire' | 'Chèque de Banque' | 'Prélèvement / Financement' | 'Espèces';
+export type PaymentMethod = string;
 
 export interface Invoice {
   id: string;
@@ -439,7 +520,17 @@ export interface Invoice {
   paymentMethod?: PaymentMethod;
   paymentDate?: string;
   pdfUrl?: string;
+  agencyId?: string;
+  agencyName?: string;
+  currencyCode?: string;
+  notes?: string;
+  items?: InvoiceLine[];
+  payments?: InvoicePayment[];
+  creditNotes?: CreditNote[];
 }
+export interface InvoiceLine{id:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;taxAmount:number;lineTotal:number}
+export interface InvoicePayment{id:string;paymentNumber:string;amount:number;paymentMethodId:string;paymentMethod:string;reference:string;status:string;paymentDate:string;receivedByName:string}
+export interface CreditNote{id:string;creditNoteNumber:string;amount:number;reason:string;status:string;issueDate:string;createdByName:string}
 
 // Showroom Visitors
 export interface ShowroomVisitor {
@@ -450,7 +541,7 @@ export interface ShowroomVisitor {
   interest: 'Achat Véhicule Neuf' | 'Achat Occasion' | 'Essai Véhicule' | 'Reprise / Estimation' | 'SAV / Atelier' | 'Livraison';
   preferredModel?: string;
   assignedRepName?: string;
-  status: 'En Attente' | 'En Entretien' | 'En Essai' | 'Terminé';
+  status: 'En Attente' | 'Affecté' | 'En Entretien' | 'En Essai' | 'Terminé' | 'Annulé';
   waitTimeMinutes: number;
 }
 

@@ -25,16 +25,20 @@ import { Card, CardHeader, CardTitle } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
+import { useEntityDocuments } from '../../api/documentHooks';
+import { apiDownload } from '../../services/apiClient';
 
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const customerQuery=useCustomer360Query(id);const data=customerQuery.data;
   const timeline=data?.timeline??[],customerVehicles=data?.vehicles??[],customerSales=data?.sales??[],customerORs=data?.repairOrders??[],customerInvoices=data?.invoices??[],contacts=data?.contacts??[],opportunities=data?.opportunities??[];
-  const { setActiveQuickActionModal } = useUiStore();
+  const { setActiveQuickActionModal,addToast } = useUiStore();
+  const documentsQuery=useEntityDocuments('customer',id),documents=documentsQuery.data??[];
 
   const customer = data?.customer;
-  const [activeTab, setActiveTab] = useState<'timeline' | 'contacts' | 'opportunities' | 'vehicles' | 'sales' | 'sav' | 'billing'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'contacts' | 'opportunities' | 'vehicles' | 'sales' | 'sav' | 'billing' | 'documents'>('timeline');
+  const downloadDocument=async(document:(typeof documents)[number])=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
   const [contactOpen,setContactOpen]=useState(false);const createContact=useCreateCustomerContact(id);const[contact,setContact]=useState({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false});
 
   if(customerQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement du client…</div>;
@@ -152,6 +156,7 @@ export const CustomerDetailPage: React.FC = () => {
           { key: 'sales', label: `Ventes & Devis (${customerSales.length})` },
           { key: 'sav', label: `Atelier SAV & OR (${customerORs.length})` },
           { key: 'billing', label: `Facturation (${customerInvoices.length})` },
+          { key: 'documents', label: `Documents (${documents.length})` },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -180,6 +185,8 @@ export const CustomerDetailPage: React.FC = () => {
       {activeTab === 'contacts' && <Card><CardHeader><div className="flex items-center justify-between"><CardTitle>Contacts du client</CardTitle><Button size="xs" variant="primary" onClick={()=>setContactOpen(true)}>Ajouter un contact</Button></div></CardHeader><div className="space-y-2">{contacts.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs"><div className="font-bold">{item.first_name} {item.last_name}{item.is_primary?' • Principal':''}</div><div className="text-slate-500">{item.role_title||'—'} • {item.phone||'—'} • {item.email||'—'}</div></div>)}{!contacts.length&&<p className="text-xs text-slate-500">Aucun contact enregistré.</p>}</div></Card>}
 
       {activeTab === 'opportunities' && <Card><CardHeader><CardTitle>Opportunités liées</CardTitle></CardHeader><div className="space-y-2">{opportunities.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs flex justify-between"><div><div className="font-bold">{item.title}</div><div className="text-slate-500">Probabilité : {item.probability}%</div></div><div className="font-semibold">{item.stage}</div></div>)}{!opportunities.length&&<p className="text-xs text-slate-500">Aucune opportunité rattachée.</p>}</div></Card>}
+
+      {activeTab === 'documents' && <Card><CardHeader><CardTitle>Documents client actifs</CardTitle></CardHeader><div className="divide-y text-xs">{documents.map(document=><div key={document.id} className="flex items-center justify-between py-3"><div><b>{document.fileName}</b><div className="text-slate-500">{document.documentType} · {Math.ceil(document.fileSize/1024)} Ko · {formatDate(document.createdAt)}</div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!documents.length&&<p className="py-5 text-slate-500">Aucun document client actif.</p>}</div></Card>}
 
       {/* TAB 2: VEHICLES OWNED */}
       {activeTab === 'vehicles' && (

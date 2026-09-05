@@ -12,6 +12,7 @@
     "seed:admin": "tsx src/scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@types/pdfkit": "^0.17.6",
     "argon2": "^0.44.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -19,6 +20,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.5",
+    "pdfkit": "^0.20.2",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
@@ -26,8 +28,8 @@
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.0",
-    "supertest": "^7.1.4",
     "@types/supertest": "^6.0.3",
+    "supertest": "^7.1.4",
     "tsx": "^4.21.0",
     "typescript": "^5.9.2"
   }

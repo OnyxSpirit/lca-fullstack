@@ -1,0 +1,4 @@
+import { Injectable } from '@nestjs/common';
+import { RowDataPacket } from 'mysql2/promise';
+import { DatabaseService } from '../../database/database.service';
+@Injectable() export class SettingsService{constructor(private readonly db:DatabaseService){} async get(){const rows=await this.db.query<RowDataPacket[]>(`SELECT setting_value FROM settings WHERE scope_type='global' AND scope_id=0 AND setting_key='erp_configuration' LIMIT 1`);const value=rows[0]?.setting_value;return typeof value==='string'?JSON.parse(value):value??{}} async save(value:Record<string,unknown>,userId:string){await this.db.execute(`INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,description,updated_by) VALUES('global',0,'erp_configuration',?,'Configuration ERP',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)`,[JSON.stringify(value),userId]);return value}}

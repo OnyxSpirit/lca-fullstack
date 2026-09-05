@@ -6,7 +6,7 @@ import { createRealtimeServer } from './realtime/socket.js';
 
 const server=createServer(createApp());
 const realtime=createRealtimeServer(server);
-server.listen(env.port,()=>console.log(`LCA Express API: http://localhost:${env.port}/api`));
+server.listen(env.port,()=>console.log(`LCA Express API en écoute sur le port ${env.port}`));
 
 async function shutdown(signal:string){console.log(`${signal}: arrêt propre`);realtime.io.close();server.close(async()=>{await pool.end();process.exit(0);});setTimeout(()=>process.exit(1),10_000).unref();}
 process.on('SIGTERM',()=>void shutdown('SIGTERM'));

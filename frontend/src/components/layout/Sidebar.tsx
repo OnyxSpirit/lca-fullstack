@@ -24,14 +24,14 @@ import {
   X,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useNotificationsQuery } from '../../api/erpHooks';
+import { useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { ROUTES } from '../../navigation/routes';
 
 export const Sidebar: React.FC = () => {
   const { currentUser, hasPermission } = useAuthStore();
-  const notifications = useNotificationsQuery().data ?? [];
+  const notifications = useNotificationsQuery({page:1,pageSize:1}).data;
   const {
     sidebarCollapsed,
     toggleSidebar,
@@ -39,7 +39,7 @@ export const Sidebar: React.FC = () => {
     setMobileMenuOpen,
   } = useUiStore();
 
-  const unreadNotifs = notifications.filter((notification) => !notification.isRead).length;
+  const unreadNotifs = notifications?.unreadCount??0;
 
   interface NavSection {
     title: string;
@@ -78,8 +78,6 @@ export const Sidebar: React.FC = () => {
           to: ROUTES.crm,
           label: 'CRM & Prospects',
           icon: <Users className="w-4 h-4" />,
-          badge: 8,
-          badgeVariant: 'primary',
           module: 'crm',
         },
         {
@@ -92,7 +90,6 @@ export const Sidebar: React.FC = () => {
           to: ROUTES.vehicles,
           label: 'Stock Véhicules (VN/VO)',
           icon: <Car className="w-4 h-4" />,
-          badge: 20,
           module: 'vehicles',
         },
         {
@@ -105,16 +102,12 @@ export const Sidebar: React.FC = () => {
           to: ROUTES.showroom,
           label: 'Showroom & Réception',
           icon: <Compass className="w-4 h-4" />,
-          badge: 3,
-          badgeVariant: 'warning',
           module: 'showroom',
         },
         {
           to: ROUTES.deliveries,
           label: 'Livraisons Véhicules',
           icon: <Truck className="w-4 h-4" />,
-          badge: 2,
-          badgeVariant: 'success',
           module: 'deliveries',
         },
       ],
@@ -126,8 +119,6 @@ export const Sidebar: React.FC = () => {
           to: ROUTES.service,
           label: 'SAV & Ordres de Rép. (OR)',
           icon: <Wrench className="w-4 h-4" />,
-          badge: 3,
-          badgeVariant: 'primary',
           module: 'service',
         },
         {
@@ -140,8 +131,6 @@ export const Sidebar: React.FC = () => {
           to: ROUTES.parts,
           label: 'Pièces de Rechange (PR)',
           icon: <Package className="w-4 h-4" />,
-          badge: '2 Alertes',
-          badgeVariant: 'danger',
           module: 'parts',
         },
       ],
@@ -207,7 +196,7 @@ export const Sidebar: React.FC = () => {
         >
          
          
-          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='https://congolaise-automobile.com/wp-content/uploads/2024/11/Design-sans-titre-54-1024x725.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='https://congolaise-automobile.com/wp-content/uploads/2024/11/Design-sans-titre-54-1024x725.png'/></div>}
+          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='./images/logo-lca.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='./images/logo-lca.png'/></div>}
         </NavLink>
 
         {/* Mobile close button */}

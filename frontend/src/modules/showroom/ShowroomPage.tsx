@@ -1,357 +1,48 @@
-import React, { useState } from 'react';
-import {
-  Compass,
-  Plus,
-  Users,
-  Clock,
-  Car,
-  UserCheck,
-  CheckCircle2,
-  Phone,
-  ArrowRight,
-  Sparkles,
-} from 'lucide-react';
-import { useCreateShowroomVisit, useShowroomQuery, useShowroomStatus } from '../../api/erpHooks';
+import React, { useDeferredValue, useState } from 'react';
+import { Car, CheckCircle2, Clock, Plus, UserCheck, Users } from 'lucide-react';
+import { useCreateShowroomVisit, useShowroomActions, useShowroomBoardQuery, useShowroomDetection, useUsersQuery, useVehiclesQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
-import { ShowroomVisitor } from '../../types';
 
-export const ShowroomPage: React.FC = () => {
-  const showroomVisitors=useShowroomQuery().data??[]; const createVisit=useCreateShowroomVisit(); const showroomStatus=useShowroomStatus();
-  const { currentUser, currentAgency } = useAuthStore();
-  const { addToast, setActiveQuickActionModal } = useUiStore();
+const interests=['Achat Véhicule Neuf','Achat Occasion','Essai Véhicule','Reprise / Estimation','SAV / Atelier','Livraison'];
+const emptyForm={visitorName:'',phone:'',reason:'Achat Occasion',preferredModel:'',customerId:'',leadId:'',vehicleId:''};
 
-  const [isNewVisitorOpen, setIsNewVisitorOpen] = useState(false);
-  const [visitorForm, setVisitorForm] = useState({
-    visitorName: '',
-    phone: '',
-    interest: 'Achat Occasion' as ShowroomVisitor['interest'],
-    preferredModel: 'BMW X3 ou équivalent',
-  });
-
-  const waitingVisitors = showroomVisitors.filter((v) => v.status === 'En Attente');
-  const inProgressVisitors = showroomVisitors.filter((v) => v.status === 'En Entretien' || v.status === 'En Essai');
-  const completedVisitors = showroomVisitors.filter((v) => v.status === 'Terminé');
-
-  const handleAddVisitor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!visitorForm.visitorName) return;
-
-    try{await createVisit.mutateAsync({ visitorName: visitorForm.visitorName, phone: visitorForm.phone, reason: visitorForm.interest, assignedUserId: currentUser?.id, agencyId: currentAgency?.id });addToast({
-      type: 'success',
-      title: 'Visiteur enregistré à l’accueil',
-      description: `${visitorForm.visitorName} a été ajouté à la file d’attente showroom.`,
-    });
-
-    setVisitorForm({
-      visitorName: '',
-      phone: '',
-      interest: 'Achat Occasion',
-      preferredModel: '',
-    });
-    setIsNewVisitorOpen(false);}catch(error){addToast({type:'error',title:'Enregistrement impossible',description:error instanceof Error?error.message:'Erreur API'});}
-  };
-
-  const handleTakeOver = async (visitorId: string) => {
-    try{await showroomStatus.mutateAsync({id:visitorId,status:'in_progress'});addToast({
-      type: 'info',
-      title: 'Prise en charge validée',
-      description: `Vous avez pris en charge ce visiteur. Bon échange commercial !`,
-    });}catch(error){addToast({type:'error',title:'Action impossible',description:error instanceof Error?error.message:'Erreur API'});}
-  };
-
-  const handleStartTestDrive = async (visitorId: string) => {
-    try{await showroomStatus.mutateAsync({id:visitorId,status:'in_progress'});addToast({
-      type: 'warning',
-      title: 'Départ en Essai Routier',
-      description: 'Véhicule de démonstration mis à disposition. Fiche d’essai enregistrée.',
-    });}catch(error){addToast({type:'error',title:'Action impossible',description:error instanceof Error?error.message:'Erreur API'});}
-  };
-
-  const handleComplete = async (visitorId: string) => {
-    try{await showroomStatus.mutateAsync({id:visitorId,status:'completed'});addToast({
-      type: 'success',
-      title: 'Visite clôturée',
-      description: 'Vous pouvez maintenant créer une opportunité CRM ou un bon de commande.',
-    });}catch(error){addToast({type:'error',title:'Clôture impossible',description:error instanceof Error?error.message:'Erreur API'});}
-  };
-
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Gestion de l'Accueil & File d'Attente Showroom"
-        subtitle="Suivi des passages en concession, attribution automatique des conseillers et départs en essais routiers."
-        breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Commercial' }, { label: 'Showroom & Accueil' }]}
-        actions={
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus className="w-4 h-4" />}
-            onClick={() => setIsNewVisitorOpen(true)}
-          >
-            Enregistrer un Visiteur
-          </Button>
-        }
-      />
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-xs text-slate-500 font-medium">Visiteurs Aujourd'hui</span>
-          <div className="text-2xl font-bold text-slate-900 mt-1">{showroomVisitors.length}</div>
-          <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">Taux transfo estimé: 32%</span>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-xs text-slate-500 font-medium">En Attente Accueil</span>
-          <div className="text-2xl font-bold text-amber-600 mt-1">{waitingVisitors.length}</div>
-          <span className="text-[11px] text-slate-400 mt-1 block">Temps d'attente moyen : 4 min</span>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-xs text-slate-500 font-medium">Entretiens / Essais en Cours</span>
-          <div className="text-2xl font-bold text-blue-700 mt-1">{inProgressVisitors.length}</div>
-          <span className="text-[11px] text-blue-600 font-semibold mt-1 block">4 conseillers mobilisés</span>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-xs text-slate-500 font-medium">Visites Traitées ce Jour</span>
-          <div className="text-2xl font-bold text-emerald-600 mt-1">{completedVisitors.length}</div>
-          <span className="text-[11px] text-slate-400 mt-1 block">5 devis créés</span>
-        </div>
-      </div>
-
-      {/* Live Floor Board (3 Columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: WAITING */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" />
-              <span className="font-bold text-xs text-amber-900 uppercase tracking-wider">
-                1. En Attente d'un Conseiller ({waitingVisitors.length})
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {waitingVisitors.map((v) => (
-              <Card key={v.id} className="border-l-4 border-l-amber-500 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900">{v.visitorName}</h4>
-                    <span className="text-xs text-slate-500">{v.phone}</span>
-                  </div>
-                  <Badge variant="warning" size="sm">Attente: {v.waitTimeMinutes} min</Badge>
-                </div>
-
-                <div className="text-xs bg-slate-50 p-2.5 rounded-lg space-y-1">
-                  <div className="font-semibold text-blue-700">Motif : {v.interest}</div>
-                  {v.preferredModel && (
-                    <div className="text-slate-600">Véhicule ciblé : {v.preferredModel}</div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="text-[11px] text-slate-400">Arrivée : {v.arrivalDateTime}</span>
-                  <Button
-                    size="xs"
-                    variant="primary"
-                    icon={<UserCheck className="w-3.5 h-3.5" />}
-                    onClick={() => handleTakeOver(v.id)}
-                  >
-                    Prendre en Charge
-                  </Button>
-                </div>
-              </Card>
-            ))}
-
-            {waitingVisitors.length === 0 && (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400">
-                Aucun visiteur en attente. Le showroom est fluide !
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Column 2: IN PROGRESS */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-600" />
-              <span className="font-bold text-xs text-blue-900 uppercase tracking-wider">
-                2. Entretiens & Essais en Cours ({inProgressVisitors.length})
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {inProgressVisitors.map((v) => (
-              <Card
-                key={v.id}
-                className={`border-l-4 ${
-                  v.status === 'En Essai' ? 'border-l-purple-500 bg-purple-50/20' : 'border-l-blue-500'
-                } space-y-3`}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900">{v.visitorName}</h4>
-                    <span className="text-xs text-blue-700 font-semibold">Conseiller : {v.assignedRepName || currentUser.name}</span>
-                  </div>
-                  <Badge variant={v.status === 'En Essai' ? 'primary' : 'default'} size="sm">
-                    {v.status === 'En Essai' ? '🚗 En Essai' : 'En Entretien'}
-                  </Badge>
-                </div>
-
-                <div className="text-xs bg-slate-50 p-2.5 rounded-lg space-y-1">
-                  <div className="font-semibold text-slate-800">Projet : {v.interest}</div>
-                  {v.preferredModel && (
-                    <div className="text-slate-600">Modèle discuté : {v.preferredModel}</div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
-                  {v.status !== 'En Essai' && (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      icon={<Car className="w-3.5 h-3.5" />}
-                      onClick={() => handleStartTestDrive(v.id)}
-                    >
-                      Lancer Essai
-                    </Button>
-                  )}
-                  <Button
-                    size="xs"
-                    variant="success"
-                    icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                    onClick={() => handleComplete(v.id)}
-                  >
-                    Clôturer Visite
-                  </Button>
-                </div>
-              </Card>
-            ))}
-
-            {inProgressVisitors.length === 0 && (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400">
-                Aucun entretien en cours.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Column 3: COMPLETED */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span className="font-bold text-xs text-emerald-900 uppercase tracking-wider">
-                3. Visites Terminées ({completedVisitors.length})
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {completedVisitors.map((v) => (
-              <Card key={v.id} className="border-l-4 border-l-emerald-500 space-y-2 opacity-85">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900">{v.visitorName}</h4>
-                    <span className="text-[11px] text-slate-500">Conseiller : {v.assignedRepName || 'Non affecté'}</span>
-                  </div>
-                  <Badge variant="success" size="sm">Terminé</Badge>
-                </div>
-                <p className="text-xs text-slate-600">{v.interest} • {v.preferredModel}</p>
-                <div className="pt-2 border-t border-slate-100 flex justify-end">
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={() => setActiveQuickActionModal('lead')}
-                  >
-                    Créer Opportunité CRM →
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* New Visitor Modal */}
-      <Modal
-        isOpen={isNewVisitorOpen}
-        onClose={() => setIsNewVisitorOpen(false)}
-        title="Enregistrer un Visiteur Showroom"
-        description="Accueil physique en concession automobile."
-        maxWidth="md"
-      >
-        <form onSubmit={handleAddVisitor} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Nom et Prénom du Visiteur *</label>
-            <input
-              type="text"
-              required
-              value={visitorForm.visitorName}
-              onChange={(e) => setVisitorForm({ ...visitorForm, visitorName: e.target.value })}
-              placeholder="ex: Laurent Vasseur"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Téléphone de contact</label>
-            <input
-              type="tel"
-              value={visitorForm.phone}
-              onChange={(e) => setVisitorForm({ ...visitorForm, phone: e.target.value })}
-              placeholder="06 12 34 56 78"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Motif de la visite</label>
-            <select
-              value={visitorForm.interest}
-              onChange={(e) => setVisitorForm({ ...visitorForm, interest: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
-            >
-              <option value="Achat Véhicule Neuf">Achat Véhicule Neuf (VN)</option>
-              <option value="Achat Occasion">Achat Véhicule Occasion (VO)</option>
-              <option value="Essai Véhicule">Essai Véhicule / Démonstration</option>
-              <option value="Reprise / Estimation">Estimation & Reprise de véhicule</option>
-              <option value="SAV / Atelier">Rendez-vous SAV & Entretien Atelier</option>
-              <option value="Livraison">Réception & Livraison Véhicule Neuf</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Modèle d'intérêt / Véhicule ciblé</label>
-            <input
-              type="text"
-              value={visitorForm.preferredModel}
-              onChange={(e) => setVisitorForm({ ...visitorForm, preferredModel: e.target.value })}
-              placeholder="ex: BMW Série 3 Touring ou Peugeot 3008 GT"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-            <Button variant="outline" type="button" onClick={() => setIsNewVisitorOpen(false)}>
-              Annuler
-            </Button>
-            <Button variant="primary" type="submit">
-              Ajouter à la file d'attente
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    </div>
-  );
+export const ShowroomPage:React.FC=()=>{
+  const board=useShowroomBoardQuery(),createVisit=useCreateShowroomVisit(),actions=useShowroomActions(),users=useUsersQuery().data??[],vehicles=useVehiclesQuery({status:'available'}).data??[];
+  const currentAgency=useAuthStore(s=>s.currentAgency),addToast=useUiStore(s=>s.addToast);
+  const [newOpen,setNewOpen]=useState(false),[form,setForm]=useState(emptyForm),[completeId,setCompleteId]=useState(''),[outcome,setOutcome]=useState('follow_up'),[driveVisitId,setDriveVisitId]=useState(''),[drive,setDrive]=useState({vehicleId:'',licenseNumber:'',mileageOut:0}),[returnDrive,setReturnDrive]=useState({id:'',mileageIn:0,customerFeedback:''});
+  const detection=useShowroomDetection(useDeferredValue(form.phone));const visits=board.data?.visits??[],metrics=board.data?.metrics??{};
+  const waiting=visits.filter((v:any)=>v.status==='En Attente'||v.status==='Affecté'),progress=visits.filter((v:any)=>v.status==='En Entretien'||v.status==='En Essai'),completed=visits.filter((v:any)=>v.status==='Terminé');
+  const salesUsers=users.filter(user=>(user.roles?.length?user.roles:[user.role]).some(role=>['SALES_REP','SALES_MANAGER'].includes(role)));
+  const toastError=(title:string,error:unknown)=>addToast({type:'error',title,description:error instanceof Error?error.message:'Erreur API'});
+  const submit=async(event:React.FormEvent)=>{event.preventDefault();try{await createVisit.mutateAsync({...form,agencyId:currentAgency?.id,customerId:form.customerId||undefined,leadId:form.leadId||undefined,vehicleId:form.vehicleId||undefined});setForm(emptyForm);setNewOpen(false);addToast({type:'success',title:'Visiteur enregistré',description:'La file d’attente a été actualisée.'})}catch(error){toastError('Enregistrement impossible',error)}};
+  const takeOver=async(id:string)=>{try{await actions.takeOver.mutateAsync(id);addToast({type:'success',title:'Prise en charge confirmée',description:'Le chronomètre d’attente est arrêté.'})}catch(error){toastError('Prise en charge impossible',error)}};
+  const assign=async(id:string,assignedUserId:string)=>{if(!assignedUserId)return;try{await actions.assign.mutateAsync({id,assignedUserId});addToast({type:'success',title:'Conseiller affecté',description:'Le conseiller a reçu une notification.'})}catch(error){toastError('Affectation impossible',error)}};
+  const complete=async()=>{try{await actions.complete.mutateAsync({id:completeId,outcome});setCompleteId('');addToast({type:'success',title:'Visite clôturée',description:'Le résultat commercial a été enregistré.'})}catch(error){toastError('Clôture impossible',error)}};
+  const startDrive=async()=>{try{await actions.startDrive.mutateAsync({id:driveVisitId,...drive});setDriveVisitId('');addToast({type:'success',title:'Essai démarré',description:'Le véhicule et le kilométrage de départ sont enregistrés.'})}catch(error){toastError('Essai impossible',error)}};
+  const completeDrive=async()=>{try{await actions.completeDrive.mutateAsync(returnDrive);setReturnDrive({id:'',mileageIn:0,customerFeedback:''});addToast({type:'success',title:'Essai terminé',description:'Le kilométrage et l’avis client sont enregistrés.'})}catch(error){toastError('Retour impossible',error)}};
+  return <div className="space-y-6">
+    <PageHeader title="Showroom & Réception" subtitle="File d’attente, affectations commerciales et essais routiers en temps réel." breadcrumbs={[{label:'Accueil',href:'/dashboard'},{label:'Showroom & Réception'}]} actions={<Button size="sm" icon={<Plus className="w-4 h-4"/>} onClick={()=>setNewOpen(true)}>Enregistrer un visiteur</Button>}/>
+    {board.isLoading&&<div className="p-8 text-center text-sm text-slate-500">Chargement de la file…</div>}
+    {board.isError&&<div className="p-5 bg-red-50 border border-red-200 rounded-xl text-red-800"><strong>Showroom indisponible.</strong> {board.error instanceof Error?board.error.message:'Erreur API'} <Button size="xs" variant="outline" onClick={()=>board.refetch()}>Réessayer</Button></div>}
+    {!board.isError&&<><div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[['Visiteurs aujourd’hui',metrics.total??0],['En attente',metrics.waiting??0],['Attente moyenne',`${metrics.averageWaitMinutes??0} min`],['Transformation',`${metrics.conversionRate??0} %`]].map(([label,value])=><Card key={String(label)}><span className="text-xs text-slate-500">{label}</span><div className="text-2xl font-bold mt-1">{value}</div></Card>)}</div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <Column title={`En attente (${waiting.length})`} icon={<Clock className="w-4 h-4"/>}>{waiting.map((visit:any)=><VisitCard key={visit.id} visit={visit}><select aria-label="Affecter le conseiller" value={visit.assignedUserId||''} onChange={event=>void assign(visit.id,event.target.value)} className="text-xs border rounded p-1"><option value="">Affecter…</option>{salesUsers.map(user=><option key={user.id} value={user.id}>{user.name}</option>)}</select><Button size="xs" icon={<UserCheck className="w-3 h-3"/>} onClick={()=>takeOver(visit.id)}>Prendre en charge</Button><Button size="xs" variant="outline" onClick={async()=>{try{await actions.cancel.mutateAsync({id:visit.id,reason:'Départ du visiteur'});addToast({type:'success',title:'Visite annulée',description:'La file a été actualisée.'})}catch(error){toastError('Annulation impossible',error)}}}>Annuler</Button></VisitCard>)}</Column>
+      <Column title={`En cours (${progress.length})`} icon={<Users className="w-4 h-4"/>}>{progress.map((visit:any)=><VisitCard key={visit.id} visit={visit}>{visit.activeTestDriveId?<Button size="xs" variant="outline" icon={<Car className="w-3 h-3"/>} onClick={()=>setReturnDrive({id:visit.activeTestDriveId,mileageIn:visit.activeTestDriveMileage??0,customerFeedback:''})}>Retour d’essai</Button>:<Button size="xs" variant="outline" icon={<Car className="w-3 h-3"/>} disabled={!vehicles.length} onClick={()=>{setDriveVisitId(visit.id);setDrive(current=>({...current,vehicleId:visit.vehicleId||vehicles[0]?.id||'',mileageOut:vehicles.find(v=>v.id===(visit.vehicleId||vehicles[0]?.id))?.mileage??0}))}}>Lancer essai</Button>}<Button size="xs" disabled={Boolean(visit.activeTestDriveId)} onClick={()=>setCompleteId(visit.id)}>Clôturer</Button></VisitCard>)}</Column>
+      <Column title={`Terminées (${completed.length})`} icon={<CheckCircle2 className="w-4 h-4"/>}>{completed.map((visit:any)=><VisitCard key={visit.id} visit={visit}><Badge variant="success">{visit.outcome}</Badge>{!visit.leadId&&<Button size="xs" variant="outline" onClick={async()=>{try{const result=await actions.convert.mutateAsync({id:visit.id,title:visit.preferredModel});addToast({type:'success',title:'Prospect CRM créé',description:`Prospect #${result.leadId}`})}catch(error){toastError('Conversion impossible',error)}}}>Créer le prospect CRM</Button>}</VisitCard>)}</Column>
+    </div></>}
+    <Modal isOpen={newOpen} onClose={()=>setNewOpen(false)} title="Accueil d’un visiteur" description="Une recherche de doublons est lancée dès la saisie du téléphone." maxWidth="md"><form onSubmit={submit} className="space-y-3"><Input label="Nom et prénom *" required value={form.visitorName} onChange={value=>setForm({...form,visitorName:value})}/><Input label="Téléphone" value={form.phone} onChange={value=>setForm({...form,phone:value})}/>{detection.data&&<div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs"><strong>Correspondances :</strong> {detection.data.customers.length} client(s), {detection.data.leads.length} prospect(s), {detection.data.recentVisits.length} visite(s) récente(s).{detection.data.customers.map((customer:any)=><button type="button" key={customer.id} onClick={()=>setForm({...form,customerId:String(customer.id),visitorName:`${customer.first_name??''} ${customer.last_name??''}`.trim()})} className="block underline mt-1">Rattacher {customer.customer_code}</button>)}{detection.data.leads.map((lead:any)=><button type="button" key={lead.id} onClick={()=>setForm({...form,leadId:String(lead.id)})} className="block underline mt-1">Rattacher le prospect #{lead.id}</button>)}</div>}<label className="text-xs font-semibold block">Motif<select value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})} className="mt-1 w-full p-2.5 border rounded-lg">{interests.map(value=><option key={value}>{value}</option>)}</select></label><Input label="Modèle recherché" value={form.preferredModel} onChange={value=>setForm({...form,preferredModel:value})}/><label className="text-xs font-semibold block">Véhicule ciblé<select value={form.vehicleId} onChange={e=>setForm({...form,vehicleId:e.target.value})} className="mt-1 w-full p-2.5 border rounded-lg"><option value="">À définir</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.brand} {v.model} — {v.stockNumber}</option>)}</select></label><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={()=>setNewOpen(false)}>Annuler</Button><Button type="submit">Ajouter à la file</Button></div></form></Modal>
+    <Modal isOpen={Boolean(completeId)} onClose={()=>setCompleteId('')} title="Clôturer la visite" maxWidth="sm"><div className="space-y-3"><label className="text-xs font-semibold block">Résultat commercial<select value={outcome} onChange={e=>setOutcome(e.target.value)} className="mt-1 w-full p-2.5 border rounded-lg"><option value="follow_up">Relance à prévoir</option><option value="lead_created">Prospect créé</option><option value="quotation">Devis</option><option value="sale">Vente</option><option value="no_interest">Sans suite</option></select></label><Button className="w-full" onClick={complete}>Confirmer la clôture</Button></div></Modal>
+    <Modal isOpen={Boolean(driveVisitId)} onClose={()=>setDriveVisitId('')} title="Démarrer un essai routier" maxWidth="sm"><div className="space-y-3"><label className="text-xs font-semibold block">Véhicule<select value={drive.vehicleId} onChange={e=>{const vehicle=vehicles.find(v=>v.id===e.target.value);setDrive({...drive,vehicleId:e.target.value,mileageOut:vehicle?.mileage??0})}} className="mt-1 w-full p-2.5 border rounded-lg">{vehicles.map(v=><option key={v.id} value={v.id}>{v.brand} {v.model} — {v.stockNumber}</option>)}</select></label><Input label="Numéro du permis *" value={drive.licenseNumber} onChange={value=>setDrive({...drive,licenseNumber:value})}/><Input label="Kilométrage de départ" type="number" value={String(drive.mileageOut)} onChange={value=>setDrive({...drive,mileageOut:Number(value)})}/><Button className="w-full" disabled={!drive.vehicleId||!drive.licenseNumber} onClick={startDrive}>Démarrer l’essai</Button></div></Modal>
+    <Modal isOpen={Boolean(returnDrive.id)} onClose={()=>setReturnDrive({id:'',mileageIn:0,customerFeedback:''})} title="Retour d’essai routier" maxWidth="sm"><div className="space-y-3"><Input label="Kilométrage de retour *" type="number" value={String(returnDrive.mileageIn)} onChange={value=>setReturnDrive({...returnDrive,mileageIn:Number(value)})}/><Input label="Avis du client" value={returnDrive.customerFeedback} onChange={value=>setReturnDrive({...returnDrive,customerFeedback:value})}/><Button className="w-full" onClick={completeDrive}>Terminer l’essai</Button><Button className="w-full" variant="outline" onClick={async()=>{try{await actions.cancelDrive.mutateAsync({id:returnDrive.id,reason:'Essai annulé depuis le showroom'});setReturnDrive({id:'',mileageIn:0,customerFeedback:''})}catch(error){toastError('Annulation impossible',error)}}}>Annuler l’essai</Button></div></Modal>
+  </div>
 };
+
+const Column:React.FC<{title:string;icon:React.ReactNode;children:React.ReactNode}>=({title,icon,children})=><section className="space-y-3"><div className="p-3 bg-white border rounded-xl flex gap-2 items-center font-bold text-xs uppercase">{icon}{title}</div>{children}<div className="empty:before:content-['Aucune_visite'] empty:text-xs empty:text-slate-400 empty:p-6 empty:block empty:text-center empty:border empty:border-dashed empty:rounded-xl"/></section>;
+const VisitCard:React.FC<{visit:any;children:React.ReactNode}>=({visit,children})=><Card className="space-y-3"><div className="flex justify-between"><div><div className="font-bold">#{visit.queueNumber} · {visit.visitorName}</div><div className="text-xs text-slate-500">{visit.phone||'Sans téléphone'}</div></div><Badge variant={visit.status==='En Attente'?'warning':visit.status==='Terminé'?'success':'primary'}>{visit.status}</Badge></div><div className="text-xs bg-slate-50 rounded p-2">{visit.interest}{visit.preferredModel&&<div className="text-slate-500">Projet : {visit.preferredModel}</div>}{visit.assignedRepName&&<div>Conseiller : {visit.assignedRepName}</div>}<div>Attente : {visit.waitTimeMinutes} min</div></div><div className="flex gap-2 justify-end flex-wrap">{children}</div></Card>;
+const Input:React.FC<{label:string;value:string;onChange:(value:string)=>void;required?:boolean;type?:string}>=({label,value,onChange,required,type='text'})=><label className="text-xs font-semibold block">{label}<input type={type} required={required} value={value} onChange={e=>onChange(e.target.value)} className="mt-1 w-full p-2.5 border rounded-lg"/></label>;

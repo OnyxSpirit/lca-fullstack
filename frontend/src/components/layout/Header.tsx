@@ -9,17 +9,21 @@ import {
   Settings,
   ExternalLink,
   Menu,
+  LockKeyhole,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useNotificationActions, useNotificationsQuery } from '../../api/erpHooks';
+import { formatNotificationDate, useNotificationActions, useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { assetUrl } from '../../services/apiClient';
+import { useChangeMyPassword, useUploadMyAvatar } from '../../api/userHooks';
 
 export const Header: React.FC = () => {
   const { currentUser, currentAgency, allAgencies, setCurrentAgency, logout } = useAuthStore();
-  const notifications = useNotificationsQuery().data ?? [];
+  const notificationsQuery = useNotificationsQuery({page:1,pageSize:5});
+  const notifications = notificationsQuery.data?.items ?? [];
   const { markAsRead } = useNotificationActions();
   const {
     setGlobalSearchOpen,
@@ -27,12 +31,15 @@ export const Header: React.FC = () => {
     setMobileMenuOpen,
   } = useUiStore();
   const navigate = useNavigate();
+  const changePassword=useChangeMyPassword();
+  const uploadMyAvatar=useUploadMyAvatar();
+  const canViewSettings=useAuthStore((state)=>state.hasPermission('view','settings'));
 
   const [agencyDropdownOpen, setAgencyDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const unread = notifications.filter((notification) => !notification.isRead).length;
+  const unread = notificationsQuery.data?.unreadCount ?? 0;
   const recentNotifications = notifications.slice(0, 5);
 
   const todayFormatted = new Intl.DateTimeFormat('fr-FR', {
@@ -184,19 +191,15 @@ export const Header: React.FC = () => {
                     <div
                       key={notif.id}
                       onClick={() => {
-                        markAsRead(notif.id);
-                        if (notif.linkRoute) {
-                          navigate(notif.linkRoute);
-                          setNotifDropdownOpen(false);
-                        }
+                        void markAsRead.mutateAsync(notif.id).then(()=>{navigate(notif.linkRoute);setNotifDropdownOpen(false)}).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}));
                       }}
                       className={`p-3 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${
                         !notif.isRead ? 'bg-blue-50/40' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-slate-800">{notif.title}</span>
-                        <span className="text-[10px] text-slate-400">{notif.timestamp}</span>
+                        <span className="font-semibold text-slate-800">{notif.subject}</span>
+                        <span className="text-[10px] text-slate-400">{formatNotificationDate(notif.createdAt)}</span>
                       </div>
                       <p className="text-slate-600 leading-snug line-clamp-2">{notif.message}</p>
                     </div>
@@ -214,7 +217,7 @@ export const Header: React.FC = () => {
             className="flex items-center gap-2 p-1 rounded-full hover:ring-2 hover:ring-slate-200 transition-all cursor-pointer"
           >
             {currentUser.avatar ? <img
-              src={currentUser.avatar}
+              src={assetUrl(currentUser.avatar)}
               alt={currentUser.name}
               className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs"
             /> : <span className="w-8 h-8 rounded-full bg-[#8f1722] text-white grid place-items-center text-xs font-bold" aria-label={currentUser.name}>{currentUser.name.charAt(0)}</span>}
@@ -238,14 +241,16 @@ export const Header: React.FC = () => {
                 </div>
 
                 <div className="py-1">
-                  <Link
+                  <label className="w-full cursor-pointer px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><Plus className="w-4 h-4 text-slate-500"/>Changer ma photo<input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const updated=await uploadMyAvatar.mutateAsync(file);useAuthStore.getState().setCurrentUser({...currentUser,avatar:updated.avatar??''});setUserMenuOpen(false)}catch(error){useUiStore.getState().addToast({type:'error',title:'Photo refusée',description:error instanceof Error?error.message:'Erreur API'})}}}/></label>
+                  <button onClick={async()=>{const current=window.prompt('Mot de passe actuel');if(!current)return;const next=window.prompt('Nouveau mot de passe (8 caractères minimum)');if(!next)return;try{await changePassword.mutateAsync({currentPassword:current,newPassword:next});useUiStore.getState().addToast({type:'success',title:'Mot de passe modifié',description:'Vos sessions ont été révoquées. Reconnectez-vous.'});logout();navigate('/login',{replace:true})}catch(error){useUiStore.getState().addToast({type:'error',title:'Modification impossible',description:error instanceof Error?error.message:'Erreur API'})}}} className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><LockKeyhole className="w-4 h-4 text-slate-500"/>Changer mon mot de passe</button>
+                  {canViewSettings && <Link
                     to="/settings"
                     onClick={() => setUserMenuOpen(false)}
                     className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
                   >
                     <Settings className="w-4 h-4 text-slate-500" />
                     Paramètres concession
-                  </Link>
+                  </Link>}
 
                   <Link
                     to="/login"

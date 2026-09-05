@@ -1,0 +1,3 @@
+import { Type } from 'class-transformer';import { IsArray,IsNumber,IsOptional,IsString,Min,ValidateNested } from 'class-validator';
+export class QuoteItemDto{@IsOptional()@IsString()vehicleId?:string;@IsString()description!:string;@IsNumber()@Min(.01)quantity!:number;@IsNumber()@Min(0)unitPrice!:number;@IsOptional()@IsNumber()@Min(0)discount?:number;@IsOptional()@IsNumber()@Min(0)taxRate?:number;}
+export class CreateQuotationDto{@IsString()customerId!:string;@IsString()agencyId!:string;@IsOptional()@IsString()opportunityId?:string;@IsOptional()@IsString()validUntil?:string;@IsOptional()@IsString()notes?:string;@IsArray()@ValidateNested({each:true})@Type(()=>QuoteItemDto)items!:QuoteItemDto[];}

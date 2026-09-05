@@ -1,390 +1,70 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Wrench,
-  Printer,
-  CheckCircle2,
-  Receipt,
-  User,
-  Car,
-  Clock,
-  Plus,
-  Trash2,
-  ShieldCheck,
-  Fuel,
-  Package,
-} from 'lucide-react';
-import { useAddRepairItem, useAssignRepairOrder, useCreateInvoice, usePartsQuery, useRepairDetailQuery, useRepairOrdersQuery, useRepairStatusMutation, useTechniciansQuery } from '../../api/erpHooks';
-import { repairOrderStatusToDb } from '../../services/mysqlStatusMap';
-import { useUiStore } from '../../stores/uiStore';
-import { PageHeader } from '../../components/common/PageHeader';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Card, CardHeader, CardTitle } from '../../components/ui/Card';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { RepairOrderStatus } from '../../types';
-import { formatCurrency } from '../../lib/utils';
-import { openBusinessPdf } from '../../services/businessPdf';
+import React,{useEffect,useRef,useState}from'react';
+import{useNavigate,useParams}from'react-router-dom';
+import{ArrowLeft,Clock,Play,Printer,Receipt,Square,Trash2}from'lucide-react';
+import{useAddRepairItem,useAssignRepairOrder,useInvoiceRepairOrder,usePartDetailQuery,usePartsQuery,useRepairDetailQuery,useRepairOrderActions,useRepairStatusMutation,useTechniciansQuery,useWorkshopBaysQuery}from'../../api/erpHooks';
+import{useWorkshopConfigQuery}from'../../api/settingHooks';
+import{repairOrderStatusToDb}from'../../services/mysqlStatusMap';
+import{useAuthStore}from'../../stores/authStore';
+import{useUiStore}from'../../stores/uiStore';
+import{PageHeader}from'../../components/common/PageHeader';
+import{Button}from'../../components/ui/Button';
+import{Badge}from'../../components/ui/Badge';
+import{Card,CardHeader,CardTitle}from'../../components/ui/Card';
+import{StatusBadge}from'../../components/common/StatusBadge';
+import{formatCurrency}from'../../lib/utils';
+import{openBusinessPdf}from'../../services/businessPdf';
+import type{RepairOrderStatus}from'../../types';
 
-export const RepairOrderDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const repairOrdersQuery=useRepairOrdersQuery(),repairOrders=repairOrdersQuery.data??[],spareParts=usePartsQuery().data??[]; const detailQuery=useRepairDetailQuery(id); const repairStatus=useRepairStatusMutation(); const createInvoice=useCreateInvoice();
-  const { addToast } = useUiStore();
+const transitions:Partial<Record<RepairOrderStatus,RepairOrderStatus[]>>={PLANIFIE:['RECEPTIONNE'],RECEPTIONNE:['DIAGNOSTIC'],DIAGNOSTIC:['ATTENTE_VALIDATION'],ATTENTE_VALIDATION:['EN_COURS'],EN_COURS:['CONTROLE_QUALITE'],CONTROLE_QUALITE:['PRET'],LIVRE:['CLOTURE']};
+const labels:Record<RepairOrderStatus,string>={PLANIFIE:'Réceptionner',RECEPTIONNE:'Passer au diagnostic',DIAGNOSTIC:'Demander la validation',ATTENTE_VALIDATION:'Démarrer les travaux',EN_COURS:'Passer au contrôle qualité',CONTROLE_QUALITE:'Marquer prêt',PRET:'Prêt',FACTURE:'Facturé',LIVRE:'Clôturer l’OR',CLOTURE:'Clôturé'};
+const field='w-full rounded-md border border-slate-300 p-2 text-sm';
 
-  const summary = repairOrders.find((o) => o.id === id); const raw=detailQuery.data;
-  const repairOrder = summary ? {...summary,diagnosticNotes:raw?.diagnosis_summary??summary.diagnosticNotes,estimatedTotalTTC:Number(raw?.estimated_total??summary.estimatedTotalTTC),finalTotalTTC:Number(raw?.actual_total??summary.finalTotalTTC),operations:(raw?.items??[]).filter((item:any)=>item.item_type==='labor').map((item:any)=>({id:String(item.id),code:`MO-${item.id}`,description:item.description,estimatedHours:Number(item.quantity),actualHours:Number(item.quantity),hourlyRateHT:Number(item.unit_price),status:'Planifie'})),parts:(raw?.items??[]).filter((item:any)=>item.item_type==='part').map((item:any)=>({partId:String(item.part_id),partReference:item.part_reference??'',description:item.description,quantity:Number(item.quantity),unitPriceHT:Number(item.unit_price)}))} : undefined;
+const SignaturePad:React.FC<{value?:string;onChange:(value:string)=>void}>=({value,onChange})=>{const ref=useRef<HTMLCanvasElement>(null),drawing=useRef(false);useEffect(()=>{const canvas=ref.current;if(!canvas)return;canvas.width=canvas.clientWidth*2;canvas.height=160;const context=canvas.getContext('2d');if(context){context.scale(2,2);context.lineWidth=2;context.lineCap='round'}if(value){const image=new Image();image.onload=()=>context?.drawImage(image,0,0,canvas.clientWidth,80);image.src=value}},[]);const point=(event:React.PointerEvent<HTMLCanvasElement>)=>{const rect=event.currentTarget.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top}};return <div><canvas ref={ref} className="h-20 w-full touch-none rounded border bg-white" onPointerDown={e=>{drawing.current=true;const p=point(e),c=ref.current?.getContext('2d');c?.beginPath();c?.moveTo(p.x,p.y)}} onPointerMove={e=>{if(!drawing.current)return;const p=point(e),c=ref.current?.getContext('2d');c?.lineTo(p.x,p.y);c?.stroke()}} onPointerUp={()=>{drawing.current=false;if(ref.current)onChange(ref.current.toDataURL('image/png'))}}/><button type="button" className="text-xs underline" onClick={()=>{const c=ref.current;c?.getContext('2d')?.clearRect(0,0,c.width,c.height);onChange('')}}>Effacer</button></div>};
 
-  const [activeTab, setActiveTab] = useState<'operations' | 'parts' | 'reception' | 'diagnostic'>('operations');
-  const [selectedPartRef, setSelectedPartRef] = useState(spareParts[0]?.reference || '');
-  const [partQty, setPartQty] = useState(1);
-  const [laborDescription,setLaborDescription]=useState('');const[laborHours,setLaborHours]=useState(1);const[laborRate,setLaborRate]=useState(35000);const addItem=useAddRepairItem();
-  const technicians=useTechniciansQuery().data??[];const assign=useAssignRepairOrder();const[technicianId,setTechnicianId]=useState('');const[startsAt,setStartsAt]=useState('');const[endsAt,setEndsAt]=useState('');
-  useEffect(()=>{if(!selectedPartRef&&spareParts[0])setSelectedPartRef(spareParts[0].reference)},[spareParts,selectedPartRef]);
-  useEffect(()=>{if(!technicianId&&technicians[0])setTechnicianId(String(technicians[0].id))},[technicians,technicianId]);
+export const RepairOrderDetailPage:React.FC=()=>{
+ const{id}=useParams<{id:string}>(),navigate=useNavigate(),agencyId=useAuthStore(s=>s.currentAgency?.id),{addToast}=useUiStore();
+ const detail=useRepairDetailQuery(id),ro=detail.data,technicians=useTechniciansQuery(agencyId).data??[],bays=useWorkshopBaysQuery(agencyId).data??[],parts=usePartsQuery(agencyId).data??[],workshopConfig=useWorkshopConfigQuery(agencyId).data;
+ const statusMutation=useRepairStatusMutation(),actions=useRepairOrderActions(),invoiceMutation=useInvoiceRepairOrder(),addItem=useAddRepairItem(),assign=useAssignRepairOrder();
+ const[selectedPartId,setSelectedPartId]=useState(''),[partStockId,setPartStockId]=useState(''),[partQuantity,setPartQuantity]=useState(1),selectedPart=parts.find(p=>p.id===selectedPartId),partDetail=usePartDetailQuery(selectedPartId||undefined,agencyId).data;
+ const[inspection,setInspection]=useState({fuelLevel:'',cleanliness:'',bodyworkDamage:'',itemsInVehicle:'',mileage:'',observations:'',customerSignature:''});
+ const[diagnostic,setDiagnostic]=useState({technicianId:'',diagnosis:'',recommendations:'',estimatedHours:1});
+ const[approval,setApproval]=useState({approved:true,approvedAmount:0,customerName:'',signatureData:'',notes:''});
+ const[intervention,setIntervention]=useState({technicianId:'',description:'',interventionType:'Réparation',plannedHours:1,rateCode:'T1'});
+ const[labor,setLabor]=useState({interventionId:'',description:'',quantity:1,rateCode:'T1'});
+ const[schedule,setSchedule]=useState({technicianId:'',bayId:'',interventionId:'',startsAt:'',endsAt:''});
+ const[qControl,setQControl]=useState({plannedWorkCompleted:false,defectCorrected:false,roadTestPerformed:false,noLeaks:false,levelsChecked:false,cleanlinessChecked:false,result:'passed',reason:'',observations:''});
+ const[handover,setHandover]=useState({customerName:'',mileageOut:'',observations:'',signatureData:''});
+ useEffect(()=>{if(parts[0]&&!selectedPartId)setSelectedPartId(parts[0].id)},[parts,selectedPartId]);useEffect(()=>{const stocks=partDetail?.stocks??[];setPartStockId(stocks.length===1?stocks[0].id:'')},[partDetail]);useEffect(()=>{if(!ro)return;setApproval(x=>({...x,customerName:x.customerName||ro.customerName,approvedAmount:x.approvedAmount||ro.estimatedTotalTTC}));setHandover(x=>({...x,customerName:x.customerName||ro.customerName,mileageOut:x.mileageOut||String(ro.mileage)}));if(ro.inspection)setInspection({fuelLevel:ro.inspection.fuelLevel,cleanliness:ro.inspection.cleanliness,bodyworkDamage:ro.inspection.bodyworkDamage,itemsInVehicle:ro.inspection.itemsInVehicle,mileage:String(ro.inspection.mileage??ro.mileage),observations:ro.inspection.observations,customerSignature:ro.inspection.customerSignature})},[ro?.id]);
+ const ok=(title:string)=>addToast({type:'success',title,description:'Les données SAV ont été enregistrées.'}),fail=(title:string,error:unknown)=>addToast({type:'error',title,description:error instanceof Error?error.message:'Erreur API'});
+ const submit=async(mutation:{mutateAsync:(value:any)=>Promise<unknown>},value:any,title:string)=>{try{await mutation.mutateAsync(value);ok(title)}catch(error){fail(title,error)}};
+ if(detail.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement de l’ordre de réparation…</div>;
+ if(detail.isError||!ro)return <div className="p-8 text-center"><p className="mb-4 text-rose-700">{detail.error instanceof Error?detail.error.message:'OR introuvable'}</p><Button variant="outline" onClick={()=>navigate('/service')}>Retour</Button></div>;
+ const locked=['CONTROLE_QUALITE','PRET','FACTURE','LIVRE','CLOTURE'].includes(ro.status),latestQc=ro.qualityControls?.[0],nextTransitions=ro.status==='CONTROLE_QUALITE'?(latestQc?.result==='passed'?['PRET' as RepairOrderStatus]:[]):(transitions[ro.status]??[]),runningByIntervention=(interventionId:string)=>ro.sessions?.find(s=>s.interventionId===interventionId&&s.status==='running');
+ const changeStatus=async(next:RepairOrderStatus)=>{const status=repairOrderStatusToDb[next];if(!status){fail('Transition impossible',new Error(`Aucun statut backend pour ${next}`));return;}await submit(statusMutation,{id:ro.id,status},`Statut : ${next}`)};
+ const reserve=async(direct=false)=>{if(!selectedPart||!partStockId){fail('Pièce',new Error('Sélectionnez une pièce et son emplacement'));return;}if(direct)await submit(addItem,{repairOrderId:ro.id,itemType:'part',partId:selectedPart.id,partStockId,description:selectedPart.name,quantity:partQuantity,unitPrice:selectedPart.sellingPriceHT,taxRate:selectedPart.tvaRate},'Pièce consommée');else await submit(actions.reservePart,{repairOrderId:ro.id,partId:selectedPart.id,partStockId,quantity:partQuantity},'Pièce réservée')};
+ return <div className="space-y-5">
+  <PageHeader title={`Ordre de réparation ${ro.orNumber}`} subtitle={`${ro.customerName} · ${ro.vehicleModel} · ${ro.vehiclePlate||ro.vehicleVin}`} breadcrumbs={[{label:'SAV',href:'/service'},{label:ro.orNumber}]} badge={<StatusBadge status={ro.status} type="or"/>} actions={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" icon={<ArrowLeft className="h-4 w-4"/>} onClick={()=>navigate('/service')}>Retour</Button><Button variant="outline" size="sm" icon={<Printer className="h-4 w-4"/>} onClick={()=>openBusinessPdf('repair_order',ro.id).catch(e=>fail('PDF',e))}>Imprimer</Button>{nextTransitions.map(next=><Button key={next} size="sm" onClick={()=>changeStatus(next)} loading={statusMutation.isPending}>{labels[ro.status]}</Button>)}</div>}/>
+  <Card><div className="grid gap-3 text-sm md:grid-cols-4"><div><span className="text-slate-500">Client</span><p className="font-semibold">{ro.customerName}</p></div><div><span className="text-slate-500">Kilométrage entrée</span><p className="font-semibold">{ro.mileage}</p></div><div><span className="text-slate-500">Garantie</span><p className="font-semibold">{ro.warrantyCovered?`Oui · ${ro.warrantyReference}`:'Non'}</p></div><div><span className="text-slate-500">Total estimé TTC</span><p className="font-semibold">{formatCurrency(ro.estimatedTotalTTC)}</p></div></div><p className="mt-3 rounded bg-amber-50 p-3 text-sm">{ro.symptomsReported}</p></Card>
 
-  if (repairOrdersQuery.isLoading || detailQuery.isLoading) return <div className="p-8 text-sm text-slate-500">Chargement de l’ordre de réparation…</div>;
-  if (!repairOrder || detailQuery.isError) {
-    return (
-      <div className="p-8 text-center">
-        <p className="text-slate-500 mb-4">Ordre de réparation introuvable.</p>
-        <Button variant="outline" onClick={() => navigate('/service')}>
-          Retour au SAV
-        </Button>
-      </div>
-    );
-  }
+  <Card><CardHeader><CardTitle>Réception véhicule</CardTitle></CardHeader><form onSubmit={e=>{e.preventDefault();void submit(actions.inspection,{repairOrderId:ro.id,...inspection,mileage:Number(inspection.mileage)},'Réception enregistrée')}} className="grid gap-3 md:grid-cols-2"><input required className={field} placeholder="Niveau carburant" value={inspection.fuelLevel} onChange={e=>setInspection({...inspection,fuelLevel:e.target.value})}/><input required className={field} placeholder="État de propreté" value={inspection.cleanliness} onChange={e=>setInspection({...inspection,cleanliness:e.target.value})}/><textarea className={field} placeholder="Dommages carrosserie" value={inspection.bodyworkDamage} onChange={e=>setInspection({...inspection,bodyworkDamage:e.target.value})}/><textarea className={field} placeholder="Objets présents" value={inspection.itemsInVehicle} onChange={e=>setInspection({...inspection,itemsInVehicle:e.target.value})}/><input className={field} type="number" min="0" placeholder="Kilométrage" value={inspection.mileage} onChange={e=>setInspection({...inspection,mileage:e.target.value})}/><textarea className={field} placeholder="Observations" value={inspection.observations} onChange={e=>setInspection({...inspection,observations:e.target.value})}/><div className="md:col-span-2"><span className="text-xs font-semibold">Signature client</span><SignaturePad value={inspection.customerSignature} onChange={customerSignature=>setInspection({...inspection,customerSignature})}/></div><Button type="submit" disabled={!['PLANIFIE','RECEPTIONNE'].includes(ro.status)}>Enregistrer l’inspection</Button></form></Card>
 
-  const handleStatusChange = async (newStatus: RepairOrderStatus) => {
-    const status=repairOrderStatusToDb[newStatus]; try { if(status) await repairStatus.mutateAsync({id:repairOrder.id,status}); addToast({
-      type: 'success',
-      title: 'Statut OR mis à jour',
-      description: `L'ordre de réparation passe au statut ${newStatus}.`,
-    }); }catch(error){addToast({type:'error',title:'Transition impossible',description:error instanceof Error?error.message:'Erreur API'});}
-  };
+  <Card><CardHeader><CardTitle>Diagnostic</CardTitle></CardHeader><form onSubmit={e=>{e.preventDefault();void submit(actions.diagnostic,{repairOrderId:ro.id,...diagnostic},'Diagnostic enregistré')}} className="grid gap-3 md:grid-cols-2"><select className={field} value={diagnostic.technicianId} onChange={e=>setDiagnostic({...diagnostic,technicianId:e.target.value})}><option value="">Technicien non précisé</option>{technicians.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select><input className={field} type="number" min="0" step="0.1" value={diagnostic.estimatedHours} onChange={e=>setDiagnostic({...diagnostic,estimatedHours:Number(e.target.value)})}/><textarea required className={field} placeholder="Diagnostic" value={diagnostic.diagnosis} onChange={e=>setDiagnostic({...diagnostic,diagnosis:e.target.value})}/><textarea className={field} placeholder="Recommandations" value={diagnostic.recommendations} onChange={e=>setDiagnostic({...diagnostic,recommendations:e.target.value})}/><Button type="submit" disabled={!['RECEPTIONNE','DIAGNOSTIC'].includes(ro.status)}>Enregistrer</Button></form><div className="mt-4 space-y-2">{ro.diagnostics?.map(d=><div key={d.id} className="rounded border p-3 text-sm"><b>{d.diagnosis}</b><p>{d.recommendations}</p><small>{d.estimatedHours} h · {d.diagnosedAt}</small></div>)}</div></Card>
 
-  const handleGenerateInvoice = async () => {
-    const totalHT = (repairOrder.finalTotalTTC || 400) / 1.2;
-    const totalTVA = totalHT * 0.2;
-    const totalTTC = repairOrder.finalTotalTTC || 400;
+  <Card><CardHeader><CardTitle>Validation client</CardTitle></CardHeader><form onSubmit={e=>{e.preventDefault();void submit(actions.approval,{repairOrderId:ro.id,...approval},approval.approved?'Travaux validés':'Travaux refusés')}} className="grid gap-3 md:grid-cols-2"><input required className={field} value={approval.customerName} onChange={e=>setApproval({...approval,customerName:e.target.value})} placeholder="Nom du client"/><input className={field} type="number" min="0" value={approval.approvedAmount} onChange={e=>setApproval({...approval,approvedAmount:Number(e.target.value)})}/><textarea className={field} value={approval.notes} onChange={e=>setApproval({...approval,notes:e.target.value})} placeholder="Notes"/><div><SignaturePad onChange={signatureData=>setApproval({...approval,signatureData})}/></div><div className="flex gap-2"><Button type="submit" variant="danger" onClick={()=>setApproval({...approval,approved:false})} disabled={ro.status!=='ATTENTE_VALIDATION'}>Refuser</Button><Button type="submit" variant="success" onClick={()=>setApproval({...approval,approved:true})} disabled={ro.status!=='ATTENTE_VALIDATION'}>Valider les travaux</Button></div></form><div className="mt-4 space-y-2">{ro.approvals?.map(a=><div key={a.id} className="rounded border p-3 text-sm"><Badge variant={a.approved?'success':'danger'}>{a.approved?'Accepté':'Refusé'}</Badge> {a.customerName} · {a.approvedAmount==null?'—':formatCurrency(a.approvedAmount)} · {a.recordedAt}</div>)}</div></Card>
 
-    try { await createInvoice.mutateAsync({
-      invoiceType: 'workshop',
-      customerId: repairOrder.customerId,
-      agencyId: repairOrder.agencyId,
-      repairOrderId: repairOrder.id,
-      issueDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-      items: [{ description: `Intervention atelier ${repairOrder.orNumber}`, quantity: 1, unitPrice: totalHT, taxRate: 20 }],
-    });
+  <Card><CardHeader><CardTitle>Interventions techniques et pointage</CardTitle></CardHeader><form onSubmit={e=>{e.preventDefault();void submit(actions.intervention,{repairOrderId:ro.id,...intervention},'Intervention créée')}} className="grid gap-3 md:grid-cols-6"><input required className={`${field} md:col-span-2`} placeholder="Description" value={intervention.description} onChange={e=>setIntervention({...intervention,description:e.target.value})}/><select className={field} value={intervention.technicianId} onChange={e=>setIntervention({...intervention,technicianId:e.target.value})}><option value="">Technicien</option>{technicians.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select><select className={field} value={intervention.rateCode} onChange={e=>setIntervention({...intervention,rateCode:e.target.value})}>{(["T1","T2","T3","T4"] as const).map(code=><option key={code} value={code}>{code} · {(workshopConfig?.rates[code]??0).toLocaleString("fr-CG")} XAF/h</option>)}</select><input className={field} type="number" min="0.1" step="0.1" value={intervention.plannedHours} onChange={e=>setIntervention({...intervention,plannedHours:Number(e.target.value)})}/><Button type="submit" disabled={locked}>Créer</Button></form><div className="mt-4 space-y-2">{ro.interventions?.map(i=>{const running=runningByIntervention(i.id);return <div key={i.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-3 text-sm"><div><b>{i.description}</b><p>{i.technicianName||'Non affecté'} · prévu {i.plannedHours} h · réel {i.actualHours} h · écart {(i.actualHours-i.plannedHours).toFixed(2)} h</p><Badge>{i.status}</Badge></div><div className="flex gap-2">{ro.status==='EN_COURS'&&!running&&!['completed','cancelled'].includes(i.status)&&<Button size="xs" icon={<Play className="h-3 w-3"/>} onClick={()=>submit(actions.startSession,{repairOrderId:ro.id,interventionId:i.id,technicianId:i.technicianId},'Session démarrée')} disabled={!i.technicianId}>Démarrer</Button>}{running&&<Button size="xs" variant="danger" icon={<Square className="h-3 w-3"/>} onClick={()=>submit(actions.stopSession,{repairOrderId:ro.id,sessionId:running.id},'Session arrêtée')}>Terminer session</Button>}{i.status==='in_progress'&&!running&&<Button size="xs" variant="success" onClick={()=>submit(actions.interventionStatus,{repairOrderId:ro.id,interventionId:i.id,status:'completed'},'Intervention terminée')}>Marquer terminée</Button>}</div></div>})}</div></Card>
 
-    await handleStatusChange('FACTURE');
+  <Card><CardHeader><CardTitle>Affectation atelier</CardTitle></CardHeader><form onSubmit={e=>{e.preventDefault();void submit(assign,{repairOrderId:ro.id,...schedule,startsAt:schedule.startsAt.replace('T',' '),endsAt:schedule.endsAt.replace('T',' ')},'Affectation enregistrée')}} className="grid gap-3 md:grid-cols-5"><select required className={field} value={schedule.interventionId} onChange={e=>setSchedule({...schedule,interventionId:e.target.value})}><option value="">Intervention</option>{ro.interventions?.filter(i=>!['completed','cancelled'].includes(i.status)).map(i=><option key={i.id} value={i.id}>{i.description}</option>)}</select><select required className={field} value={schedule.technicianId} onChange={e=>setSchedule({...schedule,technicianId:e.target.value})}><option value="">Technicien</option>{technicians.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select><select className={field} value={schedule.bayId} onChange={e=>setSchedule({...schedule,bayId:e.target.value})}><option value="">Sans pont</option>{bays.filter(b=>b.status==='available').map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select><input required className={field} type="datetime-local" value={schedule.startsAt} onChange={e=>setSchedule({...schedule,startsAt:e.target.value})}/><input required className={field} type="datetime-local" value={schedule.endsAt} onChange={e=>setSchedule({...schedule,endsAt:e.target.value})}/><Button type="submit" disabled={locked}>Affecter</Button></form></Card>
 
-    addToast({
-      type: 'success',
-      title: 'Facture Atelier générée !',
-      description: `Facture de ${formatCurrency(totalTTC)} TTC émise pour ${repairOrder.customerName}.`,
-    });
+  <Card><CardHeader><CardTitle>Pièces et main-d’œuvre</CardTitle></CardHeader><div className="grid gap-3 md:grid-cols-4"><select className={`${field} md:col-span-2`} value={selectedPartId} onChange={e=>setSelectedPartId(e.target.value)}>{parts.map(p=><option key={p.id} value={p.id}>{p.reference} · {p.name} · disponible {p.availableStock}</option>)}</select><select className={field} value={partStockId} onChange={e=>setPartStockId(e.target.value)}><option value="">Emplacement</option>{partDetail?.stocks?.map(s=><option key={s.id} value={s.id}>{s.locationName} · {s.availableStock}</option>)}</select><input className={field} type="number" min="1" value={partQuantity} onChange={e=>setPartQuantity(Number(e.target.value))}/><Button onClick={()=>reserve(false)} disabled={locked}>Réserver</Button><Button variant="outline" onClick={()=>reserve(true)} disabled={ro.status!=='EN_COURS'}>Consommer directement</Button></div><h3 className="mt-5 font-semibold">Réservations</h3>{ro.reservations?.map(p=><div key={p.id} className="flex items-center justify-between border-b py-2 text-sm"><span>{p.partReference} · {p.partName} · {p.quantity} · {p.locationName}</span><div className="flex gap-2"><Badge>{p.status}</Badge>{p.status==='reserved'&&<><Button size="xs" onClick={()=>submit(actions.reservationStatus,{repairOrderId:ro.id,reservationId:p.id,status:'consumed'},'Réservation consommée')} disabled={ro.status!=='EN_COURS'}>Consommer</Button><Button size="xs" variant="outline" onClick={()=>submit(actions.reservationStatus,{repairOrderId:ro.id,reservationId:p.id,status:'released'},'Réservation libérée')}>Libérer</Button></>}</div></div>)}<h3 className="mt-5 font-semibold">Lignes consommées</h3>{ro.parts.map(p=><div key={p.id} className="flex items-center justify-between border-b py-2 text-sm"><span>{p.partReference} · {p.quantity} × {formatCurrency(p.unitPriceHT)}</span>{!locked&&<div className="flex gap-2"><Button size="xs" variant="outline" onClick={()=>{const value=window.prompt('Nouvelle quantité',String(p.quantity));if(value)void submit(actions.updateItem,{repairOrderId:ro.id,itemId:p.id,quantity:Number(value)},'Quantité corrigée')}}>Corriger</Button><Button size="xs" variant="danger" icon={<Trash2 className="h-3 w-3"/>} onClick={()=>{if(window.confirm('Annuler cette ligne et restaurer le stock ?'))void submit(actions.cancelItem,{repairOrderId:ro.id,itemId:p.id},'Ligne annulée')}}>Annuler</Button></div>}</div>)}</Card>
 
-    navigate('/billing'); }catch(error){addToast({type:'error',title:'Facturation impossible',description:error instanceof Error?error.message:'Erreur API'});}
-  };
-  const addLabor=async(e:React.FormEvent)=>{e.preventDefault();try{await addItem.mutateAsync({repairOrderId:id,itemType:'labor',description:laborDescription,quantity:laborHours,unitPrice:laborRate,taxRate:18.9});setLaborDescription('');addToast({type:'success',title:'Opération ajoutée',description:'La main-d’œuvre a été enregistrée sur l’OR.'})}catch(error){addToast({type:'error',title:'Ajout impossible',description:error instanceof Error?error.message:'Erreur API'})}};
-  const addPart=async(e:React.FormEvent)=>{e.preventDefault();const part=spareParts.find(p=>p.reference===selectedPartRef);if(!part)return;try{await addItem.mutateAsync({repairOrderId:id,itemType:'part',partId:part.id,description:part.name,quantity:partQty,unitPrice:part.sellingPriceHT,taxRate:part.tvaRate});addToast({type:'success',title:'Pièce ajoutée',description:'La pièce a été consommée et le stock mis à jour.'})}catch(error){addToast({type:'error',title:'Ajout impossible',description:error instanceof Error?error.message:'Erreur API'})}};
-  const schedule=async(e:React.FormEvent)=>{e.preventDefault();try{await assign.mutateAsync({repairOrderId:id,technicianId,startsAt:new Date(startsAt).toISOString(),endsAt:new Date(endsAt).toISOString()});addToast({type:'success',title:'Technicien affecté',description:'L’intervention apparaît maintenant dans le planning atelier.'})}catch(error){addToast({type:'error',title:'Affectation impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  {ro.status==='CONTROLE_QUALITE'&&<Card><CardHeader><CardTitle>Contrôle qualité</CardTitle></CardHeader><div className="grid gap-2 md:grid-cols-2">{[['plannedWorkCompleted','Travaux prévus réalisés'],['defectCorrected','Défaut corrigé'],['roadTestPerformed','Essai routier effectué'],['noLeaks','Absence de fuite'],['levelsChecked','Niveaux contrôlés'],['cleanlinessChecked','Nettoyage / propreté']].map(([key,label])=><label key={key} className="flex gap-2 text-sm"><input type="checkbox" checked={Boolean(qControl[key as keyof typeof qControl])} onChange={e=>setQControl({...qControl,[key]:e.target.checked})}/>{label}</label>)}</div><textarea className={`${field} mt-3`} placeholder="Observations" value={qControl.observations} onChange={e=>setQControl({...qControl,observations:e.target.value})}/><input className={`${field} mt-3`} placeholder="Motif obligatoire si refus" value={qControl.reason} onChange={e=>setQControl({...qControl,reason:e.target.value})}/><div className="mt-3 flex gap-2"><Button variant="danger" onClick={()=>submit(actions.qualityControl,{repairOrderId:ro.id,...qControl,result:'failed'},'Contrôle refusé')}>Refuser</Button><Button variant="success" onClick={()=>submit(actions.qualityControl,{repairOrderId:ro.id,...qControl,result:'passed'},'Contrôle validé')}>Valider</Button>{latestQc?.result==='failed'&&<Button variant="outline" onClick={()=>changeStatus('EN_COURS')}>Retour en travaux</Button>}</div></Card>}
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title={`Ordre de Réparation : ${repairOrder.orNumber}`}
-        subtitle={`Client : ${repairOrder.customerName} • Véhicule : ${repairOrder.vehicleModel} (${repairOrder.vehiclePlate})`}
-        breadcrumbs={[
-          { label: 'Accueil', href: '/dashboard' },
-          { label: 'Après-Vente', href: '/service' },
-          { label: repairOrder.orNumber },
-        ]}
-        badge={<StatusBadge status={repairOrder.status} type="or" />}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={repairOrder.status}
-              onChange={(e) => handleStatusChange(e.target.value as RepairOrderStatus)}
-              className="text-xs font-bold p-2 rounded-lg border border-slate-300 bg-white focus:outline-none"
-            >
-              <option value="PLANIFIE">Statut : Planifié</option>
-              <option value="RECEPTIONNE">Statut : Réceptionné</option>
-              <option value="DIAGNOSTIC">Statut : En diagnostic</option>
-              <option value="EN_COURS">Statut : Travaux en cours</option>
-              <option value="CONTROLE_QUALITE">Statut : Contrôle qualité</option>
-              <option value="PRET_FACTURATION">Statut : Prêt à facturer</option>
-              <option value="FACTURE">Statut : Facturé</option>
-              <option value="CLOTURE">Statut : Clôturé</option>
-            </select>
+  <Card><CardHeader><CardTitle>Facturation, remise et clôture</CardTitle></CardHeader>{ro.invoice?<p className="mb-3 text-sm">Facture {ro.invoice.invoiceNumber} · HT {formatCurrency(ro.invoice.subtotal)} · TVA {formatCurrency(ro.invoice.taxTotal)} · TTC {formatCurrency(ro.invoice.total)}</p>:<p className="mb-3 text-sm">Total estimé TTC : {formatCurrency(ro.estimatedTotalTTC)}</p>}{ro.status==='PRET'&&<Button icon={<Receipt className="h-4 w-4"/>} onClick={()=>submit(invoiceMutation,{repairOrderId:ro.id},'Facture atelier générée')}>Générer facture atelier</Button>}{ro.status==='FACTURE'&&<form onSubmit={e=>{e.preventDefault();void submit(actions.handover,{repairOrderId:ro.id,...handover,mileageOut:Number(handover.mileageOut)},'Véhicule remis')}} className="grid gap-3 md:grid-cols-2"><input required className={field} placeholder="Nom du client" value={handover.customerName} onChange={e=>setHandover({...handover,customerName:e.target.value})}/><input required className={field} type="number" min={ro.mileage} value={handover.mileageOut} onChange={e=>setHandover({...handover,mileageOut:e.target.value})}/><textarea className={field} placeholder="Observations" value={handover.observations} onChange={e=>setHandover({...handover,observations:e.target.value})}/><SignaturePad onChange={signatureData=>setHandover({...handover,signatureData})}/><Button type="submit">Remettre le véhicule</Button></form>}{ro.handover&&<p className="text-sm text-emerald-700">Remis à {ro.handover.customerName} le {ro.handover.handedOverAt}, kilométrage {ro.handover.mileageOut??'—'}.</p>}</Card>
 
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Printer className="w-4 h-4" />}
-              onClick={() => openBusinessPdf('repair_order',repairOrder.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}
-            >
-              Imprimer OR
-            </Button>
-
-            {repairOrder.status !== 'FACTURE' && repairOrder.status !== 'CLOTURE' && (
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Receipt className="w-4 h-4" />}
-                onClick={handleGenerateInvoice}
-              >
-                Générer Facture Atelier
-              </Button>
-            )}
-          </div>
-        }
-      />
-
-      <Card><CardHeader><CardTitle>Affectation au planning</CardTitle></CardHeader><form onSubmit={schedule} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end"><label className="text-xs font-semibold">Technicien<select required value={technicianId} onChange={e=>setTechnicianId(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 p-2">{technicians.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label className="text-xs font-semibold">Début<input required type="datetime-local" value={startsAt} onChange={e=>setStartsAt(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 p-2"/></label><label className="text-xs font-semibold">Fin<input required type="datetime-local" value={endsAt} onChange={e=>setEndsAt(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 p-2"/></label><Button type="submit" loading={assign.isPending} disabled={!technicianId||!startsAt||!endsAt}>Affecter</Button></form></Card>
-
-      {/* Top Details Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Informations Dossier & Réception Atelier</CardTitle>
-          </CardHeader>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="space-y-2">
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Client</span>
-                <span className="font-bold text-slate-900">{repairOrder.customerName}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Téléphone</span>
-                <span className="font-semibold text-slate-800">{repairOrder.customerPhone}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Conseiller SAV</span>
-                <span className="font-semibold text-slate-800">{repairOrder.advisorName}</span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-500">Date RDV</span>
-                <span className="font-semibold text-slate-800">{repairOrder.appointmentDate}</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Véhicule</span>
-                <span className="font-bold text-slate-900">{repairOrder.vehicleModel}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Immatriculation / VIN</span>
-                <span className="font-mono font-bold text-slate-800">{repairOrder.vehiclePlate}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Technicien / Pont</span>
-                <span className="font-semibold text-slate-800">{repairOrder.technicianName} ({repairOrder.bayNumber})</span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-500">Garantie Constructeur</span>
-                <Badge variant={repairOrder.warrantyCovered ? 'success' : 'default'} size="sm">
-                  {repairOrder.warrantyCovered ? 'Prise en charge' : 'Facturation Client'}
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs">
-            <span className="font-bold text-amber-900 block mb-1">Motif de visite / Symptômes signalés :</span>
-            <p className="text-amber-800">{repairOrder.symptomsReported}</p>
-          </div>
-        </Card>
-
-        {/* Financial Recap Box */}
-        <Card className="flex flex-col justify-between">
-          <div>
-            <CardHeader>
-              <CardTitle>Totalisation Atelier SAV</CardTitle>
-            </CardHeader>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Total Main d'Œuvre HT</span>
-                <span className="font-semibold text-slate-800">
-                  {formatCurrency(
-                    repairOrder.operations.reduce((acc, op) => acc + op.estimatedHours * op.hourlyRateHT, 0)
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">Total Pièces Détachées HT</span>
-                <span className="font-semibold text-slate-800">
-                  {formatCurrency(
-                    repairOrder.parts.reduce((acc, p) => acc + p.quantity * p.unitPriceHT, 0)
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">TVA (20%)</span>
-                <span className="font-semibold text-slate-800">
-                  {formatCurrency((repairOrder.finalTotalTTC || 380) * 0.2 / 1.2)}
-                </span>
-              </div>
-              <div className="flex justify-between py-2 font-bold text-base text-slate-900 border-t border-slate-200">
-                <span>Total TTC Final</span>
-                <span className="text-blue-700">{formatCurrency(repairOrder.finalTotalTTC || 380)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100">
-            {repairOrder.courtesyCarAssigned && (
-              <div className="p-2.5 bg-blue-50 text-blue-900 rounded-lg text-xs flex items-center gap-2 mb-3">
-                <Car className="w-4 h-4 text-blue-600" />
-                <span>Véhicule de prêt : <strong>{repairOrder.courtesyCarAssigned}</strong></span>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Tabs for Operations & Parts */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
-        {[
-          { key: 'operations', label: `Main d'Œuvre & Barèmes (${repairOrder.operations.length})` },
-          { key: 'parts', label: `Pièces de Rechange Consommées (${repairOrder.parts.length})` },
-          { key: 'reception', label: 'Checklist État Véhicule' },
-          { key: 'diagnostic', label: 'Rapport Diagnostic' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === tab.key
-                ? 'border-blue-600 text-blue-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* TAB 1: OPERATIONS */}
-      {activeTab === 'operations' && (
-        <div className="space-y-4"><Card><form onSubmit={addLabor} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end"><label className="md:col-span-2 text-xs font-semibold">Opération<input required value={laborDescription} onChange={e=>setLaborDescription(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 p-2" placeholder="Diagnostic, vidange…"/></label><label className="text-xs font-semibold">Heures<input required min="0.1" step="0.1" type="number" value={laborHours} onChange={e=>setLaborHours(Number(e.target.value))} className="mt-1 w-full rounded-md border border-slate-300 p-2"/></label><div><label className="text-xs font-semibold">Tarif horaire XAF<input required min="0" type="number" value={laborRate} onChange={e=>setLaborRate(Number(e.target.value))} className="mt-1 w-full rounded-md border border-slate-300 p-2"/></label><Button className="mt-2 w-full" type="submit" loading={addItem.isPending}>Ajouter</Button></div></form></Card><Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
-                <tr>
-                  <th className="py-2.5 px-4">Code Opération</th>
-                  <th className="py-2.5 px-4">Description Travaux</th>
-                  <th className="py-2.5 px-4">Temps Barème (h)</th>
-                  <th className="py-2.5 px-4">Temps Passé (h)</th>
-                  <th className="py-2.5 px-4">Taux Horaire HT</th>
-                  <th className="py-2.5 px-4">Total HT</th>
-                  <th className="py-2.5 px-4">Statut Opération</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {repairOrder.operations.map((op) => (
-                  <tr key={op.id}>
-                    <td className="py-3 px-4 font-mono font-bold text-slate-800">{op.code}</td>
-                    <td className="py-3 px-4 font-medium text-slate-900">{op.description}</td>
-                    <td className="py-3 px-4 font-semibold">{op.estimatedHours} h</td>
-                    <td className="py-3 px-4">{op.actualHours} h</td>
-                    <td className="py-3 px-4">{formatCurrency(op.hourlyRateHT)}/h</td>
-                    <td className="py-3 px-4 font-bold text-blue-700">
-                      {formatCurrency(op.estimatedHours * op.hourlyRateHT)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge variant={op.status === 'Termine' ? 'success' : op.status === 'En_Cours' ? 'warning' : 'default'} size="sm">
-                        {op.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card></div>
-      )}
-
-      {/* TAB 2: SPARE PARTS */}
-      {activeTab === 'parts' && (
-        <div className="space-y-4"><Card><form onSubmit={addPart} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end"><label className="md:col-span-2 text-xs font-semibold">Pièce<select required value={selectedPartRef} onChange={e=>setSelectedPartRef(e.target.value)} className="mt-1 w-full rounded-md border border-slate-300 p-2">{spareParts.map(p=><option key={p.id} value={p.reference}>{p.reference} — {p.name} — stock {p.stockQuantity}</option>)}</select></label><label className="text-xs font-semibold">Quantité<input required min="1" type="number" value={partQty} onChange={e=>setPartQty(Number(e.target.value))} className="mt-1 w-full rounded-md border border-slate-300 p-2"/></label><Button type="submit" loading={addItem.isPending}>Ajouter à l’OR</Button></form></Card><Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
-                <tr>
-                  <th className="py-2.5 px-4">Référence Pièce</th>
-                  <th className="py-2.5 px-4">Désignation</th>
-                  <th className="py-2.5 px-4">Quantité</th>
-                  <th className="py-2.5 px-4">Prix Unitaire HT</th>
-                  <th className="py-2.5 px-4">Total HT</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {repairOrder.parts.map((p, idx) => (
-                  <tr key={idx}>
-                    <td className="py-3 px-4 font-mono font-bold text-blue-700">{p.partReference}</td>
-                    <td className="py-3 px-4 font-medium text-slate-900">{p.description}</td>
-                    <td className="py-3 px-4 font-bold">{p.quantity}</td>
-                    <td className="py-3 px-4">{formatCurrency(p.unitPriceHT)}</td>
-                    <td className="py-3 px-4 font-bold text-blue-700">{formatCurrency(p.quantity * p.unitPriceHT)}</td>
-                  </tr>
-                ))}
-                {repairOrder.parts.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-slate-400">
-                      Aucune pièce détachée ajoutée à cet OR.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card></div>
-      )}
-
-      {/* TAB 3: RECEPTION CHECKLIST */}
-      {activeTab === 'reception' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>État des Lieux à la Réception du Véhicule</CardTitle>
-          </CardHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-500 font-medium block mb-1">Niveau Carburant</span>
-              <div className="font-bold text-slate-900">{repairOrder.receptionChecklist.fuelLevel}</div>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-500 font-medium block mb-1">État de Propreté</span>
-              <div className="font-bold text-slate-900">{repairOrder.receptionChecklist.cleanliness}</div>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-500 font-medium block mb-1">Dommages Carrosserie Constatés</span>
-              <div className="font-bold text-slate-900">{repairOrder.receptionChecklist.bodyworkDamage}</div>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-500 font-medium block mb-1">Objets & Documents laissés à bord</span>
-              <div className="font-bold text-slate-900">{repairOrder.receptionChecklist.itemsInVehicle}</div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* TAB 4: DIAGNOSTIC */}
-      {activeTab === 'diagnostic' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes de Diagnostic & Constatations Mécanicien</CardTitle>
-          </CardHeader>
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs leading-relaxed text-slate-800">
-            {repairOrder.diagnosticNotes || 'Diagnostic en cours par le technicien assigné.'}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
+  <Card><CardHeader><CardTitle>Main-d’œuvre facturable</CardTitle></CardHeader><form onSubmit={e=>{e.preventDefault();void submit(addItem,{repairOrderId:ro.id,itemType:'labor',...labor,interventionId:labor.interventionId||undefined},'Main-d’œuvre ajoutée')}} className="grid gap-3 md:grid-cols-5"><select className={field} value={labor.interventionId} onChange={e=>setLabor({...labor,interventionId:e.target.value})}><option value="">Sans intervention liée</option>{ro.interventions?.map(i=><option key={i.id} value={i.id}>{i.description}</option>)}</select><input required className={`${field} md:col-span-2`} placeholder="Description" value={labor.description} onChange={e=>setLabor({...labor,description:e.target.value})}/><input className={field} type="number" min="0.1" step="0.1" value={labor.quantity} onChange={e=>setLabor({...labor,quantity:Number(e.target.value)})}/><select className={field} value={labor.rateCode} onChange={e=>setLabor({...labor,rateCode:e.target.value})}>{(["T1","T2","T3","T4"] as const).map(code=><option key={code} value={code}>{code} · {(workshopConfig?.rates[code]??0).toLocaleString("fr-CG")} XAF/h</option>)}</select><Button type="submit" disabled={locked}>Ajouter</Button></form></Card>
+  <Card><CardHeader><CardTitle>Lignes de main-d’œuvre</CardTitle></CardHeader>{ro.laborItems?.map(item=><div key={item.id} className="flex items-center justify-between border-b py-2 text-sm"><span>{item.description} · {item.quantity} h × {formatCurrency(item.unitPrice)} · TVA {item.taxRate}%</span>{!locked&&<div className="flex gap-2"><Button size="xs" variant="outline" onClick={()=>{const value=window.prompt('Nouveau nombre d’heures',String(item.quantity));if(value)void submit(actions.updateItem,{repairOrderId:ro.id,itemId:item.id,quantity:Number(value)},'Main-d’œuvre corrigée')}}>Corriger</Button><Button size="xs" variant="danger" onClick={()=>{if(window.confirm('Annuler cette ligne de main-d’œuvre ?'))void submit(actions.cancelItem,{repairOrderId:ro.id,itemId:item.id},'Main-d’œuvre annulée')}}>Annuler</Button></div>}</div>)}</Card>
+  <Card><CardHeader><CardTitle>Historique du dossier</CardTitle></CardHeader><div className="space-y-3">{ro.history?.map(h=><div key={h.id} className="border-l-2 border-[#8f1722] pl-3 text-sm"><b>{h.oldStatus?`${h.oldStatus} → ${h.newStatus}`:h.newStatus}</b><p>{h.reason||'Transition normale'} · {h.changedByName||'Système'} · {h.changedAt}</p></div>)}</div></Card>
+  {!locked&&<Card><CardHeader><CardTitle>Annulation sensible</CardTitle></CardHeader><Button variant="danger" onClick={()=>{const reason=window.prompt("Motif obligatoire d'annulation");if(reason)void submit(statusMutation,{id:ro.id,status:'cancelled',reason},'OR annulé')}}>Annuler l’OR</Button></Card>}
+ </div>;
 };

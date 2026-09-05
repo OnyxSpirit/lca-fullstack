@@ -34,7 +34,7 @@ import {
 } from 'recharts';
 import { useAuthStore } from '../../stores/authStore';
 import { useDeliveriesQuery, useInvoicesQuery, useLeadsQuery, useRepairOrdersQuery, useSalesQuery, useShowroomQuery, useVehiclesQuery } from '../../api/erpHooks';
-import { useNotificationsQuery } from '../../api/erpHooks';
+import { useNotificationActions, useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { StatCard } from '../../components/common/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
@@ -46,7 +46,7 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 export const DashboardPage: React.FC = () => {
   const { currentUser, currentAgency } = useAuthStore();
   const leads=useLeadsQuery().data??[],vehicles=useVehiclesQuery().data??[],repairOrders=useRepairOrdersQuery().data??[],sales=useSalesQuery().data??[],deliveries=useDeliveriesQuery().data??[],invoices=useInvoicesQuery().data??[],showroomVisitors=useShowroomQuery().data??[];
-  const notifications=useNotificationsQuery().data??[];
+  const notificationsQuery=useNotificationsQuery({page:1,pageSize:4}),notifications=notificationsQuery.data?.items??[],notificationActions=useNotificationActions();
   const { setActiveQuickActionModal } = useUiStore();
   const navigate = useNavigate();
 
@@ -282,12 +282,12 @@ export const DashboardPage: React.FC = () => {
                 Alertes Critiques
               </h3>
               <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full font-bold border border-red-500/30">
-                {notifications.filter(n=>!n.isRead).length} non lues
+                {notificationsQuery.data?.unreadCount??0} non lues
               </span>
             </div>
 
             <div className="space-y-3.5 flex-1 overflow-y-auto">
-              {notifications.slice(0,4).map(notification=><div key={notification.id} onClick={()=>navigate(notification.linkRoute||'/notifications')} className="flex gap-3 items-start border-l-2 border-[#8f1722] pl-3 py-1 cursor-pointer hover:bg-slate-800/50 rounded-r transition-colors"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{notification.title}</p><p className="text-[11px] text-slate-400 truncate">{notification.message}</p></div></div>)}
+              {notifications.map(notification=><div key={notification.id} onClick={()=>{const go=()=>navigate(notification.linkRoute);if(notification.isRead)go();else void notificationActions.markAsRead.mutateAsync(notification.id).then(go).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}))}} className="flex gap-3 items-start border-l-2 border-[#8f1722] pl-3 py-1 cursor-pointer hover:bg-slate-800/50 rounded-r transition-colors"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{notification.subject}</p><p className="text-[11px] text-slate-400 truncate">{notification.message}</p></div></div>)}
               {!notifications.length&&<p className="text-xs text-slate-400">Aucune alerte enregistrée.</p>}
             </div>
 

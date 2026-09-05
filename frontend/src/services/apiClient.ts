@@ -1,5 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api';
-export const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
+import { refreshRealtimeToken } from './realtime';
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+export const API_ORIGIN = API_URL.startsWith('http') ? API_URL.replace(/\/api\/?$/, '') : '';
 export const assetUrl = (value?: string | null) => value ? (/^https?:\/\//.test(value) ? value : `${API_ORIGIN}${value}`) : '';
 
 export class ApiError extends Error {
@@ -33,11 +34,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       const refreshed = await refreshResponse.json() as { accessToken: string; refreshToken: string };
       localStorage.setItem('lca-access-token', refreshed.accessToken);
       localStorage.setItem('lca-refresh-token', refreshed.refreshToken);
+      refreshRealtimeToken(refreshed.accessToken);
       response = await send(path, init, refreshed.accessToken);
     } else {
       localStorage.removeItem('lca-access-token');
       localStorage.removeItem('lca-refresh-token');
-      localStorage.removeItem('lca-auth');
+      localStorage.removeItem('lca-auth-user');
       window.dispatchEvent(new Event('lca:session-expired'));
     }
   }
@@ -51,4 +53,4 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   return response.json() as Promise<T>;
 }
 
-export async function apiDownload(path:string):Promise<Blob>{const token=localStorage.getItem('lca-access-token');const response=await fetch(`${API_URL}${path}`,{headers:token?{Authorization:`Bearer ${token}`}:{}});if(!response.ok)throw new ApiError(response.status,'Téléchargement impossible');return response.blob()}
+export async function apiDownload(path:string):Promise<Blob>{const token=localStorage.getItem('lca-access-token');const response=await fetch(`${API_URL}${path}`,{headers:token?{Authorization:`Bearer ${token}`}:{}});if(!response.ok){const payload=await response.json().catch(()=>null)as{message?:string}|null;throw new ApiError(response.status,payload?.message??'Téléchargement impossible')}return response.blob()}

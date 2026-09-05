@@ -1,0 +1,107 @@
+x-logging: &default-logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE requis}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER requis}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requis}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requis}
+    expose: ["3306"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/mysql.cnf:/etc/mysql/conf.d/lca.cnf:ro
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+      # Le schéma consolidé intègre 003 à 016, mais pas 001, 002 ni 017.
+      - ./backend/database/migrations/001_refresh_tokens.sql:/docker-entrypoint-initdb.d/002-refresh-tokens.sql:ro
+      - ./backend/database/migrations/002_global_settings_scope.sql:/docker-entrypoint-initdb.d/003-global-settings.sql:ro
+      - ./backend/database/migrations/017_concession_settings.sql:/docker-entrypoint-initdb.d/004-settings.sql:ro
+      - ./backend-node/database/migrations/001_sales_stabilization.sql:/docker-entrypoint-initdb.d/005-sales.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    mem_limit: 1500m
+    logging: *default-logging
+    networks: [private]
+
+  backend:
+    build: { context: ./backend-node, dockerfile: Dockerfile }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL requis}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:?MYSQL_USER requis}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requis}
+      DB_NAME: ${MYSQL_DATABASE:?MYSQL_DATABASE requis}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET requis}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      UPLOAD_DIR: /app/uploads
+      GED_STORAGE_DIR: /app/ged-storage
+    expose: ["3001"]
+    volumes: [uploads_data:/app/uploads, ged_data:/app/ged-storage]
+    depends_on:
+      mysql: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 768m
+    init: true
+    logging: *default-logging
+    networks: [private]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args: { VITE_API_URL: /api }
+    restart: unless-stopped
+    ports: ["${HTTP_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:80"]
+    depends_on:
+      backend: { condition: service_healthy }
+    mem_limit: 128m
+    logging: *default-logging
+    networks: [private, public]
+
+  seed-admin:
+    profiles: [tools]
+    build: { context: ./backend-node, dockerfile: Dockerfile }
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:?MYSQL_USER requis}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requis}
+      DB_NAME: ${MYSQL_DATABASE:?MYSQL_DATABASE requis}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET requis}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@lca.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD requis pour seed-admin}
+    command: ["node", "dist/scripts/seed-admin.js"]
+    depends_on:
+      mysql: { condition: service_healthy }
+    networks: [private]
+
+networks:
+  public:
+  private: { internal: true }
+
+volumes:
+  mysql_data: { name: lca_mysql_data }
+  uploads_data: { name: lca_uploads_data }
+  ged_data: { name: lca_ged_data }

@@ -1,130 +1,31 @@
-import React from 'react';
+import React, { useDeferredValue, useState } from 'react';
+import { CalendarDays, CheckCircle2, Clock, Printer, Search, Truck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Truck,
-  Calendar,
-  Clock,
-  Car,
-  User,
-  CheckCircle2,
-  FileCheck,
-  Printer,
-  Sparkles,
-  MapPin,
-} from 'lucide-react';
-import { useDeliveriesQuery } from '../../api/erpHooks';
-import { NewDeliveryModal } from './NewDeliveryModal';
-import { openBusinessPdf } from '../../services/businessPdf';
-import { useUiStore } from '../../stores/uiStore';
+import { useDeliveriesQuery, useDeliveryStatsQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Card, CardHeader, CardTitle } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 import { formatDate } from '../../lib/utils';
+import { openBusinessPdf, openDeliveryPlanningPdf } from '../../services/businessPdf';
+import { useUiStore } from '../../stores/uiStore';
+import { NewDeliveryModal } from './NewDeliveryModal';
 
-export const DeliveriesPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [newOpen, setNewOpen] = React.useState(false);
-  const addToast=useUiStore(s=>s.addToast);
-  const deliveries = useDeliveriesQuery().data ?? [];
-
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Planning des Livraisons & Mises en Main"
-        subtitle="Organisation des rendez-vous de livraison, préparation esthétique et procès-verbaux de mise à la route."
-        breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Commercial' }, { label: 'Livraisons' }]}
-        actions={
-          <div className="flex gap-2"><Button size="sm" onClick={() => setNewOpen(true)}>Planifier une livraison</Button><Button
-            variant="outline"
-            size="sm"
-            icon={<Printer className="w-4 h-4" />}
-            onClick={() => window.print()}
-          >
-            Imprimer Planning Jour
-          </Button></div>
-        }
-      />
-
-      {/* Grid of Planned Deliveries */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {deliveries.map((del) => (
-          <Card
-            key={del.id}
-            className={`flex flex-col justify-between ${
-              del.status === 'LIVRE_SIGNE' ? 'border-emerald-200 bg-emerald-50/20' : 'border-blue-200'
-            }`}
-          >
-            <div className="space-y-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <Badge variant={del.status === 'LIVRE_SIGNE' ? 'success' : 'primary'} size="sm">
-                    {del.status === 'LIVRE_SIGNE' ? 'Livré au client' : 'Rendez-vous'}
-                  </Badge>
-                  <div className="text-sm font-bold text-slate-900 mt-1 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-blue-600" />
-                    {formatDate(del.deliveryDate)} {del.deliveryTimeSlot}
-                  </div>
-                </div>
-                <span className="font-mono text-xs text-slate-400 font-semibold">{del.saleNumber}</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 text-xs">
-                <div className="font-bold text-slate-900 text-sm">{del.customerName}</div>
-                <div className="text-slate-500">{del.customerPhone}</div>
-                <div className="font-semibold text-blue-700 pt-1 border-t border-slate-200/60">
-                  {del.vehicleLabel}
-                </div>
-                <div className="font-mono text-[11px] text-slate-500">Immat : {del.vehiclePlate || '—'}</div>
-              </div>
-
-              {/* Checklist */}
-              <div className="space-y-1.5 text-xs">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Checklist Préparation Concession
-                </span>
-                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                  <div className="flex items-center gap-1.5 text-slate-700">
-                    <CheckCircle2 className={`w-3.5 h-3.5 ${del.checklist.aestheticCheck ? 'text-emerald-600' : 'text-slate-300'}`} />
-                    <span>Prépa esthétique</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-700">
-                    <CheckCircle2 className={`w-3.5 h-3.5 ${del.checklist.accessoriesFitted ? 'text-emerald-600' : 'text-slate-300'}`} />
-                    <span>Plaques posées</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-700">
-                    <CheckCircle2 className={`w-3.5 h-3.5 ${del.checklist.customerHandoverBriefing ? 'text-emerald-600' : 'text-slate-300'}`} />
-                    <span>Double des clés</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-700">
-                    <CheckCircle2 className={`w-3.5 h-3.5 ${del.checklist.documentsComplete ? 'text-emerald-600' : 'text-slate-300'}`} />
-                    <span>Dossier complet</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[11px] text-slate-500">Conseiller : {del.salesRepName?.split(' ')[0] || '—'}</span>
-              {del.status !== 'LIVRE_SIGNE' ? (
-                <Button
-                  size="xs"
-                  variant="success"
-                  icon={<FileCheck className="w-3.5 h-3.5" />}
-                  onClick={() => navigate(`/deliveries/${del.id}`)}
-                >
-                  Ouvrir la livraison
-                </Button>
-              ) : (
-                <Button size="xs" variant="outline" onClick={() => openBusinessPdf('delivery',del.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>
-                  Voir PV Signé
-                </Button>
-              )}
-            </div>
-          </Card>
-        ))}
-      </div>
-      <NewDeliveryModal isOpen={newOpen} onClose={() => setNewOpen(false)} />
-    </div>
-  );
+export const DeliveriesPage:React.FC=()=>{
+  const navigate=useNavigate(),addToast=useUiStore(s=>s.addToast);
+  const [newOpen,setNewOpen]=useState(false),[search,setSearch]=useState(''),[status,setStatus]=useState(''),[date,setDate]=useState(new Date().toISOString().slice(0,10));
+  const list=useDeliveriesQuery({search:useDeferredValue(search),status}),stats=useDeliveryStatsQuery(),deliveries=list.data??[];
+  const error=(title:string,value:unknown)=>addToast({type:'error',title,description:value instanceof Error?value.message:'Erreur API'});
+  return <div className="space-y-6">
+    <PageHeader title="Livraisons véhicules" subtitle="Planification, préparation qualité, remise client et traçabilité." breadcrumbs={[{label:'Accueil',href:'/dashboard'},{label:'Livraisons'}]} actions={<div className="flex gap-2"><Button size="sm" onClick={()=>setNewOpen(true)}>Planifier</Button><Button size="sm" variant="outline" icon={<Printer className="w-4 h-4"/>} onClick={()=>openDeliveryPlanningPdf(date).catch(value=>error('Planning indisponible',value))}>Planning PDF</Button></div>}/>
+    {stats.isError&&<ErrorBox error={stats.error} retry={()=>stats.refetch()}/>}
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">{[['Total',stats.data?.total??0,Truck],['Planifiées',stats.data?.planned??0,CalendarDays],['En préparation',stats.data?.preparing??0,Clock],['Prêtes',stats.data?.ready??0,CheckCircle2],['Livrées',stats.data?.delivered??0,CheckCircle2]].map(([label,value,Icon]:any)=><Card key={label}><Icon className="w-4 h-4 text-[#8f1722]"/><div className="text-2xl font-bold mt-2">{value}</div><div className="text-xs text-slate-500">{label}</div></Card>)}</div>
+    <Card className="flex flex-col md:flex-row gap-3"><label className="relative flex-1"><Search className="absolute left-3 top-3 w-4 h-4 text-slate-400"/><input aria-label="Rechercher une livraison" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Client, téléphone, VIN, immatriculation…" className="w-full border rounded-lg py-2.5 pl-9 pr-3 text-sm"/></label><select aria-label="Filtrer par statut" value={status} onChange={e=>setStatus(e.target.value)} className="border rounded-lg px-3 text-sm"><option value="">Tous les statuts</option><option value="planned">Planifiées</option><option value="preparing">Préparation</option><option value="quality_control">Contrôle qualité</option><option value="ready">Prêtes</option><option value="delivered">Livrées</option><option value="cancelled">Annulées</option></select><input aria-label="Date du planning PDF" type="date" value={date} onChange={e=>setDate(e.target.value)} className="border rounded-lg px-3 text-sm"/></Card>
+    {list.isLoading&&<div className="p-10 text-center text-sm text-slate-500">Chargement des livraisons…</div>}
+    {list.isError&&<ErrorBox error={list.error} retry={()=>list.refetch()}/>}
+    {!list.isLoading&&!list.isError&&<div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">{deliveries.map((item:any)=><Card key={item.id} className="space-y-4"><div className="flex justify-between"><div><div className="font-bold">{item.deliveryNumber}</div><div className="text-xs text-slate-500">{formatDate(item.deliveryDate)} {item.deliveryTimeSlot}</div></div><Badge variant={item.status==='LIVRE_SIGNE'?'success':item.status==='REPORTE'?'danger':'primary'}>{item.status.replaceAll('_',' ')}</Badge></div><div className="bg-slate-50 rounded-lg p-3 text-sm"><strong>{item.customerName}</strong><div className="text-xs text-slate-500">{item.customerPhone}</div><div className="mt-2 text-xs font-semibold">{item.vehicleLabel}</div><div className="font-mono text-[11px]">{item.vehicleVin}</div></div><div className="text-xs"><div className="flex justify-between"><span>Checklist</span><strong>{item.checklistProgress?.completed??0}/{item.checklistProgress?.total??0}</strong></div><div className="h-1.5 bg-slate-100 rounded mt-1"><div className="h-full bg-[#8f1722] rounded" style={{width:`${item.checklistProgress?.total?item.checklistProgress.completed/item.checklistProgress.total*100:0}%`}}/></div></div><div className="flex justify-end gap-2"><Button size="xs" variant="outline" onClick={()=>openBusinessPdf('delivery',item.id).catch(value=>error('PV indisponible',value))}>PV</Button><Button size="xs" onClick={()=>navigate(`/deliveries/${item.id}`)}>Ouvrir</Button></div></Card>)}{!deliveries.length&&<div className="col-span-full border border-dashed rounded-xl p-12 text-center text-sm text-slate-500">Aucune livraison ne correspond aux filtres.</div>}</div>}
+    <NewDeliveryModal isOpen={newOpen} onClose={()=>setNewOpen(false)}/>
+  </div>;
 };
+
+const ErrorBox:React.FC<{error:unknown;retry:()=>unknown}>=({error,retry})=><div className="p-4 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800"><strong>Impossible de charger les livraisons.</strong> {error instanceof Error?error.message:'Erreur API'} <Button className="ml-2" size="xs" variant="outline" onClick={retry}>Réessayer</Button></div>;

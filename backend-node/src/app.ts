@@ -13,6 +13,16 @@ import { crmRouter } from './modules/crm/crm.routes.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { customerRouter } from './modules/customers/customer.routes.js';
 import { vehicleRouter } from './modules/vehicles/vehicle.routes.js';
+import { showroomRouter } from './modules/showroom/showroom.routes.js';
+import { deliveryRouter } from './modules/deliveries/delivery.routes.js';
+import { workshopRouter } from './modules/workshop/workshop.routes.js';
+import { partRouter } from './modules/parts/part.routes.js';
+import { billingRouter } from './modules/billing/billing.routes.js';
+import { reportRouter } from './modules/reports/report.routes.js';
+import { documentRouter } from './modules/documents/document.routes.js';
+import { userRouter } from './modules/users/user.routes.js';
+import { settingRouter } from './modules/settings/setting.routes.js';
+import { saleRouter } from './modules/sales/sale.routes.js';
 
 export function createApp() {
   const app=express();
@@ -23,7 +33,7 @@ export function createApp() {
   app.use('/uploads',express.static(path.resolve(process.env.UPLOAD_DIR??'uploads')));
   app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
   app.use('/api/auth',authRouter);
-  app.use('/api',authenticate,enforceAgencyScope,customerRouter,crmRouter,notificationRouter,vehicleRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,userRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleRouter,showroomRouter,saleRouter,deliveryRouter,partRouter,workshopRouter,billingRouter,reportRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

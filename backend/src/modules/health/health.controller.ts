@@ -1,0 +1,2 @@
+import { Controller,Get,ServiceUnavailableException } from '@nestjs/common';import { Public } from '../../common/decorators/public.decorator';import { DatabaseService } from '../../database/database.service';
+@Controller('health')export class HealthController{constructor(private readonly db:DatabaseService){}@Public()@Get()async check(){try{await this.db.ping();return{status:'ok',database:'connected',timestamp:new Date().toISOString()}}catch{throw new ServiceUnavailableException({status:'error',database:'unreachable'})}}}

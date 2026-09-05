@@ -17,6 +17,7 @@ import { RepairOrderDetailPage } from './modules/service/RepairOrderDetailPage';
 import { WorkshopPlanningPage } from './modules/workshop/WorkshopPlanningPage';
 import { SparePartsPage } from './modules/parts/SparePartsPage';
 import { BillingPage } from './modules/billing/BillingPage';
+import { InvoiceDetailPage } from './modules/billing/InvoiceDetailPage';
 import { ReportsPage } from './modules/reports/ReportsPage';
 import { DocumentsGedPage } from './modules/documents/DocumentsGedPage';
 import { UsersManagementPage } from './modules/users/UsersManagementPage';
@@ -29,11 +30,19 @@ import { useAuthStore } from './stores/authStore';
 import { AppBootstrap } from './components/AppBootstrap';
 import { NotFoundPage } from './modules/errors/NotFoundPage';
 import { ROUTES } from './navigation/routes';
+import { canAccessModule } from './navigation/permissions';
+import type { ModuleKey } from './navigation/routes';
+import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const location = useLocation();
   return isAuthenticated ? <AppLayout /> : <Navigate to={ROUTES.login} state={{ from: location }} replace />;
+}
+function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNode}) {
+  const user=useAuthStore(state=>state.currentUser);
+  const roles=user?.roles?.length?user.roles:user?[user.role]:[];
+  return canAccessModule(roles,'view',module)?<>{children}</>:<AccessDeniedPage/>;
 }
 
 export default function App() {
@@ -46,27 +55,28 @@ export default function App() {
           <Route index element={<Navigate to={ROUTES.dashboard} replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="modules" element={<ModulesPortalPage />} />
-          <Route path="crm" element={<CrmPage />} />
-          <Route path="showroom" element={<ShowroomPage />} />
-          <Route path="vehicles" element={<VehiclesListPage />} />
-          <Route path="vehicles/:id" element={<VehicleDetailPage />} />
-          <Route path="sales" element={<SalesListPage />} />
-          <Route path="sales/:id" element={<SaleDetailPage />} />
-          <Route path="deliveries" element={<DeliveriesPage />} />
-          <Route path="deliveries/:id" element={<DeliveryDetailPage />} />
-          <Route path="customers" element={<CustomersListPage />} />
-          <Route path="customers/:id" element={<CustomerDetailPage />} />
-          <Route path="service" element={<ServiceDashboardPage />} />
-          <Route path="service/repair-orders/:id" element={<RepairOrderDetailPage />} />
-          <Route path="workshop" element={<WorkshopPlanningPage />} />
-          <Route path="parts" element={<SparePartsPage />} />
-          <Route path="parts/:id" element={<SparePartDetailPage />} />
+          <Route path="crm" element={<ModuleGuard module="crm"><CrmPage /></ModuleGuard>} />
+          <Route path="showroom" element={<ModuleGuard module="showroom"><ShowroomPage /></ModuleGuard>} />
+          <Route path="vehicles" element={<ModuleGuard module="vehicles"><VehiclesListPage /></ModuleGuard>} />
+          <Route path="vehicles/:id" element={<ModuleGuard module="vehicles"><VehicleDetailPage /></ModuleGuard>} />
+          <Route path="sales" element={<ModuleGuard module="sales"><SalesListPage /></ModuleGuard>} />
+          <Route path="sales/:id" element={<ModuleGuard module="sales"><SaleDetailPage /></ModuleGuard>} />
+          <Route path="deliveries" element={<ModuleGuard module="deliveries"><DeliveriesPage /></ModuleGuard>} />
+          <Route path="deliveries/:id" element={<ModuleGuard module="deliveries"><DeliveryDetailPage /></ModuleGuard>} />
+          <Route path="customers" element={<ModuleGuard module="customers"><CustomersListPage /></ModuleGuard>} />
+          <Route path="customers/:id" element={<ModuleGuard module="customers"><CustomerDetailPage /></ModuleGuard>} />
+          <Route path="service" element={<ModuleGuard module="service"><ServiceDashboardPage /></ModuleGuard>} />
+          <Route path="service/repair-orders/:id" element={<ModuleGuard module="service"><RepairOrderDetailPage /></ModuleGuard>} />
+          <Route path="workshop" element={<ModuleGuard module="workshop"><WorkshopPlanningPage /></ModuleGuard>} />
+          <Route path="parts" element={<ModuleGuard module="parts"><SparePartsPage /></ModuleGuard>} />
+          <Route path="parts/:id" element={<ModuleGuard module="parts"><SparePartDetailPage /></ModuleGuard>} />
           <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="billing" element={<BillingPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="documents" element={<DocumentsGedPage />} />
-          <Route path="users" element={<UsersManagementPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+          <Route path="billing" element={<ModuleGuard module="billing"><BillingPage /></ModuleGuard>} />
+          <Route path="billing/:id" element={<ModuleGuard module="billing"><InvoiceDetailPage /></ModuleGuard>} />
+          <Route path="reports" element={<ModuleGuard module="reports"><ReportsPage /></ModuleGuard>} />
+          <Route path="documents" element={<ModuleGuard module="documents"><DocumentsGedPage /></ModuleGuard>} />
+          <Route path="users" element={<ModuleGuard module="users"><UsersManagementPage /></ModuleGuard>} />
+          <Route path="settings" element={<ModuleGuard module="settings"><SettingsPage /></ModuleGuard>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.login} replace />} />

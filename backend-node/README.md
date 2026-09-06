@@ -51,4 +51,17 @@ npm run build
 NODE_ENV=production node dist/server.js
 ```
 
-Appliquez les migrations du dossier `database/migrations/` à la base MySQL avant de démarrer une version qui les requiert.
+Appliquez les migrations du dossier `backend/database/migrations/` à la base MySQL avant de démarrer une version qui les requiert.
+
+Une mise à jour de l'image ou un `git pull && docker compose up` ne rejoue pas les fichiers de
+`docker-entrypoint-initdb.d` sur un volume MySQL existant. Pour mettre à niveau une base LCA
+existante avant de déployer cette version, exécutez explicitement depuis `backend-node/` :
+
+```bash
+npm run db:migrate:billing
+```
+
+La migration `018_billing_stabilization.sql` est additive et idempotente sur la version MariaDB
+10.4 utilisée par XAMPP dans ce projet. Elle ne contient aucun `DROP`, `TRUNCATE` ou `DELETE` et
+ne renumérote aucune facture existante. Effectuez toujours une sauvegarde avant une migration de
+production.

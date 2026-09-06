@@ -5,10 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number, currency = "XAF"): string {
   return new Intl.NumberFormat("fr-CG", {
     style: "currency",
-    currency: "XAF",
+    currency,
     maximumFractionDigits: 0,
   }).format(amount);
 }

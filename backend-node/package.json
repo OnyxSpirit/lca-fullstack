@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "lint": "tsc --noEmit",
     "test": "NODE_ENV=test DB_HOST=127.0.0.1 DB_USER=test DB_PASSWORD=test DB_NAME=test JWT_ACCESS_SECRET=12345678901234567890123456789012 JWT_REFRESH_SECRET=abcdefghijklmnopqrstuvwxyz123456 tsx --test test/**/*.test.ts",
-    "seed:admin": "tsx src/scripts/seed-admin.ts"
+    "seed:admin": "tsx src/scripts/seed-admin.ts",
+    "db:migrate:billing": "tsx src/scripts/migrate-billing.ts"
   },
   "dependencies": {
     "@types/pdfkit": "^0.17.6",

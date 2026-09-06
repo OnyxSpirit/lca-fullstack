@@ -346,7 +346,7 @@ const mapInvoice = (r: any): Invoice => ({
   status:
     invoiceStatusFromDb[(r.effective_status??r.status) as keyof typeof invoiceStatusFromDb] ??
     "BROUILLON",
-  agencyId:s(r.agency_id),agencyName:r.agency_name??'',currencyCode:r.currency_code??'XAF',notes:r.notes??'',
+  agencyId:s(r.agency_id),agencyName:r.agency_name??'',currencyCode:r.currency_code??undefined,notes:r.notes??'',
   items:(r.items??[]).map((x:any)=>({id:s(x.id),description:x.description,quantity:n(x.quantity),unitPrice:n(x.unit_price),discount:n(x.discount),taxRate:n(x.tax_rate),taxAmount:n(x.tax_amount),lineTotal:n(x.line_total)})),
   payments:(r.payments??[]).map((x:any)=>({id:s(x.id),paymentNumber:x.payment_number,amount:n(x.amount),paymentMethodId:s(x.payment_method_id),paymentMethod:x.payment_method,reference:x.reference??'',status:x.status,paymentDate:x.payment_date,receivedByName:x.received_by_name??''})),
   creditNotes:(r.creditNotes??[]).map((x:any)=>({id:s(x.id),creditNoteNumber:x.credit_note_number,amount:n(x.amount),reason:x.reason,status:x.status,issueDate:x.issue_date,createdByName:x.created_by_name??''})),
@@ -465,7 +465,7 @@ export const useDeliveriesQuery = (
     enabled: enabled(),
   });
 export const useInvoicesQuery = (filters:Record<string,string>={}) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()});
-export const useInvoiceQuery=(id?:string)=>useQuery({queryKey:['invoices',id],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}`)),enabled:enabled()&&Boolean(id)});
+export const useInvoiceQuery=(id?:string,agencyId?:string)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?agencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&Boolean(id)&&Boolean(agencyId)});
 export const useBillingConfigQuery=(agencyId?:string)=>useQuery({queryKey:['billing-config',agencyId],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string}>(`/billing/config?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
 export const useCustomerDetailQuery = (id?: string) =>
   useQuery({

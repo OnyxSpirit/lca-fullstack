@@ -9,6 +9,7 @@ import { notifyRoles as createRoleNotifications } from "../notifications/notific
 import { HttpError } from "../../shared/http-error.js";
 import { lockPartStock,lockPartStockById } from "../parts/part-stock.js";
 import { getBusinessIdentity,getEffectiveBusinessSettings } from "../settings/setting-resolver.js";
+import { nextDocumentNumber } from "../billing/document-sequence.js";
 export const workshopRouter = Router();
 const READ = [
   "SUPER_ADMIN",
@@ -567,12 +568,14 @@ workshopRouter.post(
     if(!["ready","invoiced"].includes(ro.status)) throw new HttpError(409,"L'OR doit être prêt avant facturation");
     const businessConfig=await getEffectiveBusinessSettings(String(ro.agency_id));
     const invoiceId=await transaction(async c=>{
+      const [lockedOrders]=await c.execute<RowDataPacket[]>("SELECT status FROM repair_orders WHERE id=? AND agency_id=? FOR UPDATE",[id,ro.agency_id]);
+      if(!lockedOrders[0]||!["ready","invoiced"].includes(String(lockedOrders[0].status)))throw new HttpError(409,"L'OR n'est plus disponible pour facturation");
       const [existing]=await c.execute<RowDataPacket[]>("SELECT id FROM invoices WHERE repair_order_id=? AND status<>'cancelled'",[id]);
       if(existing[0]) return existing[0].id;
       const [totals]=await c.execute<RowDataPacket[]>("SELECT COALESCE(SUM(line_total),0) subtotal,COALESCE(SUM(line_total*tax_rate/100),0) tax FROM repair_order_items WHERE repair_order_id=? AND status='active'",[id]);
       const totalRow=totals[0]!;
-      const subtotal=Number(totalRow.subtotal),tax=Number(totalRow.tax),total=subtotal+tax,no=`FAC-SAV-${Date.now()}`;
-      const [inv]=await c.execute<ResultSetHeader>("INSERT INTO invoices(invoice_number,customer_id,agency_id,repair_order_id,invoice_type,status,issue_date,subtotal,tax_total,total,balance_due,currency_code)VALUES(?,?,?,?,'workshop','issued',CURDATE(),?,?,?,?,?)",[no,ro.customer_id,ro.agency_id,id,subtotal,tax,total,total,businessConfig.currencyCode]);
+      const subtotal=Number(totalRow.subtotal),tax=Number(totalRow.tax),total=subtotal+tax,no=await nextDocumentNumber(c,'FAC',String(ro.agency_id));
+      const [inv]=await c.execute<ResultSetHeader>("INSERT INTO invoices(invoice_number,customer_id,agency_id,repair_order_id,invoice_type,status,issue_date,subtotal,tax_total,total,balance_due,currency_code,created_by)VALUES(?,?,?,?,'workshop','issued',CURDATE(),?,?,?,?,?,?)",[no,ro.customer_id,ro.agency_id,id,subtotal,tax,total,total,businessConfig.currencyCode,r.user!.sub]);
       await c.execute("INSERT INTO invoice_items(invoice_id,part_id,description,quantity,unit_price,discount,tax_rate,tax_amount,line_total) SELECT ?,part_id,description,quantity,unit_price,discount,tax_rate,line_total*tax_rate/100,line_total FROM repair_order_items WHERE repair_order_id=? AND status='active'",[inv.insertId,id]);
       await c.execute("UPDATE repair_orders SET status='invoiced',actual_total=? WHERE id=?",[total,id]);
       await c.execute("INSERT INTO repair_order_status_history(repair_order_id,old_status,new_status,reason,changed_by)VALUES(?,?,'invoiced','Facture atelier émise',?)",[id,ro.status,r.user!.sub]); return inv.insertId;

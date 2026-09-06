@@ -5,8 +5,13 @@ function roleAccess(role:UserRole,action:PermissionAction,module:string):boolean
   if (role === 'SUPER_ADMIN' || role === 'DIRECTION') return true;
   switch (role) {
     case 'SALES_MANAGER':
+      if (module === 'billing') return ['view', 'create', 'print'].includes(action);
+      if (['reports', 'crm', 'vehicles', 'sales', 'showroom', 'customers', 'deliveries', 'documents'].includes(module)) return true;
+      if (['service', 'workshop', 'parts'].includes(module)) return action === 'view';
+      return false;
     case 'SALES_REP':
-      if (['billing', 'reports', 'crm', 'vehicles', 'sales', 'showroom', 'customers', 'deliveries', 'documents'].includes(module)) return true;
+      if (module === 'billing') return action === 'view' || action === 'print';
+      if (['reports', 'crm', 'vehicles', 'sales', 'showroom', 'customers', 'deliveries', 'documents'].includes(module)) return true;
       if (['service', 'workshop', 'parts'].includes(module)) return action === 'view';
       return false;
     case 'WORKSHOP_CHIEF':
@@ -19,8 +24,8 @@ function roleAccess(role:UserRole,action:PermissionAction,module:string):boolean
       if (['service', 'workshop', 'parts', 'vehicles', 'customers', 'documents'].includes(module)) return action === 'view' || action === 'create';
       if (module === 'billing') return action === 'view' || action === 'print';
       return false;
-    case 'PARTS_MANAGER': return ['parts', 'vehicles', 'service', 'billing', 'reports', 'documents'].includes(module);
-    case 'WAREHOUSE_CLERK': return ['parts', 'vehicles', 'service', 'billing', 'documents'].includes(module) && action !== 'delete';
+    case 'PARTS_MANAGER': return ['parts', 'vehicles', 'service', 'reports', 'documents'].includes(module);
+    case 'WAREHOUSE_CLERK': return ['parts', 'vehicles', 'service', 'documents'].includes(module) && action !== 'delete';
     case 'DELIVERY_MANAGER': return ['deliveries', 'vehicles', 'sales', 'customers', 'showroom', 'documents'].includes(module);
     case 'ACCOUNTANT': return ['billing', 'sales', 'reports', 'customers', 'service', 'documents'].includes(module);
     case 'RECEPTIONIST': return ['showroom', 'customers', 'crm', 'deliveries', 'vehicles', 'documents'].includes(module) && action !== 'delete';

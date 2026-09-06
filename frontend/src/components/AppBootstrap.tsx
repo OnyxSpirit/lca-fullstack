@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { erpKeys, useAgenciesQuery, useUsersQuery } from '../api/erpHooks';
 import { connectRealtime, disconnectRealtime } from '../services/realtime';
 import { useAuthStore } from '../stores/authStore';
+import { dashboardOverviewKey } from '../api/dashboardHooks';
 
 const eventKeys: Record<string, readonly string[]> = {
   'sales:created': erpKeys.sales, 'sales:status': erpKeys.sales,
@@ -34,8 +35,8 @@ export function AppBootstrap() {
   useEffect(() => {
     const token = localStorage.getItem('lca-access-token'); if (!authenticated || !token) return;
     const socket = connectRealtime(token);
-    Object.entries(eventKeys).forEach(([event,key]) => socket.on(event, () => { void qc.invalidateQueries({ queryKey: key }); if(event==='parts:stock-changed'){void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:['parts']});} if(event==='settings:updated'){void qc.invalidateQueries({queryKey:['concession-current']});void qc.invalidateQueries({queryKey:['billing-config']});void qc.invalidateQueries({queryKey:['workshop-config']});} }));
-    planningEvents.forEach(event=>socket.on(event,()=>{void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:['workshop-bays']});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['workshop-unavailabilities']});}));
+    Object.entries(eventKeys).forEach(([event,key]) => socket.on(event, () => { void qc.invalidateQueries({ queryKey: key });void qc.invalidateQueries({queryKey:dashboardOverviewKey}); if(event==='parts:stock-changed'){void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:['parts']});} if(event==='settings:updated'){void qc.invalidateQueries({queryKey:['concession-current']});void qc.invalidateQueries({queryKey:['billing-config']});void qc.invalidateQueries({queryKey:['workshop-config']});} }));
+    planningEvents.forEach(event=>socket.on(event,()=>{void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:['workshop-bays']});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['workshop-unavailabilities']});void qc.invalidateQueries({queryKey:dashboardOverviewKey});}));
     return () => { [...Object.keys(eventKeys),...planningEvents].forEach((event) => socket.off(event)); disconnectRealtime(); };
   }, [authenticated, qc]);
   useEffect(()=>{const expired=()=>logout();window.addEventListener('lca:session-expired',expired);return()=>window.removeEventListener('lca:session-expired',expired)},[logout]);

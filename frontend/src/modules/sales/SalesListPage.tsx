@@ -22,9 +22,11 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { SaleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { SaleWizardModal } from './SaleWizardModal';
+import { TableEmptyState } from '../../components/common/TableEmptyState';
 
 export const SalesListPage: React.FC = () => {
-  const sales = useSalesQuery().data ?? [];
+  const salesQuery = useSalesQuery();
+  const sales = salesQuery.data ?? [];
   const { setActiveQuickActionModal } = useUiStore();
   const navigate = useNavigate();
 
@@ -42,6 +44,7 @@ export const SalesListPage: React.FC = () => {
     const matchesStatus = selectedStatus === 'ALL' || s.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+  const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
   const totalRevenue = sales.reduce((acc, s) => acc + s.totalSaleTTC, 0);
   const financedCount = sales.filter((s) => s.financingType !== 'Comptant').length;
@@ -130,6 +133,11 @@ export const SalesListPage: React.FC = () => {
 
       {/* Sales Table */}
       <Card padding="none">
+        {salesQuery.isError && (
+          <div className="border-b border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            Chargement des ventes impossible : {salesQuery.error instanceof Error ? salesQuery.error.message : 'Erreur API'}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
@@ -145,6 +153,15 @@ export const SalesListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {salesQuery.isLoading && (
+                <TableEmptyState colSpan={8} message="Chargement des ventes..." isLoading />
+              )}
+              {!salesQuery.isLoading && !salesQuery.isError && filteredSales.length === 0 && (
+                <TableEmptyState
+                  colSpan={8}
+                  message={hasActiveFilters ? 'Aucune vente ne correspond à vos critères' : 'Aucune vente'}
+                />
+              )}
               {filteredSales.map((sale) => (
                 <tr
                   key={sale.id}

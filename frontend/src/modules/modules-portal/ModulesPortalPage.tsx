@@ -25,10 +25,12 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { ROUTES } from '../../navigation/routes';
+import { useDashboardOverviewQuery } from '../../api/dashboardHooks';
 
 export const ModulesPortalPage: React.FC = () => {
-  const { hasPermission, currentUser } = useAuthStore();
+  const { hasPermission, currentAgency } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const overview = useDashboardOverviewQuery(currentAgency?.id).data;
 
   interface ModuleItem {
     id: string;
@@ -60,9 +62,9 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <Users className="w-6 h-6 text-blue-600" />,
           route: ROUTES.crm,
           permissionKey: 'crm',
-          badgeText: '8 Actifs',
+          badgeText: overview?.crm ? `${overview.crm.activeLeads} actifs` : undefined,
           badgeVariant: 'primary',
-          features: ['Kanban 8 étapes', 'Fiches opportunités', 'Alertes relances', 'Scoring IA'],
+          features: ['Pipeline Kanban', 'Fiches opportunités', 'Alertes relances', 'Scoring IA'],
         },
         {
           id: 'vehicles',
@@ -71,7 +73,7 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <Car className="w-6 h-6 text-emerald-600" />,
           route: ROUTES.vehicles,
           permissionKey: 'vehicles',
-          badgeText: '20 Véhicules',
+          badgeText: overview?.vehicles ? `${overview.vehicles.available} disponibles` : undefined,
           badgeVariant: 'success',
           features: ['Gestion VIN 17 car.', 'Alertes stock >60j', 'Calcul marge HT', 'Galerie photos'],
         },
@@ -97,7 +99,7 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <Compass className="w-6 h-6 text-amber-600" />,
           route: ROUTES.showroom,
           permissionKey: 'showroom',
-          badgeText: '3 Visiteurs',
+          badgeText: overview?.showroom ? `${overview.showroom.todayVisitors} visiteurs` : undefined,
           badgeVariant: 'warning',
           features: ['File d’attente live', 'Attribution conseiller', 'Essais routiers', 'Fiches de passage'],
         },
@@ -117,7 +119,7 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <Truck className="w-6 h-6 text-cyan-600" />,
           route: ROUTES.deliveries,
           permissionKey: 'deliveries',
-          badgeText: '2 Prévues',
+          badgeText: overview?.deliveries ? `${overview.deliveries.scheduled} prévues` : undefined,
           badgeVariant: 'primary',
           features: ['Checklist 8 points', 'Mise en main client', 'PV de livraison', 'Photos véhicule'],
         },
@@ -134,7 +136,7 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <Wrench className="w-6 h-6 text-blue-600" />,
           route: ROUTES.service,
           permissionKey: 'service',
-          badgeText: '3 En cours',
+          badgeText: overview?.workshop ? `${overview.workshop.activeRepairOrders} en cours` : undefined,
           badgeVariant: 'primary',
           features: ['OR standardisé', 'Pointage temps barème', 'Garantie constructeur', 'Véhicule de prêt'],
         },
@@ -145,7 +147,7 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <Calendar className="w-6 h-6 text-purple-600" />,
           route: ROUTES.workshop,
           permissionKey: 'workshop',
-          features: ['Vue 8 ponts élévateurs', 'Planning hebdomadaire', 'Taux productivité', 'Assignation directe'],
+          features: ['Vue des ponts élévateurs', 'Planning hebdomadaire', 'Taux productivité', 'Assignation directe'],
         },
         {
           id: 'parts',
@@ -196,7 +198,7 @@ export const ModulesPortalPage: React.FC = () => {
           icon: <ShieldCheck className="w-6 h-6 text-blue-700" />,
           route: ROUTES.users,
           permissionKey: 'users',
-          features: ['11 rôles métier', 'Matrice de droits', 'Audit de sécurité', 'Affectation agence'],
+          features: ['Rôles métier', 'Matrice de droits', 'Audit de sécurité', 'Affectation agence'],
         },
         {
           id: 'settings',

@@ -23,6 +23,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { RepairOrderStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewRepairOrderModal } from './NewRepairOrderModal';
+import { TableEmptyState } from '../../components/common/TableEmptyState';
 
 export const ServiceDashboardPage: React.FC = () => {
   const repairQuery=useRepairOrdersQuery();
@@ -45,6 +46,7 @@ export const ServiceDashboardPage: React.FC = () => {
     const matchesStatus = selectedStatus === 'ALL' || or.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+  const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
   const openORCount = repairOrders.filter((o) => o.status !== 'CLOTURE' && o.status !== 'FACTURE').length;
 
@@ -161,6 +163,17 @@ export const ServiceDashboardPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {repairQuery.isLoading && (
+                <TableEmptyState colSpan={8} message="Chargement des ordres de réparation..." isLoading />
+              )}
+              {!repairQuery.isLoading && !repairQuery.isError && filteredORs.length === 0 && (
+                <TableEmptyState
+                  colSpan={8}
+                  message={hasActiveFilters
+                    ? 'Aucun ordre de réparation ne correspond à vos critères'
+                    : 'Aucun ordre de réparation'}
+                />
+              )}
               {filteredORs.map((orItem) => (
                 <tr
                   key={orItem.id}

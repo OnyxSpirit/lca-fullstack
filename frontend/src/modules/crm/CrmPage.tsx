@@ -30,6 +30,7 @@ import { Lead, LeadStage } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewLeadModal } from './NewLeadModal';
 import { Modal } from '../../components/ui/Modal';
+import { TableEmptyState } from '../../components/common/TableEmptyState';
 
 export const CrmPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -41,7 +42,8 @@ export const CrmPage: React.FC = () => {
   const [newInteractionNote, setNewInteractionNote] = useState('');
   const [interactionType, setInteractionType] = useState<'Appel' | 'Email' | 'Visite' | 'Essai'>('Appel');
   const priorityToDb: Record<string,string> = { Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent' };
-  const leads = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority]).data ?? [];
+  const leadsQuery = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority]);
+  const leads = leadsQuery.data ?? [];
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
   const { setActiveQuickActionModal, addToast } = useUiStore();
@@ -63,6 +65,7 @@ export const CrmPage: React.FC = () => {
   ];
 
   const filteredLeads = leads;
+  const hasActiveFilters = Boolean(debouncedSearch) || selectedPriority !== 'ALL';
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     const stage = opportunityStageToDb[newStage]; try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage }); addToast({
@@ -152,6 +155,18 @@ export const CrmPage: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {leadsQuery.isError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Chargement des prospects impossible : {leadsQuery.error instanceof Error ? leadsQuery.error.message : 'Erreur API'}
+        </div>
+      )}
+
+      {viewMode === 'kanban' && leadsQuery.isLoading && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+          Chargement des prospects...
+        </div>
+      )}
 
       {/* KANBAN PIPELINE VIEW */}
       {viewMode === 'kanban' && (
@@ -252,7 +267,7 @@ export const CrmPage: React.FC = () => {
                     </div>
                   ))}
 
-                  {stageLeads.length === 0 && (
+                  {!leadsQuery.isLoading && !leadsQuery.isError && stageLeads.length === 0 && (
                     <div className="py-8 text-center text-slate-400 text-[11px]">
                       Aucun prospect à ce stade
                     </div>
@@ -282,6 +297,15 @@ export const CrmPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
+                {leadsQuery.isLoading && (
+                  <TableEmptyState colSpan={8} message="Chargement des prospects..." isLoading />
+                )}
+                {!leadsQuery.isLoading && !leadsQuery.isError && filteredLeads.length === 0 && (
+                  <TableEmptyState
+                    colSpan={8}
+                    message={hasActiveFilters ? 'Aucun prospect ne correspond à vos critères' : 'Aucun prospect'}
+                  />
+                )}
                 {filteredLeads.map((lead) => (
                   <tr
                     key={lead.id}

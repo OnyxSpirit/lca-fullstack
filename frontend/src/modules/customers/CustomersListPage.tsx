@@ -22,6 +22,7 @@ import { formatCurrency } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
 import { useUiStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
+import { TableEmptyState } from '../../components/common/TableEmptyState';
 
 export const CustomersListPage: React.FC = () => {
   const { addToast } = useUiStore();
@@ -49,6 +50,7 @@ export const CustomersListPage: React.FC = () => {
   });
 
   const filteredCustomers = customers;
+  const hasActiveFilters = Boolean(debouncedSearch) || selectedType !== 'ALL';
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +152,15 @@ export const CustomersListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {customersQuery.isLoading && (
+                <TableEmptyState colSpan={7} message="Chargement des clients..." isLoading />
+              )}
+              {!customersQuery.isLoading && !customersQuery.isError && filteredCustomers.length === 0 && (
+                <TableEmptyState
+                  colSpan={7}
+                  message={hasActiveFilters ? 'Aucun client ne correspond à vos critères' : 'Aucun client'}
+                />
+              )}
               {filteredCustomers.map((c) => (
                 <tr
                   key={c.id}

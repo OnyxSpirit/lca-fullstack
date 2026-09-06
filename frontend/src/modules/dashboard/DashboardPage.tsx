@@ -33,7 +33,7 @@ import {
   Legend,
 } from 'recharts';
 import { useAuthStore } from '../../stores/authStore';
-import { useDeliveriesQuery, useInvoicesQuery, useLeadsQuery, useRepairOrdersQuery, useSalesQuery, useShowroomQuery, useVehiclesQuery } from '../../api/erpHooks';
+import { useDeliveriesQuery, useRepairOrdersQuery } from '../../api/erpHooks';
 import { useNotificationActions, useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { StatCard } from '../../components/common/StatCard';
@@ -42,47 +42,20 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatDeltaPercent, useDashboardOverviewQuery } from '../../api/dashboardHooks';
 
 export const DashboardPage: React.FC = () => {
   const { currentUser, currentAgency } = useAuthStore();
-  const leads=useLeadsQuery().data??[],vehicles=useVehiclesQuery().data??[],repairOrders=useRepairOrdersQuery().data??[],sales=useSalesQuery().data??[],deliveries=useDeliveriesQuery().data??[],invoices=useInvoicesQuery().data??[],showroomVisitors=useShowroomQuery().data??[];
+  const repairOrders=useRepairOrdersQuery().data??[],deliveries=useDeliveriesQuery().data??[];
+  const overviewQuery=useDashboardOverviewQuery(currentAgency?.id),overview=overviewQuery.data;
   const notificationsQuery=useNotificationsQuery({page:1,pageSize:4}),notifications=notificationsQuery.data?.items??[],notificationActions=useNotificationActions();
   const { setActiveQuickActionModal } = useUiStore();
   const navigate = useNavigate();
 
-  // Aggregate Metrics
-  const totalStockCount = vehicles.length;
-  const availableVehiclesCount = vehicles.filter((v) => v.status === 'DISPONIBLE').length;
-  const dormantStockCount = vehicles.filter((v) => v.stockDays > 60).length;
-  const openOrCount = repairOrders.filter((o) => o.status !== 'CLOTURE' && o.status !== 'FACTURE').length;
-  const pendingDeliveriesCount = deliveries.filter((d) => d.status !== 'LIVRE_SIGNE').length;
-  const activeLeadsCount = leads.filter((l) => l.stage !== 'GAGNE' && l.stage !== 'PERDU').length;
-  const overdueInvoicesCount = invoices.filter((i) => i.status === 'EN_RETARD').length;
-  const monthKey = (value: Date | string) => {
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-  };
-  const now = new Date();
-  const currentMonthKey = monthKey(now);
-  const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const previousMonthKey = monthKey(previousMonthDate);
-  const countedStatuses = new Set(['RESERVATION', 'COMMANDE', 'FINANCEMENT_EN_ATTENTE', 'FINANCEMENT_VALIDE', 'PREPARATION', 'PRET_LIVRAISON', 'LIVRE']);
-  const currentMonthSales = sales.filter((sale) => monthKey(sale.contractDate) === currentMonthKey && countedStatuses.has(sale.status));
-  const previousMonthSales = sales.filter((sale) => monthKey(sale.contractDate) === previousMonthKey && countedStatuses.has(sale.status));
-  const monthlyVehicleCount = new Set(currentMonthSales.map((sale) => sale.vehicleId).filter(Boolean)).size;
-  const previousMonthlyVehicleCount = new Set(previousMonthSales.map((sale) => sale.vehicleId).filter(Boolean)).size;
-  const monthlyVehicleDelta = monthlyVehicleCount - previousMonthlyVehicleCount;
-  const monthlyRevenue = currentMonthSales.reduce((acc, sale) => acc + sale.totalSaleTTC, 0);
-  const monthlyMargin = Math.round(monthlyRevenue * 0.085);
-
-  // Weekly Evolution Chart Data
-  const dayNames=['DIM','LUN','MAR','MER','JEU','VEN','SAM'];const dayTotals=Array(7).fill(0);sales.forEach(s=>{const d=new Date(s.contractDate);if(!Number.isNaN(d.getTime())&&Date.now()-d.getTime()<7*86400000)dayTotals[d.getDay()]+=s.totalSaleTTC});const orderedDays=[1,2,3,4,5,6,0];const maxDay=Math.max(1,...dayTotals);const weeklyData=orderedDays.map(index=>({day:dayNames[index],ca:dayTotals[index],height:`${Math.max(4,dayTotals[index]/maxDay*100)}%`}));
-
-  // Charts Data
-  const months=Array.from({length:6},(_,offset)=>{const d=new Date();d.setMonth(d.getMonth()-(5-offset));return{key:d.toISOString().slice(0,7),month:d.toLocaleDateString('fr-CG',{month:'short'}),vn:0,vo:0,sav:0}});sales.forEach(s=>{const row=months.find(m=>m.key===String(s.contractDate).slice(0,7));if(row)row.vn+=s.totalSaleTTC});invoices.filter(i=>i.type==='FACTURE_ATELIER_SAV').forEach(i=>{const row=months.find(m=>m.key===String(i.issueDate).slice(0,7));if(row)row.sav+=i.amountTTC});const revenueTrendData=months;
-
-  const colors=['#8f1722','#171719','#77716c','#c7c1ba'];const stockGroups=vehicles.reduce((acc:Record<string,number>,v)=>{const key=v.bodyType||v.fuel||'Autres';acc[key]=(acc[key]||0)+1;return acc},{});const stockDistributionData=Object.entries(stockGroups).map(([name,value],index)=>({name,value,color:colors[index%colors.length]}));
+  const loadingValue=overviewQuery.isLoading?'…':'—';
+  const weeklyMax=Math.max(0,...(overview?.weeklySeries.map(item=>item.revenue)??[]));
+  const weeklyData=(overview?.weeklySeries??[]).map(item=>({day:new Intl.DateTimeFormat('fr-CG',{weekday:'short',timeZone:'UTC'}).format(new Date(`${item.day}T00:00:00Z`)).slice(0,3).toUpperCase(),ca:item.revenue,height:`${weeklyMax?Math.max(4,item.revenue/weeklyMax*100):4}%`}));
+  const revenueTrendData=(overview?.revenueTrend??[]).map(item=>({...item,month:new Intl.DateTimeFormat('fr-CG',{month:'short',timeZone:'UTC'}).format(new Date(`${item.month}-01T00:00:00Z`))}));
 
   return (
     <div className="space-y-6">
@@ -128,14 +101,12 @@ export const DashboardPage: React.FC = () => {
             <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.14em]">
               Chiffre d'Affaires
             </span>
-            <span className="text-emerald-500 text-xs font-bold">+12.5%</span>
+            <span className="text-emerald-500 text-xs font-bold">{formatDeltaPercent(overview?.revenue?.deltaPercent)}</span>
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            {formatCurrency(monthlyRevenue)}
+            {overview?.revenue?formatCurrency(overview.revenue.current):loadingValue}
           </div>
-          <div className="mt-2 h-1 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-[#a51d2a] rounded-full" style={{ width: '75%' }}></div>
-          </div>
+          <div className="text-xs text-zinc-400 mt-1">Marge réelle : {overview?.grossMargin?formatCurrency(overview.grossMargin.current):loadingValue}</div>
         </div>
 
         {/* Metric 2: Ventes du Mois */}
@@ -147,11 +118,11 @@ export const DashboardPage: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Ventes du Mois
             </span>
-            <span className={monthlyVehicleDelta >= 0 ? 'text-emerald-600 text-xs font-bold' : 'text-red-600 text-xs font-bold'}>
-              {monthlyVehicleDelta > 0 ? '+' : ''}{monthlyVehicleDelta} vs mois précédent
+            <span className={(overview?.sales?.delta??0) >= 0 ? 'text-emerald-600 text-xs font-bold' : 'text-red-600 text-xs font-bold'}>
+              {overview?.sales?`${overview.sales.delta>0?'+':''}${overview.sales.delta} vs mois précédent`:'—'}
             </span>
           </div>
-          <div className="text-2xl font-bold text-slate-900 tracking-tight">{monthlyVehicleCount} véhicule{monthlyVehicleCount > 1 ? 's' : ''}</div>
+          <div className="text-2xl font-bold text-slate-900 tracking-tight">{overview?.sales?`${overview.sales.currentMonth} véhicule${overview.sales.currentMonth>1?'s':''}`:loadingValue}</div>
           <div className="text-xs text-slate-400 mt-1">Dossiers non annulés enregistrés ce mois</div>
         </div>
 
@@ -164,10 +135,10 @@ export const DashboardPage: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Prospects Actifs
             </span>
-            <span className="text-amber-500 text-xs font-bold">-2%</span>
+            <span className="text-amber-500 text-xs font-bold">{formatDeltaPercent(overview?.crm?.deltaPercent)}</span>
           </div>
-          <div className="text-2xl font-bold text-slate-900 tracking-tight">{activeLeadsCount}</div>
-          <div className="text-xs text-slate-400 mt-1">4 essais prévus cette semaine</div>
+          <div className="text-2xl font-bold text-slate-900 tracking-tight">{overview?.crm?.activeLeads??loadingValue}</div>
+          <div className="text-xs text-slate-400 mt-1">{overview?.crm?`${overview.crm.scheduledTestDrivesThisWeek} essais prévus cette semaine`:loadingValue}</div>
         </div>
 
         {/* Metric 4: Stock Disponible */}
@@ -179,12 +150,12 @@ export const DashboardPage: React.FC = () => {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Stock Disponible
             </span>
-            <span className="text-slate-500 text-xs font-bold">Stable</span>
+            <span className="text-slate-500 text-xs font-bold">{formatDeltaPercent(overview?.vehicles?.deltaPercent)}</span>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight">
-            {availableVehiclesCount} véhicules
+            {overview?.vehicles?`${overview.vehicles.available} véhicules`:loadingValue}
           </div>
-          <div className="text-xs text-slate-400 mt-1">{dormantStockCount} âgés de &gt; 60 jours</div>
+          <div className="text-xs text-slate-400 mt-1">{overview?.vehicles?`${overview.vehicles.dormant} âgés de > 60 jours`:loadingValue}</div>
         </div>
       </div>
 
@@ -200,7 +171,7 @@ export const DashboardPage: React.FC = () => {
                 <p className="text-xs text-slate-400">Performances journalières VN/VO & SAV</p>
               </div>
               <span className="text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-md px-2.5 py-1 font-medium">
-                7 derniers jours
+                Semaine en cours
               </span>
             </div>
 
@@ -234,8 +205,8 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between pt-3 text-xs text-slate-500">
-              <span>Pic d'activité : <strong>Mercredi</strong></span>
-              <span className="text-emerald-600 font-semibold">+14% vs semaine précédente</span>
+              <span>Pic d'activité : <strong>{overview?.weeklyRevenue?.peakDay?new Intl.DateTimeFormat('fr-CG',{weekday:'long',timeZone:'UTC'}).format(new Date(`${overview.weeklyRevenue.peakDay}T00:00:00Z`)):'Aucune activité'}</strong></span>
+              <span className="text-emerald-600 font-semibold">{formatDeltaPercent(overview?.weeklyRevenue?.deltaPercent)} vs semaine précédente</span>
             </div>
           </div>
 

@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Menu,
   LockKeyhole,
+  Download,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
@@ -19,6 +20,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { assetUrl } from '../../services/apiClient';
 import { useChangeMyPassword, useUploadMyAvatar } from '../../api/userHooks';
+import { usePwaInstall } from '../../hooks/usePwaInstall';
 
 export const Header: React.FC = () => {
   const { currentUser, currentAgency, allAgencies, setCurrentAgency, logout } = useAuthStore();
@@ -34,6 +36,7 @@ export const Header: React.FC = () => {
   const changePassword=useChangeMyPassword();
   const uploadMyAvatar=useUploadMyAvatar();
   const canViewSettings=useAuthStore((state)=>state.hasPermission('view','settings'));
+  const { canInstall, install } = usePwaInstall();
 
   const [agencyDropdownOpen, setAgencyDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
@@ -141,6 +144,21 @@ export const Header: React.FC = () => {
         >
           <Search className="w-5 h-5" />
         </button>
+
+        {canInstall && (
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<Download className="w-4 h-4" />}
+            onClick={() => void install()}
+            className="px-2 sm:px-3"
+            aria-label="Installer l’application LCA"
+            title="Installer l’application LCA"
+          >
+            <span className="hidden xl:inline">Installer l’application</span>
+            <span className="hidden sm:inline xl:hidden">Installer</span>
+          </Button>
+        )}
 
         {/* Quick Action Button */}
         <Button

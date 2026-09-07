@@ -14,7 +14,8 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { useVehiclesQuery } from '../../api/erpHooks';
+import { useVehiclesQuery, useVehicleStatsQuery } from '../../api/erpHooks';
+import { useAuthStore } from '../../stores/authStore';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -26,6 +27,7 @@ import { NewVehicleModal } from './NewVehicleModal';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
+  const currentAgency=useAuthStore(state=>state.currentAgency),currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean),canCreate=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK'].includes(String(role)));
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,27 +38,16 @@ export const VehiclesListPage: React.FC = () => {
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
   const deferredSearch=useDeferredValue(searchQuery);
   const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
-  const vehiclesQuery=useVehiclesQuery({search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,dormant:onlyDormant});
+  const vehiclesQuery=useVehiclesQuery({agencyId:currentAgency?.id,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,dormant:onlyDormant});
+  const statsQuery=useVehicleStatsQuery(currentAgency?.id),stats=statsQuery.data;
   const vehicles = vehiclesQuery.data ?? [];
 
-  const filteredVehicles = vehicles.filter((v) => {
-    const matchesSearch =
-      v.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.vin.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.registrationNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.stockNumber.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredVehicles = vehicles;
 
-    const matchesStatus = selectedStatus === 'ALL' || v.status === selectedStatus;
-    const matchesFuel = selectedFuel === 'ALL' || v.fuel === selectedFuel;
-    const matchesDormant = !onlyDormant || v.stockDays > 60;
-
-    return matchesSearch && matchesStatus && matchesFuel && matchesDormant;
-  });
-
-  const availableCount = vehicles.filter((v) => v.status === 'DISPONIBLE').length;
-  const dormantCount = vehicles.filter((v) => v.stockDays > 60).length;
-  const totalStockValue = vehicles.reduce((sum, v) => sum + v.sellingPriceTTC, 0);
+  const availableCount = stats?.available??0;
+  const dormantCount = stats?.dormant??0;
+  const totalStockValue = stats?.stockValue??0;
+  const hasFilters=Boolean(searchQuery||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||onlyDormant);
 
   return (
     <div className="space-y-6">
@@ -87,14 +78,14 @@ export const VehiclesListPage: React.FC = () => {
               </button>
             </div>
 
-            <Button
+            {canCreate&&<Button
               variant="primary"
               size="sm"
               icon={<Plus className="w-4 h-4" />}
               onClick={() => setIsNewVehicleOpen(true)}
             >
               Entrée en Stock
-            </Button>
+            </Button>}
           </div>
         }
       />
@@ -105,7 +96,7 @@ export const VehiclesListPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 font-medium">Disponibles à la vente</span>
             <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {availableCount} <span className="text-xs text-slate-400 font-normal">/ {vehicles.length} total</span>
+              {availableCount} <span className="text-xs text-slate-400 font-normal">/ {stats?.total??0} total</span>
             </div>
           </div>
           <Badge variant="success" size="md">En stock</Badge>
@@ -168,11 +159,13 @@ export const VehiclesListPage: React.FC = () => {
             className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium focus:outline-none"
           >
             <option value="ALL">Tous statuts</option>
-            <option value="DISPONIBLE">Disponible</option>
+            <option value="COMMANDE">Commandé</option>
+            <option value="EN_TRANSIT">En transit</option>
+            <option value="RECEPTIONNE">Réceptionné</option>
             <option value="PREPARATION">En préparation</option>
+            <option value="DISPONIBLE">Disponible</option>
             <option value="RESERVE">Réservé</option>
             <option value="VENDU">Vendu</option>
-            <option value="COMMANDE">Commandé</option>
             <option value="LIVRE">Livré</option>
           </select>
 
@@ -194,7 +187,7 @@ export const VehiclesListPage: React.FC = () => {
 
       {vehiclesQuery.isLoading&&<div className="p-8 text-center text-sm text-slate-500">Chargement du stock…</div>}
       {vehiclesQuery.isError&&<div className="p-5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800"><strong>Stock indisponible.</strong> {vehiclesQuery.error instanceof Error?vehiclesQuery.error.message:'Erreur API'}</div>}
-      {!vehiclesQuery.isLoading&&!vehiclesQuery.isError&&vehicles.length===0&&<div className="p-10 bg-white border border-dashed rounded-xl text-center"><Car className="w-10 h-10 mx-auto text-slate-300 mb-2"/><p className="font-semibold text-slate-700">Aucun véhicule ne correspond aux critères.</p><p className="text-xs text-slate-500">Ajoutez un véhicule avec sa photo principale pour démarrer le catalogue.</p></div>}
+      {!vehiclesQuery.isLoading&&!vehiclesQuery.isError&&vehicles.length===0&&<div className="p-10 bg-white border border-dashed rounded-xl text-center"><Car className="w-10 h-10 mx-auto text-slate-300 mb-2"/><p className="font-semibold text-slate-700">{hasFilters?'Aucun véhicule ne correspond à vos critères':'Aucun véhicule'}</p><p className="text-xs text-slate-500">{hasFilters?'Modifiez ou réinitialisez les filtres.':'Ajoutez un véhicule avec sa photo principale pour démarrer le catalogue.'}</p></div>}
 
       {/* GRID VIEW */}
       {viewMode === 'grid' && (
@@ -213,6 +206,7 @@ export const VehiclesListPage: React.FC = () => {
                     alt={`${v.brand} ${v.model}`}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="450"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%2364748b" font-size="24"%3EAucune photo%3C/text%3E%3C/svg%3E'}}
                   />
                   <div className="absolute top-2.5 left-2.5">
                     <StatusBadge status={v.status} type="vehicle" />
@@ -312,6 +306,7 @@ export const VehiclesListPage: React.FC = () => {
                           src={v.photos[0]||'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="120"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3C/svg%3E'}
                           alt={v.model}
                           className="w-12 h-9 object-cover rounded-md border border-slate-200 shrink-0"
+                          onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="120"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3C/svg%3E'}}
                         />
                         <div>
                           <span className="font-bold text-slate-900">{v.brand} {v.model}</span>

@@ -27,7 +27,9 @@ const integer = (value, name, required = false) => { if ((value == null || value
     throw new HttpError(400, `${name} doit être un entier positif`); return parsed; };
 const hasFinance = (request) => request.user.roles.some(role => FINANCE.includes(role));
 const agency = (request, requested) => unrestricted(request) && requested ? String(requested) : request.user?.agencyId;
-const scope = (request, alias = 'v') => unrestricted(request) ? { sql: '1=1', params: [] } : { sql: `${alias}.agency_id=?`, params: [request.user.agencyId] };
+const scope = (request, alias = 'v', requested = request.query.agencyId) => unrestricted(request)
+    ? requested ? { sql: `${alias}.agency_id=?`, params: [String(requested)] } : { sql: '1=1', params: [] }
+    : { sql: `${alias}.agency_id=?`, params: [request.user.agencyId] };
 const jsonField = (value, fallback) => { if (value == null || value === '')
     return fallback; if (typeof value !== 'string')
     return value; try {
@@ -36,6 +38,22 @@ const jsonField = (value, fallback) => { if (value == null || value === '')
 catch {
     throw new HttpError(400, 'Champ JSON invalide');
 } };
+vehicleRouter.use('/vehicles', (request, _response, next) => {
+    if (request.method !== 'POST' || request.path !== '/')
+        return next();
+    if (!request.user?.roles.some(role => WRITE.includes(role)))
+        return next();
+    const vin = txt(request.body?.vin, 40).toUpperCase();
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))
+        return next(new HttpError(400, 'Le VIN doit comporter exactement 17 caractères valides.'));
+    request.body.vin = vin;
+    next();
+});
+vehicleRouter.get('/vehicles/stats', authorize(...READ), asyncHandler(async (request, response) => {
+    const scoped = scope(request, 'v', request.query.agencyId);
+    const [row] = await query(`SELECT COUNT(*) total,SUM(v.status='ordered') ordered,SUM(v.status='in_transit') in_transit,SUM(v.status='received') received,SUM(v.status='preparation') preparation,SUM(v.status='available') available,SUM(v.status='reserved') reserved,SUM(v.status='sold') sold,SUM(v.status='delivered') delivered,SUM(v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)) dormant,COALESCE(SUM(v.sale_price),0) stock_value FROM vehicles v WHERE v.archived_at IS NULL AND ${scoped.sql}`, scoped.params);
+    response.json({ total: Number(row?.total ?? 0), ordered: Number(row?.ordered ?? 0), inTransit: Number(row?.in_transit ?? 0), received: Number(row?.received ?? 0), preparation: Number(row?.preparation ?? 0), available: Number(row?.available ?? 0), reserved: Number(row?.reserved ?? 0), sold: Number(row?.sold ?? 0), delivered: Number(row?.delivered ?? 0), dormant: Number(row?.dormant ?? 0), stockValue: Number(row?.stock_value ?? 0) });
+}));
 const baseSelect = `SELECT v.*,ve.name version,m.id model_id,m.name model,b.id brand_id,b.name brand,a.name agency_name,l.name location_name,s.name supplier_name,CONCAT_WS(' ',u.first_name,u.last_name) created_by_name,(SELECT vi.file_path FROM vehicle_images vi WHERE vi.vehicle_id=v.id ORDER BY vi.is_primary DESC,vi.sort_order,vi.id LIMIT 1) primary_image FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id JOIN agencies a ON a.id=v.agency_id LEFT JOIN locations l ON l.id=v.location_id LEFT JOIN suppliers s ON s.id=v.supplier_id LEFT JOIN users u ON u.id=v.created_by`;
 function mapVehicle(row, finance = true) { const result = { id: String(row.id), vin: row.vin, stockNumber: row.stock_number, registrationNumber: row.registration_number, vehicleType: row.vehicle_type, bodyType: row.body_type, year: row.year, firstRegistrationDate: row.first_registration_date, color: row.color, interiorColor: row.interior_color, fuelType: row.fuel_type, engine: row.engine, transmission: row.transmission, fiscalPower: row.fiscal_power, realPower: row.real_power, co2Emissions: row.co2_emissions, mileage: Number(row.mileage ?? 0), status: row.status, entryDate: row.entry_date, notes: row.notes, brandId: String(row.brand_id), brand: row.brand, modelId: String(row.model_id), model: row.model, versionId: String(row.version_id), version: row.version, agencyId: String(row.agency_id), agencyName: row.agency_name, locationId: row.location_id == null ? null : String(row.location_id), locationName: row.location_name, supplierId: row.supplier_id == null ? null : String(row.supplier_id), supplierName: row.supplier_name, createdById: row.created_by == null ? null : String(row.created_by), createdByName: row.created_by_name, primaryImage: row.primary_image, createdAt: row.created_at, updatedAt: row.updated_at }; if (finance)
     Object.assign(result, { purchasePrice: Number(row.purchase_price ?? 0), refurbishmentCost: Number(row.refurbishment_cost ?? 0), transportCost: Number(row.transport_cost ?? 0), administrativeCost: Number(row.administrative_cost ?? 0), additionalCosts: Number(row.additional_costs ?? 0), catalogPrice: Number(row.catalog_price ?? 0), salePrice: Number(row.sale_price ?? 0), minimumPrice: Number(row.minimum_price ?? 0), discount: Number(row.discount ?? 0) }); return result; }
@@ -95,14 +113,32 @@ vehicleRouter.post('/vehicles', authorize(...WRITE), asyncHandler(async (request
     }
     await connection.execute('INSERT IGNORE INTO vehicle_feature_assignments(vehicle_id,feature_id) VALUES(?,?)', [id, featureId]);
 } return { id, agencyId: String(agencyId) }; }); await saveImages(result.id, request.user.sub, images); await notify(request, result.id, result.agencyId, 'vehicles:created', 'Nouveau véhicule en stock', `${brandName} ${modelName} (${vin}) a été enregistré`); response.status(201).json(mapVehicle(await accessible(result.id, request), hasFinance(request))); }));
-vehicleRouter.patch('/vehicles/:id', authorize(...WRITE), asyncHandler(async (request, response) => { const id = idOf(request.params.id); const before = await accessible(id, request); const allowed = { registrationNumber: 'registration_number', bodyType: 'body_type', year: 'year', firstRegistrationDate: 'first_registration_date', color: 'color', interiorColor: 'interior_color', fuelType: 'fuel_type', engine: 'engine', transmission: 'transmission', fiscalPower: 'fiscal_power', realPower: 'real_power', co2Emissions: 'co2_emissions', mileage: 'mileage', locationId: 'location_id', supplierId: 'supplier_id', notes: 'notes' }; if (hasFinance(request))
-    Object.assign(allowed, { purchasePrice: 'purchase_price', refurbishmentCost: 'refurbishment_cost', transportCost: 'transport_cost', administrativeCost: 'administrative_cost', additionalCosts: 'additional_costs', catalogPrice: 'catalog_price', salePrice: 'sale_price', minimumPrice: 'minimum_price' }); const sets = [], params = []; for (const [field, column] of Object.entries(allowed))
-    if (Object.hasOwn(request.body, field)) {
-        sets.push(`${column}=?`);
-        params.push(request.body[field] || null);
-    } if (!sets.length)
-    throw new HttpError(400, 'Aucune modification reconnue'); await execute(`UPDATE vehicles SET ${sets.join(',')} WHERE id=?`, [...params, id]); if (request.body.salePrice != null || request.body.minimumPrice != null)
-    await execute('INSERT INTO vehicle_price_history(vehicle_id,old_sale_price,new_sale_price,old_minimum_price,new_minimum_price,changed_by,reason) VALUES(?,?,?,?,?,?,?)', [id, before.sale_price, request.body.salePrice ?? before.sale_price, before.minimum_price, request.body.minimumPrice ?? before.minimum_price, request.user.sub, optional(request.body.reason)]); await execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'vehicles','vehicle',?,'update',?,?,?,?)`, [request.user.sub, id, JSON.stringify(mapVehicle(before, true)), JSON.stringify(request.body), request.ip, request.get('user-agent')]); await notify(request, id, String(before.agency_id), 'vehicles:updated', 'Véhicule modifié', `${before.stock_number} a été mis à jour`); response.json(mapVehicle(await accessible(id, request), hasFinance(request))); }));
+vehicleRouter.patch('/vehicles/:id', authorize(...WRITE), asyncHandler(async (request, response) => {
+    const id = idOf(request.params.id), before = await accessible(id, request);
+    const allowed = { registrationNumber: 'registration_number', bodyType: 'body_type', year: 'year', firstRegistrationDate: 'first_registration_date', color: 'color', interiorColor: 'interior_color', fuelType: 'fuel_type', engine: 'engine', transmission: 'transmission', fiscalPower: 'fiscal_power', realPower: 'real_power', co2Emissions: 'co2_emissions', mileage: 'mileage', locationId: 'location_id', supplierId: 'supplier_id', notes: 'notes' };
+    const numericFields = new Set(['year', 'fiscalPower', 'realPower', 'co2Emissions', 'mileage', 'locationId', 'supplierId']);
+    const amountFields = new Set(['purchasePrice', 'refurbishmentCost', 'transportCost', 'administrativeCost', 'additionalCosts', 'catalogPrice', 'salePrice', 'minimumPrice']);
+    if (hasFinance(request))
+        Object.assign(allowed, { purchasePrice: 'purchase_price', refurbishmentCost: 'refurbishment_cost', transportCost: 'transport_cost', administrativeCost: 'administrative_cost', additionalCosts: 'additional_costs', catalogPrice: 'catalog_price', salePrice: 'sale_price', minimumPrice: 'minimum_price' });
+    const sets = [], params = [];
+    for (const [field, column] of Object.entries(allowed))
+        if (Object.hasOwn(request.body, field)) {
+            const raw = request.body[field];
+            const value = amountFields.has(field) ? amount(raw, field) : numericFields.has(field) ? integer(raw, field) : field === 'registrationNumber' ? optional(raw, 50)?.toUpperCase() ?? null : optional(raw, field === 'notes' ? 5000 : 255);
+            sets.push(`${column}=?`);
+            params.push(value);
+        }
+    if (!sets.length)
+        throw new HttpError(400, 'Aucune modification reconnue');
+    await transaction(async (connection) => {
+        await connection.execute(`UPDATE vehicles SET ${sets.join(',')} WHERE id=?`, [...params, id]);
+        if (request.body.salePrice != null || request.body.minimumPrice != null)
+            await connection.execute('INSERT INTO vehicle_price_history(vehicle_id,old_sale_price,new_sale_price,old_minimum_price,new_minimum_price,changed_by,reason) VALUES(?,?,?,?,?,?,?)', [id, before.sale_price, request.body.salePrice ?? before.sale_price, before.minimum_price, request.body.minimumPrice ?? before.minimum_price, request.user.sub, optional(request.body.reason)]);
+        await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'vehicles','vehicle',?,'update',?,?,?,?)`, [request.user.sub, id, JSON.stringify(mapVehicle(before, true)), JSON.stringify(request.body), request.ip ?? null, request.get('user-agent') ?? null]);
+    });
+    await notify(request, id, String(before.agency_id), 'vehicles:updated', 'Véhicule modifié', `${before.stock_number} a été mis à jour`);
+    response.json(mapVehicle(await accessible(id, request), hasFinance(request)));
+}));
 const transitions = { ordered: ['in_transit', 'received'], in_transit: ['received'], received: ['preparation', 'available'], preparation: ['available'], available: ['reserved', 'sold', 'preparation'], reserved: ['available', 'sold'], sold: ['delivered'], delivered: [] };
 vehicleRouter.patch('/vehicles/:id/status', authorize(...STATUS), asyncHandler(async (request, response) => { const id = idOf(request.params.id); const row = await accessible(id, request); const next = txt(request.body.status); if (!DB_STATUSES.includes(next))
     throw new HttpError(400, 'Statut invalide'); if (!transitions[row.status]?.includes(next))
@@ -131,11 +167,13 @@ async function saveImages(vehicleId, userId, images) { const files = validatedIm
 vehicleRouter.post('/vehicles/:id/images', authorize(...WRITE), asyncHandler(async (request, response) => { const id = idOf(request.params.id); const row = await accessible(id, request); const images = jsonField(request.body.images, []); if (!images.length)
     throw new HttpError(400, 'Sélectionnez au moins une image'); const [count] = await query('SELECT COUNT(*) total FROM vehicle_images WHERE vehicle_id=?', [id]); if (Number(count?.total ?? 0) + images.length > 8)
     throw new HttpError(400, 'Maximum 8 images par véhicule'); await saveImages(id, request.user.sub, images); await notify(request, id, String(row.agency_id), 'vehicles:image-added', 'Photos véhicule ajoutées', `${images.length} photo(s) ajoutée(s) à ${row.stock_number}`); response.status(201).json({ success: true }); }));
-vehicleRouter.patch('/vehicles/:id/images/:imageId/primary', authorize(...WRITE), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId); await accessible(id, request); await transaction(async (connection) => { const [found] = await connection.execute('SELECT id FROM vehicle_images WHERE id=? AND vehicle_id=?', [imageId, id]); if (!found[0])
-    throw new HttpError(404, 'Image introuvable'); await connection.execute('UPDATE vehicle_images SET is_primary=FALSE WHERE vehicle_id=?', [id]); await connection.execute('UPDATE vehicle_images SET is_primary=TRUE WHERE id=?', [imageId]); }); response.json({ success: true }); }));
+vehicleRouter.patch('/vehicles/:id/images/:imageId/primary', authorize(...WRITE), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId), vehicle = await accessible(id, request); await transaction(async (connection) => { const [found] = await connection.execute('SELECT id FROM vehicle_images WHERE id=? AND vehicle_id=?', [imageId, id]); if (!found[0])
+    throw new HttpError(404, 'Image introuvable'); await connection.execute('UPDATE vehicle_images SET is_primary=FALSE WHERE vehicle_id=?', [id]); await connection.execute('UPDATE vehicle_images SET is_primary=TRUE WHERE id=?', [imageId]); }); emitToAgency(String(vehicle.agency_id), 'vehicles:image-added', { vehicleId: id }); response.json({ success: true }); }));
 vehicleRouter.patch('/vehicles/:id/images/order', authorize(...WRITE), asyncHandler(async (request, response) => { const id = idOf(request.params.id); await accessible(id, request); const imageIds = jsonField(request.body.imageIds, []); await transaction(async (connection) => { for (let index = 0; index < imageIds.length; index++)
     await connection.execute('UPDATE vehicle_images SET sort_order=? WHERE id=? AND vehicle_id=?', [index, idOf(imageIds[index]), id]); }); response.json({ success: true }); }));
-vehicleRouter.delete('/vehicles/:id/images/:imageId', authorize(...WRITE), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId); await accessible(id, request); const [image] = await query('SELECT * FROM vehicle_images WHERE id=? AND vehicle_id=?', [imageId, id]); if (!image)
-    throw new HttpError(404, 'Image introuvable'); await execute('DELETE FROM vehicle_images WHERE id=?', [imageId]); for (const file of [image.file_path, image.thumbnail_path])
-    if (file)
-        unlink(path.resolve(file.replace(/^\//, ''))).catch(() => undefined); response.json({ success: true }); }));
+vehicleRouter.delete('/vehicles/:id/images/:imageId', authorize(...WRITE), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId), vehicle = await accessible(id, request); const [image] = await query('SELECT * FROM vehicle_images WHERE id=? AND vehicle_id=?', [imageId, id]); if (!image)
+    throw new HttpError(404, 'Image introuvable'); await transaction(async (connection) => { await connection.execute('DELETE FROM vehicle_images WHERE id=?', [imageId]); if (image.is_primary)
+    await connection.execute('UPDATE vehicle_images SET is_primary=TRUE WHERE vehicle_id=? ORDER BY sort_order,id LIMIT 1', [id]); }); const stored = new Set([image.file_path, image.thumbnail_path].filter(Boolean)); for (const file of stored) {
+    const relative = String(file).replace(/^\/uploads\//, '');
+    await unlink(path.resolve(path.dirname(uploadRoot), relative)).catch(() => undefined);
+} emitToAgency(String(vehicle.agency_id), 'vehicles:image-added', { vehicleId: id }); response.json({ success: true }); }));

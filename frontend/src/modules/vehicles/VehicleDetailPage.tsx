@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useVehicle360Query, useVehicleImages, useVehicleStatusMutation } from '../../api/erpHooks';
 import { optimizeImage } from './NewVehicleModal';
+import { EditVehicleModal } from './EditVehicleModal';
+import { useAuthStore } from '../../stores/authStore';
 import { vehicleStatusToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -36,11 +38,14 @@ export const VehicleDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const vehicleQuery=useVehicle360Query(id); const statusMutation = useVehicleStatusMutation();
   const imageMutations=useVehicleImages();
+  const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean);
+  const canEdit=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK'].includes(String(role)));
   const { setActiveQuickActionModal, addToast } = useUiStore();
 
   const vehicle = vehicleQuery.data?.vehicle;
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
+  const [editOpen,setEditOpen]=useState(false);
   const downloadDocument=async(document:any)=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.file_name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
 
   if(vehicleQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement du véhicule…</div>;
@@ -82,6 +87,7 @@ export const VehicleDetailPage: React.FC = () => {
         badge={<StatusBadge status={vehicle.status} type="vehicle" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {canEdit&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
             {/* Quick Status Selector */}
             <select
               value={vehicle.status}
@@ -125,9 +131,10 @@ export const VehicleDetailPage: React.FC = () => {
         <div className="lg:col-span-2 space-y-3">
           <div className="aspect-16/9 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-sm relative">
             <img
-              src={vehicle.photos[selectedPhotoIndex] || vehicle.photos[0]}
+              src={vehicle.photos[selectedPhotoIndex] || vehicle.photos[0] || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="450"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%2364748b" font-size="24"%3EAucune photo%3C/text%3E%3C/svg%3E'}
               alt={vehicle.model}
               className="w-full h-full object-cover"
+              onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="450"%3E%3Crect width="100%25" height="100%25" fill="%23e2e8f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%2364748b" font-size="24"%3EAucune photo%3C/text%3E%3C/svg%3E'}}
             />
             <div className="absolute top-3 left-3 flex gap-2">
               <Badge variant="primary" size="md">{vehicle.type}</Badge>
@@ -350,6 +357,7 @@ export const VehicleDetailPage: React.FC = () => {
           <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
         </Card>
       )}
+      <EditVehicleModal isOpen={editOpen} onClose={()=>setEditOpen(false)} vehicle={vehicle}/>
     </div>
   );
 };

@@ -187,6 +187,13 @@ export interface Vehicle {
   photos: string[];
   features: string[];
   supplier: string;
+  supplierId?: string;
+  locationId?: string;
+  engine?: string;
+  notes?: string;
+  transportCost?: number;
+  administrativeCost?: number;
+  additionalCosts?: number;
   assignedCustomerId?: string;
   assignedSaleId?: string;
   createdAt: string;

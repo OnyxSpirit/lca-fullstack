@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+
+const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
+
+test('le formulaire bloque VIN invalide, traitement image et double clic',()=>{const modal=read('../src/modules/vehicles/NewVehicleModal.tsx');assert.match(modal,/\^\[A-HJ-NPR-Z0-9\]\{17\}\$/);assert.match(modal,/isProcessingImages/);assert.match(modal,/finally\{setIsProcessingImages\(false\)/);assert.match(modal,/createVehicle\.isPending/);assert.match(modal,/Le VIN doit comporter exactement 17 caractères valides/)});
+test('la création annonce le statut Réceptionné et garde le doublon VIN dans le formulaire',()=>{const modal=read('../src/modules/vehicles/NewVehicleModal.tsx');assert.match(modal,/statut « Réceptionné »/);assert.doesNotMatch(modal,/disponible dans le catalogue/);assert.match(modal,/setVinError\(message\)/);assert.match(modal,/vinRef\.current\?\.focus/)});
+test('les filtres couvrent Réceptionné et En transit et les KPI viennent du backend',()=>{const page=read('../src/modules/vehicles/VehiclesListPage.tsx');assert.match(page,/<option value="RECEPTIONNE">Réceptionné<\/option>/);assert.match(page,/<option value="EN_TRANSIT">En transit<\/option>/);assert.match(page,/useVehicleStatsQuery/);assert.doesNotMatch(page,/const availableCount = vehicles\.filter/);assert.match(page,/Aucun véhicule ne correspond à vos critères/);assert.match(page,/:\s*'Aucun véhicule'/)});
+test('le détail expose une modification autorisée et les images ont un fallback',()=>{const detail=read('../src/modules/vehicles/VehicleDetailPage.tsx'),edit=read('../src/modules/vehicles/EditVehicleModal.tsx');assert.match(detail,/canEdit&&<Button/);assert.match(detail,/EditVehicleModal/);assert.match(detail,/onError=/);assert.match(edit,/le VIN reste non modifiable/);assert.match(edit,/useUpdateVehicle/);assert.match(edit,/vehicle\.mileage/)});
+test('Nginx donne la priorité au proxy uploads sur la regex des images',()=>{const nginx=read('../nginx/default.conf');assert.match(nginx,/location \^~ \/uploads\//);assert.match(nginx,/proxy_pass http:\/\/lca_backend/)});

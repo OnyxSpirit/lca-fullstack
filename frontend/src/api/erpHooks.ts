@@ -133,6 +133,13 @@ const mapVehicle = (r: any): Vehicle => ({
   photos: (r.photos ?? (r.primaryImage ? [r.primaryImage] : [])).map(assetUrl),
   features: r.features ?? [],
   supplier: r.supplierName ?? "",
+  supplierId: s(r.supplierId),
+  locationId: s(r.locationId),
+  engine: r.engine ?? "",
+  notes: r.notes ?? "",
+  transportCost: n(r.transportCost),
+  administrativeCost: n(r.administrativeCost),
+  additionalCosts: n(r.additionalCosts),
   createdAt: r.createdAt ?? "",
 });
 const leadPriorityFromDb: Record<string, Lead["priority"]> = {
@@ -417,6 +424,7 @@ export const useLeadsQuery = (search = "", priority = "") =>
     enabled: enabled(),
   });
 export interface VehicleFilters {
+  agencyId?: string;
   search?: string;
   status?: string;
   type?: string;
@@ -445,6 +453,15 @@ export const useVehiclesQuery = (filters: VehicleFilters = {}) =>
     },
     enabled: enabled(),
   });
+export interface VehicleStats {
+  total:number; ordered:number; inTransit:number; received:number; preparation:number;
+  available:number; reserved:number; sold:number; delivered:number; dormant:number; stockValue:number;
+}
+export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
+  queryKey:[...erpKeys.vehicles,'stats',agencyId],
+  queryFn:()=>apiRequest<VehicleStats>(`/vehicles/stats${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),
+  enabled:enabled(),
+});
 export const useSalesQuery = () => resource(erpKeys.sales, "/sales", mapSale);
 export const useRepairOrdersQuery = (search="",status="") => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()});
 export const useRepairStatsQuery = () => useQuery({queryKey:["repair-orders","stats"],queryFn:()=>apiRequest<any>("/repair-orders/stats"),enabled:enabled()});
@@ -833,6 +850,17 @@ export const useShowroomDetection = (phone: string) =>
   });
 export const useCreateVehicle = () =>
   mutation<any>(() => "/vehicles", "POST", erpKeys.vehicles);
+export const useUpdateVehicle=()=>{
+  const qc=useQueryClient();
+  return useMutation({
+    mutationFn:({id,...body}:{id:string}&Record<string,unknown>)=>apiRequest(`/vehicles/${id}`,{method:'PATCH',body:JSON.stringify(body)}),
+    onSuccess:(_,variables)=>{
+      qc.invalidateQueries({queryKey:erpKeys.vehicles});
+      qc.invalidateQueries({queryKey:['vehicles',variables.id]});
+      qc.invalidateQueries({queryKey:['dashboard']});
+    },
+  });
+};
 export function useVehicleImages() {
   const qc = useQueryClient();
   return {
@@ -842,22 +870,19 @@ export function useVehicleImages() {
           method: "POST",
           body: JSON.stringify({ images }),
         }),
-      onSuccess: (_, v) =>
-        qc.invalidateQueries({ queryKey: ["vehicles", v.id] }),
+      onSuccess: (_, v) => { qc.invalidateQueries({ queryKey: erpKeys.vehicles }); qc.invalidateQueries({ queryKey: ["vehicles", v.id] }); qc.invalidateQueries({queryKey:['dashboard']}); },
     }),
     primary: useMutation({
       mutationFn: ({ id, imageId }: { id: string; imageId: string }) =>
         apiRequest(`/vehicles/${id}/images/${imageId}/primary`, {
           method: "PATCH",
         }),
-      onSuccess: (_, v) =>
-        qc.invalidateQueries({ queryKey: ["vehicles", v.id] }),
+      onSuccess: (_, v) => { qc.invalidateQueries({ queryKey: erpKeys.vehicles }); qc.invalidateQueries({ queryKey: ["vehicles", v.id] }); },
     }),
     remove: useMutation({
       mutationFn: ({ id, imageId }: { id: string; imageId: string }) =>
         apiRequest(`/vehicles/${id}/images/${imageId}`, { method: "DELETE" }),
-      onSuccess: (_, v) =>
-        qc.invalidateQueries({ queryKey: ["vehicles", v.id] }),
+      onSuccess: (_, v) => { qc.invalidateQueries({ queryKey: erpKeys.vehicles }); qc.invalidateQueries({ queryKey: ["vehicles", v.id] }); },
     }),
   };
 }

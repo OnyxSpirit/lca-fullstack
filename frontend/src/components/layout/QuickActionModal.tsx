@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useUiStore } from '../../stores/uiStore';
+import { useAuthStore } from '../../stores/authStore';
 import { Modal } from '../ui/Modal';
 import { NewLeadModal } from '../../modules/crm/NewLeadModal';
 import { NewVehicleModal } from '../../modules/vehicles/NewVehicleModal';
@@ -21,6 +22,7 @@ import { NewDeliveryModal } from '../../modules/deliveries/NewDeliveryModal';
 
 export const QuickActionModal: React.FC = () => {
   const { activeQuickActionModal, quickActionContext, setActiveQuickActionModal } = useUiStore();
+  const user=useAuthStore(state=>state.currentUser),roles=user?.roles?.length?user.roles:[user?.role].filter(Boolean),canCreateVehicle=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK'].includes(String(role)));
 
   const actions = [
     {
@@ -82,7 +84,7 @@ export const QuickActionModal: React.FC = () => {
         maxWidth="xl"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {actions.map((act) => (
+          {actions.filter(act=>act.id!=='vehicle'||canCreateVehicle).map((act) => (
             <button
               key={act.id}
               onClick={() => handleActionClick(act.id)}

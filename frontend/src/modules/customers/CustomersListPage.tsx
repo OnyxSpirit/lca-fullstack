@@ -24,6 +24,14 @@ import { useUiStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 
+type CustomerAccountType='Particulier'|'Professionnel';
+type CustomerCivility='M.'|'Mme'|'Société';
+interface CustomerForm {type:CustomerAccountType;civility:CustomerCivility;firstName:string;lastName:string;company:string;email:string;phone:string;address:string;postalCode:string;city:string}
+type CustomerFormErrors=Partial<Record<'lastName'|'company'|'phone'|'email',string>>;
+export const INITIAL_CUSTOMER_FORM:CustomerForm={type:'Particulier',civility:'M.',firstName:'',lastName:'',company:'',email:'',phone:'',address:'',postalCode:'',city:''};
+const emailValid=(value:string)=>!value||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const phoneValid=(value:string)=>{const digits=value.replace(/\D/g,'');return !value||(/^[+\d\s().-]+$/.test(value)&&digits.length>=6&&digits.length<=15)};
+
 export const CustomersListPage: React.FC = () => {
   const { addToast } = useUiStore();
   const { currentUser, currentAgency } = useAuthStore();
@@ -36,32 +44,22 @@ export const CustomersListPage: React.FC = () => {
   const customersQuery = useCustomersQuery(debouncedSearch,selectedType==='ALL'?'':selectedType==='Particulier'?'individual':'company'); const customers = customersQuery.data ?? []; const createCustomer = useCreateCustomer();
   useEffect(()=>{const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);return()=>window.clearTimeout(timer)},[searchQuery]);
 
-  const [newCustomerForm, setNewCustomerForm] = useState({
-    type: 'Particulier' as 'Particulier' | 'Professionnel',
-    civility: 'M.' as 'M.' | 'Mme' | 'Société',
-    firstName: '',
-    lastName: '',
-    company: '',
-    email: '',
-    phone: '',
-    address: '',
-    postalCode: '',
-    city: 'Brazzaville',
-  });
+  const initialCustomerForm=():CustomerForm=>({...INITIAL_CUSTOMER_FORM,city:currentAgency?.city||'Brazzaville'});
+  const [newCustomerForm, setNewCustomerForm] = useState<CustomerForm>(initialCustomerForm);
+  const [formErrors,setFormErrors]=useState<CustomerFormErrors>({});
+  const resetCustomerForm=()=>{setNewCustomerForm(initialCustomerForm());setFormErrors({})};
+  const closeCustomerForm=()=>{resetCustomerForm();setIsNewCustomerOpen(false)};
+  const setCustomerField=<K extends keyof CustomerForm>(key:K,value:CustomerForm[K])=>{setNewCustomerForm(current=>({...current,[key]:value}));setFormErrors(current=>key==='phone'||key==='email'?{...current,phone:undefined,email:undefined}:{...current,[key]:undefined})};
+  const changeCustomerType=(type:CustomerAccountType)=>setNewCustomerForm(current=>({...current,type,civility:type==='Professionnel'?'Société':current.civility==='Société'?'M.':current.civility}));
+  const validateCustomerForm=()=>{const next:CustomerFormErrors={};if(newCustomerForm.type==='Particulier'&&!newCustomerForm.lastName.trim())next.lastName='Le nom est obligatoire.';if(newCustomerForm.type==='Professionnel'&&!newCustomerForm.company.trim())next.company='La raison sociale est obligatoire.';if(!newCustomerForm.phone.trim()&&!newCustomerForm.email.trim()){next.phone='Un téléphone ou une adresse e-mail est requis.';next.email='Un téléphone ou une adresse e-mail est requis.'}else{if(!phoneValid(newCustomerForm.phone.trim()))next.phone="Le numéro de téléphone n’est pas valide.";if(!emailValid(newCustomerForm.email.trim()))next.email="L’adresse e-mail n’est pas valide."}setFormErrors(next);return Object.keys(next).length===0};
+  const inputClass=(error?:string)=>`w-full text-xs p-2.5 rounded-lg border bg-white focus:outline-none ${error?'border-red-500 focus:ring-2 focus:ring-red-300':'border-slate-300 focus:ring-2 focus:ring-blue-500'}`;
 
   const filteredCustomers = customers;
   const hasActiveFilters = Boolean(debouncedSearch) || selectedType !== 'ALL';
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((newCustomerForm.type==='Particulier'&&!newCustomerForm.lastName) || (newCustomerForm.type==='Professionnel'&&!newCustomerForm.company) || !newCustomerForm.phone) {
-      addToast({
-        type: 'error',
-        title: 'Champs requis manquants',
-        description: 'Veuillez saisir le nom et le numéro de téléphone.',
-      });
-      return;
-    }
+    if (!validateCustomerForm()) return;
 
     try { await createCustomer.mutateAsync({
       customerType: newCustomerForm.type === 'Particulier' ? 'individual' : 'company',
@@ -71,7 +69,6 @@ export const CustomersListPage: React.FC = () => {
       companyName: newCustomerForm.company || undefined,
       email: newCustomerForm.email,
       phone: newCustomerForm.phone,
-      secondaryPhone: newCustomerForm.phone,
       address: newCustomerForm.address,
       postalCode:newCustomerForm.postalCode,
       city: newCustomerForm.city,
@@ -85,6 +82,7 @@ export const CustomersListPage: React.FC = () => {
       description: `La fiche 360° pour ${newCustomerForm.firstName} ${newCustomerForm.lastName} a été créée.`,
     });
 
+    resetCustomerForm();
     setIsNewCustomerOpen(false);
     } catch (error) {
       addToast({ type: 'error', title: 'Création impossible', description: error instanceof Error ? error.message : 'Erreur API' });
@@ -216,18 +214,19 @@ export const CustomersListPage: React.FC = () => {
       {/* New Customer Modal */}
       <Modal
         isOpen={isNewCustomerOpen}
-        onClose={() => setIsNewCustomerOpen(false)}
+        onClose={closeCustomerForm}
         title="Créer une Fiche Client (Particulier ou Professionnel)"
         description="Ajouter un contact au référentiel client unifié de la concession."
         maxWidth="lg"
       >
-        <form onSubmit={handleCreateCustomer} className="space-y-4">
+        <form noValidate onSubmit={handleCreateCustomer} className="space-y-4">
+          <p className="text-[11px] text-slate-500">* Champs obligatoires selon le type de client et les coordonnées renseignées</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Type de compte</label>
               <select
                 value={newCustomerForm.type}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, type: e.target.value as any })}
+                onChange={(e) => changeCustomerType(e.target.value as CustomerAccountType)}
                 className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
               >
                 <option value="Particulier">Particulier</option>
@@ -238,12 +237,10 @@ export const CustomersListPage: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-700 mb-1">Civilité</label>
               <select
                 value={newCustomerForm.civility}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, civility: e.target.value as any })}
+                onChange={(e) => setCustomerField('civility',e.target.value as CustomerCivility)}
                 className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
               >
-                <option value="M.">M.</option>
-                <option value="Mme">Mme</option>
-                <option value="Société">Société</option>
+                {newCustomerForm.type==='Professionnel'?<option value="Société">Société</option>:<><option value="M.">M.</option><option value="Mme">Mme</option></>}
               </select>
             </div>
           </div>
@@ -251,28 +248,30 @@ export const CustomersListPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1">Adresse</label>
-              <input type="text" value={newCustomerForm.address} onChange={e=>setNewCustomerForm({...newCustomerForm,address:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white" />
+              <input type="text" value={newCustomerForm.address} onChange={e=>setCustomerField('address',e.target.value)} className={inputClass()} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Code postal</label>
-              <input type="text" value={newCustomerForm.postalCode} onChange={e=>setNewCustomerForm({...newCustomerForm,postalCode:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white" />
+              <input type="text" value={newCustomerForm.postalCode} onChange={e=>setCustomerField('postalCode',e.target.value)} className={inputClass()} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Ville</label>
-              <input type="text" value={newCustomerForm.city} onChange={e=>setNewCustomerForm({...newCustomerForm,city:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white" />
+              <input type="text" value={newCustomerForm.city} onChange={e=>setCustomerField('city',e.target.value)} className={inputClass()} />
             </div>
           </div>
 
           {newCustomerForm.type === 'Professionnel' && (
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Raison Sociale / Société</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Raison sociale / Société *</label>
               <input
                 type="text"
                 value={newCustomerForm.company}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, company: e.target.value })}
-                placeholder="ex: SAS Transports & Logistique"
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                onChange={(e) => setCustomerField('company',e.target.value)}
+                onBlur={validateCustomerForm}
+                placeholder="Ex. Société de transport"
+                className={inputClass(formErrors.company)}
               />
+              {formErrors.company&&<span className="mt-1 block text-[11px] text-red-700">{formErrors.company}</span>}
             </div>
           )}
 
@@ -282,54 +281,59 @@ export const CustomersListPage: React.FC = () => {
               <input
                 type="text"
                 value={newCustomerForm.firstName}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, firstName: e.target.value })}
-                placeholder="ex: Thomas"
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                onChange={(e) => setCustomerField('firstName',e.target.value)}
+                placeholder="Prénom du contact"
+                className={inputClass()}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Nom *</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Nom {newCustomerForm.type==='Particulier'?'*':''}</label>
               <input
                 type="text"
-                required
                 value={newCustomerForm.lastName}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, lastName: e.target.value })}
-                placeholder="ex: Bernard"
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                onChange={(e) => setCustomerField('lastName',e.target.value)}
+                onBlur={validateCustomerForm}
+                placeholder="Nom du contact"
+                className={inputClass(formErrors.lastName)}
               />
+              {formErrors.lastName&&<span className="mt-1 block text-[11px] text-red-700">{formErrors.lastName}</span>}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Téléphone *</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Téléphone</label>
               <input
                 type="tel"
-                required
                 value={newCustomerForm.phone}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
-                placeholder="ex: 06 98 76 54 32"
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                onChange={(e) => setCustomerField('phone',e.target.value)}
+                onBlur={validateCustomerForm}
+                placeholder="+242 06 xxx xx xx"
+                className={inputClass(formErrors.phone)}
               />
+              {formErrors.phone&&<span className="mt-1 block text-[11px] text-red-700">{formErrors.phone}</span>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
                 value={newCustomerForm.email}
-                onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
-                placeholder="ex: contact@societe.fr"
-                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                onChange={(e) => setCustomerField('email',e.target.value)}
+                onBlur={validateCustomerForm}
+                placeholder="nom@exemple.com"
+                className={inputClass(formErrors.email)}
               />
+              {formErrors.email&&<span className="mt-1 block text-[11px] text-red-700">{formErrors.email}</span>}
             </div>
           </div>
 
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-            <Button variant="outline" type="button" onClick={() => setIsNewCustomerOpen(false)}>
+            <Button variant="outline" type="button" onClick={closeCustomerForm}>
               Annuler
             </Button>
-            <Button variant="primary" type="submit">
-              Enregistrer le client
+            <Button variant="primary" type="submit" disabled={createCustomer.isPending}>
+              {createCustomer.isPending?'Enregistrement…':'Enregistrer le client'}
             </Button>
           </div>
         </form>

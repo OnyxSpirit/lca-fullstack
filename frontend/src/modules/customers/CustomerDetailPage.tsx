@@ -37,9 +37,10 @@ export const CustomerDetailPage: React.FC = () => {
   const documentsQuery=useEntityDocuments('customer',id),documents=documentsQuery.data??[];
 
   const customer = data?.customer;
+  const customerName=customer?(customer.type==='Professionnel'?(customer.company||[customer.firstName,customer.lastName].filter(Boolean).join(' ')||customer.code):[customer.civility,customer.firstName,customer.lastName].filter(Boolean).join(' ')):'';
   const [activeTab, setActiveTab] = useState<'timeline' | 'contacts' | 'opportunities' | 'vehicles' | 'sales' | 'sav' | 'billing' | 'documents'>('timeline');
   const downloadDocument=async(document:(typeof documents)[number])=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
-  const [contactOpen,setContactOpen]=useState(false);const createContact=useCreateCustomerContact(id);const[contact,setContact]=useState({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false});
+  const [contactOpen,setContactOpen]=useState(false);const createContact=useCreateCustomerContact(id);const[contact,setContact]=useState({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false});const[contactError,setContactError]=useState('');
 
   if(customerQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement du client…</div>;
   if (customerQuery.isError) return <div className="p-8 text-center"><p className="text-red-700 mb-4">Chargement de la fiche 360° impossible : {customerQuery.error instanceof Error?customerQuery.error.message:'Erreur API'}</p><Button variant="outline" onClick={()=>navigate('/customers')}>Retour aux clients</Button></div>;
@@ -57,12 +58,12 @@ export const CustomerDetailPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`${customer.civility} ${customer.firstName} ${customer.lastName}`}
+        title={customerName}
         subtitle={`Code : ${customer.code} • ${customer.type} • ${customer.city} (${customer.zipCode})`}
         breadcrumbs={[
           { label: 'Accueil', href: '/dashboard' },
           { label: 'Clients', href: '/customers' },
-          { label: `${customer.firstName} ${customer.lastName}` },
+          { label: customerName },
         ]}
         badge={<Badge variant={customer.type === 'Professionnel' ? 'primary' : 'default'} size="md">{customer.type}</Badge>}
         actions={
@@ -101,18 +102,18 @@ export const CustomerDetailPage: React.FC = () => {
                 <span>{customer.company}</span>
               </div>
             )}
-            <div className="flex items-center gap-2.5 text-slate-700">
+            {customer.phone&&<div className="flex items-center gap-2.5 text-slate-700">
               <Phone className="w-4 h-4 text-slate-400" />
               <a href={`tel:${customer.phone}`} className="font-semibold text-blue-600 hover:underline">
                 {customer.phone}
               </a>
-            </div>
-            <div className="flex items-center gap-2.5 text-slate-700">
+            </div>}
+            {customer.email&&<div className="flex items-center gap-2.5 text-slate-700">
               <Mail className="w-4 h-4 text-slate-400" />
               <a href={`mailto:${customer.email}`} className="text-slate-800 hover:underline truncate">
                 {customer.email}
               </a>
-            </div>
+            </div>}
             <div className="flex items-start gap-2.5 text-slate-700">
               <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
               <span>{customer.address}, {customer.zipCode} {customer.city}</span>
@@ -309,7 +310,13 @@ export const CustomerDetailPage: React.FC = () => {
           </div>
         </Card>
       )}
-      <Modal isOpen={contactOpen} onClose={()=>setContactOpen(false)} title="Ajouter un contact" maxWidth="lg"><form className="space-y-3" onSubmit={async e=>{e.preventDefault();await createContact.mutateAsync(contact);setContactOpen(false);setContact({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false})}}><div className="grid grid-cols-2 gap-3"><input required placeholder="Prénom" value={contact.firstName} onChange={e=>setContact({...contact,firstName:e.target.value})} className="text-xs p-2.5 border rounded-lg"/><input required placeholder="Nom" value={contact.lastName} onChange={e=>setContact({...contact,lastName:e.target.value})} className="text-xs p-2.5 border rounded-lg"/><input placeholder="Fonction" value={contact.roleTitle} onChange={e=>setContact({...contact,roleTitle:e.target.value})} className="text-xs p-2.5 border rounded-lg"/><input placeholder="Téléphone" value={contact.phone} onChange={e=>setContact({...contact,phone:e.target.value})} className="text-xs p-2.5 border rounded-lg"/><input type="email" placeholder="E-mail" value={contact.email} onChange={e=>setContact({...contact,email:e.target.value})} className="text-xs p-2.5 border rounded-lg col-span-2"/></div><label className="text-xs flex gap-2"><input type="checkbox" checked={contact.isPrimary} onChange={e=>setContact({...contact,isPrimary:e.target.checked})}/>Contact principal</label><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={()=>setContactOpen(false)}>Annuler</Button><Button type="submit" variant="primary" loading={createContact.isPending}>Enregistrer</Button></div></form></Modal>
+      <Modal isOpen={contactOpen} onClose={()=>{setContactOpen(false);setContactError('')}} title="Ajouter un contact" maxWidth="lg">
+        <form noValidate className="space-y-3" onSubmit={async e=>{e.preventDefault();if(!contact.firstName.trim()||!contact.lastName.trim()){setContactError('Le prénom et le nom sont obligatoires.');return}setContactError('');await createContact.mutateAsync(contact);setContactOpen(false);setContact({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false})}}>
+          <div className="grid grid-cols-2 gap-3"><input placeholder="Prénom *" value={contact.firstName} onChange={e=>{setContact({...contact,firstName:e.target.value});setContactError('')}} className="text-xs p-2.5 border rounded-lg"/><input placeholder="Nom *" value={contact.lastName} onChange={e=>{setContact({...contact,lastName:e.target.value});setContactError('')}} className="text-xs p-2.5 border rounded-lg"/><input placeholder="Fonction" value={contact.roleTitle} onChange={e=>setContact({...contact,roleTitle:e.target.value})} className="text-xs p-2.5 border rounded-lg"/><input placeholder="Téléphone" value={contact.phone} onChange={e=>setContact({...contact,phone:e.target.value})} className="text-xs p-2.5 border rounded-lg"/><input type="text" inputMode="email" placeholder="E-mail" value={contact.email} onChange={e=>setContact({...contact,email:e.target.value})} className="text-xs p-2.5 border rounded-lg col-span-2"/></div>
+          {contactError&&<p className="text-xs text-red-700">{contactError}</p>}
+          <label className="text-xs flex gap-2"><input type="checkbox" checked={contact.isPrimary} onChange={e=>setContact({...contact,isPrimary:e.target.checked})}/>Contact principal</label><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={()=>{setContactOpen(false);setContactError('')}}>Annuler</Button><Button type="submit" variant="primary" loading={createContact.isPending}>Enregistrer</Button></div>
+        </form>
+      </Modal>
     </div>
   );
 };

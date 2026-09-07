@@ -58,7 +58,7 @@ const mapCustomer = (r: any): Customer => ({
   siret: r.taxIdentifier,
   email: r.email ?? "",
   phone: r.phone ?? "",
-  mobile: r.secondaryPhone ?? r.phone ?? "",
+  mobile: r.secondaryPhone ?? "",
   address: r.address ?? "",
   zipCode: r.postalCode ?? r.zipCode ?? "",
   city: r.city ?? "",

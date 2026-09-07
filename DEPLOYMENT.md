@@ -94,6 +94,14 @@ docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_
 
 Ne rejouez ni `schema.sql`, ni `all_migrations.sql` sur une base déjà initialisée.
 
+Pour une installation historique qui doit recevoir la fiche Client 360°, appliquez après sauvegarde la migration additive dédiée :
+
+```bash
+docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"' < backend/database/migrations/019_customers_360_stabilization.sql
+```
+
+Elle crée uniquement les structures relationnelles manquantes (`customer_contacts`, rattachements client des opportunités et activités) et peut être rejouée sur un schéma déjà à jour.
+
 ## 6. Sauvegarde et restauration
 
 Sauvegarde cohérente MySQL + fichiers :

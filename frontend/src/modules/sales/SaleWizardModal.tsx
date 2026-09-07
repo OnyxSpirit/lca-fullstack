@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { formatCurrency } from '../../lib/utils';
 import { Badge } from '../../components/ui/Badge';
+import { generateUuid } from '../../lib/uuid';
 
 interface Props { isOpen:boolean;onClose:()=>void;initialCustomerId?:string;initialVehicleId?:string }
 const input='w-full rounded-md border border-slate-300 bg-white p-2.5 text-xs';
@@ -17,7 +18,7 @@ export const SaleWizardModal:React.FC<Props>=({isOpen,onClose,initialCustomerId,
  const vehicles=useMemo(()=>vehiclesQuery.data?.filter(v=>v.agencyId===agencyId&&v.status==='DISPONIBLE')??[],[vehiclesQuery.data,agencyId]);
  const salespeople=useMemo(()=>usersQuery.data?.filter(u=>u.agencyId===agencyId&&u.status==='active'&&u.roles.some(r=>['SALES_REP','SALES_MANAGER','DIRECTION','SUPER_ADMIN'].includes(r)))??[],[usersQuery.data,agencyId]);
  const[step,setStep]=useState(1),[customerId,setCustomerId]=useState(''),[vehicleId,setVehicleId]=useState(''),[salespersonId,setSalespersonId]=useState(''),[discount,setDiscount]=useState(0),[depositAmount,setDepositAmount]=useState(0),[notes,setNotes]=useState(''),[idempotencyKey,setIdempotencyKey]=useState('');
- useEffect(()=>{if(!isOpen)return;setStep(1);setCustomerId(initialCustomerId&&customers.some(c=>c.id===initialCustomerId)?initialCustomerId:'');setVehicleId(initialVehicleId&&vehicles.some(v=>v.id===initialVehicleId)?initialVehicleId:'');setSalespersonId(salespeople.some(u=>u.id===auth.currentUser?.id)?auth.currentUser!.id:(salespeople[0]?.id??''));setDiscount(0);setDepositAmount(0);setNotes('');setIdempotencyKey(crypto.randomUUID())},[isOpen,initialCustomerId,initialVehicleId,customers,salespeople,vehicles,auth.currentUser]);
+ useEffect(()=>{if(!isOpen)return;setStep(1);setCustomerId(initialCustomerId&&customers.some(c=>c.id===initialCustomerId)?initialCustomerId:'');setVehicleId(initialVehicleId&&vehicles.some(v=>v.id===initialVehicleId)?initialVehicleId:'');setSalespersonId(salespeople.some(u=>u.id===auth.currentUser?.id)?auth.currentUser!.id:(salespeople[0]?.id??''));setDiscount(0);setDepositAmount(0);setNotes('');setIdempotencyKey(generateUuid())},[isOpen,initialCustomerId,initialVehicleId,customers,salespeople,vehicles,auth.currentUser]);
  const customer=customers.find(c=>c.id===customerId),vehicle=vehicles.find(v=>v.id===vehicleId),vehiclePrice=vehicle?.sellingPriceTTC??0,total=Math.max(0,vehiclePrice-discount),balance=Math.max(0,total-depositAmount);
  const validAmounts=Number.isFinite(discount)&&Number.isFinite(depositAmount)&&discount>=0&&discount<=vehiclePrice&&depositAmount>=0&&depositAmount<=total;
  const canContinue=step===1?Boolean(customerId):step===2?Boolean(vehicleId):step===3?Boolean(salespersonId)&&validAmounts:true;

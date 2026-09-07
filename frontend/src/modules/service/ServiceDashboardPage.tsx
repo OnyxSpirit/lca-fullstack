@@ -24,12 +24,15 @@ import { RepairOrderStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewRepairOrderModal } from './NewRepairOrderModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
+import { useAuthStore } from '../../stores/authStore';
+import { canAccessModule, hasPermission } from '../../navigation/permissions';
 
 export const ServiceDashboardPage: React.FC = () => {
   const repairQuery=useRepairOrdersQuery();
   const repairOrders = repairQuery.data ?? [];
   const stats=useRepairStatsQuery();
   const navigate = useNavigate();
+  const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canCreate=hasPermission(roles,'service.create'),canViewWorkshop=canAccessModule(roles,'view','workshop');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -58,22 +61,22 @@ export const ServiceDashboardPage: React.FC = () => {
         breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Après-Vente' }, { label: 'Ordres de Réparation' }]}
         actions={
           <div className="flex items-center gap-2">
-            <Button
+            {canViewWorkshop&&<Button
               variant="outline"
               size="sm"
               icon={<Calendar className="w-4 h-4" />}
               onClick={() => navigate('/workshop')}
             >
               Planning Ponts
-            </Button>
-            <Button
+            </Button>}
+            {canCreate&&<Button
               variant="primary"
               size="sm"
               icon={<Plus className="w-4 h-4" />}
               onClick={() => setIsNewOrOpen(true)}
             >
               Ouvrir un OR
-            </Button>
+            </Button>}
           </div>
         }
       />

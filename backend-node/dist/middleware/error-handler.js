@@ -1,7 +1,8 @@
 import { HttpError } from '../shared/http-error.js';
 export const notFound = (request, _response, next) => next(new HttpError(404, `Route introuvable: ${request.method} ${request.originalUrl}`));
 export const errorHandler = (error, request, response, _next) => {
-    const duplicate = error.code === 'ER_DUP_ENTRY';
+    const mysql = error;
+    const duplicate = mysql.code === 'ER_DUP_ENTRY';
     const duplicateVin = duplicate && request.method === 'POST' && /^\/api\/vehicles\/?$/.test(request.path);
     const status = error instanceof HttpError ? error.status : duplicate ? 409 : 500;
     const message = error instanceof HttpError ? error.message : duplicateVin ? 'Un véhicule portant ce VIN existe déjà.' : duplicate ? 'Cette ressource existe déjà' : 'Erreur interne du serveur';
@@ -9,7 +10,9 @@ export const errorHandler = (error, request, response, _next) => {
         console.error({
             method: request.method,
             route: request.originalUrl,
-            code: error.code,
+            code: mysql.code,
+            errno: mysql.errno,
+            sqlState: mysql.sqlState,
             message: error instanceof Error ? error.message : String(error),
             stack: process.env.NODE_ENV === 'production' ? undefined : error instanceof Error ? error.stack : undefined,
         });

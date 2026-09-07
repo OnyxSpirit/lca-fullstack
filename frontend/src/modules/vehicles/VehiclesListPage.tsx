@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useVehiclesQuery, useVehicleStatsQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
+import { hasPermission } from '../../navigation/permissions';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -27,7 +28,7 @@ import { NewVehicleModal } from './NewVehicleModal';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
-  const currentAgency=useAuthStore(state=>state.currentAgency),currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean),canCreate=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK'].includes(String(role)));
+  const currentAgency=useAuthStore(state=>state.currentAgency),currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean),canCreate=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.create');
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');

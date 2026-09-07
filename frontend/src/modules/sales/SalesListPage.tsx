@@ -23,12 +23,15 @@ import { SaleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { SaleWizardModal } from './SaleWizardModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
+import { useAuthStore } from '../../stores/authStore';
+import { canPerformWorkflowAction } from '../../navigation/permissions';
 
 export const SalesListPage: React.FC = () => {
   const salesQuery = useSalesQuery();
   const sales = salesQuery.data ?? [];
   const { setActiveQuickActionModal } = useUiStore();
   const navigate = useNavigate();
+  const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canCreate=canPerformWorkflowAction(roles,'sales.create');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -57,14 +60,14 @@ export const SalesListPage: React.FC = () => {
         subtitle="Gestion des dossiers de vente VN/VO, financements, reprises et bons de commande."
         breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Commercial' }, { label: 'Ventes' }]}
         actions={
-          <Button
+          canCreate?<Button
             variant="primary"
             size="sm"
             icon={<Plus className="w-4 h-4" />}
             onClick={() => setIsWizardOpen(true)}
           >
             Nouvelle Vente
-          </Button>
+          </Button>:null
         }
       />
 

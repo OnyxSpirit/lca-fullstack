@@ -20,6 +20,7 @@ import { Modal } from '../../components/ui/Modal';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import type { Technician, TechnicianUnavailability, WorkshopBay, WorkshopSchedule } from '../../types';
+import { hasPermission } from '../../navigation/permissions';
 
 const START_HOUR=8;
 const END_HOUR=18;
@@ -41,7 +42,9 @@ const emptyAssignment=(date:string):AssignmentForm=>({repairOrderId:'',technicia
 
 export const WorkshopPlanningPage:React.FC=()=>{
   const navigate=useNavigate();
-  const agency=useAuthStore(state=>state.currentAgency);
+  const agency=useAuthStore(state=>state.currentAgency),currentUser=useAuthStore(state=>state.currentUser);
+  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
+  const canAssign=hasPermission(roles,'workshop.assign'),canManageResources=hasPermission(roles,'workshop.manageResources');
   const {addToast}=useUiStore();
   const [date,setDate]=useState(iso(new Date()));
   const [mode,setMode]=useState<'day'|'week'>('day');
@@ -87,7 +90,7 @@ export const WorkshopPlanningPage:React.FC=()=>{
   const removeAbsence=async(item:TechnicianUnavailability)=>{if(!window.confirm(`Supprimer l’indisponibilité « ${item.reason} » ?`))return;try{await absenceMutations.remove.mutateAsync({id:item.id,agencyId:agency?.id});addToast({type:'success',title:'Indisponibilité supprimée',description:'La capacité du technicien est rétablie.'})}catch(cause){addToast({type:'error',title:'Suppression impossible',description:cause instanceof Error?cause.message:'Erreur serveur'})}};
 
   return <div className="space-y-5">
-    <PageHeader title="Planning Atelier & Ponts" subtitle={`Vue ${mode==='day'?'journalière':'hebdomadaire'} — ${from}${to!==from?` au ${to}`:''}.`} breadcrumbs={[{label:'Accueil',href:'/dashboard'},{label:'Après-Vente'},{label:'Planning Atelier'}]} actions={<div className="flex gap-2"><Button variant="outline" icon={<Clock className="w-4 h-4"/>} onClick={()=>{setAbsence({...absence,technicianId:technicians[0]?.id??''});setAbsenceOpen(true)}} disabled={!technicians.length}>Indisponibilité</Button><Button icon={<Plus className="w-4 h-4"/>} onClick={openCreate} disabled={!technicians.length||!visibleRepairOrders.length}>Nouvelle affectation</Button></div>}/>
+    <PageHeader title="Planning Atelier & Ponts" subtitle={`Vue ${mode==='day'?'journalière':'hebdomadaire'} — ${from}${to!==from?` au ${to}`:''}.`} breadcrumbs={[{label:'Accueil',href:'/dashboard'},{label:'Après-Vente'},{label:'Planning Atelier'}]} actions={<div className="flex gap-2">{canManageResources&&<Button variant="outline" icon={<Clock className="w-4 h-4"/>} onClick={()=>{setAbsence({...absence,technicianId:technicians[0]?.id??''});setAbsenceOpen(true)}} disabled={!technicians.length}>Indisponibilité</Button>}{canAssign&&<Button icon={<Plus className="w-4 h-4"/>} onClick={openCreate} disabled={!technicians.length||!visibleRepairOrders.length}>Nouvelle affectation</Button>}</div>}/>
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
       <Button size="sm" variant="ghost" aria-label="Période précédente" onClick={()=>setDate(addDays(date,mode==='day'?-1:-7))}><ChevronLeft className="w-4 h-4"/></Button>
       <CalendarDays className="w-4 h-4"/><input aria-label="Date du planning" type="date" value={date} onChange={event=>setDate(event.target.value)} className="rounded-md border border-slate-300 p-2 text-xs"/>

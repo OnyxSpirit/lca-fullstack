@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { User, Agency, UserRole, PermissionAction } from '../types';
 import { apiRequest } from '../services/apiClient';
 import { connectRealtime, disconnectRealtime } from '../services/realtime';
-import { canAccessModule } from '../navigation/permissions';
+import { canAccessModule, normalizeRole } from '../navigation/permissions';
 
 const AUTH_STORAGE_KEY = 'lca-auth-user';
 const ACCESS_TOKEN_KEY = 'lca-access-token';
@@ -26,8 +26,6 @@ const storedUser = typeof window !== 'undefined' ? localStorage.getItem(AUTH_STO
 const parsedUser = storedUser ? JSON.parse(storedUser) as User : null;
 const initialUser = parsedUser ? {...parsedUser,roles:parsedUser.roles?.length?parsedUser.roles:[parsedUser.role],primaryRole:parsedUser.primaryRole??parsedUser.role}:null;
 const initialAgency: Agency | null = initialUser ? { id: initialUser.agencyId, name: initialUser.agencyName || 'Agence', code: '', city: '', address: '', phone: '', email: '', isMain: true, isActive: true } : null;
-const roleMap: Record<string, UserRole> = { DIRECTOR: 'DIRECTION', SALES_AGENT: 'SALES_REP', WORKSHOP_MANAGER: 'WORKSHOP_CHIEF', SUPER_ADMIN: 'SUPER_ADMIN', SALES_MANAGER: 'SALES_MANAGER', RECEPTIONIST: 'RECEPTIONIST', SERVICE_MANAGER: 'SERVICE_MANAGER', SERVICE_ADVISOR: 'SERVICE_ADVISOR', TECHNICIAN: 'TECHNICIAN', PARTS_MANAGER: 'PARTS_MANAGER', WAREHOUSE_CLERK: 'WAREHOUSE_CLERK', DELIVERY_MANAGER: 'DELIVERY_MANAGER', ACCOUNTANT: 'ACCOUNTANT' };
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   currentUser: initialUser,
   currentAgency: initialAgency,
@@ -38,7 +36,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     try {
       const response = await apiRequest<{ accessToken: string; refreshToken: string; user: { id: string; firstName: string; lastName: string; email: string; agencyId: string; agencyName:string;agencyCode:string;avatar:string|null;roles: string[] } }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      const roles=response.user.roles.map(code=>roleMap[code]).filter((role):role is UserRole=>Boolean(role));const primaryRole=roles[0]??'RECEPTIONIST';
+      const roles=response.user.roles.map(normalizeRole).filter((role):role is UserRole=>Boolean(role));const primaryRole=roles[0]??'RECEPTIONIST';
       const user: User = { id: response.user.id, name: `${response.user.firstName} ${response.user.lastName}`, email: response.user.email, role:primaryRole,roles,primaryRole, roleTitle: primaryRole.replaceAll('_', ' '), avatar: response.user.avatar??'', agencyId: response.user.agencyId, agencyName: response.user.agencyName, department: '', phone: '', status: 'active' };
       const agency: Agency = { id: user.agencyId, name: response.user.agencyName, code: response.user.agencyCode, city: '', address: '', phone: '', email: '', isMain: true, isActive: true };
       localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken); localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken); localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));

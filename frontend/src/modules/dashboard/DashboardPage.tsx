@@ -43,14 +43,18 @@ import { Badge } from '../../components/ui/Badge';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { formatDeltaPercent, useDashboardOverviewQuery } from '../../api/dashboardHooks';
+import { canAccessModule, canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
 
 export const DashboardPage: React.FC = () => {
   const { currentUser, currentAgency } = useAuthStore();
-  const repairOrders=useRepairOrdersQuery().data??[],deliveries=useDeliveriesQuery().data??[];
+  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
+  const canViewService=canAccessModule(roles,'view','service'),canViewDeliveries=canAccessModule(roles,'view','deliveries');
+  const repairOrders=useRepairOrdersQuery('','',canViewService).data??[],deliveries=useDeliveriesQuery({},canViewDeliveries).data??[];
   const overviewQuery=useDashboardOverviewQuery(currentAgency?.id),overview=overviewQuery.data;
   const notificationsQuery=useNotificationsQuery({page:1,pageSize:4}),notifications=notificationsQuery.data?.items??[],notificationActions=useNotificationActions();
   const { setActiveQuickActionModal } = useUiStore();
   const navigate = useNavigate();
+  const canCreateSale=canPerformWorkflowAction(roles,'sales.create');
 
   const loadingValue=overviewQuery.isLoading?'…':'—';
   const weeklyMax=Math.max(0,...(overview?.weeklySeries.map(item=>item.revenue)??[]));
@@ -75,12 +79,12 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <button
+          {canCreateSale&&<button
             onClick={() => setActiveQuickActionModal('sale')}
             className="bg-[#8f1722] hover:bg-[#6f1019] text-white px-4 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer"
           >
             Nouvelle Vente
-          </button>
+          </button>}
           <button
             onClick={() => navigate('/reports')}
             className="bg-white border border-[#cbc7c2] text-[#242426] px-4 py-2 rounded-md text-sm font-semibold hover:bg-[#eeece9] transition-colors cursor-pointer"
@@ -278,42 +282,42 @@ export const DashboardPage: React.FC = () => {
               Actions Rapides
             </h3>
             <div className="grid grid-cols-2 gap-2.5">
-              <button
+              {canAccessModule(roles,'view','crm')&&<button
                 onClick={() => setActiveQuickActionModal('lead')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 + Prospect
-              </button>
-              <button
-                onClick={() => setActiveQuickActionModal('repairOrder')}
+              </button>}
+              {hasPermission(roles,'service.create')&&<button
+                onClick={() => setActiveQuickActionModal('or')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 + RDV SAV
-              </button>
-              <button
+              </button>}
+              {canViewService&&<button
                 onClick={() => navigate('/service')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 Fiche OR
-              </button>
-              <button
+              </button>}
+              {canViewDeliveries&&<button
                 onClick={() => navigate('/deliveries')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 Imprimer BL
-              </button>
-              <button
+              </button>}
+              {hasPermission(roles,'vehicles.create')&&<button
                 onClick={() => setActiveQuickActionModal('vehicle')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 + Véhicule
-              </button>
-              <button
+              </button>}
+              {hasPermission(roles,'billing.create')&&<button
                 onClick={() => setActiveQuickActionModal('invoice')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 + Facture
-              </button>
+              </button>}
             </div>
           </div>
         </div>

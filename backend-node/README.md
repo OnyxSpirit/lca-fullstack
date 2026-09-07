@@ -59,7 +59,20 @@ existante avant de déployer cette version, exécutez explicitement depuis `back
 
 ```bash
 npm run db:migrate:billing
+npm run build
+npm run db:migrate:customers360
 ```
+
+Dans le déploiement Docker, l'image de production contient les scripts JavaScript compilés et
+`npm`, mais pas le binaire de développement `tsx`. Depuis la racine du dépôt, utilisez donc :
+
+```bash
+docker compose run --rm backend npm run db:migrate:customers360
+```
+
+Le migrateur Client 360 inspecte `information_schema`, n'ajoute que les éléments manquants et peut
+être relancé. La sauvegarde préalable, l'audit SQL du VPS et l'ordre de déploiement sont détaillés
+dans `docs/CUSTOMERS_360_PRODUCTION.md`.
 
 La migration `018_billing_stabilization.sql` est additive et idempotente sur la version MariaDB
 10.4 utilisée par XAMPP dans ce projet. Elle ne contient aucun `DROP`, `TRUNCATE` ou `DELETE` et

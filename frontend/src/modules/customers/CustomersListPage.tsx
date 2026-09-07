@@ -23,6 +23,7 @@ import { Modal } from '../../components/ui/Modal';
 import { useUiStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
+import { hasPermission } from '../../navigation/permissions';
 
 type CustomerAccountType='Particulier'|'Professionnel';
 type CustomerCivility='M.'|'Mme'|'Société';
@@ -35,6 +36,8 @@ const phoneValid=(value:string)=>{const digits=value.replace(/\D/g,'');return !v
 export const CustomersListPage: React.FC = () => {
   const { addToast } = useUiStore();
   const { currentUser, currentAgency } = useAuthStore();
+  const roles=currentUser?.roles?.length?currentUser.roles:currentUser?[currentUser.role]:[];
+  const canCreateCustomer=hasPermission(roles,'customers.create');
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,7 +98,7 @@ export const CustomersListPage: React.FC = () => {
         title="Fiches Clients 360° (Particuliers & Entreprises)"
         subtitle="Référentiel unifié : véhicules possédés, opportunités d'achat, historique SAV et facturation."
         breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Clients' }, { label: 'Fiches 360°' }]}
-        actions={
+        actions={canCreateCustomer?
           <Button
             variant="primary"
             size="sm"
@@ -104,7 +107,7 @@ export const CustomersListPage: React.FC = () => {
           >
             Nouveau Client
           </Button>
-        }
+        :undefined}
       />
 
       {/* Filter and Search Bar */}

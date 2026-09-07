@@ -33,6 +33,7 @@ import { ROUTES } from './navigation/routes';
 import { canAccessModule } from './navigation/permissions';
 import type { ModuleKey } from './navigation/routes';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
+import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -48,6 +49,7 @@ function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNod
 export default function App() {
   return (
     <BrowserRouter>
+      <RouteErrorBoundary>
       <AppBootstrap />
       <Routes>
         <Route path={ROUTES.login} element={<LoginPage />} />
@@ -81,6 +83,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.login} replace />} />
       </Routes>
+      </RouteErrorBoundary>
     </BrowserRouter>
   );
 }

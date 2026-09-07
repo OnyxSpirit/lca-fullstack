@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { detailRoutes, MODULE_ROUTES, notificationRoute, ROUTES } from '../src/navigation/routes';
-import { canAccessModule } from '../src/navigation/permissions';
+import { canAccessModule, canPerformWorkflowAction, normalizeRole } from '../src/navigation/permissions';
 import type { UserRole } from '../src/types';
 
 const roles: UserRole[] = ['SUPER_ADMIN','DIRECTION','SALES_MANAGER','SALES_REP','RECEPTIONIST','SERVICE_MANAGER','SERVICE_ADVISOR','WORKSHOP_CHIEF','TECHNICIAN','PARTS_MANAGER','WAREHOUSE_CLERK','DELIVERY_MANAGER','ACCOUNTANT'];
@@ -42,6 +42,44 @@ test('les permissions métier représentatives sont cloisonnées', () => {
   assert.equal(canAccessModule('ACCOUNTANT', 'view', 'billing'), true);
   assert.equal(canAccessModule('RECEPTIONIST', 'view', 'settings'), false);
   assert.equal(canAccessModule('WAREHOUSE_CLERK', 'view', 'users'), false);
+});
+
+test('la réception affecte le showroom sans obtenir les droits commerciaux', () => {
+  assert.equal(canPerformWorkflowAction('RECEPTIONIST', 'showroom.assign'), true);
+  for (const permission of ['crm.stage.update','crm.activity.create','sales.create','showroom.takeOver','showroom.testDrive','showroom.complete'] as const) {
+    assert.equal(canPerformWorkflowAction('RECEPTIONIST', permission), false, permission);
+  }
+  for (const role of ['SALES_REP','SALES_MANAGER','DIRECTION','SUPER_ADMIN'] as const) {
+    assert.equal(canPerformWorkflowAction(role, 'sales.create'), true, role);
+    assert.equal(canPerformWorkflowAction(role, 'showroom.testDrive'), true, role);
+  }
+});
+
+test('les alias backend sont normalisés vers les 13 rôles frontend supportés',()=>{
+  assert.equal(normalizeRole('DIRECTOR'),'DIRECTION');
+  assert.equal(normalizeRole('SALES_AGENT'),'SALES_REP');
+  assert.equal(normalizeRole('WORKSHOP_MANAGER'),'WORKSHOP_CHIEF');
+  assert.equal(normalizeRole('ADMIN'),null);
+});
+
+test('les modules visibles respectent la matrice des 13 rôles',()=>{
+  const expected:Record<UserRole,string[]>={
+    SUPER_ADMIN:['crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','reports','users','settings'],
+    DIRECTION:['crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','reports','settings'],
+    SALES_MANAGER:['crm','customers','vehicles','showroom','sales','deliveries','documents','reports'],
+    SALES_REP:['crm','customers','vehicles','showroom','sales','deliveries','documents'],
+    RECEPTIONIST:['crm','customers','vehicles','showroom'],
+    SERVICE_MANAGER:['customers','vehicles','service','workshop','parts','billing','documents','reports'],
+    SERVICE_ADVISOR:['customers','vehicles','service','workshop','parts','documents'],
+    WORKSHOP_CHIEF:['vehicles','service','workshop','parts','documents','reports'],
+    TECHNICIAN:['service','workshop','parts','documents'],
+    PARTS_MANAGER:['service','workshop','parts','documents','reports'],
+    WAREHOUSE_CLERK:['service','parts','documents'],
+    DELIVERY_MANAGER:['customers','vehicles','sales','deliveries','documents'],
+    ACCOUNTANT:['customers','sales','service','billing','documents','reports'],
+  };
+  const business=['crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','reports','users','settings'];
+  for(const role of roles)for(const module of business)assert.equal(canAccessModule(role,'view',module),expected[role].includes(module),`${role} / ${module}`);
 });
 
 test('une route inconnue affiche une page 404 explicite', () => {

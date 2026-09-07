@@ -399,7 +399,7 @@ export const useAgenciesQuery = () =>
     isMain: false,
     isActive: Boolean(r.isActive),
   }));
-export const useCustomersQuery = (search = "", type = "") =>
+export const useCustomersQuery = (search = "", type = "", requestEnabled = true) =>
   useQuery({
     queryKey: [...erpKeys.customers, search, type],
     queryFn: async () => {
@@ -409,9 +409,9 @@ export const useCustomersQuery = (search = "", type = "") =>
       const suffix = params.size ? `?${params}` : "";
       return (await apiRequest<any[]>(`/customers${suffix}`)).map(mapCustomer);
     },
-    enabled: enabled(),
+    enabled: enabled() && requestEnabled,
   });
-export const useLeadsQuery = (search = "", priority = "") =>
+export const useLeadsQuery = (search = "", priority = "", requestEnabled = true) =>
   useQuery({
     queryKey: [...erpKeys.leads, search, priority],
     queryFn: async () => {
@@ -421,7 +421,7 @@ export const useLeadsQuery = (search = "", priority = "") =>
       const suffix = params.size ? `?${params}` : "";
       return (await apiRequest<any[]>(`/leads${suffix}`)).map(mapLead);
     },
-    enabled: enabled(),
+    enabled: enabled() && requestEnabled,
   });
 export interface VehicleFilters {
   agencyId?: string;
@@ -434,7 +434,7 @@ export interface VehicleFilters {
   page?: number;
   pageSize?: number;
 }
-export const useVehiclesQuery = (filters: VehicleFilters = {}) =>
+export const useVehiclesQuery = (filters: VehicleFilters = {}, requestEnabled = true) =>
   useQuery({
     queryKey: [...erpKeys.vehicles, filters],
     queryFn: async () => {
@@ -451,7 +451,7 @@ export const useVehiclesQuery = (filters: VehicleFilters = {}) =>
       }>(`/vehicles?${params}`);
       return data.items.map(mapVehicle);
     },
-    enabled: enabled(),
+    enabled: enabled() && requestEnabled,
   });
 export interface VehicleStats {
   total:number; ordered:number; inTransit:number; received:number; preparation:number;
@@ -462,15 +462,16 @@ export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   queryFn:()=>apiRequest<VehicleStats>(`/vehicles/stats${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),
   enabled:enabled(),
 });
-export const useSalesQuery = () => resource(erpKeys.sales, "/sales", mapSale);
-export const useRepairOrdersQuery = (search="",status="") => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()});
+export const useSalesQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.sales,queryFn:async()=>(await apiRequest<any[]>('/sales')).map(mapSale),enabled:enabled()&&requestEnabled});
+export const useRepairOrdersQuery = (search="",status="",requestEnabled=true) => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()&&requestEnabled});
 export const useRepairStatsQuery = () => useQuery({queryKey:["repair-orders","stats"],queryFn:()=>apiRequest<any>("/repair-orders/stats"),enabled:enabled()});
-export const usePartsQuery = (agencyId?:string,filters:{search?:string;categoryId?:string}={}) => useQuery({queryKey:[...erpKeys.parts,agencyId,filters],queryFn:async()=>{const p=new URLSearchParams();if(agencyId)p.set('agencyId',agencyId);if(filters.search)p.set('search',filters.search);if(filters.categoryId)p.set('categoryId',filters.categoryId);return(await apiRequest<any[]>(`/parts?${p}`)).map(mapPart);},enabled:enabled()&&Boolean(agencyId)});
+export const usePartsQuery = (agencyId?:string,filters:{search?:string;categoryId?:string}={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.parts,agencyId,filters],queryFn:async()=>{const p=new URLSearchParams();if(agencyId)p.set('agencyId',agencyId);if(filters.search)p.set('search',filters.search);if(filters.categoryId)p.set('categoryId',filters.categoryId);return(await apiRequest<any[]>(`/parts?${p}`)).map(mapPart);},enabled:enabled()&&Boolean(agencyId)&&requestEnabled});
 export const usePartReferencesQuery=(agencyId?:string)=>useQuery({queryKey:['part-references',agencyId],queryFn:()=>apiRequest<any>(`/part-references?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
 export const usePurchaseOrdersQuery=(agencyId?:string)=>useQuery({queryKey:['purchase-orders',agencyId],queryFn:()=>apiRequest<any[]>(`/purchase-orders?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId)});
 export const usePurchaseOrderDetailQuery=(id?:string,agencyId?:string)=>useQuery({queryKey:['purchase-orders',id,agencyId],queryFn:()=>apiRequest<any>(`/purchase-orders/${id}?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(id)&&Boolean(agencyId)});
 export const useDeliveriesQuery = (
   filters: { search?: string; status?: string; dateFrom?: string; dateTo?: string; assignedUserId?: string } = {},
+  requestEnabled = true,
 ) =>
   useQuery({
     queryKey: [...erpKeys.deliveries, filters],
@@ -479,9 +480,9 @@ export const useDeliveriesQuery = (
       Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
       return (await apiRequest<any[]>(`/deliveries?${params}`)).map(mapDelivery);
     },
-    enabled: enabled(),
+    enabled: enabled() && requestEnabled,
   });
-export const useInvoicesQuery = (filters:Record<string,string>={}) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()});
+export const useInvoicesQuery = (filters:Record<string,string>={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()&&requestEnabled});
 export const useInvoiceQuery=(id?:string,agencyId?:string)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?agencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&Boolean(id)&&Boolean(agencyId)});
 export const useBillingConfigQuery=(agencyId?:string)=>useQuery({queryKey:['billing-config',agencyId],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string}>(`/billing/config?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
 export const useCustomerDetailQuery = (id?: string) =>
@@ -613,10 +614,10 @@ export const useCreateInvoice = () =>
 export function useLeadStageMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, stage }: { id: string; stage: string }) =>
+    mutationFn: ({ id, stage, lostReason }: { id: string; stage: string; lostReason?: string }) =>
       apiRequest(`/leads/${id}/stage`, {
         method: "PATCH",
-        body: JSON.stringify({ stage }),
+        body: JSON.stringify({ stage, lostReason }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: erpKeys.leads }),
   });

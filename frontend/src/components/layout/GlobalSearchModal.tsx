@@ -15,10 +15,12 @@ import { useUiStore } from '../../stores/uiStore';
 import { useCustomersQuery, useInvoicesQuery, useLeadsQuery, usePartsQuery, useRepairOrdersQuery, useSalesQuery, useVehiclesQuery } from '../../api/erpHooks';
 import { formatCurrency } from '../../lib/utils';
 import { useAuthStore } from '../../stores/authStore';
+import { canAccessModule } from '../../navigation/permissions';
 
 export const GlobalSearchModal: React.FC = () => {
   const { globalSearchOpen, setGlobalSearchOpen } = useUiStore();
-  const agencyId=useAuthStore(s=>s.currentAgency?.id);const customers=useCustomersQuery().data??[],vehicles=useVehiclesQuery().data??[],leads=useLeadsQuery().data??[],sales=useSalesQuery().data??[],repairOrders=useRepairOrdersQuery().data??[],invoices=useInvoicesQuery().data??[],spareParts=usePartsQuery(agencyId).data??[];
+  const auth=useAuthStore(),agencyId=auth.currentAgency?.id,roles=auth.currentUser?.roles?.length?auth.currentUser.roles:auth.currentUser?[auth.currentUser.role]:[];
+  const customers=useCustomersQuery('','',canAccessModule(roles,'view','customers')).data??[],vehicles=useVehiclesQuery({},canAccessModule(roles,'view','vehicles')).data??[],leads=useLeadsQuery('','',canAccessModule(roles,'view','crm')).data??[],sales=useSalesQuery(canAccessModule(roles,'view','sales')).data??[],repairOrders=useRepairOrdersQuery('','',canAccessModule(roles,'view','service')).data??[],invoices=useInvoicesQuery({},canAccessModule(roles,'view','billing')).data??[],spareParts=usePartsQuery(agencyId,{},canAccessModule(roles,'view','parts')).data??[];
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
 

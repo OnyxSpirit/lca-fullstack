@@ -47,7 +47,8 @@ const customer360Query = async (name, customerId, sql, params) => { try {
     return await query(sql, params);
 }
 catch (error) {
-    console.error({ route: 'GET /api/customers/:id/360', customerId, subquery: name, code: error.code, message: error instanceof Error ? error.message : String(error), stack: process.env.NODE_ENV === 'production' ? undefined : error instanceof Error ? error.stack : undefined });
+    const mysql = error;
+    console.error({ route: 'GET /api/customers/:id/360', customerId, subquery: name, code: mysql.code, errno: mysql.errno, sqlState: mysql.sqlState, message: error instanceof Error ? error.message : String(error), stack: process.env.NODE_ENV === 'production' ? undefined : error instanceof Error ? error.stack : undefined });
     throw error;
 } };
 const customerSelect = `SELECT c.*,a.name agency_name,CONCAT_WS(' ',assigned.first_name,assigned.last_name) assigned_user_name,CONCAT_WS(' ',creator.first_name,creator.last_name) created_by_name,COALESCE((SELECT SUM(s.total) FROM sales s WHERE s.customer_id=c.id AND s.status<>'cancelled'),0) total_revenue,COALESCE((SELECT SUM(i.balance_due) FROM invoices i WHERE i.customer_id=c.id AND i.status NOT IN ('paid','cancelled')),0) open_balance FROM customers c JOIN agencies a ON a.id=c.agency_id LEFT JOIN users assigned ON assigned.id=c.assigned_user_id LEFT JOIN users creator ON creator.id=c.created_by`;

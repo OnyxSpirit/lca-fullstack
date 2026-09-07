@@ -31,6 +31,8 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewLeadModal } from './NewLeadModal';
 import { Modal } from '../../components/ui/Modal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
+import { useAuthStore } from '../../stores/authStore';
+import { canPerformWorkflowAction } from '../../navigation/permissions';
 
 export const CrmPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -47,6 +49,11 @@ export const CrmPage: React.FC = () => {
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
   const { setActiveQuickActionModal, addToast } = useUiStore();
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const roles = currentUser.roles?.length ? currentUser.roles : [currentUser.role];
+  const canUpdateStage = canPerformWorkflowAction(roles, 'crm.stage.update');
+  const canCreateActivity = canPerformWorkflowAction(roles, 'crm.activity.create');
+  const canCreateSale = canPerformWorkflowAction(roles, 'sales.create');
 
   useEffect(() => {
     const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);
@@ -62,13 +69,17 @@ export const CrmPage: React.FC = () => {
     { stage: 'OFFRE', label: 'Offre / Devis', color: 'border-amber-400 bg-amber-50/50' },
     { stage: 'NEGOCIATION', label: 'Négociation', color: 'border-rose-400 bg-rose-50/50' },
     { stage: 'GAGNE', label: 'Gagné (Vente)', color: 'border-emerald-400 bg-emerald-50/50' },
+    { stage: 'PERDU', label: 'Perdu', color: 'border-slate-400 bg-slate-50/50' },
   ];
 
   const filteredLeads = leads;
   const hasActiveFilters = Boolean(debouncedSearch) || selectedPriority !== 'ALL';
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
-    const stage = opportunityStageToDb[newStage]; try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage }); addToast({
+    const stage = opportunityStageToDb[newStage];
+    const lostReason = newStage === 'PERDU' ? window.prompt('Motif de perte obligatoire')?.trim() : undefined;
+    if (newStage === 'PERDU' && !lostReason) return;
+    try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage, lostReason }); addToast({
       type: 'info',
       title: 'Étape mise à jour',
       description: `Le prospect a été déplacé vers l'étape ${newStage}.`,
@@ -248,7 +259,7 @@ export const CrmPage: React.FC = () => {
                       <div className="flex items-center justify-between pt-1 text-[10px]">
                         <span className="text-slate-400 truncate">{lead.assignedToName.split(' ')[0]}</span>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          {stage !== 'GAGNE' && (
+                          {canUpdateStage && stage !== 'GAGNE' && (
                             <button
                               onClick={() => {
                                 const currentIndex = stages.findIndex((s) => s.stage === stage);
@@ -373,7 +384,7 @@ export const CrmPage: React.FC = () => {
                 <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
                   Étape Actuelle du Pipeline
                 </span>
-                <select
+                {canUpdateStage ? <select
                   value={selectedLead.stage}
                   onChange={(e) => handleStageChange(selectedLead.id, e.target.value as LeadStage)}
                   className="text-xs font-bold p-1.5 rounded-lg border border-blue-400 bg-white text-blue-800 focus:outline-none"
@@ -383,7 +394,7 @@ export const CrmPage: React.FC = () => {
                       {s.label}
                     </option>
                   ))}
-                </select>
+                </select> : <StatusBadge status={selectedLead.stage} type="lead" />}
               </div>
 
               <div className="flex gap-2">
@@ -427,7 +438,7 @@ export const CrmPage: React.FC = () => {
               </h4>
 
               {/* Log new interaction */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 mb-4">
+              {canCreateActivity && <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 mb-4">
                 <div className="flex items-center gap-2">
                   <select
                     value={interactionType}
@@ -451,7 +462,7 @@ export const CrmPage: React.FC = () => {
                     Ajouter
                   </Button>
                 </div>
-              </div>
+              </div>}
 
               {/* Timeline feed */}
               <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-slate-100 pr-1">
@@ -462,7 +473,7 @@ export const CrmPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            {canCreateSale && <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <Button
                 variant="primary"
                 size="sm"
@@ -473,7 +484,7 @@ export const CrmPage: React.FC = () => {
               >
                 Transformer en Vente / Bon de Commande
               </Button>
-            </div>
+            </div>}
           </div>
         </Modal>
       )}

@@ -27,6 +27,8 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
 import { useEntityDocuments } from '../../api/documentHooks';
 import { apiDownload } from '../../services/apiClient';
+import { useAuthStore } from '../../stores/authStore';
+import { canPerformWorkflowAction } from '../../navigation/permissions';
 
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +37,11 @@ export const CustomerDetailPage: React.FC = () => {
   const timeline=data?.timeline??[],customerVehicles=data?.vehicles??[],customerSales=data?.sales??[],customerORs=data?.repairOrders??[],customerInvoices=data?.invoices??[],contacts=data?.contacts??[],opportunities=data?.opportunities??[];
   const { setActiveQuickActionModal,addToast } = useUiStore();
   const documentsQuery=useEntityDocuments('customer',id),documents=documentsQuery.data??[];
+  const currentUser=useAuthStore(state=>state.currentUser);
+  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
+  const canCreateSale=canPerformWorkflowAction(roles,'sales.create');
+  const canCreateRepairOrder=canPerformWorkflowAction(roles,'service.create');
+  const canUpdateCustomer=canPerformWorkflowAction(roles,'customers.update');
 
   const customer = data?.customer;
   const customerName=customer?(customer.type==='Professionnel'?(customer.company||[customer.firstName,customer.lastName].filter(Boolean).join(' ')||customer.code):[customer.civility,customer.firstName,customer.lastName].filter(Boolean).join(' ')):'';
@@ -68,22 +75,22 @@ export const CustomerDetailPage: React.FC = () => {
         badge={<Badge variant={customer.type === 'Professionnel' ? 'primary' : 'default'} size="md">{customer.type}</Badge>}
         actions={
           <div className="flex items-center gap-2">
-            <Button
+            {canCreateRepairOrder&&<Button
               variant="outline"
               size="sm"
               icon={<Wrench className="w-4 h-4" />}
               onClick={() => setActiveQuickActionModal('or',{customerId:customer.id})}
             >
               Nouveau RDV / OR
-            </Button>
-            <Button
+            </Button>}
+            {canCreateSale&&<Button
               variant="primary"
               size="sm"
               icon={<BadgePercent className="w-4 h-4" />}
               onClick={() => setActiveQuickActionModal('sale',{customerId:customer.id})}
             >
               Créer Vente
-            </Button>
+            </Button>}
           </div>
         }
       />

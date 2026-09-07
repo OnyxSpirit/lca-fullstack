@@ -19,10 +19,11 @@ import { NewRepairOrderModal } from '../../modules/service/NewRepairOrderModal';
 import { SaleWizardModal } from '../../modules/sales/SaleWizardModal';
 import { NewInvoiceModal } from '../../modules/billing/NewInvoiceModal';
 import { NewDeliveryModal } from '../../modules/deliveries/NewDeliveryModal';
+import { canPerformWorkflowAction, hasPermission, type AppPermission } from '../../navigation/permissions';
 
 export const QuickActionModal: React.FC = () => {
   const { activeQuickActionModal, quickActionContext, setActiveQuickActionModal } = useUiStore();
-  const user=useAuthStore(state=>state.currentUser),roles=user?.roles?.length?user.roles:[user?.role].filter(Boolean),canCreateVehicle=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK'].includes(String(role)));
+  const user=useAuthStore(state=>state.currentUser),roles=user.roles?.length?user.roles:[user.role],canCreateVehicle=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK'].includes(String(role))),canCreateSale=canPerformWorkflowAction(roles,'sales.create');
 
   const actions = [
     {
@@ -72,6 +73,7 @@ export const QuickActionModal: React.FC = () => {
   const handleActionClick = (actionId: string) => {
     setActiveQuickActionModal(actionId);
   };
+  const actionPermissions:Record<string,AppPermission>={lead:'crm.view',vehicle:'vehicles.create',sale:'sales.create',or:'service.create',delivery:'deliveries.create',invoice:'billing.create'};
 
   return (
     <>
@@ -84,7 +86,7 @@ export const QuickActionModal: React.FC = () => {
         maxWidth="xl"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {actions.filter(act=>act.id!=='vehicle'||canCreateVehicle).map((act) => (
+          {actions.filter(act=>hasPermission(roles,actionPermissions[act.id])&&(act.id!=='vehicle'||canCreateVehicle)&&(act.id!=='sale'||canCreateSale)).map((act) => (
             <button
               key={act.id}
               onClick={() => handleActionClick(act.id)}
@@ -109,30 +111,30 @@ export const QuickActionModal: React.FC = () => {
 
       {/* Sub Modals */}
       <NewLeadModal
-        isOpen={activeQuickActionModal === 'lead'}
+        isOpen={hasPermission(roles,'crm.view') && activeQuickActionModal === 'lead'}
         onClose={() => setActiveQuickActionModal(null)}
       />
       <NewVehicleModal
-        isOpen={activeQuickActionModal === 'vehicle'}
+        isOpen={hasPermission(roles,'vehicles.create') && activeQuickActionModal === 'vehicle'}
         onClose={() => setActiveQuickActionModal(null)}
       />
       <SaleWizardModal
-        isOpen={activeQuickActionModal === 'sale'}
+        isOpen={canCreateSale && activeQuickActionModal === 'sale'}
         onClose={() => setActiveQuickActionModal(null)}
         initialCustomerId={quickActionContext?.customerId}
         initialVehicleId={quickActionContext?.vehicleId}
       />
       <NewRepairOrderModal
-        isOpen={activeQuickActionModal === 'or'}
+        isOpen={hasPermission(roles,'service.create') && activeQuickActionModal === 'or'}
         onClose={() => setActiveQuickActionModal(null)}
         initialCustomerId={quickActionContext?.customerId}
         initialVehicleId={quickActionContext?.vehicleId}
       />
       <NewInvoiceModal
-        isOpen={activeQuickActionModal === 'invoice'}
+        isOpen={hasPermission(roles,'billing.create') && activeQuickActionModal === 'invoice'}
         onClose={() => setActiveQuickActionModal(null)}
       />
-      <NewDeliveryModal isOpen={activeQuickActionModal === 'delivery'} onClose={() => setActiveQuickActionModal(null)} />
+      <NewDeliveryModal isOpen={hasPermission(roles,'deliveries.create') && activeQuickActionModal === 'delivery'} onClose={() => setActiveQuickActionModal(null)} />
     </>
   );
 };

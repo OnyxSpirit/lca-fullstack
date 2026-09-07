@@ -32,6 +32,7 @@ import { VehicleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { apiDownload } from '../../services/apiClient';
 import { openBusinessPdf } from '../../services/businessPdf';
+import { canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
 
 export const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -39,7 +40,9 @@ export const VehicleDetailPage: React.FC = () => {
   const vehicleQuery=useVehicle360Query(id); const statusMutation = useVehicleStatusMutation();
   const imageMutations=useVehicleImages();
   const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean);
-  const canEdit=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK'].includes(String(role)));
+  const canEdit=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.update');
+  const canCreateSale=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'sales.create');
+  const canViewFinancials=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'vehicles.viewFinancials');
   const { setActiveQuickActionModal, addToast } = useUiStore();
 
   const vehicle = vehicleQuery.data?.vehicle;
@@ -113,14 +116,14 @@ export const VehicleDetailPage: React.FC = () => {
               Fiche A4
             </Button>
 
-            <Button
+            {canCreateSale&&<Button
               variant="primary"
               size="sm"
               icon={<BadgePercent className="w-4 h-4" />}
               onClick={() => setActiveQuickActionModal('sale',{vehicleId:vehicle.id})}
             >
               Créer Vente
-            </Button>
+            </Button>}
           </div>
         }
       />
@@ -174,10 +177,10 @@ export const VehicleDetailPage: React.FC = () => {
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-slate-100">
+              {canViewFinancials&&<div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Marge Brute Cible HT</span>
                 <span className="font-bold text-emerald-600">+{formatCurrency(vehicle.targetMarginHT)}</span>
-              </div>
+              </div>}
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Kilométrage</span>
                 <span className="font-semibold text-slate-800">{vehicle.mileage.toLocaleString()} km</span>
@@ -202,13 +205,13 @@ export const VehicleDetailPage: React.FC = () => {
           </div>
 
           <div className="pt-4 border-t border-slate-100 space-y-2">
-            <Button
+            {canCreateSale&&<Button
               variant="primary"
               className="w-full"
               onClick={() => setActiveQuickActionModal('sale',{vehicleId:vehicle.id})}
             >
               Établir une Proposition Commerciale
-            </Button>
+            </Button>}
             <Button
               variant="outline"
               className="w-full"
@@ -227,7 +230,7 @@ export const VehicleDetailPage: React.FC = () => {
           { key: 'financials', label: 'Décomposition des Coûts & Marges' },
           { key: 'timeline', label: 'Cycle de Vie & Traçabilité' },
           { key: 'documents', label: 'GED & Documents Associés' },
-        ].map((tab) => (
+        ].filter(tab=>tab.key!=='financials'||canViewFinancials).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
@@ -306,7 +309,7 @@ export const VehicleDetailPage: React.FC = () => {
       )}
 
       {/* TAB 2: FINANCIALS & MARGINS */}
-      {activeTab === 'financials' && (
+      {canViewFinancials && activeTab === 'financials' && (
         <Card>
           <CardHeader>
             <CardTitle>Décomposition Financière (Calcul de Prix de Revient et Marge Nette)</CardTitle>

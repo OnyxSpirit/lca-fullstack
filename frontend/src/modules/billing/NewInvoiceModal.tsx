@@ -6,6 +6,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { formatCurrency } from '../../lib/utils';
+import { generateUuid } from '../../lib/uuid';
 
 const emptyLine = (taxRate = 0) => ({ description: '', quantity: 1, unitPrice: 0, discount: 0, taxRate });
 
@@ -19,7 +20,7 @@ export const NewInvoiceModal: React.FC<{ isOpen: boolean; onClose: () => void }>
   const update = (index: number, key: string, value: unknown) => setForm((current) => ({ ...current, items: current.items.map((line, position) => position === index ? { ...line, [key]: value } : line) }));
   const net = form.items.reduce((sum, item) => sum + item.quantity * item.unitPrice - item.discount, 0), tax = form.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discount) * item.taxRate / 100, 0);
   const currency = config.data?.currencyCode, money = (amount: number) => currency ? formatCurrency(amount, currency) : '—';
-  async function submit(event: React.FormEvent) { event.preventDefault(); if (!config.data) return; try { await create.mutateAsync({ ...form, agencyId: agency?.id, saleId: form.invoiceType === 'vehicle' ? form.saleId || null : null, idempotencyKey: crypto.randomUUID() }); toast({ type: 'success', title: 'Facture créée', description: `Total ${money(net + tax)}` }); onClose(); } catch (error) { toast({ type: 'error', title: 'Facture non créée', description: error instanceof Error ? error.message : 'Erreur API' }); } }
+  async function submit(event: React.FormEvent) { event.preventDefault(); if (!config.data) return; try { await create.mutateAsync({ ...form, agencyId: agency?.id, saleId: form.invoiceType === 'vehicle' ? form.saleId || null : null, idempotencyKey: generateUuid() }); toast({ type: 'success', title: 'Facture créée', description: `Total ${money(net + tax)}` }); onClose(); } catch (error) { toast({ type: 'error', title: 'Facture non créée', description: error instanceof Error ? error.message : 'Erreur API' }); } }
   return <Modal isOpen={isOpen} onClose={onClose} title="Émettre une facture" description="Les montants affichés sont un aperçu ; le backend recalcule toutes les lignes." maxWidth="xl"><form onSubmit={submit} className="space-y-4">
     {config.isLoading && <p className="rounded border bg-slate-50 p-3 text-xs text-slate-600">Chargement de la configuration de facturation...</p>}
     {config.isError && <p className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700">Configuration TVA et devise indisponible. La facture ne peut pas être émise.</p>}

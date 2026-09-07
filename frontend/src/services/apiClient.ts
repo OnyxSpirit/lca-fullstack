@@ -1,5 +1,5 @@
 import { refreshRealtimeToken } from './realtime';
-const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+const API_URL = (import.meta.env?.VITE_API_URL || '/api').replace(/\/$/, '');
 export const API_ORIGIN = API_URL.startsWith('http') ? API_URL.replace(/\/api\/?$/, '') : '';
 export const assetUrl = (value?: string | null) => value ? (/^https?:\/\//.test(value) ? value : `${API_ORIGIN}${value}`) : '';
 

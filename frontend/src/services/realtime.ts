@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-const apiUrl = import.meta.env.VITE_API_URL || '/api';
+const apiUrl = import.meta.env?.VITE_API_URL || '/api';
 const BACKEND_URL = new URL(apiUrl, window.location.origin).origin;
 let socket: Socket | null = null;
 export function connectRealtime(token: string) {

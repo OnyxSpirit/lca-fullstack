@@ -94,13 +94,26 @@ docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_
 
 Ne rejouez ni `schema.sql`, ni `all_migrations.sql` sur une base déjà initialisée.
 
-Pour une installation historique qui doit recevoir la fiche Client 360°, appliquez après sauvegarde la migration additive dédiée :
+Pour une installation historique qui doit recevoir la fiche Client 360°, reconstruisez et redémarrez d’abord les services, puis lancez explicitement le migrateur depuis le conteneur backend :
 
 ```bash
-docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"' < backend/database/migrations/019_customers_360_stabilization.sql
+git pull --ff-only
+docker compose build backend frontend
+docker compose up -d
+docker compose exec backend npm run db:migrate:customers360
+docker compose logs --tail=200 backend
+curl --fail http://127.0.0.1/api/health
 ```
 
-Elle crée uniquement les structures relationnelles manquantes (`customer_contacts`, rattachements client des opportunités et activités) et peut être rejouée sur un schéma déjà à jour.
+Le migrateur inspecte `information_schema`, crée uniquement les structures relationnelles manquantes (`customer_contacts`, rattachements client des opportunités et activités), puis vérifie toutes les colonnes consommées par `/customers/:id/360`. Il peut être relancé : un second passage doit afficher `schéma déjà à jour`. Il ne supprime ni volume, ni table, ni ligne métier.
+
+Pour auditer le schéma sans le modifier :
+
+```bash
+docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"' -e "SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('customers','customer_contacts','opportunities','leads','vehicles','versions','models','brands','sale_items','sales','repair_orders','invoices','activities','deliveries','payments','showroom_visits','documents') ORDER BY TABLE_NAME,ORDINAL_POSITION"
+```
+
+Après migration, ouvrez une fiche Client 360° puis contrôlez `docker compose logs --tail=200 backend`. Une erreur SQL indique maintenant `customerId`, `subquery`, `code` et `message`.
 
 ## 6. Sauvegarde et restauration
 

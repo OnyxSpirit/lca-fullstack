@@ -26,6 +26,14 @@ const text = (value, name, max = 255, required = false) => { if (value == null |
 const numberValue = (value, name, min, max) => { if (value == null || value === '')
     return null; const result = Number(value); if (!Number.isFinite(result) || result < min || result > max)
     throw new HttpError(400, `${name} est invalide`); return result; };
+const validEmail = (value) => { if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+    throw new HttpError(400, "L’adresse e-mail n’est pas valide."); return value; };
+const validPhone = (value) => { if (value) {
+    const digits = value.replace(/\D/g, '');
+    if (!/^[+\d\s().-]+$/.test(value) || digits.length < 6 || digits.length > 15)
+        throw new HttpError(400, "Le numéro de téléphone n’est pas valide.");
+} return value; };
+const leadStatusForStage = (stage) => stage === 'won' ? 'converted' : stage === 'lost' ? 'lost' : ['new', 'contacted', 'qualified'].includes(stage) ? stage : 'qualified';
 const dateValue = (value, name) => { if (value == null || value === '')
     return null; if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
     throw new HttpError(400, `${name} doit être au format AAAA-MM-JJ`); return value; };
@@ -84,8 +92,8 @@ crmRouter.post('/leads', authorize(...CRM_WRITE), asyncHandler(async (request, r
     const firstName = text(body.firstName, 'firstName', 100);
     const lastName = text(body.lastName, 'lastName', 100);
     const companyName = text(body.companyName, 'companyName', 200);
-    const email = text(body.email, 'email', 190);
-    const phone = text(body.phone, 'phone', 50);
+    const email = validEmail(text(body.email, 'email', 190));
+    const phone = validPhone(text(body.phone, 'phone', 50));
     if (!lastName && !companyName)
         throw new HttpError(400, 'Un nom ou une société est requis');
     if (!phone && !email)
@@ -96,13 +104,16 @@ crmRouter.post('/leads', authorize(...CRM_WRITE), asyncHandler(async (request, r
     const priority = text(body.priority, 'priority', 20) ?? 'medium';
     if (!priorities.includes(priority))
         throw new HttpError(400, 'Priorité CRM invalide');
+    const stage = text(body.stage, 'stage', 30) ?? 'new';
+    if (!stages.includes(stage))
+        throw new HttpError(400, 'Étape CRM invalide');
     const assignedUserId = text(body.assignedUserId, 'assignedUserId', 30) ?? request.user.sub;
     const assigned = await assignee(assignedUserId, request);
     const expectedValue = numberValue(body.expectedValue, 'expectedValue', 0, 9999999999999999);
     const probability = numberValue(body.probability, 'probability', 0, 100);
     const expectedCloseDate = dateValue(body.expectedCloseDate, 'expectedCloseDate');
-    const notes = text(body.notes, 'notes', 10000);
-    const created = await transaction(async (connection) => { const [lead] = await connection.execute(`INSERT INTO leads(assigned_user_id,created_by,source,status,priority,first_name,last_name,company_name,email,phone,notes) VALUES(?,?,?,'new',?,?,?,?,?,?,?)`, [assignedUserId, request.user.sub, source, priority, firstName, lastName, companyName, email, phone, notes]); const [opportunity] = await connection.execute(`INSERT INTO opportunities(lead_id,assigned_user_id,title,stage,expected_value,probability,expected_close_date,notes) VALUES(?,?,?,'new',?,?,?,?)`, [lead.insertId, assignedUserId, title, expectedValue, probability, expectedCloseDate, notes]); return { id: String(lead.insertId), opportunityId: String(opportunity.insertId) }; });
+    const notes = text(body.notes, 'notes', 10000), leadStatus = leadStatusForStage(stage);
+    const created = await transaction(async (connection) => { const [lead] = await connection.execute(`INSERT INTO leads(assigned_user_id,created_by,source,status,priority,first_name,last_name,company_name,email,phone,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, [assignedUserId, request.user.sub, source, leadStatus, priority, firstName, lastName, companyName, email, phone, notes]); const [opportunity] = await connection.execute(`INSERT INTO opportunities(lead_id,assigned_user_id,title,stage,expected_value,probability,expected_close_date,notes) VALUES(?,?,?,?,?,?,?,?)`, [lead.insertId, assignedUserId, title, stage, expectedValue, probability, expectedCloseDate, notes]); return { id: String(lead.insertId), opportunityId: String(opportunity.insertId) }; });
     await notifyCrm({ leadId: created.id, agencyId: assigned.agencyId, assignedUserId, actorUserId: request.user.sub, subject: 'Nouveau prospect', message: `Le prospect ${[firstName, lastName].filter(Boolean).join(' ') || companyName} vous a été attribué.` });
     response.status(201).json(created);
 }));
@@ -115,7 +126,11 @@ crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (reque
     const leadSets = [], leadValues = [], oppSets = [], oppValues = [];
     for (const [key, column] of Object.entries(leadFields))
         if (Object.hasOwn(body, key)) {
-            const value = text(body[key], key, key === 'notes' ? 10000 : key === 'companyName' ? 200 : key === 'email' ? 190 : key === 'phone' ? 50 : 100);
+            let value = text(body[key], key, key === 'notes' ? 10000 : key === 'companyName' ? 200 : key === 'email' ? 190 : key === 'phone' ? 50 : 100);
+            if (key === 'email')
+                value = validEmail(value);
+            if (key === 'phone')
+                value = validPhone(value);
             if (key === 'source' && value && !leadSources.includes(value))
                 throw new HttpError(400, 'Source du prospect invalide');
             if (key === 'priority' && !priorities.includes(value))
@@ -156,7 +171,7 @@ crmRouter.patch('/leads/:id/stage', authorize(...CRM_STAGE), asyncHandler(async 
     const lostReason = text(request.body?.lostReason, 'lostReason', 255);
     if (stage === 'lost' && !lostReason)
         throw new HttpError(400, 'Le motif de perte est obligatoire');
-    await transaction(async (connection) => { await connection.execute(`UPDATE opportunities SET stage=?,lost_reason=?,won_at=IF(?='won',NOW(),NULL),lost_at=IF(?='lost',NOW(),NULL) WHERE lead_id=?`, [stage, stage === 'lost' ? lostReason : null, stage, stage, leadId]); await connection.execute(`UPDATE leads SET status=?,converted_at=IF(?='converted',NOW(),NULL) WHERE id=?`, [stage === 'won' ? 'converted' : stage === 'lost' ? 'lost' : ['new', 'contacted', 'qualified'].includes(stage) ? stage : 'qualified', stage === 'won' ? 'converted' : '', leadId]); });
+    await transaction(async (connection) => { await connection.execute(`UPDATE opportunities SET stage=?,lost_reason=?,won_at=IF(?='won',NOW(),NULL),lost_at=IF(?='lost',NOW(),NULL) WHERE lead_id=?`, [stage, stage === 'lost' ? lostReason : null, stage, stage, leadId]); await connection.execute(`UPDATE leads SET status=?,converted_at=IF(?='converted',NOW(),NULL) WHERE id=?`, [leadStatusForStage(stage), stage === 'won' ? 'converted' : '', leadId]); });
     await notifyCrm({ leadId, agencyId: current.agency_id == null ? null : String(current.agency_id), assignedUserId: current.assigned_user_id == null ? null : String(current.assigned_user_id), actorUserId: request.user.sub, subject: 'Étape CRM mise à jour', message: `Le prospect #${leadId} est maintenant à l’étape ${stage}.` });
     response.json(mapLead(await accessibleLead(leadId, request)));
 }));

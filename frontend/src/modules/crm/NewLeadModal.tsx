@@ -1,215 +1,41 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCreateLead } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
+import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import { LeadStage } from '../../types';
+import type { LeadStage } from '../../types';
 
-interface NewLeadModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+interface NewLeadModalProps { isOpen:boolean; onClose:()=>void }
+type Civility='M.'|'Mme'|'Société';
+type Source='Passage Showroom'|'Web'|'Téléphone'|'LeBonCoin'|'Parrainage'|'Campagne Marketing';
+type Priority='Basse'|'Moyenne'|'Haute'|'Urgente';
+interface LeadForm { civility:Civility;firstName:string;lastName:string;company:string;email:string;phone:string;source:Source;stage:LeadStage;targetVehicle:string;targetBudget:string;priority:Priority;notes:string }
+type LeadFormErrors=Partial<Record<'firstName'|'lastName'|'company'|'phone'|'email'|'targetBudget',string>>;
 
-export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose }) => {
-  const createLead = useCreateLead();
-  const { currentUser, currentAgency } = useAuthStore();
-  const { addToast } = useUiStore();
+export const INITIAL_LEAD_FORM:LeadForm={civility:'M.',firstName:'',lastName:'',company:'',email:'',phone:'',source:'Passage Showroom',stage:'NOUVEAU',targetVehicle:'',targetBudget:'',priority:'Haute',notes:''};
+const priorityToDb:Record<Priority,'low'|'medium'|'high'|'urgent'>={Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent'};
+const emailValid=(value:string)=>!value||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const phoneValid=(value:string)=>{const digits=value.replace(/\D/g,'');return /^[+\d\s().-]+$/.test(value)&&digits.length>=6&&digits.length<=15};
 
-  const [formData, setFormData] = useState({
-    civility: 'M.' as 'M.' | 'Mme' | 'Société',
-    firstName: '',
-    lastName: '',
-    company: '',
-    email: '',
-    phone: '',
-    source: 'Passage Showroom' as const,
-    stage: 'NOUVEAU' as LeadStage,
-    targetVehicle: '',
-    targetBudget: 35000,
-    priority: 'Haute' as const,
-    notes: '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.lastName || !formData.phone) {
-      addToast({
-        type: 'error',
-        title: 'Champs requis manquants',
-        description: 'Veuillez saisir au minimum le nom et le numéro de téléphone.',
-      });
-      return;
-    }
-
-    try {
-      const priorityToDb={Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent'} as const;
-      await createLead.mutateAsync({ firstName: formData.firstName, lastName: formData.lastName, companyName: formData.company || undefined, email: formData.email || undefined, phone: formData.phone, source: formData.source, assignedUserId: currentUser?.id, title: formData.targetVehicle || 'Opportunité véhicule', expectedValue: formData.targetBudget, probability: 75, priority:priorityToDb[formData.priority], notes: formData.notes });
-      addToast({ type: 'success', title: 'Prospect créé avec succès', description: `${formData.firstName} ${formData.lastName} a été ajouté au pipeline CRM.` });
-      onClose();
-    } catch (error) {
-      addToast({ type: 'error', title: 'Création impossible', description: error instanceof Error ? error.message : 'Erreur API' });
-    }
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Nouveau Prospect / Opportunité CRM"
-      description="Enregistrez les coordonnées et les souhaits d'achat du prospect."
-      maxWidth="xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Civilité</label>
-            <select
-              value={formData.civility}
-              onChange={(e) => setFormData({ ...formData, civility: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="M.">M.</option>
-              <option value="Mme">Mme</option>
-              <option value="Société">Société</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Prénom</label>
-            <input
-              type="text"
-              required
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              placeholder="Prénom"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Nom *</label>
-            <input
-              type="text"
-              required
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              placeholder="ex: Dupont"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Téléphone *</label>
-            <input
-              type="tel"
-              required
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="ex: 06 12 34 56 78"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="ex: alexandre.dupont@email.fr"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Source contact</label>
-            <select
-              value={formData.source}
-              onChange={(e) => setFormData({ ...formData, source: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="Passage Showroom">Passage Showroom</option>
-              <option value="Web">Formulaire Web</option>
-              <option value="Téléphone">Appel Téléphonique</option>
-              <option value="LeBonCoin">LeBonCoin / LaCentrale</option>
-              <option value="Parrainage">Parrainage Client</option>
-              <option value="Campagne Marketing">Campagne Marketing</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Priorité</label>
-            <select
-              value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="Basse">Basse</option>
-              <option value="Moyenne">Moyenne</option>
-              <option value="Haute">Haute</option>
-              <option value="Urgente">Urgente 🔥</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Étape Initiale</label>
-            <select
-              value={formData.stage}
-              onChange={(e) => setFormData({ ...formData, stage: e.target.value as any })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="NOUVEAU">Nouveau</option>
-              <option value="CONTACTE">Contacté</option>
-              <option value="QUALIFIE">Qualifié</option>
-              <option value="RDV">Rendez-vous fixé</option>
-              <option value="ESSAI">Essai routier</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Véhicule recherché / Marque & Modèle</label>
-            <input
-              type="text"
-              value={formData.targetVehicle}
-              onChange={(e) => setFormData({ ...formData, targetVehicle: e.target.value })}
-              placeholder="ex: BMW Série 3 Hybride / Audi Q5"
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Budget cible (FCFA TTC)</label>
-            <input
-              type="number"
-              step="1000"
-              value={formData.targetBudget}
-              onChange={(e) => setFormData({ ...formData, targetBudget: Number(e.target.value) })}
-              className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Notes & Attentes du client</label>
-          <textarea
-            rows={3}
-            value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder="Détails du projet d'achat, véhicule actuel à reprendre, date souhaitée..."
-            className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
-        </div>
-
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-          <Button variant="outline" type="button" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button variant="primary" type="submit">
-            Enregistrer le prospect
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
+export const NewLeadModal:React.FC<NewLeadModalProps>=({isOpen,onClose})=>{
+  const createLead=useCreateLead(),{currentUser}=useAuthStore(),{addToast}=useUiStore();
+  const [formData,setFormData]=useState<LeadForm>(INITIAL_LEAD_FORM),[errors,setErrors]=useState<LeadFormErrors>({});
+  const resetForm=()=>{setFormData(INITIAL_LEAD_FORM);setErrors({})};
+  useEffect(()=>{if(!isOpen)resetForm()},[isOpen]);
+  const close=()=>{resetForm();onClose()};
+  const set=<K extends keyof LeadForm>(key:K,value:LeadForm[K])=>{setFormData(current=>({...current,[key]:value}));setErrors(current=>({...current,[key]:undefined}))};
+  const validate=()=>{const next:LeadFormErrors={};if(formData.civility==='Société'){if(!formData.company.trim())next.company='La société est obligatoire.'}else{if(!formData.firstName.trim())next.firstName='Le prénom est obligatoire.';if(!formData.lastName.trim())next.lastName='Le nom est obligatoire.'}if(!formData.phone.trim())next.phone='Le téléphone est obligatoire.';else if(!phoneValid(formData.phone.trim()))next.phone="Le numéro de téléphone n’est pas valide.";if(!emailValid(formData.email.trim()))next.email="L’adresse e-mail n’est pas valide.";if(formData.targetBudget!==''&&(!Number.isFinite(Number(formData.targetBudget))||Number(formData.targetBudget)<0))next.targetBudget='Le budget doit être positif.';setErrors(next);return Object.keys(next).length===0};
+  const handleSubmit=async(event:React.FormEvent)=>{event.preventDefault();if(!validate())return;const stage=opportunityStageToDb[formData.stage];if(!stage){addToast({type:'error',title:'Étape invalide',description:'Sélectionnez une étape CRM valide.'});return}try{await createLead.mutateAsync({firstName:formData.civility==='Société'?undefined:formData.firstName.trim(),lastName:formData.civility==='Société'?undefined:formData.lastName.trim(),companyName:formData.company.trim()||undefined,email:formData.email.trim()||undefined,phone:formData.phone.trim(),source:formData.source,stage,assignedUserId:currentUser?.id,title:formData.targetVehicle.trim()||'Opportunité véhicule',expectedValue:formData.targetBudget===''?undefined:Number(formData.targetBudget),priority:priorityToDb[formData.priority],notes:formData.notes.trim()||undefined});addToast({type:'success',title:'Prospect créé avec succès',description:`${formData.civility==='Société'?formData.company:`${formData.firstName} ${formData.lastName}`} a été ajouté au pipeline CRM.`});resetForm();onClose()}catch(error){addToast({type:'error',title:'Création impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  const inputClass=(error?:string)=>`w-full text-xs p-2.5 rounded-lg border bg-white focus:outline-none ${error?'border-red-500 focus:ring-2 focus:ring-red-300':'border-slate-300 focus:ring-2 focus:ring-blue-500'}`;
+  return <Modal isOpen={isOpen} onClose={close} title="Nouveau Prospect / Opportunité CRM" description="Enregistrez les coordonnées et les souhaits d'achat du prospect." maxWidth="xl"><form noValidate onSubmit={handleSubmit} className="space-y-4">
+    <p className="text-[11px] text-slate-500">* Champs obligatoires</p>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><label className="text-xs font-semibold">Civilité<select value={formData.civility} onChange={event=>set('civility',event.target.value as Civility)} className={inputClass()}><option value="M.">M.</option><option value="Mme">Mme</option><option value="Société">Société</option></select></label>{formData.civility==='Société'?<label className="text-xs font-semibold sm:col-span-2">Société *<input value={formData.company} onChange={event=>set('company',event.target.value)} onBlur={validate} className={inputClass(errors.company)} placeholder="Nom de la société"/>{errors.company&&<span className="mt-1 block text-[11px] text-red-700">{errors.company}</span>}</label>:<><label className="text-xs font-semibold">Prénom *<input value={formData.firstName} onChange={event=>set('firstName',event.target.value)} onBlur={validate} className={inputClass(errors.firstName)} placeholder="Prénom"/>{errors.firstName&&<span className="mt-1 block text-[11px] text-red-700">{errors.firstName}</span>}</label><label className="text-xs font-semibold">Nom *<input value={formData.lastName} onChange={event=>set('lastName',event.target.value)} onBlur={validate} className={inputClass(errors.lastName)} placeholder="Nom"/>{errors.lastName&&<span className="mt-1 block text-[11px] text-red-700">{errors.lastName}</span>}</label></>}</div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="text-xs font-semibold">Téléphone *<input type="tel" value={formData.phone} onChange={event=>set('phone',event.target.value)} onBlur={validate} placeholder="+242 06 xxx xx xx" className={inputClass(errors.phone)}/>{errors.phone&&<span className="mt-1 block text-[11px] text-red-700">{errors.phone}</span>}</label><label className="text-xs font-semibold">Email<input type="text" inputMode="email" value={formData.email} onChange={event=>set('email',event.target.value)} onBlur={validate} placeholder="nom@exemple.com" className={inputClass(errors.email)}/>{errors.email&&<span className="mt-1 block text-[11px] text-red-700">{errors.email}</span>}</label></div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><label className="text-xs font-semibold">Source contact<select value={formData.source} onChange={event=>set('source',event.target.value as Source)} className={inputClass()}><option value="Passage Showroom">Passage Showroom</option><option value="Web">Formulaire Web</option><option value="Téléphone">Appel téléphonique</option><option value="LeBonCoin">LeBonCoin / LaCentrale</option><option value="Parrainage">Parrainage client</option><option value="Campagne Marketing">Campagne marketing</option></select></label><label className="text-xs font-semibold">Priorité<select value={formData.priority} onChange={event=>set('priority',event.target.value as Priority)} className={inputClass()}><option>Basse</option><option>Moyenne</option><option>Haute</option><option>Urgente</option></select></label><label className="text-xs font-semibold">Étape initiale<select value={formData.stage} onChange={event=>set('stage',event.target.value as LeadStage)} className={inputClass()}><option value="NOUVEAU">Nouveau</option><option value="CONTACTE">Contacté</option><option value="QUALIFIE">Qualifié</option><option value="RDV">Rendez-vous fixé</option><option value="ESSAI">Essai routier</option></select></label></div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="text-xs font-semibold">Véhicule recherché / Marque & Modèle<input value={formData.targetVehicle} onChange={event=>set('targetVehicle',event.target.value)} placeholder="Ex. Toyota Corolla hybride" className={inputClass()}/></label><label className="text-xs font-semibold">Budget cible (FCFA TTC)<input type="number" min="0" step="1000" value={formData.targetBudget} onChange={event=>set('targetBudget',event.target.value)} onBlur={validate} className={inputClass(errors.targetBudget)}/>{errors.targetBudget&&<span className="mt-1 block text-[11px] text-red-700">{errors.targetBudget}</span>}</label></div>
+    <label className="block text-xs font-semibold">Notes & attentes du client<textarea rows={3} value={formData.notes} onChange={event=>set('notes',event.target.value)} placeholder="Détails du projet d'achat, reprise éventuelle et date souhaitée…" className={inputClass()}/></label>
+    <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3"><Button variant="outline" type="button" onClick={close}>Annuler</Button><Button variant="primary" type="submit" disabled={createLead.isPending}>{createLead.isPending?'Enregistrement…':'Enregistrer le prospect'}</Button></div>
+  </form></Modal>;
 };

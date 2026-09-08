@@ -179,7 +179,7 @@ export const VehicleDetailPage: React.FC = () => {
             <div className="space-y-2 text-xs">
               {canViewFinancials&&<div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Marge Brute Cible HT</span>
-                <span className="font-bold text-emerald-600">+{formatCurrency(vehicle.targetMarginHT)}</span>
+                <span className="font-bold text-emerald-600">{vehicle.targetMarginHT==null?'—':`+${formatCurrency(vehicle.targetMarginHT)}`}</span>
               </div>}
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Kilométrage</span>
@@ -317,21 +317,21 @@ export const VehicleDetailPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-xs text-slate-500 font-medium">Prix d'Achat HT</span>
-              <div className="text-lg font-bold text-slate-900 mt-1">{formatCurrency(vehicle.purchasePriceHT)}</div>
+              <div className="text-lg font-bold text-slate-900 mt-1">{vehicle.purchasePriceHT==null?'—':formatCurrency(vehicle.purchasePriceHT)}</div>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-xs text-slate-500 font-medium">Frais Remise en État HT</span>
-              <div className="text-lg font-bold text-amber-700 mt-1">+{formatCurrency(vehicle.refurbishCostHT)}</div>
+              <div className="text-lg font-bold text-amber-700 mt-1">{vehicle.refurbishCostHT==null?'—':`+${formatCurrency(vehicle.refurbishCostHT)}`}</div>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-xs text-slate-500 font-medium">Prix de Revient Total HT</span>
               <div className="text-lg font-bold text-slate-900 mt-1">
-                {formatCurrency(vehicle.purchasePriceHT + vehicle.refurbishCostHT + vehicle.otherCostsHT)}
+                {[vehicle.purchasePriceHT,vehicle.refurbishCostHT,vehicle.otherCostsHT].some(value=>value==null)?'—':formatCurrency(vehicle.purchasePriceHT!+vehicle.refurbishCostHT!+vehicle.otherCostsHT!)}
               </div>
             </div>
             <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
               <span className="text-xs text-emerald-800 font-medium">Marge Nette Cible HT</span>
-              <div className="text-lg font-bold text-emerald-700 mt-1">+{formatCurrency(vehicle.targetMarginHT)}</div>
+              <div className="text-lg font-bold text-emerald-700 mt-1">{vehicle.targetMarginHT==null?'—':`+${formatCurrency(vehicle.targetMarginHT)}`}</div>
             </div>
           </div>
         </Card>

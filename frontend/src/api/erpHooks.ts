@@ -40,6 +40,7 @@ export const erpKeys = {
 } as const;
 const enabled = () => Boolean(localStorage.getItem("lca-access-token"));
 const n = (v: unknown) => Number(v ?? 0);
+const optionalNumber = (v: unknown) => v == null ? undefined : Number(v);
 const s = (v: unknown) => (v == null ? "" : String(v));
 
 const customerRating: Record<string, Customer["rating"]> = {
@@ -116,20 +117,17 @@ const mapVehicle = (r: any): Vehicle => ({
         Math.floor((Date.now() - new Date(r.entryDate).getTime()) / 86400000),
       )
     : 0,
-  purchasePriceHT: n(r.purchasePrice),
-  refurbishCostHT: n(r.refurbishmentCost),
-  otherCostsHT:
-    n(r.additionalCosts) + n(r.transportCost) + n(r.administrativeCost),
+  purchasePriceHT: optionalNumber(r.purchasePrice),
+  refurbishCostHT: optionalNumber(r.refurbishmentCost),
+  otherCostsHT: [r.additionalCosts,r.transportCost,r.administrativeCost].every(value=>value!=null)
+    ? Number(r.additionalCosts)+Number(r.transportCost)+Number(r.administrativeCost)
+    : undefined,
   catalogPriceTTC: n(r.catalogPrice),
   sellingPriceTTC: n(r.salePrice),
-  minimumPriceTTC: n(r.minimumPrice),
-  targetMarginHT:
-    n(r.salePrice) -
-    n(r.purchasePrice) -
-    n(r.refurbishmentCost) -
-    n(r.additionalCosts) -
-    n(r.transportCost) -
-    n(r.administrativeCost),
+  minimumPriceTTC: optionalNumber(r.minimumPrice),
+  targetMarginHT: [r.salePrice,r.purchasePrice,r.refurbishmentCost,r.additionalCosts,r.transportCost,r.administrativeCost].every(value=>value!=null)
+    ? Number(r.salePrice)-Number(r.purchasePrice)-Number(r.refurbishmentCost)-Number(r.additionalCosts)-Number(r.transportCost)-Number(r.administrativeCost)
+    : undefined,
   photos: (r.photos ?? (r.primaryImage ? [r.primaryImage] : [])).map(assetUrl),
   features: r.features ?? [],
   supplier: r.supplierName ?? "",
@@ -137,9 +135,9 @@ const mapVehicle = (r: any): Vehicle => ({
   locationId: s(r.locationId),
   engine: r.engine ?? "",
   notes: r.notes ?? "",
-  transportCost: n(r.transportCost),
-  administrativeCost: n(r.administrativeCost),
-  additionalCosts: n(r.additionalCosts),
+  transportCost: optionalNumber(r.transportCost),
+  administrativeCost: optionalNumber(r.administrativeCost),
+  additionalCosts: optionalNumber(r.additionalCosts),
   createdAt: r.createdAt ?? "",
 });
 const leadPriorityFromDb: Record<string, Lead["priority"]> = {
@@ -455,7 +453,7 @@ export const useVehiclesQuery = (filters: VehicleFilters = {}, requestEnabled = 
   });
 export interface VehicleStats {
   total:number; ordered:number; inTransit:number; received:number; preparation:number;
-  available:number; reserved:number; sold:number; delivered:number; dormant:number; stockValue:number;
+  available:number; reserved:number; sold:number; delivered:number; dormant:number; stockValue?:number;
 }
 export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   queryKey:[...erpKeys.vehicles,'stats',agencyId],

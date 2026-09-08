@@ -176,13 +176,13 @@ export interface Vehicle {
   agencyName: string;
   stockDays: number;
   // Financials
-  purchasePriceHT: number;
-  refurbishCostHT: number; // Frais de remise en état
-  otherCostsHT: number;
+  purchasePriceHT?: number;
+  refurbishCostHT?: number; // Frais de remise en état
+  otherCostsHT?: number;
   catalogPriceTTC: number;
   sellingPriceTTC: number;
-  minimumPriceTTC: number;
-  targetMarginHT: number;
+  minimumPriceTTC?: number;
+  targetMarginHT?: number;
   // Photos & media
   photos: string[];
   features: string[];

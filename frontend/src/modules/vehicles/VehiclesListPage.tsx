@@ -28,7 +28,7 @@ import { NewVehicleModal } from './NewVehicleModal';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
-  const currentAgency=useAuthStore(state=>state.currentAgency),currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean),canCreate=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.create');
+  const currentAgency=useAuthStore(state=>state.currentAgency),currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean),canCreate=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.create'),canViewFinancials=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.viewFinancials');
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,7 +103,7 @@ export const VehiclesListPage: React.FC = () => {
           <Badge variant="success" size="md">En stock</Badge>
         </div>
 
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        {canViewFinancials&&<div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-xs text-slate-500 font-medium">Valeur Marchande du Parc</span>
             <div className="text-xl font-bold text-blue-700 mt-0.5">
@@ -111,7 +111,7 @@ export const VehiclesListPage: React.FC = () => {
             </div>
           </div>
           <Badge variant="primary" size="md">TTC</Badge>
-        </div>
+        </div>}
 
         <div
           onClick={() => setOnlyDormant(!onlyDormant)}
@@ -264,12 +264,12 @@ export const VehiclesListPage: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="text-right">
+                {canViewFinancials&&<div className="text-right">
                   <span className="text-[10px] text-slate-400 block uppercase font-medium">Marge Cible HT</span>
                   <span className="text-xs font-bold text-emerald-600">
-                    +{formatCurrency(v.targetMarginHT)}
+                    {v.targetMarginHT==null?'—':`+${formatCurrency(v.targetMarginHT)}`}
                   </span>
-                </div>
+                </div>}
               </div>
             </div>
           ))}
@@ -289,7 +289,7 @@ export const VehiclesListPage: React.FC = () => {
                   <th className="py-3 px-4">Kilométrage</th>
                   <th className="py-3 px-4">Jours en Stock</th>
                   <th className="py-3 px-4">Prix Vente TTC</th>
-                  <th className="py-3 px-4">Marge Cible HT</th>
+                  {canViewFinancials&&<th className="py-3 px-4">Marge Cible HT</th>}
                   <th className="py-3 px-4">Statut</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -330,7 +330,7 @@ export const VehiclesListPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 font-bold text-blue-700">{formatCurrency(v.sellingPriceTTC)}</td>
-                    <td className="py-3 px-4 font-bold text-emerald-600">+{formatCurrency(v.targetMarginHT)}</td>
+                    {canViewFinancials&&<td className="py-3 px-4 font-bold text-emerald-600">{v.targetMarginHT==null?'—':`+${formatCurrency(v.targetMarginHT)}`}</td>}
                     <td className="py-3 px-4">
                       <StatusBadge status={v.status} type="vehicle" />
                     </td>

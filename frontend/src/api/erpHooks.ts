@@ -24,6 +24,8 @@ import type {
   WorkshopBay,
   WorkshopSchedule,
   WorkshopStats,
+  CrmActivity,
+  Quotation,
 } from "../types";
 
 export const erpKeys = {
@@ -31,6 +33,7 @@ export const erpKeys = {
   agencies: ["agencies"],
   customers: ["customers"],
   leads: ["leads"],
+  quotations: ["quotations"],
   vehicles: ["vehicles"],
   sales: ["sales"],
   repairOrders: ["repair-orders"],
@@ -148,6 +151,8 @@ const leadPriorityFromDb: Record<string, Lead["priority"]> = {
 };
 const mapLead = (r: any): Lead => ({
   id: s(r.id),
+  opportunityId: s(r.opportunityId),
+  customerId: s(r.customerId),
   civility: r.companyName ? "Société" : "M.",
   firstName: r.firstName ?? "",
   lastName: r.lastName ?? "",
@@ -168,6 +173,7 @@ const mapLead = (r: any): Lead => ({
   priority: leadPriorityFromDb[r.priority] ?? "Moyenne",
   estimatedCloseDate: r.expectedCloseDate,
   notes: r.notes ?? "",
+  lostReason: r.lostReason ?? "",
   createdAt: r.createdAt ?? "",
   updatedAt: r.updatedAt ?? "",
   score: n(r.probability),
@@ -421,6 +427,11 @@ export const useLeadsQuery = (search = "", priority = "", requestEnabled = true)
     },
     enabled: enabled() && requestEnabled,
   });
+export const useLeadActivitiesQuery=(leadId?:string)=>useQuery({queryKey:[...erpKeys.leads,leadId,'activities'],queryFn:()=>apiRequest<CrmActivity[]>(`/leads/${leadId}/activities`),enabled:enabled()&&Boolean(leadId)});
+export const useLeadQuotationsQuery=(opportunityId?:string)=>useQuery({queryKey:[...erpKeys.quotations,'opportunity',opportunityId],queryFn:()=>apiRequest<Quotation[]>(`/quotations/opportunity/${opportunityId}`),enabled:enabled()&&Boolean(opportunityId)});
+export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(body:{opportunityId:string;vehicleId:string;discount:number;validUntil?:string;notes?:string})=>apiRequest<Quotation>('/quotations',{method:'POST',body:JSON.stringify(body)}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
+export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:Record<string,unknown>&{id:string})=>apiRequest(`/leads/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.leads})})};
+export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;subject?:string;description?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']})}})};
 export interface VehicleFilters {
   agencyId?: string;
   search?: string;
@@ -603,7 +614,7 @@ export const useCreateCustomer = () =>
   mutation<any>(() => "/customers", "POST", erpKeys.customers);
 export const useCreateLead = () =>
   mutation<any>(() => "/leads", "POST", erpKeys.leads);
-export interface CreateSalePayload { customerId:string;vehicleId:string;agencyId:string;salespersonId:string;discount:number;depositAmount:number;notes:string;idempotencyKey:string;opportunityId?:string }
+export interface CreateSalePayload { customerId:string;vehicleId:string;agencyId:string;salespersonId?:string;discount:number;depositAmount:number;notes:string;idempotencyKey:string;opportunityId?:string;quotationId?:string }
 export const useCreateSale = () => { const qc=useQueryClient();return useMutation({mutationFn:(body:CreateSalePayload)=>apiRequest('/sales',{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.customers})}}); };
 export const useCreateRepairOrder = () =>
   mutation<any>(() => "/repair-orders", "POST", erpKeys.repairOrders);
@@ -617,7 +628,7 @@ export function useLeadStageMutation() {
         method: "PATCH",
         body: JSON.stringify({ stage, lostReason }),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: erpKeys.leads }),
+    onSuccess: (_data,input) => {void qc.invalidateQueries({ queryKey: erpKeys.leads });void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.quotations})},
   });
 }
 export function useVehicleStatusMutation() {
@@ -735,6 +746,7 @@ const mapShowroom = (r: any) => ({
   activeTestDriveId: s(r.activeTestDriveId),
   activeTestDriveMileage:
     r.activeTestDriveMileage == null ? null : n(r.activeTestDriveMileage),
+  canStartTestDrive: Boolean(r.canStartTestDrive),
   status:
     r.status === "waiting"
       ? "En Attente"

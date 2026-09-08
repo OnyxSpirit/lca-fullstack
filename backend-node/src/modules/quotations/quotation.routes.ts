@@ -1,0 +1,11 @@
+import {Router} from 'express';
+import {authorize} from '../../middleware/authorize.js';
+import {asyncHandler} from '../../middleware/error-handler.js';
+import * as service from './quotation.service.js';
+export const quotationRouter=Router();
+const ACCESS=['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT'];
+quotationRouter.get('/quotations',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.list(req.query,req))));
+quotationRouter.get('/quotations/opportunity/:opportunityId',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.list({opportunityId:req.params.opportunityId},req))));
+quotationRouter.get('/quotations/:id',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.one(req.params.id,req))));
+quotationRouter.post('/quotations',authorize(...ACCESS),asyncHandler(async(req,res)=>{await service.validateCreatePrerequisite(req.body,req);res.status(201).json(await service.create(req.body,req))}));
+quotationRouter.patch('/quotations/:id',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.update(req.params.id,req.body,req))));

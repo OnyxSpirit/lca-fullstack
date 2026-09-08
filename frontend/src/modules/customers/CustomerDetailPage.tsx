@@ -34,7 +34,7 @@ export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const customerQuery=useCustomer360Query(id);const data=customerQuery.data;
-  const timeline=data?.timeline??[],customerVehicles=data?.vehicles??[],customerSales=data?.sales??[],customerORs=data?.repairOrders??[],customerInvoices=data?.invoices??[],contacts=data?.contacts??[],opportunities=data?.opportunities??[];
+  const timeline=data?.timeline??[],customerVehicles=data?.vehicles??[],customerSales=data?.sales??[],customerQuotations=data?.quotations??[],customerORs=data?.repairOrders??[],customerInvoices=data?.invoices??[],contacts=data?.contacts??[],opportunities=data?.opportunities??[];
   const { setActiveQuickActionModal,addToast } = useUiStore();
   const currentUser=useAuthStore(state=>state.currentUser);
   const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
@@ -56,7 +56,7 @@ export const CustomerDetailPage: React.FC = () => {
     {key:'contacts',label:`Contacts (${contacts.length})`},
     {key:'opportunities',label:`Opportunités (${opportunities.length})`},
     {key:'vehicles',label:`Véhicules Rattachés (${customerVehicles.length})`},
-    ...(canViewSales?[{key:'sales',label:`Ventes & Devis (${customerSales.length})`}]:[]),
+    ...(canViewSales?[{key:'sales',label:`Ventes & Devis (${customerSales.length+customerQuotations.length})`}]:[]),
     ...(canViewService?[{key:'sav',label:`Atelier SAV & OR (${customerORs.length})`}]:[]),
     ...(canViewBilling?[{key:'billing',label:`Facturation (${customerInvoices.length})`}]:[]),
     ...(canViewDocuments?[{key:'documents',label:`Documents (${documents.length})`}]:[]),
@@ -238,6 +238,7 @@ export const CustomerDetailPage: React.FC = () => {
       {/* TAB 3: SALES */}
       {activeTab === 'sales' && (
         <Card padding="none">
+          {customerQuotations.length>0&&<div className="border-b bg-slate-50 p-4"><div className="mb-2 text-xs font-bold uppercase text-slate-500">Devis</div><div className="grid gap-2 md:grid-cols-2">{customerQuotations.map((quotation:any)=><div key={quotation.id} className="rounded-lg border bg-white p-3 text-xs"><div className="flex justify-between gap-3"><b>{quotation.quotationNumber}</b><span className="font-bold">{formatCurrency(quotation.total)}</span></div><div className="mt-1 text-slate-500">{quotation.vehicleLabel} · {quotation.status}</div><div className="mt-1 text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div>)}</div></div>}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">

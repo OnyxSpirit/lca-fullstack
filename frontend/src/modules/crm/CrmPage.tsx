@@ -18,7 +18,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { useCreateActivity, useLeadStageMutation, useLeadsQuery } from '../../api/erpHooks';
+import { useCreateActivity, useCreateCrmAppointment, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsQuery, useUpdateLead } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -33,6 +33,9 @@ import { Modal } from '../../components/ui/Modal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
 import { canPerformWorkflowAction } from '../../navigation/permissions';
+import { QuotationModal } from './QuotationModal';
+import { SaleWizardModal } from '../sales/SaleWizardModal';
+import type { Quotation } from '../../types';
 
 export const CrmPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -43,12 +46,15 @@ export const CrmPage: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [newInteractionNote, setNewInteractionNote] = useState('');
   const [interactionType, setInteractionType] = useState<'Appel' | 'Email' | 'Visite' | 'Essai'>('Appel');
+  const [lostLead,setLostLead]=useState<Lead|null>(null),[lostReason,setLostReason]=useState(''),[editLead,setEditLead]=useState<Lead|null>(null),[appointmentLead,setAppointmentLead]=useState<Lead|null>(null),[scheduledAt,setScheduledAt]=useState(''),[quotationLead,setQuotationLead]=useState<Lead|null>(null),[saleQuotation,setSaleQuotation]=useState<Quotation|null>(null);
   const priorityToDb: Record<string,string> = { Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent' };
   const leadsQuery = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority]);
   const leads = leadsQuery.data ?? [];
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
-  const { setActiveQuickActionModal, addToast } = useUiStore();
+  const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment();
+  const activitiesQuery=useLeadActivitiesQuery(selectedLead?.id),quotationsQuery=useLeadQuotationsQuery(selectedLead?.opportunityId),quotations=quotationsQuery.data??[];
+  const { addToast } = useUiStore();
   const currentUser = useAuthStore((state) => state.currentUser);
   const roles = currentUser.roles?.length ? currentUser.roles : [currentUser.role];
   const canUpdateStage = canPerformWorkflowAction(roles, 'crm.stage.update');
@@ -77,9 +83,8 @@ export const CrmPage: React.FC = () => {
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     const stage = opportunityStageToDb[newStage];
-    const lostReason = newStage === 'PERDU' ? window.prompt('Motif de perte obligatoire')?.trim() : undefined;
-    if (newStage === 'PERDU' && !lostReason) return;
-    try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage, lostReason }); addToast({
+    if(newStage==='PERDU'){const lead=leads.find(item=>item.id===leadId);if(lead){setLostReason('');setLostLead(lead)}return}
+    try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage }); addToast({
       type: 'info',
       title: 'Étape mise à jour',
       description: `Le prospect a été déplacé vers l'étape ${newStage}.`,
@@ -88,6 +93,10 @@ export const CrmPage: React.FC = () => {
       setSelectedLead({ ...selectedLead, stage: newStage });
     }}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur API'});}
   };
+
+  const confirmLost=async()=>{if(!lostLead||!lostReason.trim())return;try{await stageMutation.mutateAsync({id:lostLead.id,stage:'lost',lostReason:lostReason.trim()});addToast({type:'success',title:'Opportunité perdue',description:'Le motif a été ajouté à la timeline.'});setLostLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Clôture impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  const saveEdit=async()=>{if(!editLead)return;try{await updateLead.mutateAsync({id:editLead.id,firstName:editLead.firstName,lastName:editLead.lastName,companyName:editLead.company,email:editLead.email,phone:editLead.phone,title:editLead.targetVehicle,expectedValue:editLead.targetBudget,priority:{Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent'}[editLead.priority],notes:editLead.notes,expectedCloseDate:editLead.estimatedCloseDate});addToast({type:'success',title:'Prospect mis à jour'});setEditLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  const createAppointment=async()=>{if(!appointmentLead||!scheduledAt)return;try{await appointmentMutation.mutateAsync({id:appointmentLead.id,scheduledAt,subject:'Rendez-vous commercial'});addToast({type:'success',title:'Rendez-vous planifié'});setAppointmentLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Rendez-vous impossible',description:error instanceof Error?error.message:'Erreur API'})}};
 
   const handleAddInteraction = async () => {
     if (!selectedLead || !newInteractionNote.trim()) return;
@@ -259,7 +268,7 @@ export const CrmPage: React.FC = () => {
                       <div className="flex items-center justify-between pt-1 text-[10px]">
                         <span className="text-slate-400 truncate">{lead.assignedToName.split(' ')[0]}</span>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          {canUpdateStage && stage !== 'GAGNE' && (
+                          {canUpdateStage && ['NOUVEAU','CONTACTE'].includes(stage) && (
                             <button
                               onClick={() => {
                                 const currentIndex = stages.findIndex((s) => s.stage === stage);
@@ -384,12 +393,12 @@ export const CrmPage: React.FC = () => {
                 <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
                   Étape Actuelle du Pipeline
                 </span>
-                {canUpdateStage ? <select
+                {canUpdateStage&&['NOUVEAU','CONTACTE'].includes(selectedLead.stage) ? <select
                   value={selectedLead.stage}
                   onChange={(e) => handleStageChange(selectedLead.id, e.target.value as LeadStage)}
                   className="text-xs font-bold p-1.5 rounded-lg border border-blue-400 bg-white text-blue-800 focus:outline-none"
                 >
-                  {stages.map((s) => (
+                  {stages.filter(s=>s.stage===selectedLead.stage||(selectedLead.stage==='NOUVEAU'&&s.stage==='CONTACTE')||(selectedLead.stage==='CONTACTE'&&s.stage==='QUALIFIE')).map((s) => (
                     <option key={s.stage} value={s.stage}>
                       {s.label}
                     </option>
@@ -398,6 +407,7 @@ export const CrmPage: React.FC = () => {
               </div>
 
               <div className="flex gap-2">
+                <Button size="xs" variant="outline" onClick={()=>setEditLead(selectedLead)}>Modifier</Button>
                 <a
                   href={`tel:${selectedLead.phone}`}
                   className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:bg-emerald-700"
@@ -458,32 +468,35 @@ export const CrmPage: React.FC = () => {
                     className="flex-1 text-xs p-1.5 rounded-lg border border-slate-300 bg-white focus:outline-none"
                     onKeyDown={(e) => e.key === 'Enter' && handleAddInteraction()}
                   />
-                  <Button size="xs" variant="primary" onClick={handleAddInteraction}>
-                    Ajouter
+                  <Button size="xs" variant="primary" loading={activityMutation.isPending} disabled={!newInteractionNote.trim()} onClick={handleAddInteraction}>
+                    {activityMutation.isPending?'Enregistrement…':'Ajouter'}
                   </Button>
                 </div>
               </div>}
 
               {/* Timeline feed */}
               <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-slate-100 pr-1">
+                {activitiesQuery.isLoading&&<div className="py-3 text-xs text-slate-500">Chargement de l’historique…</div>}
+                {activitiesQuery.data?.map(activity=><div key={activity.id} className="pt-2 text-xs"><div className="flex justify-between gap-2"><b>{activity.subject}</b><span className="text-[10px] text-slate-400">{formatDate(activity.createdAt)}</span></div><div className="text-[10px] text-slate-500">{activity.type} · {activity.assignedUserName||'Système'} · {activity.status}</div>{activity.description&&<p className="mt-1 whitespace-pre-wrap text-[11px] text-slate-600">{activity.description}</p>}</div>)}
                 <div className="pt-2 text-xs">
-                  <div className="text-slate-500 mb-0.5 font-semibold">Notes & Historique :</div>
+                  <div className="text-slate-500 mb-0.5 font-semibold">Notes initiales :</div>
                   <pre className="text-slate-600 text-[11px] font-sans whitespace-pre-wrap leading-relaxed">{selectedLead.notes || 'Aucune note.'}</pre>
                 </div>
               </div>
             </div>
 
-            {canCreateSale && <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setSelectedLead(null);
-                  setActiveQuickActionModal('sale');
-                }}
-              >
-                Transformer en Vente / Bon de Commande
-              </Button>
+            {quotations.length>0&&<div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Devis liés à l’opportunité</div>
+              <div className="space-y-2">{quotations.map(quotation=><div key={quotation.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs"><div><b>{quotation.quotationNumber}</b><div className="text-slate-500">{quotation.vehicleLabel} · {quotation.status}</div><div className="text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div><div className="font-bold text-slate-900">{formatCurrency(quotation.total)}</div></div>)}</div>
+            </div>}
+
+            {canCreateSale && <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              {selectedLead.stage==='QUALIFIE'&&<Button size="sm" variant="outline" onClick={()=>{setScheduledAt('');setAppointmentLead(selectedLead)}}>Planifier un RDV</Button>}
+              {selectedLead.stage==='ESSAI'&&!quotations.length&&<Button size="sm" onClick={()=>setQuotationLead(selectedLead)}>Créer un devis</Button>}
+              {selectedLead.stage==='OFFRE'&&<Button size="sm" variant="outline" loading={stageMutation.isPending} onClick={()=>void handleStageChange(selectedLead.id,'NEGOCIATION')}>Entrer en négociation</Button>}
+              {['OFFRE','NEGOCIATION'].includes(selectedLead.stage)&&quotations[0]&&<Button variant="primary" size="sm" onClick={()=>setSaleQuotation(quotations[0])}>Transformer en Vente / Bon de Commande</Button>}
+              {!['GAGNE','PERDU'].includes(selectedLead.stage)&&<Button variant="outline" size="sm" onClick={()=>handleStageChange(selectedLead.id,'PERDU')}>Marquer comme perdu</Button>}
+              {selectedLead.stage==='GAGNE'&&<span className="text-xs font-semibold text-emerald-700">Déjà transformée en vente</span>}
             </div>}
           </div>
         </Modal>
@@ -494,6 +507,11 @@ export const CrmPage: React.FC = () => {
         isOpen={isNewLeadOpen}
         onClose={() => setIsNewLeadOpen(false)}
       />
+      <QuotationModal lead={quotationLead} onClose={()=>setQuotationLead(null)} onCreated={()=>setSelectedLead(null)}/>
+      <Modal isOpen={Boolean(lostLead)} onClose={()=>setLostLead(null)} title="Marquer l’opportunité comme perdue" maxWidth="sm"><div className="space-y-3"><label className="block text-xs font-semibold">Motif de perte *<textarea value={lostReason} onChange={e=>setLostReason(e.target.value)} className="mt-1 min-h-24 w-full rounded border p-2.5"/></label>{!lostReason.trim()&&<p className="text-xs text-red-700">Le motif de perte est obligatoire.</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setLostLead(null)}>Annuler</Button><Button loading={stageMutation.isPending} disabled={!lostReason.trim()} onClick={()=>void confirmLost()}>Confirmer la perte</Button></div></div></Modal>
+      <Modal isOpen={Boolean(appointmentLead)} onClose={()=>setAppointmentLead(null)} title="Planifier un rendez-vous commercial" maxWidth="sm"><div className="space-y-3"><label className="block text-xs font-semibold">Date et heure *<input type="datetime-local" value={scheduledAt} onChange={e=>setScheduledAt(e.target.value)} className="mt-1 w-full rounded border p-2.5"/></label><div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setAppointmentLead(null)}>Annuler</Button><Button loading={appointmentMutation.isPending} disabled={!scheduledAt} onClick={()=>void createAppointment()}>Enregistrer le rendez-vous</Button></div></div></Modal>
+      <Modal isOpen={Boolean(editLead)} onClose={()=>setEditLead(null)} title="Modifier le prospect" maxWidth="lg">{editLead&&<div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold">Prénom<input value={editLead.firstName} onChange={e=>setEditLead({...editLead,firstName:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Nom<input value={editLead.lastName} onChange={e=>setEditLead({...editLead,lastName:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Téléphone<input value={editLead.phone} onChange={e=>setEditLead({...editLead,phone:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">E-mail<input value={editLead.email} onChange={e=>setEditLead({...editLead,email:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Besoin / véhicule recherché<input value={editLead.targetVehicle} onChange={e=>setEditLead({...editLead,targetVehicle:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Budget XAF<input type="number" min="0" value={editLead.targetBudget} onChange={e=>setEditLead({...editLead,targetBudget:Number(e.target.value)})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Priorité<select value={editLead.priority} onChange={e=>setEditLead({...editLead,priority:e.target.value as Lead['priority']})} className="mt-1 w-full rounded border p-2"><option>Basse</option><option>Moyenne</option><option>Haute</option><option>Urgente</option></select></label><label className="text-xs font-semibold">Clôture prévue<input type="date" value={editLead.estimatedCloseDate??''} onChange={e=>setEditLead({...editLead,estimatedCloseDate:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold sm:col-span-2">Notes<textarea value={editLead.notes} onChange={e=>setEditLead({...editLead,notes:e.target.value})} className="mt-1 min-h-20 w-full rounded border p-2"/></label><div className="flex justify-end gap-2 sm:col-span-2"><Button variant="outline" onClick={()=>setEditLead(null)}>Annuler</Button><Button loading={updateLead.isPending} onClick={()=>void saveEdit()}>Mettre à jour</Button></div></div>}</Modal>
+      <SaleWizardModal isOpen={Boolean(saleQuotation)} onClose={()=>{setSaleQuotation(null);setSelectedLead(null)}} initialCustomerId={saleQuotation?.customerId} initialVehicleId={saleQuotation?.vehicleId} initialOpportunityId={saleQuotation?.opportunityId} initialQuotationId={saleQuotation?.id} initialDiscount={saleQuotation?.discountTotal}/>
     </div>
   );
 };

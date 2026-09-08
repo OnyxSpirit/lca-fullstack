@@ -741,7 +741,9 @@ const mapShowroom = (r: any) => ({
       : r.status === "assigned"
         ? "Affecté"
         : r.status === "in_progress"
-          ? "En Entretien"
+          ? r.activeTestDriveId
+            ? "En Essai"
+            : "En Entretien"
           : r.status === "completed"
             ? "Terminé"
             : "Annulé",
@@ -776,6 +778,12 @@ export function useCreateShowroomVisit() {
 export function useShowroomActions() {
   const qc = useQueryClient(),
     done = () => qc.invalidateQueries({ queryKey: ["showroom"] });
+  const updateVisit=(raw:any)=>qc.setQueryData<any>(["showroom"],current=>{
+    const visit=mapShowroom(raw),replace=(items:any[])=>items.map(item=>item.id===visit.id?visit:item);
+    if(Array.isArray(current))return replace(current);
+    if(current?.visits)return{...current,visits:replace(current.visits)};
+    return current;
+  });
   return {
     assign: useMutation({
       mutationFn: ({ id, ...body }: any) =>
@@ -783,12 +791,12 @@ export function useShowroomActions() {
           method: "PATCH",
           body: JSON.stringify(body),
         }),
-      onSuccess: done,
+      onSuccess: visit => { updateVisit(visit);void done(); },
     }),
     takeOver: useMutation({
       mutationFn: (id: string) =>
         apiRequest(`/showroom/${id}/take-over`, { method: "PATCH" }),
-      onSuccess: done,
+      onSuccess: visit => { updateVisit(visit);void done(); },
     }),
     complete: useMutation({
       mutationFn: ({ id, ...body }: any) =>
@@ -796,7 +804,7 @@ export function useShowroomActions() {
           method: "PATCH",
           body: JSON.stringify(body),
         }),
-      onSuccess: done,
+      onSuccess: visit => { updateVisit(visit);void done(); },
     }),
     cancel: useMutation({
       mutationFn: ({ id, ...body }: any) =>
@@ -804,7 +812,7 @@ export function useShowroomActions() {
           method: "PATCH",
           body: JSON.stringify(body),
         }),
-      onSuccess: done,
+      onSuccess: visit => { updateVisit(visit);void done(); },
     }),
     convert: useMutation({
       mutationFn: ({ id, ...body }: any) =>

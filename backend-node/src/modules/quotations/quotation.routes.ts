@@ -1,4 +1,5 @@
 import {Router} from 'express';
+import PDFDocument from 'pdfkit';
 import {authorize} from '../../middleware/authorize.js';
 import {asyncHandler} from '../../middleware/error-handler.js';
 import * as service from './quotation.service.js';
@@ -6,6 +7,8 @@ export const quotationRouter=Router();
 const ACCESS=['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT'];
 quotationRouter.get('/quotations',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.list(req.query,req))));
 quotationRouter.get('/quotations/opportunity/:opportunityId',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.list({opportunityId:req.params.opportunityId},req))));
+quotationRouter.get('/quotations/:id/pdf',authorize(...ACCESS),asyncHandler(async(req,res)=>{const q=await service.one(req.params.id,req);res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition',`${req.query.download==='true'?'attachment':'inline'}; filename="devis-${q.quotationNumber}.pdf"`);const doc=new PDFDocument({size:'A4',margin:50});doc.pipe(res);doc.fontSize(20).text(`DEVIS ${q.quotationNumber}`).moveDown();doc.fontSize(11).text(`Client : ${q.customerName}`).text(`Commercial : ${q.salespersonName||'Non affecté'}`).text(`Véhicule : ${q.vehicleLabel}`).text(`Statut : ${q.status}`).moveDown().text(`Sous-total : ${q.subtotal.toLocaleString('fr-FR')} XAF`).text(`Remise : ${q.discountTotal.toLocaleString('fr-FR')} XAF`).fontSize(14).text(`Total : ${q.total.toLocaleString('fr-FR')} XAF`);if(q.validUntil)doc.moveDown().fontSize(10).text(`Valable jusqu’au ${q.validUntil}`);if(q.notes)doc.moveDown().text(q.notes);doc.end()}));
 quotationRouter.get('/quotations/:id',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.one(req.params.id,req))));
 quotationRouter.post('/quotations',authorize(...ACCESS),asyncHandler(async(req,res)=>{await service.validateCreatePrerequisite(req.body,req);res.status(201).json(await service.create(req.body,req))}));
 quotationRouter.patch('/quotations/:id',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.update(req.params.id,req.body,req))));
+quotationRouter.post('/quotations/:id/validate',authorize(...ACCESS),asyncHandler(async(req,res)=>res.json(await service.validate(req.params.id,req))));

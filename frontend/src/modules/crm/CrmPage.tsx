@@ -18,7 +18,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { useCreateActivity, useCreateCrmAppointment, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsQuery, useUpdateLead } from '../../api/erpHooks';
+import { useCreateActivity, useCreateCrmAppointment, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsQuery, useUpdateLead, useUsersQuery, useValidateQuotation } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -36,27 +36,36 @@ import { canPerformWorkflowAction } from '../../navigation/permissions';
 import { QuotationModal } from './QuotationModal';
 import { SaleWizardModal } from '../sales/SaleWizardModal';
 import type { Quotation } from '../../types';
+import { eligibleShowroomSalesUsers } from '../showroom/showroomPolicy';
+import { appointmentDateError, appointmentIso } from './crmAppointmentPolicy';
+import { openBusinessPdf } from '../../services/businessPdf';
 
 export const CrmPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('ALL');
+  const [selectedStage,setSelectedStage]=useState('');
+  const [selectedCommercial,setSelectedCommercial]=useState('');
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [newInteractionNote, setNewInteractionNote] = useState('');
   const [interactionType, setInteractionType] = useState<'Appel' | 'Email' | 'Visite' | 'Essai'>('Appel');
   const [lostLead,setLostLead]=useState<Lead|null>(null),[lostReason,setLostReason]=useState(''),[editLead,setEditLead]=useState<Lead|null>(null),[appointmentLead,setAppointmentLead]=useState<Lead|null>(null),[scheduledAt,setScheduledAt]=useState(''),[quotationLead,setQuotationLead]=useState<Lead|null>(null),[saleQuotation,setSaleQuotation]=useState<Quotation|null>(null);
   const priorityToDb: Record<string,string> = { Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent' };
-  const leadsQuery = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority]);
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const currentAgency = useAuthStore((state) => state.currentAgency);
+  const roles = currentUser.roles?.length ? currentUser.roles : [currentUser.role];
+  const isSalesManager=roles.includes('SALES_MANAGER');
+  const canIssueQuotation=roles.some(role=>['SALES_REP','SALES_MANAGER','DIRECTION','SUPER_ADMIN'].includes(role));
+  const salesUsers=eligibleShowroomSalesUsers(useUsersQuery().data??[],currentAgency?.id);
+  const leadsQuery = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority],true,selectedStage,selectedCommercial);
   const leads = leadsQuery.data ?? [];
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
-  const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment();
+  const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment(),validateQuotation=useValidateQuotation();
   const activitiesQuery=useLeadActivitiesQuery(selectedLead?.id),quotationsQuery=useLeadQuotationsQuery(selectedLead?.opportunityId),quotations=quotationsQuery.data??[];
   const { addToast } = useUiStore();
-  const currentUser = useAuthStore((state) => state.currentUser);
-  const roles = currentUser.roles?.length ? currentUser.roles : [currentUser.role];
   const canUpdateStage = canPerformWorkflowAction(roles, 'crm.stage.update');
   const canCreateActivity = canPerformWorkflowAction(roles, 'crm.activity.create');
   const canCreateSale = canPerformWorkflowAction(roles, 'sales.create');
@@ -79,7 +88,7 @@ export const CrmPage: React.FC = () => {
   ];
 
   const filteredLeads = leads;
-  const hasActiveFilters = Boolean(debouncedSearch) || selectedPriority !== 'ALL';
+  const hasActiveFilters = Boolean(debouncedSearch) || selectedPriority !== 'ALL'||Boolean(selectedStage)||Boolean(selectedCommercial);
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     const stage = opportunityStageToDb[newStage];
@@ -96,7 +105,7 @@ export const CrmPage: React.FC = () => {
 
   const confirmLost=async()=>{if(!lostLead||!lostReason.trim())return;try{await stageMutation.mutateAsync({id:lostLead.id,stage:'lost',lostReason:lostReason.trim()});addToast({type:'success',title:'Opportunité perdue',description:'Le motif a été ajouté à la timeline.'});setLostLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Clôture impossible',description:error instanceof Error?error.message:'Erreur API'})}};
   const saveEdit=async()=>{if(!editLead)return;try{await updateLead.mutateAsync({id:editLead.id,firstName:editLead.firstName,lastName:editLead.lastName,companyName:editLead.company,email:editLead.email,phone:editLead.phone,title:editLead.targetVehicle,expectedValue:editLead.targetBudget,priority:{Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent'}[editLead.priority],notes:editLead.notes,expectedCloseDate:editLead.estimatedCloseDate});addToast({type:'success',title:'Prospect mis à jour'});setEditLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur API'})}};
-  const createAppointment=async()=>{if(!appointmentLead||!scheduledAt)return;try{await appointmentMutation.mutateAsync({id:appointmentLead.id,scheduledAt,subject:'Rendez-vous commercial'});addToast({type:'success',title:'Rendez-vous planifié'});setAppointmentLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Rendez-vous impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  const createAppointment=async()=>{if(!appointmentLead)return;const validation=appointmentDateError(scheduledAt);if(validation){addToast({type:'error',title:'Rendez-vous impossible',description:validation});return}try{await appointmentMutation.mutateAsync({id:appointmentLead.id,scheduledAt:appointmentIso(scheduledAt),subject:'Rendez-vous commercial'});addToast({type:'success',title:'Rendez-vous planifié'});setAppointmentLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Rendez-vous impossible',description:error instanceof Error?error.message:'Erreur API'})}};
 
   const handleAddInteraction = async () => {
     if (!selectedLead || !newInteractionNote.trim()) return;
@@ -160,7 +169,8 @@ export const CrmPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isSalesManager&&<><select aria-label="Filtrer par étape" value={selectedStage} onChange={e=>setSelectedStage(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="">Toutes les étapes</option>{stages.map(item=><option key={item.stage} value={opportunityStageToDb[item.stage]}>{item.label}</option>)}</select><select aria-label="Filtrer par commercial" value={selectedCommercial} onChange={e=>setSelectedCommercial(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="">Toute l’équipe</option>{salesUsers.map(user=><option key={user.id} value={user.id}>{user.name}</option>)}</select></>}
           <span className="text-xs text-slate-500 font-medium">Priorité :</span>
           <select
             value={selectedPriority}
@@ -487,7 +497,7 @@ export const CrmPage: React.FC = () => {
 
             {quotations.length>0&&<div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Devis liés à l’opportunité</div>
-              <div className="space-y-2">{quotations.map(quotation=><div key={quotation.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs"><div><b>{quotation.quotationNumber}</b><div className="text-slate-500">{quotation.vehicleLabel} · {quotation.status}</div><div className="text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div><div className="font-bold text-slate-900">{formatCurrency(quotation.total)}</div></div>)}</div>
+              <div className="space-y-2">{quotations.map(quotation=><div key={quotation.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs"><div><b>{quotation.quotationNumber}</b><div className="text-slate-500">{quotation.vehicleLabel} · {quotation.status}</div><div className="text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div><div className="flex items-center gap-2"><b>{formatCurrency(quotation.total)}</b><Button size="xs" variant="outline" onClick={()=>openBusinessPdf('quotation',quotation.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button>{canIssueQuotation&&quotation.status==='draft'&&<Button size="xs" loading={validateQuotation.isPending} onClick={()=>validateQuotation.mutateAsync(quotation.id).then(()=>addToast({type:'success',title:'Devis émis'})).catch(error=>addToast({type:'error',title:'Émission impossible',description:error.message}))}>Émettre le devis</Button>}</div></div>)}</div>
             </div>}
 
             {canCreateSale && <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
@@ -509,7 +519,7 @@ export const CrmPage: React.FC = () => {
       />
       <QuotationModal lead={quotationLead} onClose={()=>setQuotationLead(null)} onCreated={()=>setSelectedLead(null)}/>
       <Modal isOpen={Boolean(lostLead)} onClose={()=>setLostLead(null)} title="Marquer l’opportunité comme perdue" maxWidth="sm"><div className="space-y-3"><label className="block text-xs font-semibold">Motif de perte *<textarea value={lostReason} onChange={e=>setLostReason(e.target.value)} className="mt-1 min-h-24 w-full rounded border p-2.5"/></label>{!lostReason.trim()&&<p className="text-xs text-red-700">Le motif de perte est obligatoire.</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setLostLead(null)}>Annuler</Button><Button loading={stageMutation.isPending} disabled={!lostReason.trim()} onClick={()=>void confirmLost()}>Confirmer la perte</Button></div></div></Modal>
-      <Modal isOpen={Boolean(appointmentLead)} onClose={()=>setAppointmentLead(null)} title="Planifier un rendez-vous commercial" maxWidth="sm"><div className="space-y-3"><label className="block text-xs font-semibold">Date et heure *<input type="datetime-local" value={scheduledAt} onChange={e=>setScheduledAt(e.target.value)} className="mt-1 w-full rounded border p-2.5"/></label><div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setAppointmentLead(null)}>Annuler</Button><Button loading={appointmentMutation.isPending} disabled={!scheduledAt} onClick={()=>void createAppointment()}>Enregistrer le rendez-vous</Button></div></div></Modal>
+      <Modal isOpen={Boolean(appointmentLead)} onClose={()=>setAppointmentLead(null)} title="Planifier un rendez-vous commercial" maxWidth="sm"><div className="space-y-3"><label className="block text-xs font-semibold">Date et heure *<input type="datetime-local" value={scheduledAt} onChange={e=>setScheduledAt(e.target.value)} className="mt-1 w-full rounded border p-2.5"/></label>{appointmentDateError(scheduledAt)&&<p className="text-xs text-amber-700" role="status">{appointmentDateError(scheduledAt)}</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setAppointmentLead(null)}>Annuler</Button><Button loading={appointmentMutation.isPending} disabled={Boolean(appointmentDateError(scheduledAt))} title={appointmentDateError(scheduledAt)??undefined} onClick={()=>void createAppointment()}>Enregistrer le rendez-vous</Button></div></div></Modal>
       <Modal isOpen={Boolean(editLead)} onClose={()=>setEditLead(null)} title="Modifier le prospect" maxWidth="lg">{editLead&&<div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold">Prénom<input value={editLead.firstName} onChange={e=>setEditLead({...editLead,firstName:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Nom<input value={editLead.lastName} onChange={e=>setEditLead({...editLead,lastName:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Téléphone<input value={editLead.phone} onChange={e=>setEditLead({...editLead,phone:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">E-mail<input value={editLead.email} onChange={e=>setEditLead({...editLead,email:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Besoin / véhicule recherché<input value={editLead.targetVehicle} onChange={e=>setEditLead({...editLead,targetVehicle:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Budget XAF<input type="number" min="0" value={editLead.targetBudget} onChange={e=>setEditLead({...editLead,targetBudget:Number(e.target.value)})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Priorité<select value={editLead.priority} onChange={e=>setEditLead({...editLead,priority:e.target.value as Lead['priority']})} className="mt-1 w-full rounded border p-2"><option>Basse</option><option>Moyenne</option><option>Haute</option><option>Urgente</option></select></label><label className="text-xs font-semibold">Clôture prévue<input type="date" value={editLead.estimatedCloseDate??''} onChange={e=>setEditLead({...editLead,estimatedCloseDate:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold sm:col-span-2">Notes<textarea value={editLead.notes} onChange={e=>setEditLead({...editLead,notes:e.target.value})} className="mt-1 min-h-20 w-full rounded border p-2"/></label><div className="flex justify-end gap-2 sm:col-span-2"><Button variant="outline" onClick={()=>setEditLead(null)}>Annuler</Button><Button loading={updateLead.isPending} onClick={()=>void saveEdit()}>Mettre à jour</Button></div></div>}</Modal>
       <SaleWizardModal isOpen={Boolean(saleQuotation)} onClose={()=>{setSaleQuotation(null);setSelectedLead(null)}} initialCustomerId={saleQuotation?.customerId} initialVehicleId={saleQuotation?.vehicleId} initialOpportunityId={saleQuotation?.opportunityId} initialQuotationId={saleQuotation?.id} initialDiscount={saleQuotation?.discountTotal}/>
     </div>

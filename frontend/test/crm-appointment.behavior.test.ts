@@ -32,7 +32,13 @@ test('un prospect qualifié affiche l’action métier et ouvre le formulaire de
   assert.equal(screen.queryByText(/doit d’abord être contacté/i),null);
   fireEvent.click(action);
   assert.ok(await screen.findByText('Planifier un rendez-vous commercial'));
-  assert.ok(screen.getByLabelText(/Date et heure/));
+  const dateInput=screen.getByLabelText(/Date et heure/) as HTMLInputElement;
+  const submit=screen.getByRole('button',{name:'Enregistrer le rendez-vous'}) as HTMLButtonElement;
+  assert.equal(submit.disabled,true);
+  assert.ok(screen.getByText(/Renseignez la date et l’heure/));
+  fireEvent.change(dateInput,{target:{value:'2099-09-10T10:30'}});
+  assert.equal(dateInput.value,'2099-09-10T10:30');
+  assert.equal(submit.disabled,false);
   assert.equal(screen.queryByText(/doit d’abord être contacté/i),null);
   cleanup();client.clear();
 });

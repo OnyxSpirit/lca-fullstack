@@ -415,13 +415,15 @@ export const useCustomersQuery = (search = "", type = "", requestEnabled = true)
     },
     enabled: enabled() && requestEnabled,
   });
-export const useLeadsQuery = (search = "", priority = "", requestEnabled = true) =>
+export const useLeadsQuery = (search = "", priority = "", requestEnabled = true, stage = "", commercialId = "") =>
   useQuery({
     queryKey: [...erpKeys.leads, search, priority],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (priority) params.set("priority", priority);
+      if (stage) params.set("stage", stage);
+      if (commercialId) params.set("commercialId", commercialId);
       const suffix = params.size ? `?${params}` : "";
       return (await apiRequest<any[]>(`/leads${suffix}`)).map(mapLead);
     },
@@ -430,8 +432,9 @@ export const useLeadsQuery = (search = "", priority = "", requestEnabled = true)
 export const useLeadActivitiesQuery=(leadId?:string)=>useQuery({queryKey:[...erpKeys.leads,leadId,'activities'],queryFn:()=>apiRequest<CrmActivity[]>(`/leads/${leadId}/activities`),enabled:enabled()&&Boolean(leadId)});
 export const useLeadQuotationsQuery=(opportunityId?:string)=>useQuery({queryKey:[...erpKeys.quotations,'opportunity',opportunityId],queryFn:()=>apiRequest<Quotation[]>(`/quotations/opportunity/${opportunityId}`),enabled:enabled()&&Boolean(opportunityId)});
 export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(body:{opportunityId:string;vehicleId:string;discount:number;validUntil?:string;notes?:string})=>apiRequest<Quotation>('/quotations',{method:'POST',body:JSON.stringify(body)}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
+export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/validate`,{method:'POST'}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
 export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:Record<string,unknown>&{id:string})=>apiRequest(`/leads/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.leads})})};
-export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;subject?:string;description?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']})}})};
+export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;subject?:string;description?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
 export interface VehicleFilters {
   agencyId?: string;
   search?: string;

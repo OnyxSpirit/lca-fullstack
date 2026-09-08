@@ -38,3 +38,18 @@ export async function create(body:unknown,request:Request){
 }
 
 export async function update(value:unknown,body:unknown,request:Request){const quotationId=id(value,'Devis'),b=(body??{})as Record<string,unknown>;await transaction(async connection=>{const[rows]=await connection.execute<RowDataPacket[]>(`SELECT q.*,o.assigned_user_id commercial_owner_id,qi.vehicle_id,v.sale_price FROM quotations q JOIN opportunities o ON o.id=q.opportunity_id JOIN quotation_items qi ON qi.quotation_id=q.id JOIN vehicles v ON v.id=qi.vehicle_id WHERE q.id=? FOR UPDATE`,[quotationId]),quotation=rows[0];if(!quotation)throw new HttpError(404,'Devis introuvable');if(!unrestricted(request)&&String(quotation.agency_id)!==String(request.user!.agencyId))throw new HttpError(403,'Agence non autorisée');assertOwner(quotation,request);if(!['draft','sent','negotiation'].includes(quotation.status))throw new HttpError(409,'Ce devis n’est plus modifiable');const discount=Object.hasOwn(b,'discount')?amount(b.discount,'Remise'):Number(quotation.discount_total),subtotal=Number(quotation.sale_price);if(discount>subtotal)throw new HttpError(400,'La remise dépasse le prix du véhicule');const total=subtotal-discount,notes=Object.hasOwn(b,'notes')?String(b.notes??'').trim():quotation.notes,validUntil=Object.hasOwn(b,'validUntil')?date(b.validUntil):quotation.valid_until;if(String(notes??'').length>10000)throw new HttpError(400,'Notes trop longues');await connection.execute('UPDATE quotations SET valid_until=?,subtotal=?,discount_total=?,total=?,notes=? WHERE id=?',[validUntil,subtotal,discount,total,notes||null,quotationId]);await connection.execute('UPDATE quotation_items SET unit_price=?,discount=?,line_total=? WHERE quotation_id=?',[subtotal,discount,total,quotationId]);await connection.execute('UPDATE opportunities SET expected_value=? WHERE id=?',[total,quotation.opportunity_id])});return one(quotationId,request)}
+
+export async function validate(value:unknown,request:Request){
+  const quotationId=id(value,'Devis');
+  await transaction(async connection=>{
+    const[rows]=await connection.execute<RowDataPacket[]>(`SELECT q.*,o.lead_id,o.assigned_user_id commercial_owner_id FROM quotations q JOIN opportunities o ON o.id=q.opportunity_id WHERE q.id=? FOR UPDATE`,[quotationId]),quotation=rows[0];
+    if(!quotation)throw new HttpError(404,'Devis introuvable');
+    if(!unrestricted(request)&&String(quotation.agency_id)!==String(request.user!.agencyId))throw new HttpError(403,'Devis rattaché à une autre agence');
+    assertOwner(quotation,request);
+    if(quotation.status!=='draft')throw new HttpError(409,'Seul un devis brouillon peut être émis');
+    await connection.execute("UPDATE quotations SET status='sent' WHERE id=?",[quotationId]);
+    await connection.execute(`INSERT INTO activities(customer_id,lead_id,opportunity_id,assigned_user_id,type,subject,description,status,completed_at) VALUES(?,?,?,?,?,'Devis émis',?,'completed',NOW())`,[quotation.customer_id,quotation.lead_id,quotation.opportunity_id,request.user!.sub,'note',`Devis ${quotation.quotation_number} émis. Propriétaire commercial : ${quotation.commercial_owner_id}.`]);
+    await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'quotations','quotation',?,'quotation.issued',?,?,?,?)`,[request.user!.sub,quotationId,JSON.stringify({status:'draft',commercialOwnerId:String(quotation.commercial_owner_id)}),JSON.stringify({status:'sent',issuedBy:request.user!.sub}),request.ip??null,request.get('user-agent')??null]);
+  });
+  return one(quotationId,request);
+}

@@ -1,10 +1,10 @@
 import { apiDownload } from "./apiClient";
 export async function openBusinessPdf(
-  type: "sale" | "delivery" | "repair_order" | "vehicle",
+  type: "sale" | "delivery" | "repair_order" | "vehicle" | "quotation",
   id: string,
   download = false,
 ) {
-  const endpoint = type === "delivery" ? `/deliveries/${id}/pdf` : type === "repair_order" ? `/repair-orders/${id}/pdf` : `/documents/business/${type}/${id}/pdf`;
+  const endpoint = type === "delivery" ? `/deliveries/${id}/pdf` : type === "repair_order" ? `/repair-orders/${id}/pdf` : type === "quotation" ? `/quotations/${id}/pdf` : `/documents/business/${type}/${id}/pdf`;
   const blob = await apiDownload(`${endpoint}${download ? "?download=true" : ""}`);
   const url = URL.createObjectURL(blob);
   if (download) {

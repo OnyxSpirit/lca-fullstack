@@ -161,7 +161,7 @@ const mapLead = (r: any): Lead => ({
   targetVehicle: r.title ?? "",
   targetBudget: n(r.expectedValue),
   assignedToId: s(r.assignedUserId),
-  assignedToName: r.assignedUserName ?? "",
+  assignedToName: r.assignedUserName?.trim() || "À affecter",
   createdById: s(r.createdById),
   createdByName: r.createdByName ?? "",
   agencyId: s(r.agencyId),

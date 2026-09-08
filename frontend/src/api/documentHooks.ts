@@ -3,7 +3,7 @@ const params=(values:object)=>{const p=new URLSearchParams();for(const[k,v]of Ob
 export const documentKeys={all:['documents']as const,list:(f:DocumentFilters)=>['documents','list',f]as const,detail:(id:string)=>['documents','detail',id]as const};
 export function useDocumentsQuery(filters:DocumentFilters){return useQuery({queryKey:documentKeys.list(filters),queryFn:()=>apiRequest<DocumentListResponse>(`/documents?${params(filters)}`)})}
 export function useDocumentQuery(id?:string){return useQuery({queryKey:documentKeys.detail(id??''),queryFn:()=>apiRequest<DocumentRecord>(`/documents/${id}`),enabled:Boolean(id)})}
-export function useEntityDocuments(type:DocumentEntityType,id?:string){return useQuery({queryKey:['documents','entity',type,id],queryFn:()=>apiRequest<DocumentRecord[]>(`/documents/entity/${type}/${id}`),enabled:Boolean(id)})}
+export function useEntityDocuments(type:DocumentEntityType,id?:string,requestEnabled=true){return useQuery({queryKey:['documents','entity',type,id],queryFn:()=>apiRequest<DocumentRecord[]>(`/documents/entity/${type}/${id}`),enabled:Boolean(id)&&requestEnabled})}
 export function useDocumentEntitySearch(type:DocumentEntityType,q:string){return useQuery({queryKey:['documents','entities',type,q],queryFn:()=>apiRequest<DocumentEntityResult[]>(`/documents/entities/search?${params({entityType:type,q})}`),enabled:q.trim().length>=2,staleTime:30_000})}
 const invalidate=(qc:ReturnType<typeof useQueryClient>)=>()=>qc.invalidateQueries({queryKey:documentKeys.all});
 export function useUploadDocument(){const qc=useQueryClient();return useMutation({mutationFn:(body:FormData)=>apiRequest<{id:string;duplicateWarning:boolean}>('/documents',{method:'POST',body}),onSuccess:invalidate(qc)})}

@@ -26,9 +26,12 @@ import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { ROUTES } from '../../navigation/routes';
 import { useDashboardOverviewQuery } from '../../api/dashboardHooks';
+import { canPerformWorkflowAction } from '../../navigation/permissions';
 
 export const ModulesPortalPage: React.FC = () => {
-  const { hasPermission, currentAgency } = useAuthStore();
+  const { hasPermission, currentAgency, currentUser } = useAuthStore();
+  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
+  const canViewVehicleFinancials=canPerformWorkflowAction(roles,'vehicles.viewFinancials');
   const [searchQuery, setSearchQuery] = useState('');
   const overview = useDashboardOverviewQuery(currentAgency?.id).data;
 
@@ -69,13 +72,13 @@ export const ModulesPortalPage: React.FC = () => {
         {
           id: 'vehicles',
           title: 'Stock Véhicules (VN / VO)',
-          description: 'Gestion du parc automobile, identification VIN, prix d’achat, frais de remise en état et marges.',
+          description: canViewVehicleFinancials?'Gestion du parc automobile, identification VIN, prix d’achat, frais de remise en état et marges.':'Consultation du parc VN/VO, disponibilités, caractéristiques, photos et prix public.',
           icon: <Car className="w-6 h-6 text-emerald-600" />,
           route: ROUTES.vehicles,
           permissionKey: 'vehicles',
           badgeText: overview?.vehicles ? `${overview.vehicles.available} disponibles` : undefined,
           badgeVariant: 'success',
-          features: ['Gestion VIN 17 car.', 'Alertes stock >60j', 'Calcul marge HT', 'Galerie photos'],
+          features: canViewVehicleFinancials?['Gestion VIN 17 car.', 'Alertes stock >60j', 'Calcul marge HT', 'Galerie photos']:['Identification VIN', 'Disponibilités', 'Prix public', 'Galerie photos'],
         },
         {
           id: 'sales',

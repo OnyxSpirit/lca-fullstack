@@ -196,7 +196,7 @@ export const Sidebar: React.FC = () => {
         >
          
          
-          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='./images/logo-lca.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='./images/logo-lca.png'/></div>}
+          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='/images/logo-lca.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='/images/logo-lca.png'/></div>}
         </NavLink>
 
         {/* Mobile close button */}

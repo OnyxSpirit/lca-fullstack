@@ -32,7 +32,7 @@ import { VehicleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { apiDownload } from '../../services/apiClient';
 import { openBusinessPdf } from '../../services/businessPdf';
-import { canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
+import { canChangeVehicleStatus, canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
 
 export const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +42,9 @@ export const VehicleDetailPage: React.FC = () => {
   const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean);
   const canEdit=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.update');
   const canCreateSale=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'sales.create');
+  const canCreateRepairOrder=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'service.create');
+  const canViewDocuments=hasPermission(roles as Parameters<typeof hasPermission>[0],'documents.view');
+  const canChangeStatus=canChangeVehicleStatus(roles as Parameters<typeof canChangeVehicleStatus>[0]);
   const canViewFinancials=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'vehicles.viewFinancials');
   const { setActiveQuickActionModal, addToast } = useUiStore();
 
@@ -92,7 +95,7 @@ export const VehicleDetailPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             {canEdit&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
             {/* Quick Status Selector */}
-            <select
+            {canChangeStatus&&<select
               value={vehicle.status}
               onChange={(e) => handleStatusChange(e.target.value as VehicleStatus)}
               className="text-xs font-bold p-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none"
@@ -105,7 +108,7 @@ export const VehicleDetailPage: React.FC = () => {
               <option value="RESERVE">Statut : Réservé</option>
               <option value="VENDU">Statut : Vendu</option>
               <option value="LIVRE">Statut : Livré au client</option>
-            </select>
+            </select>}
 
             <Button
               variant="outline"
@@ -162,7 +165,7 @@ export const VehicleDetailPage: React.FC = () => {
               ))}
             </div>
           )}
-          <div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label>{vehicleQuery.data?.images?.map((image:any,index:number)=><div key={image.id} className="flex gap-1"><Button size="xs" variant="outline" disabled={Boolean(image.is_primary)} onClick={()=>imageMutations.primary.mutate({id:vehicle.id,imageId:String(image.id)})}>{index===0?'Principale':'Définir principale'}</Button><Button size="xs" variant="outline" onClick={()=>{if(window.confirm('Supprimer cette photo du catalogue ?'))imageMutations.remove.mutate({id:vehicle.id,imageId:String(image.id)})}}>Supprimer</Button></div>)}</div>
+          {canEdit&&<div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label>{vehicleQuery.data?.images?.map((image:any,index:number)=><div key={image.id} className="flex gap-1"><Button size="xs" variant="outline" disabled={Boolean(image.is_primary)} onClick={()=>imageMutations.primary.mutate({id:vehicle.id,imageId:String(image.id)})}>{index===0?'Principale':'Définir principale'}</Button><Button size="xs" variant="outline" onClick={()=>{if(window.confirm('Supprimer cette photo du catalogue ?'))imageMutations.remove.mutate({id:vehicle.id,imageId:String(image.id)})}}>Supprimer</Button></div>)}</div>}
         </div>
 
         {/* Commercial Highlights Card */}
@@ -212,13 +215,13 @@ export const VehicleDetailPage: React.FC = () => {
             >
               Établir une Proposition Commerciale
             </Button>}
-            <Button
+            {canCreateRepairOrder&&<Button
               variant="outline"
               className="w-full"
               onClick={() => setActiveQuickActionModal('or',{vehicleId:vehicle.id})}
             >
               Ouvrir OR Atelier (SAV / Prépa)
-            </Button>
+            </Button>}
           </div>
         </Card>
       </div>
@@ -230,7 +233,7 @@ export const VehicleDetailPage: React.FC = () => {
           { key: 'financials', label: 'Décomposition des Coûts & Marges' },
           { key: 'timeline', label: 'Cycle de Vie & Traçabilité' },
           { key: 'documents', label: 'GED & Documents Associés' },
-        ].filter(tab=>tab.key!=='financials'||canViewFinancials).map((tab) => (
+        ].filter(tab=>(tab.key!=='financials'||canViewFinancials)&&(tab.key!=='documents'||canViewDocuments)).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}

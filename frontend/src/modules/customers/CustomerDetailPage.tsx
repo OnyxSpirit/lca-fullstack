@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   User,
@@ -28,7 +28,7 @@ import { Modal } from '../../components/ui/Modal';
 import { useEntityDocuments } from '../../api/documentHooks';
 import { apiDownload } from '../../services/apiClient';
 import { useAuthStore } from '../../stores/authStore';
-import { canPerformWorkflowAction } from '../../navigation/permissions';
+import { canAccessModule, canPerformWorkflowAction } from '../../navigation/permissions';
 
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,9 +36,14 @@ export const CustomerDetailPage: React.FC = () => {
   const customerQuery=useCustomer360Query(id);const data=customerQuery.data;
   const timeline=data?.timeline??[],customerVehicles=data?.vehicles??[],customerSales=data?.sales??[],customerORs=data?.repairOrders??[],customerInvoices=data?.invoices??[],contacts=data?.contacts??[],opportunities=data?.opportunities??[];
   const { setActiveQuickActionModal,addToast } = useUiStore();
-  const documentsQuery=useEntityDocuments('customer',id),documents=documentsQuery.data??[];
   const currentUser=useAuthStore(state=>state.currentUser);
   const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
+  const canViewSales=canAccessModule(roles,'view','sales');
+  const canViewService=canAccessModule(roles,'view','service');
+  const canViewBilling=canAccessModule(roles,'view','billing');
+  const canViewDocuments=canAccessModule(roles,'view','documents');
+  const canViewVehicles=canAccessModule(roles,'view','vehicles');
+  const documentsQuery=useEntityDocuments('customer',id,canViewDocuments),documents=documentsQuery.data??[];
   const canCreateSale=canPerformWorkflowAction(roles,'sales.create');
   const canCreateRepairOrder=canPerformWorkflowAction(roles,'service.create');
   const canUpdateCustomer=canPerformWorkflowAction(roles,'customers.update');
@@ -46,6 +51,17 @@ export const CustomerDetailPage: React.FC = () => {
   const customer = data?.customer;
   const customerName=customer?(customer.type==='Professionnel'?(customer.company||[customer.firstName,customer.lastName].filter(Boolean).join(' ')||customer.code):[customer.civility,customer.firstName,customer.lastName].filter(Boolean).join(' ')):'';
   const [activeTab, setActiveTab] = useState<'timeline' | 'contacts' | 'opportunities' | 'vehicles' | 'sales' | 'sav' | 'billing' | 'documents'>('timeline');
+  const tabs=[
+    {key:'timeline',label:'Timeline Événements'},
+    {key:'contacts',label:`Contacts (${contacts.length})`},
+    {key:'opportunities',label:`Opportunités (${opportunities.length})`},
+    {key:'vehicles',label:`Véhicules Rattachés (${customerVehicles.length})`},
+    ...(canViewSales?[{key:'sales',label:`Ventes & Devis (${customerSales.length})`}]:[]),
+    ...(canViewService?[{key:'sav',label:`Atelier SAV & OR (${customerORs.length})`}]:[]),
+    ...(canViewBilling?[{key:'billing',label:`Facturation (${customerInvoices.length})`}]:[]),
+    ...(canViewDocuments?[{key:'documents',label:`Documents (${documents.length})`}]:[]),
+  ] as const;
+  useEffect(()=>{if(!tabs.some(tab=>tab.key===activeTab))setActiveTab('timeline')},[activeTab,canViewSales,canViewService,canViewBilling,canViewDocuments]);
   const downloadDocument=async(document:(typeof documents)[number])=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
   const [contactOpen,setContactOpen]=useState(false);const createContact=useCreateCustomerContact(id);const[contact,setContact]=useState({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false});const[contactError,setContactError]=useState('');
 
@@ -135,37 +151,28 @@ export const CustomerDetailPage: React.FC = () => {
 
         {/* Quick KPI Summary */}
         <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          {canViewVehicles&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Véhicules Rattachés</span>
             <div className="text-xl font-bold text-slate-900 mt-1">{customerVehicles.length}</div>
-          </div>
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          </div>}
+          {canViewSales&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Commandes Ventes</span>
             <div className="text-xl font-bold text-blue-700 mt-1">{customerSales.length}</div>
-          </div>
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          </div>}
+          {canViewService&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Passages Atelier SAV</span>
             <div className="text-xl font-bold text-amber-700 mt-1">{customerORs.length}</div>
-          </div>
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+          </div>}
+          {canViewBilling&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Factures Émises</span>
             <div className="text-xl font-bold text-emerald-700 mt-1">{customerInvoices.length}</div>
-          </div>
+          </div>}
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto">
-        {[
-          { key: 'timeline', label: 'Timeline Événements' },
-          { key: 'contacts', label: `Contacts (${contacts.length})` },
-          { key: 'opportunities', label: `Opportunités (${opportunities.length})` },
-          { key: 'vehicles', label: `Véhicules Rattachés (${customerVehicles.length})` },
-          { key: 'sales', label: `Ventes & Devis (${customerSales.length})` },
-          { key: 'sav', label: `Atelier SAV & OR (${customerORs.length})` },
-          { key: 'billing', label: `Facturation (${customerInvoices.length})` },
-          { key: 'documents', label: `Documents (${documents.length})` },
-        ].map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
@@ -215,9 +222,9 @@ export const CustomerDetailPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <Button size="xs" variant="outline" onClick={() => setActiveQuickActionModal('or',{customerId:customer.id,vehicleId:v.id})}>
+              {canCreateRepairOrder&&<Button size="xs" variant="outline" onClick={() => setActiveQuickActionModal('or',{customerId:customer.id,vehicleId:v.id})}>
                 Ouvrir un OR SAV
-              </Button>
+              </Button>}
             </div>
           ))}
           {customerVehicles.length === 0 && (

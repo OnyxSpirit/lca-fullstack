@@ -4,6 +4,7 @@ import { authorize, unrestricted } from '../../middleware/authorize.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { HttpError } from '../../shared/http-error.js';
 import { notifyCrm } from './crm.notifications.js';
+import { resolveLeadAssignee, validateLeadAssignee } from './crm-assignment.js';
 export const crmRouter = Router();
 const CRM_READ = ['SUPER_ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'SALES_AGENT', 'RECEPTIONIST'];
 const CRM_WRITE = ['SUPER_ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'SALES_AGENT', 'RECEPTIONIST'];
@@ -14,7 +15,7 @@ const activityTypes = ['call', 'email', 'task', 'appointment', 'test_drive', 'no
 const activityStatuses = ['planned', 'completed', 'cancelled'];
 const leadSources = ['Passage Showroom', 'Web', 'Téléphone', 'LeBonCoin', 'Parrainage', 'Campagne Marketing'];
 const priorities = ['low', 'medium', 'high', 'urgent'];
-const leadSelect = `SELECT l.id lead_id,o.id opportunity_id,l.customer_id,l.first_name,l.last_name,l.company_name,l.email,l.phone,l.source,l.status lead_status,l.priority,l.assigned_user_id,l.created_by,o.title,o.stage,o.expected_value,o.probability,o.expected_close_date,o.lost_reason,o.notes,l.created_at,l.updated_at,CONCAT_WS(' ',u.first_name,u.last_name) assigned_user_name,CONCAT_WS(' ',creator.first_name,creator.last_name) created_by_name,u.agency_id,a.name agency_name FROM leads l JOIN opportunities o ON o.lead_id=l.id LEFT JOIN users u ON u.id=l.assigned_user_id LEFT JOIN users creator ON creator.id=l.created_by LEFT JOIN agencies a ON a.id=u.agency_id`;
+const leadSelect = `SELECT l.id lead_id,o.id opportunity_id,l.customer_id,l.first_name,l.last_name,l.company_name,l.email,l.phone,l.source,l.status lead_status,l.priority,l.assigned_user_id,l.created_by,o.title,o.stage,o.expected_value,o.probability,o.expected_close_date,o.lost_reason,o.notes,l.created_at,l.updated_at,CONCAT_WS(' ',u.first_name,u.last_name) assigned_user_name,CONCAT_WS(' ',creator.first_name,creator.last_name) created_by_name,COALESCE(u.agency_id,creator.agency_id) agency_id,a.name agency_name FROM leads l JOIN opportunities o ON o.lead_id=l.id LEFT JOIN users u ON u.id=l.assigned_user_id LEFT JOIN users creator ON creator.id=l.created_by LEFT JOIN agencies a ON a.id=COALESCE(u.agency_id,creator.agency_id)`;
 const mapLead = (row) => ({ id: String(row.lead_id), opportunityId: String(row.opportunity_id), customerId: row.customer_id == null ? null : String(row.customer_id), firstName: row.first_name ?? '', lastName: row.last_name ?? '', companyName: row.company_name ?? '', email: row.email ?? '', phone: row.phone ?? '', source: row.source ?? '', leadStatus: row.lead_status, priority: row.priority, assignedUserId: row.assigned_user_id == null ? null : String(row.assigned_user_id), assignedUserName: row.assigned_user_name ?? '', createdById: row.created_by == null ? null : String(row.created_by), createdByName: row.created_by_name ?? '', agencyId: row.agency_id == null ? null : String(row.agency_id), agencyName: row.agency_name ?? '', title: row.title, stage: row.stage, expectedValue: row.expected_value, probability: row.probability, expectedCloseDate: row.expected_close_date, lostReason: row.lost_reason, notes: row.notes ?? '', createdAt: row.created_at, updatedAt: row.updated_at });
 const text = (value, name, max = 255, required = false) => { if (value == null || value === '') {
     if (required)
@@ -41,33 +42,20 @@ const dateValue = (value, name) => { if (value == null || value === '')
 const routeId = (value) => { const id = Array.isArray(value) ? value[0] : value; if (!id || !/^\d+$/.test(id))
     throw new HttpError(400, 'Identifiant invalide'); return id; };
 const hasRole = (request, roles) => Boolean(request.user?.roles.some(role => roles.includes(role)));
-function scope(request, alias = 'u') {
+function scope(request, alias = 'COALESCE(u.agency_id,creator.agency_id)') {
     const requestedAgency = typeof request.query.agencyId === 'string' ? request.query.agencyId : null;
     const requestedCommercial = typeof request.query.commercialId === 'string' ? request.query.commercialId : null;
     if (unrestricted(request))
-        return { sql: `(? IS NULL OR ${alias}.agency_id=?) AND (? IS NULL OR l.assigned_user_id=?)`, params: [requestedAgency, requestedAgency, requestedCommercial, requestedCommercial] };
+        return { sql: `(? IS NULL OR ${alias}=?) AND (? IS NULL OR l.assigned_user_id=?)`, params: [requestedAgency, requestedAgency, requestedCommercial, requestedCommercial] };
     const agencyId = request.user?.agencyId;
     if (!agencyId)
         throw new HttpError(403, 'Aucune agence associée à cet utilisateur');
     if (hasRole(request, ['SALES_AGENT'])) {
         if (requestedCommercial && requestedCommercial !== request.user?.sub)
             throw new HttpError(403, 'Un commercial ne peut consulter que son portefeuille');
-        return { sql: `${alias}.agency_id=? AND l.assigned_user_id=?`, params: [agencyId, request.user?.sub] };
+        return { sql: `${alias}=? AND l.assigned_user_id=?`, params: [agencyId, request.user?.sub] };
     }
-    return { sql: `${alias}.agency_id=? AND (? IS NULL OR l.assigned_user_id=?)`, params: [agencyId, requestedCommercial, requestedCommercial] };
-}
-async function assignee(userId, request) {
-    if (hasRole(request, ['SALES_AGENT']) && userId !== request.user?.sub)
-        throw new HttpError(403, 'Un commercial ne peut pas réattribuer son portefeuille');
-    const [user] = await query(`SELECT u.id,u.agency_id,GROUP_CONCAT(r.code) roles FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.is_active=TRUE GROUP BY u.id`, [userId]);
-    if (!user)
-        throw new HttpError(400, 'Commercial assigné introuvable ou inactif');
-    const roles = String(user.roles ?? '').split(',');
-    if (!roles.some(role => CRM_READ.includes(role)))
-        throw new HttpError(400, 'Cet utilisateur ne peut pas recevoir un prospect');
-    if (!unrestricted(request) && String(user.agency_id) !== String(request.user?.agencyId))
-        throw new HttpError(403, 'Le commercial appartient à une autre agence');
-    return { agencyId: user.agency_id == null ? null : String(user.agency_id) };
+    return { sql: `${alias}=? AND (? IS NULL OR l.assigned_user_id=?)`, params: [agencyId, requestedCommercial, requestedCommercial] };
 }
 async function accessibleLead(id, request) { const scoped = scope(request); const [row] = await query(`${leadSelect} WHERE l.id=? AND ${scoped.sql}`, [id, ...scoped.params]); if (!row)
     throw new HttpError(404, 'Prospect introuvable'); return row; }
@@ -83,7 +71,7 @@ crmRouter.get('/leads', authorize(...CRM_READ), asyncHandler(async (request, res
     const priority = typeof request.query.priority === 'string' ? request.query.priority : null;
     if (priority && !priorities.includes(priority))
         throw new HttpError(400, 'Priorité CRM invalide');
-    const rows = await query(`${leadSelect} WHERE ${scoped.sql} AND (?='' OR l.first_name LIKE ? OR l.last_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR o.title LIKE ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?) AND (? IS NULL OR o.stage=?) AND (? IS NULL OR l.priority=?) ORDER BY l.updated_at DESC LIMIT 200`, [...scoped.params, search, term, term, term, term, term, phoneTerm, stage, stage, priority, priority]);
+    const rows = await query(`${leadSelect} WHERE ${scoped.sql} AND (?='' OR l.first_name LIKE ? OR l.last_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR o.title LIKE ? OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) AND (? IS NULL OR o.stage=?) AND (? IS NULL OR l.priority=?) ORDER BY l.updated_at DESC LIMIT 200`, [...scoped.params, search, term, term, term, term, term, normalizedPhone, phoneTerm, stage, stage, priority, priority]);
     response.json(rows.map(mapLead));
 }));
 crmRouter.get('/leads/:id', authorize(...CRM_READ), asyncHandler(async (request, response) => { response.json(mapLead(await accessibleLead(routeId(request.params.id), request))); }));
@@ -108,15 +96,14 @@ crmRouter.post('/leads', authorize(...CRM_WRITE), asyncHandler(async (request, r
     const stage = text(body.stage, 'stage', 30) ?? 'new';
     if (!stages.includes(stage))
         throw new HttpError(400, 'Étape CRM invalide');
-    const assignedUserId = text(body.assignedUserId, 'assignedUserId', 30) ?? request.user.sub;
-    const assigned = await assignee(assignedUserId, request);
+    const assigned = await resolveLeadAssignee(body.assignedUserId, request), assignedUserId = assigned.assignedUserId;
     const expectedValue = numberValue(body.expectedValue, 'expectedValue', 0, 9999999999999999);
     const probability = numberValue(body.probability, 'probability', 0, 100);
     const expectedCloseDate = dateValue(body.expectedCloseDate, 'expectedCloseDate');
     const notes = text(body.notes, 'notes', 10000), leadStatus = leadStatusForStage(stage);
     const created = await transaction(async (connection) => { const [lead] = await connection.execute(`INSERT INTO leads(assigned_user_id,created_by,source,status,priority,first_name,last_name,company_name,email,phone,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, [assignedUserId, request.user.sub, source, leadStatus, priority, firstName, lastName, companyName, email, phone, notes]); const [opportunity] = await connection.execute(`INSERT INTO opportunities(lead_id,assigned_user_id,title,stage,expected_value,probability,expected_close_date,notes) VALUES(?,?,?,?,?,?,?,?)`, [lead.insertId, assignedUserId, title, stage, expectedValue, probability, expectedCloseDate, notes]); return { id: String(lead.insertId), opportunityId: String(opportunity.insertId) }; });
-    await notifyCrm({ leadId: created.id, agencyId: assigned.agencyId, assignedUserId, actorUserId: request.user.sub, subject: 'Nouveau prospect', message: `Le prospect ${[firstName, lastName].filter(Boolean).join(' ') || companyName} vous a été attribué.` });
-    response.status(201).json(created);
+    await notifyCrm({ leadId: created.id, agencyId: assigned.agencyId, assignedUserId, actorUserId: request.user.sub, subject: 'Nouveau prospect', message: assignedUserId ? `Le prospect ${[firstName, lastName].filter(Boolean).join(' ') || companyName} vous a été attribué.` : `Le prospect ${[firstName, lastName].filter(Boolean).join(' ') || companyName} est à affecter.` });
+    response.status(201).json(mapLead(await accessibleLead(created.id, request)));
 }));
 crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (request, response) => {
     const leadId = routeId(request.params.id);
@@ -148,7 +135,9 @@ crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (reque
     let assignedUserId = current.assigned_user_id == null ? null : String(current.assigned_user_id), agencyId = current.agency_id == null ? null : String(current.agency_id);
     if (Object.hasOwn(body, 'assignedUserId')) {
         assignedUserId = text(body.assignedUserId, 'assignedUserId', 30, true);
-        agencyId = (await assignee(assignedUserId, request)).agencyId;
+        if (hasRole(request, ['SALES_AGENT']) && assignedUserId !== request.user?.sub)
+            throw new HttpError(403, 'Un commercial ne peut pas réattribuer son portefeuille');
+        agencyId = (await validateLeadAssignee(assignedUserId, request)).agencyId;
         leadSets.push('assigned_user_id=?');
         leadValues.push(assignedUserId);
         oppSets.push('assigned_user_id=?');

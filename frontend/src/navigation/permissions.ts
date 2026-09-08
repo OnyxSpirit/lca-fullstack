@@ -10,7 +10,7 @@ const common=modules('dashboard','modules','notifications');
 export const ROLE_PERMISSIONS:Readonly<Record<UserRole,readonly AppPermission[]>>={
   SUPER_ADMIN:[...modules('dashboard','modules','crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','notifications','reports','users','settings'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.create','vehicles.update','vehicles.viewFinancials','customers.create','customers.update','service.create','service.update','service.assign','service.invoice','workshop.manageResources','workshop.assign','workshop.timeTrack','parts.manageCatalog','parts.manageStock','parts.viewFinancials','parts.receive','parts.order','billing.create','billing.pay','billing.credit','billing.refund','deliveries.create','deliveries.update','deliveries.complete','documents.upload','documents.archive','reports.export','users.manage','settings.manage'],
   DIRECTION:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','reports','settings'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.create','vehicles.update','vehicles.viewFinancials','customers.create','customers.update','service.create','service.update','service.assign','service.invoice','workshop.manageResources','workshop.assign','workshop.timeTrack','parts.manageCatalog','parts.manageStock','parts.viewFinancials','parts.receive','parts.order','billing.create','billing.pay','billing.credit','billing.refund','deliveries.create','deliveries.update','deliveries.complete','documents.upload','documents.archive','reports.export','settings.manage'],
-  SALES_MANAGER:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','documents','reports'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.viewFinancials','customers.create','customers.update','documents.upload','documents.archive','reports.export'],
+  SALES_MANAGER:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','documents','reports'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.update','vehicles.viewFinancials','customers.create','customers.update','documents.upload','documents.archive','reports.export'],
   SALES_REP:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','documents'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','showroom.takeOver','showroom.testDrive','showroom.complete','customers.create','customers.update','documents.upload'],
   RECEPTIONIST:[...common,...modules('crm','customers','vehicles','showroom'),'showroom.register','showroom.assign','showroom.cancelWaiting','customers.create'],
   SERVICE_MANAGER:[...common,...modules('customers','vehicles','service','workshop','parts','billing','documents','reports'),'customers.create','customers.update','service.create','service.update','service.assign','service.invoice','workshop.manageResources','workshop.assign','parts.manageStock','documents.upload','documents.archive','reports.export'],
@@ -28,3 +28,33 @@ export function normalizeRole(role:string):UserRole|null{return BACKEND_ROLE_ALI
 export function hasPermission(subject:Pick<User,'roles'|'role'>|UserRole[]|UserRole,permission:AppPermission):boolean{const roles=typeof subject==='string'?[subject]:Array.isArray(subject)?subject:subject.roles?.length?subject.roles:[subject.role];return roles.some(role=>ROLE_PERMISSIONS[role]?.includes(permission))}
 export function canAccessModule(roles:UserRole[]|UserRole,action:PermissionAction,module:string):boolean{if(action==='view')return hasPermission(roles,`${module}.view` as AppPermission);const aliases:Partial<Record<PermissionAction,WorkflowPermission>>={create:`${module}.create` as WorkflowPermission,update:`${module}.update` as WorkflowPermission,delete:`${module}.archive` as WorkflowPermission,cancel:`${module}.cancel` as WorkflowPermission,export:'reports.export',assign:`${module}.assign` as WorkflowPermission};const permission=aliases[action];return Boolean(permission&&hasPermission(roles,permission))}
 export function canPerformWorkflowAction(roles:UserRole[]|UserRole,permission:WorkflowPermission):boolean{return hasPermission(roles,permission)}
+
+const VEHICLE_STATUS_ROLES:readonly UserRole[]=['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK','SERVICE_MANAGER'];
+
+/** Mirrors backend-node PATCH /vehicles/:id/status without broadening vehicles.update. */
+export function canChangeVehicleStatus(roles:UserRole[]|UserRole):boolean{
+  const values=Array.isArray(roles)?roles:[roles];
+  return values.some(role=>VEHICLE_STATUS_ROLES.includes(role));
+}
+
+const routeModules:ReadonlyArray<[string,ModulePermission]>=[
+  ['/service','service'],['/workshop','workshop'],['/deliveries','deliveries'],
+  ['/vehicles','vehicles'],['/customers','customers'],['/showroom','showroom'],
+  ['/billing','billing'],['/documents','documents'],['/reports','reports'],
+  ['/parts','parts'],['/sales','sales'],['/crm','crm'],['/users','users'],
+  ['/settings','settings'],['/notifications','notifications'],['/modules','modules'],
+  ['/dashboard','dashboard'],
+];
+
+export function moduleForRoute(path:string):ModulePermission|null{
+  const pathname=path.split(/[?#]/,1)[0]||'';
+  return routeModules.find(([root])=>pathname===root||pathname.startsWith(`${root}/`))?.[1]??null;
+}
+
+export function canNavigateToRoute(roles:UserRole[]|UserRole,path:string):boolean{
+  const module=moduleForRoute(path);
+  return module!==null&&hasPermission(roles,`${module}.view`);
+}
+
+const notificationCategories=[['lead','crm.view'],['sale','sales.view'],['showroom','showroom.view'],['vehicle','vehicles.view'],['repair_order','service.view'],['part','parts.view'],['delivery','deliveries.view'],['invoice','billing.view'],['document','documents.view']]as const;
+export function visibleNotificationTypes(roles:UserRole[]|UserRole):string[]{return notificationCategories.filter(([,permission])=>hasPermission(roles,permission)).map(([type])=>type)}

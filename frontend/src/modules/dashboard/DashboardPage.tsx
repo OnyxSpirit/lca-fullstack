@@ -43,12 +43,15 @@ import { Badge } from '../../components/ui/Badge';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { formatDeltaPercent, useDashboardOverviewQuery } from '../../api/dashboardHooks';
-import { canAccessModule, canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
+import { canAccessModule, canNavigateToRoute, canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
 
 export const DashboardPage: React.FC = () => {
   const { currentUser, currentAgency } = useAuthStore();
   const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
   const canViewService=canAccessModule(roles,'view','service'),canViewDeliveries=canAccessModule(roles,'view','deliveries');
+  const canViewBilling=canAccessModule(roles,'view','billing'),canViewSales=canAccessModule(roles,'view','sales');
+  const canViewCrm=canAccessModule(roles,'view','crm'),canViewVehicles=canAccessModule(roles,'view','vehicles'),canViewShowroom=canAccessModule(roles,'view','showroom');
+  const canViewReports=canAccessModule(roles,'view','reports');
   const repairOrders=useRepairOrdersQuery('','',canViewService).data??[],deliveries=useDeliveriesQuery({},canViewDeliveries).data??[];
   const overviewQuery=useDashboardOverviewQuery(currentAgency?.id),overview=overviewQuery.data;
   const notificationsQuery=useNotificationsQuery({page:1,pageSize:4}),notifications=notificationsQuery.data?.items??[],notificationActions=useNotificationActions();
@@ -85,19 +88,19 @@ export const DashboardPage: React.FC = () => {
           >
             Nouvelle Vente
           </button>}
-          <button
+          {canViewReports&&<button
             onClick={() => navigate('/reports')}
             className="bg-white border border-[#cbc7c2] text-[#242426] px-4 py-2 rounded-md text-sm font-semibold hover:bg-[#eeece9] transition-colors cursor-pointer"
           >
             Exporter Rapport
-          </button>
+          </button>}
         </div>
       </div>
 
       {/* 4 High Density Primary Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
         {/* Metric 1: CA */}
-        <div
+        {canViewBilling&&<div
           onClick={() => navigate('/billing')}
           className="bg-[#151517] text-white p-5 rounded-md border border-black cursor-pointer hover:bg-black transition-all"
         >
@@ -111,10 +114,10 @@ export const DashboardPage: React.FC = () => {
             {overview?.revenue?formatCurrency(overview.revenue.current):loadingValue}
           </div>
           <div className="text-xs text-zinc-400 mt-1">Marge réelle : {overview?.grossMargin?formatCurrency(overview.grossMargin.current):loadingValue}</div>
-        </div>
+        </div>}
 
         {/* Metric 2: Ventes du Mois */}
-        <div
+        {canViewSales&&<div
           onClick={() => navigate('/sales')}
           className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"
         >
@@ -128,10 +131,10 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight">{overview?.sales?`${overview.sales.currentMonth} véhicule${overview.sales.currentMonth>1?'s':''}`:loadingValue}</div>
           <div className="text-xs text-slate-400 mt-1">Dossiers non annulés enregistrés ce mois</div>
-        </div>
+        </div>}
 
         {/* Metric 3: Prospects Actifs */}
-        <div
+        {canViewCrm&&<div
           onClick={() => navigate('/crm')}
           className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"
         >
@@ -143,10 +146,10 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight">{overview?.crm?.activeLeads??loadingValue}</div>
           <div className="text-xs text-slate-400 mt-1">{overview?.crm?`${overview.crm.scheduledTestDrivesThisWeek} essais prévus cette semaine`:loadingValue}</div>
-        </div>
+        </div>}
 
         {/* Metric 4: Stock Disponible */}
-        <div
+        {canViewVehicles&&<div
           onClick={() => navigate('/vehicles')}
           className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"
         >
@@ -160,13 +163,14 @@ export const DashboardPage: React.FC = () => {
             {overview?.vehicles?`${overview.vehicles.available} véhicules`:loadingValue}
           </div>
           <div className="text-xs text-slate-400 mt-1">{overview?.vehicles?`${overview.vehicles.dormant} âgés de > 60 jours`:loadingValue}</div>
-        </div>
+        </div>}
+        {canViewShowroom&&<div onClick={()=>navigate('/showroom')} className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"><span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Visiteurs aujourd’hui</span><div className="text-2xl font-bold text-slate-900 mt-1">{overview?.showroom?.todayVisitors??loadingValue}</div><div className="text-xs text-slate-400 mt-1">{overview?.showroom?`${overview.showroom.waiting} en attente · ${overview.showroom.inProgress} pris en charge`:loadingValue}</div></div>}
       </div>
 
       {/* Main Section: Chart & Weekly Evolution + Dark Alert Panel & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Weekly & Monthly Charts (2 cols) */}
-        <div className="lg:col-span-2 space-y-6">
+        {canViewReports&&<div className="lg:col-span-2 space-y-6">
           {/* Weekly CA Evolution Chart Card */}
           <div className="bg-white border border-[#dedbd7] rounded-md flex flex-col p-5">
             <div className="flex justify-between items-center mb-6">
@@ -246,7 +250,7 @@ export const DashboardPage: React.FC = () => {
               </ResponsiveContainer>
             </div>
           </Card>
-        </div>
+        </div>}
 
         {/* Right Column: Signature High Density Dark Alert Box & Quick Actions */}
         <div className="space-y-6 flex flex-col">
@@ -262,7 +266,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div className="space-y-3.5 flex-1 overflow-y-auto">
-              {notifications.map(notification=><div key={notification.id} onClick={()=>{const go=()=>navigate(notification.linkRoute);if(notification.isRead)go();else void notificationActions.markAsRead.mutateAsync(notification.id).then(go).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}))}} className="flex gap-3 items-start border-l-2 border-[#8f1722] pl-3 py-1 cursor-pointer hover:bg-slate-800/50 rounded-r transition-colors"><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{notification.subject}</p><p className="text-[11px] text-slate-400 truncate">{notification.message}</p></div></div>)}
+              {notifications.map(notification=>{const navigable=canNavigateToRoute(roles,notification.linkRoute);return <div key={notification.id} onClick={()=>{const go=()=>{if(navigable)navigate(notification.linkRoute)};if(notification.isRead)go();else void notificationActions.markAsRead.mutateAsync(notification.id).then(go).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}))}} className={`flex gap-3 items-start border-l-2 border-[#8f1722] pl-3 py-1 rounded-r transition-colors ${navigable?'cursor-pointer hover:bg-slate-800/50':'cursor-default'}`}><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{notification.subject}</p><p className="text-[11px] text-slate-400 truncate">{notification.message}</p></div></div>})}
               {!notifications.length&&<p className="text-xs text-slate-400">Aucune alerte enregistrée.</p>}
             </div>
 
@@ -326,7 +330,7 @@ export const DashboardPage: React.FC = () => {
       {/* Operational Widgets Grid (2 columns: Live Repair Orders & Upcoming Deliveries) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Live Repair Orders (SAV Atelier) */}
-        <Card>
+        {canViewService&&<Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Wrench className="w-4 h-4 text-blue-600" />
@@ -363,10 +367,10 @@ export const DashboardPage: React.FC = () => {
               </div>
             ))}
           </div>
-        </Card>
+        </Card>}
 
         {/* Hot Leads & Active Deliveries */}
-        <Card>
+        {canViewDeliveries&&<Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Truck className="w-4 h-4 text-emerald-600" />
@@ -404,7 +408,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             ))}
           </div>
-        </Card>
+        </Card>}
       </div>
     </div>
   );

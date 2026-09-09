@@ -7,20 +7,23 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { formatCurrency } from '../../lib/utils';
 import { generateUuid } from '../../lib/uuid';
+import { useNavigate } from 'react-router-dom';
 
 const emptyLine = (taxRate = 0) => ({ description: '', quantity: 1, unitPrice: 0, discount: 0, taxRate });
 
-export const NewInvoiceModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+export const NewInvoiceModal: React.FC<{ isOpen: boolean; onClose: () => void; initialSaleId?:string }> = ({ isOpen, onClose, initialSaleId }) => {
+  const navigate=useNavigate();
   const customers = useCustomersQuery().data ?? [], sales = useSalesQuery().data ?? [], create = useCreateInvoice();
   const agency = useAuthStore((state) => state.currentAgency), config = useBillingConfigQuery(agency?.id), toast = useUiStore((state) => state.addToast);
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ customerId: '', invoiceType: 'manual', saleId: '', issueDate: today, dueDate: today, notes: '', items: [emptyLine()] });
   useEffect(() => { if (!form.customerId && customers[0]) setForm((value) => ({ ...value, customerId: customers[0].id })); }, [customers, form.customerId]);
+  useEffect(()=>{if(!isOpen||!initialSaleId||!config.data)return;const sale=sales.find(item=>item.id===initialSaleId),taxRate=config.data.defaultVatRate;if(sale)setForm(value=>({...value,customerId:sale.customerId,invoiceType:'vehicle',saleId:sale.id,items:value.items.map((item,index)=>index===0?{...item,description:item.description||`Véhicule ${sale.vehicleLabel||sale.saleNumber}`,unitPrice:Math.round(sale.totalSaleTTC/(1+taxRate/100)*100)/100,discount:0,taxRate}:item)}))},[isOpen,initialSaleId,sales,config.data]);
   useEffect(() => { if (config.data) setForm((value) => ({ ...value, items: value.items.map((item) => ({ ...item, taxRate: config.data.defaultVatRate })) })); }, [config.data]);
   const update = (index: number, key: string, value: unknown) => setForm((current) => ({ ...current, items: current.items.map((line, position) => position === index ? { ...line, [key]: value } : line) }));
   const net = form.items.reduce((sum, item) => sum + item.quantity * item.unitPrice - item.discount, 0), tax = form.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discount) * item.taxRate / 100, 0);
   const currency = config.data?.currencyCode, money = (amount: number) => currency ? formatCurrency(amount, currency) : '—';
-  async function submit(event: React.FormEvent) { event.preventDefault(); if (!config.data) return; try { await create.mutateAsync({ ...form, agencyId: agency?.id, saleId: form.invoiceType === 'vehicle' ? form.saleId || null : null, idempotencyKey: generateUuid() }); toast({ type: 'success', title: 'Facture créée', description: `Total ${money(net + tax)}` }); onClose(); } catch (error) { toast({ type: 'error', title: 'Facture non créée', description: error instanceof Error ? error.message : 'Erreur API' }); } }
+  async function submit(event: React.FormEvent) { event.preventDefault(); if (!config.data) return; try { const created=await create.mutateAsync({ ...form, agencyId: agency?.id, saleId: form.invoiceType === 'vehicle' ? form.saleId || null : null, idempotencyKey: generateUuid() }) as {id?:string}; toast({ type: 'success', title: 'Facture créée', description: `Total ${money(net + tax)}` }); onClose();if(created.id)navigate(`/billing/${created.id}`); } catch (error) { toast({ type: 'error', title: 'Facture non créée', description: error instanceof Error ? error.message : 'Erreur API' }); } }
   return <Modal isOpen={isOpen} onClose={onClose} title="Émettre une facture" description="Les montants affichés sont un aperçu ; le backend recalcule toutes les lignes." maxWidth="xl"><form onSubmit={submit} className="space-y-4">
     {config.isLoading && <p className="rounded border bg-slate-50 p-3 text-xs text-slate-600">Chargement de la configuration de facturation...</p>}
     {config.isError && <p className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700">Configuration TVA et devise indisponible. La facture ne peut pas être émise.</p>}

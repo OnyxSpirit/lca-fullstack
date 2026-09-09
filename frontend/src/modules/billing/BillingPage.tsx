@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Download, Plus, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useBillingConfigQuery, useInvoicesQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
@@ -14,11 +14,12 @@ import { useUiStore } from '../../stores/uiStore';
 import { NewInvoiceModal } from './NewInvoiceModal';
 
 export const BillingPage: React.FC = () => {
-  const navigate = useNavigate(), toast = useUiStore((state) => state.addToast), agency = useAuthStore((state) => state.currentAgency);
+  const navigate = useNavigate(),[searchParams,setSearchParams]=useSearchParams(),initialSaleId=searchParams.get('saleId')??undefined, toast = useUiStore((state) => state.addToast), agency = useAuthStore((state) => state.currentAgency);
   const canCreate = useAuthStore((state) => state.hasPermission('create', 'billing')), canExport = useAuthStore((state) => state.hasPermission('export', 'billing'));
   const [open, setOpen] = useState(false), [search, setSearch] = useState(''), [debounced, setDebounced] = useState('');
   const [status, setStatus] = useState(''), [type, setType] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState('');
   useEffect(() => { const timer = window.setTimeout(() => setDebounced(search.trim()), 300); return () => window.clearTimeout(timer); }, [search]);
+  useEffect(()=>{if(initialSaleId&&canCreate)setOpen(true)},[initialSaleId,canCreate]);
   const query = useInvoicesQuery({ agencyId: agency?.id ?? '', search: debounced, status, type, from, to });
   const config = useBillingConfigQuery(agency?.id), invoices = query.data ?? [], active = invoices.filter((x) => x.status !== 'ANNULEE');
   const currency = config.data?.currencyCode ?? invoices[0]?.currencyCode, money = (amount: number) => currency ? formatCurrency(amount, currency) : '—';
@@ -34,6 +35,6 @@ export const BillingPage: React.FC = () => {
       {query.isLoading && <TableEmptyState colSpan={9} message="Chargement des factures..." isLoading />}
       {!query.isLoading && !query.isError && invoices.length === 0 && <TableEmptyState colSpan={9} message={hasFilters ? 'Aucune facture ne correspond à vos critères' : 'Aucune facture'} />}
       {invoices.map((x) => <tr key={x.id} className="border-t hover:bg-red-50/30 cursor-pointer" onClick={() => navigate(`/billing/${x.id}`)}><td className="p-3 font-mono font-bold">{x.invoiceNumber}</td><td>{x.customerName}</td><td>{x.type}<small className="block text-slate-500">{x.relatedDocNumber || 'Manuelle'}</small></td><td>{formatDate(x.issueDate)}<small className="block text-slate-500">{x.dueDate ? formatDate(x.dueDate) : '—'}</small></td><td>{money(x.amountTTC)}</td><td>{money(x.paidAmountTTC)}</td><td className="font-bold">{money(x.remainingAmountTTC)}</td><td><StatusBadge status={x.status} type="invoice" /></td><td><Button size="xs" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/billing/${x.id}`); }}>Détails</Button></td></tr>)}
-    </tbody></table></div></Card>{canCreate && <NewInvoiceModal isOpen={open} onClose={() => setOpen(false)} />}
+    </tbody></table></div></Card>{canCreate && <NewInvoiceModal isOpen={open} initialSaleId={initialSaleId} onClose={() => {setOpen(false);if(initialSaleId)setSearchParams({})}} />}
   </div>;
 };

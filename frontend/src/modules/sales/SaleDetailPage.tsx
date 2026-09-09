@@ -30,7 +30,7 @@ export const SaleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const salesQuery = useSaleDetailQuery(id); const saleStatus = useSaleStatusMutation();
-  const currentUser=useAuthStore(s=>s.currentUser),agencyId=useAuthStore(s=>s.currentAgency?.id),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canPay=hasPermission(roles,'billing.pay');
+  const currentUser=useAuthStore(s=>s.currentUser),agencyId=useAuthStore(s=>s.currentAgency?.id),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canPay=hasPermission(roles,'billing.pay'),canCreateInvoice=hasPermission(roles,'billing.create');
   const { addToast } = useUiStore();
 
   const sale = salesQuery.data;
@@ -256,7 +256,9 @@ export const SaleDetailPage: React.FC = () => {
                 Voir Planning Livraison
               </Button>
               {sale.invoiceId&&<Button variant={canPay&&sale.remainingBalanceTTC>0?'primary':'outline'} className="w-full" onClick={()=>navigate(`/billing/${sale.invoiceId}`)}>{canPay&&sale.remainingBalanceTTC>0?'Enregistrer un règlement':'Voir la facture et les règlements'}</Button>}
-              {!sale.invoiceId&&<p className="text-[11px] text-amber-700">Aucune facture de vente n’est encore liée. L’encaissement reste réservé au rôle financier autorisé.</p>}
+              {!sale.invoiceId&&canCreateInvoice&&<Button variant="outline" className="w-full" onClick={()=>navigate(`/billing?saleId=${encodeURIComponent(sale.id)}`)}>Créer la facture de vente</Button>}
+              {!sale.invoiceId&&<p className="text-[11px] text-amber-700">Aucune facture de vente n’est encore liée. L’encaissement est réservé à un rôle financier autorisé et commence après émission de la facture.</p>}
+              {sale.invoiceId&&!canPay&&sale.remainingBalanceTTC>0&&<p className="text-[11px] text-slate-500">Un solde reste dû. Son encaissement doit être effectué par la comptabilité ou un rôle financier autorisé.</p>}
             </div>
           </Card>
         </div>

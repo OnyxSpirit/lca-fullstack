@@ -11,5 +11,5 @@ test('PAY-SALE-06 la finalisation refuse une vente partiellement payée',()=>{as
 test('PAY-SALE-07 la finalisation accepte une vente soldée',()=>{assert.doesNotThrow(()=>assertFinanciallySettled(0,'vente'))});
 test('PAY-SALE-08 deux paiements du solde ne peuvent pas être appliqués au même état verrouillé',()=>{const first=applyPayment(19_000_000,1_000_000,1_000_000);assert.equal(first.balance,0);assert.throws(()=>applyPayment(first.paid,first.balance,1_000_000))});
 test('PAY-DELIVERY-01 un solde restant ne supprime pas la possibilité de planifier',()=>{const planning={allowed:true,balance:3_500_000};assert.equal(planning.allowed,true)});
-test('PAY-DELIVERY-02 la remise finale refuse une vente partiellement payée',()=>{assert.throws(()=>assertFinanciallySettled(3_500_000,'livraison'),error=>Boolean(error&&typeof error==='object'&&'message'in error&&String(error.message).includes('livraison est impossible')))});
-test('PAY-DELIVERY-03 la remise financière est éligible quand la vente est soldée',()=>{assert.doesNotThrow(()=>assertFinanciallySettled(0,'livraison'))});
+test('PAY-DELIVERY-02 / DEL-FIN-01 la remise finale refuse une vente partiellement payée',()=>{assert.throws(()=>assertFinanciallySettled(3_500_000,'livraison'),error=>Boolean(error&&typeof error==='object'&&'message'in error&&String(error.message).includes('livraison est impossible')))});
+test('PAY-DELIVERY-03 / DEL-FIN-02 la remise financière est éligible quand la vente est soldée',()=>{assert.doesNotThrow(()=>assertFinanciallySettled(0,'livraison'))});

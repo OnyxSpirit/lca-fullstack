@@ -12,7 +12,7 @@ import {
   ArrowRight,
   TrendingUp,
 } from 'lucide-react';
-import { useSalesQuery } from '../../api/erpHooks';
+import { useQuotationsQuery, useSalesQuery } from '../../api/erpHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -25,11 +25,13 @@ import { SaleWizardModal } from './SaleWizardModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
 import { canPerformWorkflowAction } from '../../navigation/permissions';
+import { openBusinessPdf } from '../../services/businessPdf';
 
 export const SalesListPage: React.FC = () => {
   const salesQuery = useSalesQuery();
   const sales = salesQuery.data ?? [];
-  const { setActiveQuickActionModal } = useUiStore();
+  const quotationsQuery=useQuotationsQuery(),quotations=quotationsQuery.data??[];
+  const { addToast } = useUiStore();
   const navigate = useNavigate();
   const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canCreate=canPerformWorkflowAction(roles,'sales.create');
 
@@ -133,6 +135,8 @@ export const SalesListPage: React.FC = () => {
           </select>
         </div>
       </div>
+
+      <Card padding="none"><div className="border-b p-4"><h2 className="font-bold text-slate-900">Propositions et devis</h2><p className="text-xs text-slate-500">Même source de vérité que les devis créés depuis le CRM.</p></div>{quotationsQuery.isError&&<div className="p-4 text-sm text-red-700">Chargement des devis impossible : {quotationsQuery.error.message}</div>}<div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50"><tr><th className="p-3">Référence</th><th>Client</th><th>Véhicule</th><th>Commercial</th><th>Montant</th><th>Statut</th><th></th></tr></thead><tbody>{quotations.map(quote=><tr key={quote.id} className="border-t"><td className="p-3 font-mono font-bold">{quote.quotationNumber}</td><td>{quote.customerName}</td><td>{quote.vehicleLabel}</td><td>{quote.salespersonName}</td><td>{formatCurrency(quote.total)}</td><td>{quote.status}</td><td><Button size="xs" variant="outline" onClick={()=>openBusinessPdf('quotation',quote.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button></td></tr>)}{!quotationsQuery.isLoading&&!quotations.length&&<TableEmptyState colSpan={7} message="Aucun devis"/>}</tbody></table></div></Card>
 
       {/* Sales Table */}
       <Card padding="none">

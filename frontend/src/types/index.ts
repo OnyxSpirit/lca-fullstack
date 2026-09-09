@@ -240,6 +240,8 @@ export interface Sale {
   totalSaleTTC: number;
   depositPaidTTC: number;
   remainingBalanceTTC: number;
+  invoiceId?: string;
+  financialStatus?: string;
   financingType: 'Comptant' | 'Crédit Classique' | 'LOA' | 'LLD';
   financingPartner?: string;
   financingAmount?: number;

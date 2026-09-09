@@ -83,7 +83,7 @@ export const SaleDetailPage: React.FC = () => {
             </Button>
 
             {nextStatus[sale.status] && <Button variant="primary" size="sm" loading={saleStatus.isPending} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(nextStatus[sale.status]!)}>{nextLabel[nextStatus[sale.status]!]}</Button>}
-            {sale.status === 'PRET_LIVRAISON' && <Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate('/deliveries')}>Planifier la livraison</Button>}
+            {sale.status === 'PRET_LIVRAISON' && <Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
             {!['LIVRE','ANNULE'].includes(sale.status) && <Button variant="danger" size="sm" loading={saleStatus.isPending} onClick={()=>{const reason=window.prompt("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button>}
           </div>
         }
@@ -241,10 +241,12 @@ export const SaleDetailPage: React.FC = () => {
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => navigate('/deliveries')}
+                onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}
               >
                 Voir Planning Livraison
               </Button>
+              {sale.invoiceId&&<Button variant="outline" className="w-full" onClick={()=>navigate(`/billing/${sale.invoiceId}`)}>Voir la facture et les règlements</Button>}
+              {!sale.invoiceId&&<p className="text-[11px] text-amber-700">Aucune facture de vente n’est encore liée. L’encaissement reste réservé au rôle financier autorisé.</p>}
             </div>
           </Card>
         </div>

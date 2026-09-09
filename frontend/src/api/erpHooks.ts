@@ -201,8 +201,10 @@ const mapSale = (r: any): Sale => ({
   registrationFeesTTC: 0,
   administrativeFeesTTC: 0,
   totalSaleTTC: n(r.total),
-  depositPaidTTC: n(r.deposit_amount),
-  remainingBalanceTTC: n(r.balance_due),
+  depositPaidTTC: r.invoice_id ? n(r.invoice_amount_paid) : n(r.deposit_amount),
+  remainingBalanceTTC: r.invoice_id ? n(r.invoice_balance_due) : n(r.balance_due),
+  invoiceId: r.invoice_id == null ? undefined : s(r.invoice_id),
+  financialStatus: r.invoice_status ?? undefined,
   financingType: ({ cash: "Comptant", credit: "Crédit Classique", loa: "LOA", lld: "LLD", Comptant: "Comptant", "Crédit Classique": "Crédit Classique", LOA: "LOA", LLD: "LLD" } as Record<string, Sale['financingType']>)[r.financing_type] ?? "Comptant",
   financingPartner: r.financier_name ?? undefined,
   financingAmount: r.financed_amount == null ? undefined : n(r.financed_amount),
@@ -478,6 +480,7 @@ export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   enabled:enabled(),
 });
 export const useSalesQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.sales,queryFn:async()=>(await apiRequest<any[]>('/sales')).map(mapSale),enabled:enabled()&&requestEnabled});
+export const useQuotationsQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.quotations,queryFn:()=>apiRequest<Quotation[]>('/quotations'),enabled:enabled()&&requestEnabled});
 export const useRepairOrdersQuery = (search="",status="",requestEnabled=true) => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()&&requestEnabled});
 export const useRepairStatsQuery = () => useQuery({queryKey:["repair-orders","stats"],queryFn:()=>apiRequest<any>("/repair-orders/stats"),enabled:enabled()});
 export const usePartsQuery = (agencyId?:string,filters:{search?:string;categoryId?:string}={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.parts,agencyId,filters],queryFn:async()=>{const p=new URLSearchParams();if(agencyId)p.set('agencyId',agencyId);if(filters.search)p.set('search',filters.search);if(filters.categoryId)p.set('categoryId',filters.categoryId);return(await apiRequest<any[]>(`/parts?${p}`)).map(mapPart);},enabled:enabled()&&Boolean(agencyId)&&requestEnabled});
@@ -931,6 +934,7 @@ export const useDeliveryStatsQuery = () =>
   useQuery({ queryKey: ["deliveries", "stats"], queryFn: () => apiRequest<any>("/deliveries/stats"), enabled: enabled() });
 export const useCreateDelivery = () =>
   mutation<any>(() => "/deliveries", "POST", erpKeys.deliveries);
+export const useDeliveryCandidatesQuery = () => useQuery({queryKey:[...erpKeys.deliveries,'candidates'],queryFn:()=>apiRequest<any[]>('/deliveries/candidates'),enabled:enabled()});
 export function useDeliveryChecklist() {
   const qc = useQueryClient();
   return useMutation({

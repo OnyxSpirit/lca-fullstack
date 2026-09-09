@@ -75,9 +75,10 @@ const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_to
 
 async function accessible(id: string, request: Request): Promise<any> {
   const scoped = scope(request);
+  const ownerSql=request.user!.roles.includes('SALES_AGENT')?' AND s.salesperson_id=?':'';
   const [row] = await query<RowDataPacket[]>(
-    `${selection} WHERE d.id=? AND ${scoped.sql}`,
-    [id, ...scoped.params],
+    `${selection} WHERE d.id=? AND ${scoped.sql}${ownerSql}`,
+    [id, ...scoped.params,...(ownerSql?[request.user!.sub]:[])],
   );
   if (!row) throw new HttpError(404, "Livraison introuvable");
   return row;
@@ -145,6 +146,7 @@ deliveryRouter.get(
     const scoped = scope(request),
       conditions = [scoped.sql],
       params = [...scoped.params];
+    if(request.user!.roles.includes('SALES_AGENT')){conditions.push('s.salesperson_id=?');params.push(request.user!.sub)}
     if (typeof request.query.status === "string" && request.query.status) {
       if (!STATUSES.includes(request.query.status))
         throw new HttpError(400, "Statut invalide");
@@ -225,6 +227,8 @@ deliveryRouter.get(
     response.json({ ...totals[0], ...upcoming[0] });
   }),
 );
+deliveryRouter.get('/deliveries/candidates',authorize(...READ),asyncHandler(async(request,response)=>{const scoped=scope(request,'s'),agent=request.user!.roles.includes('SALES_AGENT');const rows=await query<RowDataPacket[]>(`SELECT s.id sale_id,s.sale_number,s.customer_id,s.salesperson_id,s.agency_id,s.status,s.total,s.balance_due,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,si.vehicle_id,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id WHERE ${scoped.sql}${agent?' AND s.salesperson_id=?':''} AND s.status='ready_for_delivery' AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.sale_id=s.id AND d.status<>'cancelled') ORDER BY s.updated_at,s.id`,[...scoped.params,...(agent?[request.user!.sub]:[])]);response.json(rows)}));
+
 deliveryRouter.get(
   "/deliveries/:id",
   authorize(...READ),

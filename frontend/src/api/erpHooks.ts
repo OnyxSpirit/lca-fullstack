@@ -40,6 +40,7 @@ export const erpKeys = {
   parts: ["parts"],
   deliveries: ["deliveries"],
   invoices: ["invoices"],
+  notifications: ["notifications"],
 } as const;
 const enabled = () => Boolean(localStorage.getItem("lca-access-token"));
 const n = (v: unknown) => Number(v ?? 0);
@@ -177,6 +178,7 @@ const mapLead = (r: any): Lead => ({
   createdAt: r.createdAt ?? "",
   updatedAt: r.updatedAt ?? "",
   score: n(r.probability),
+  canStartTestDrive: Boolean(r.canStartTestDrive),
 });
 const mapSale = (r: any): Sale => ({
   id: s(r.id),
@@ -435,6 +437,7 @@ export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutatio
 export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/validate`,{method:'POST'}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
 export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:Record<string,unknown>&{id:string})=>apiRequest(`/leads/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.leads})})};
 export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;subject?:string;description?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
+export const useCreateCrmTestDrive=()=>{const qc=useQueryClient();return useMutation({mutationFn:({leadId,...body}:{leadId:string;vehicleId:string;licenseNumber:string;mileageOut:number})=>apiRequest<{id:string;visitId:string;opportunityId:string;leadId:string;stage:string}>(`/showroom/crm/leads/${leadId}/test-drives`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.leadId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['showroom']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
 export interface VehicleFilters {
   agencyId?: string;
   search?: string;

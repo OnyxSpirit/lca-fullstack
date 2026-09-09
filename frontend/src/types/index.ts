@@ -94,6 +94,7 @@ export interface Lead {
   notes: string;
   createdAt: string;
   opportunityId?: string;
+  canStartTestDrive?: boolean;
   customerId?: string;
   lostReason?: string;
   updatedAt: string;

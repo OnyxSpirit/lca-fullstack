@@ -1,0 +1,18 @@
+import React,{useEffect,useMemo,useState}from'react';
+import{useCreateCrmTestDrive,useVehiclesQuery}from'../../api/erpHooks';
+import{Modal}from'../../components/ui/Modal';
+import{Button}from'../../components/ui/Button';
+import{useAuthStore}from'../../stores/authStore';
+import{useUiStore}from'../../stores/uiStore';
+import type{Lead}from'../../types';
+
+export const CrmTestDriveModal:React.FC<{lead:Lead|null;onClose:()=>void;onStarted:()=>void}>=({lead,onClose,onStarted})=>{
+ const agencyId=useAuthStore(s=>s.currentAgency?.id),vehiclesQuery=useVehiclesQuery({status:'available'}),start=useCreateCrmTestDrive(),toast=useUiStore(s=>s.addToast);
+ const vehicles=useMemo(()=>vehiclesQuery.data?.filter(v=>v.agencyId===agencyId&&v.status==='DISPONIBLE')??[],[vehiclesQuery.data,agencyId]);
+ const[vehicleId,setVehicleId]=useState(''),[licenseNumber,setLicenseNumber]=useState(''),[mileageOut,setMileageOut]=useState(0);
+ useEffect(()=>{if(lead){setVehicleId('');setLicenseNumber('');setMileageOut(0)}},[lead]);
+ const vehicle=vehicles.find(item=>item.id===vehicleId),valid=Boolean(lead?.canStartTestDrive&&vehicle&&licenseNumber.trim()&&mileageOut>=vehicle.mileage);
+ const selectVehicle=(id:string)=>{setVehicleId(id);const selected=vehicles.find(item=>item.id===id);setMileageOut(selected?.mileage??0)};
+ const submit=async()=>{if(!lead||!valid)return;try{await start.mutateAsync({leadId:lead.id,vehicleId,licenseNumber:licenseNumber.trim(),mileageOut});toast({type:'success',title:'Essai routier démarré',description:'L’essai Showroom et le passage à l’étape Essai ont été enregistrés.'});onStarted();onClose()}catch(error){toast({type:'error',title:'Démarrage de l’essai impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+ return <Modal isOpen={Boolean(lead)} onClose={onClose} title="Démarrer un essai routier" description={lead?`${lead.firstName} ${lead.lastName} — ${lead.assignedToName}`:undefined} maxWidth="lg"><div className="space-y-4">{vehiclesQuery.isLoading&&<p className="text-sm text-slate-500">Chargement des véhicules disponibles…</p>}{vehiclesQuery.isError&&<p role="alert" className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{vehiclesQuery.error.message}</p>}<label className="block text-xs font-semibold">Véhicule disponible *<select aria-label="Véhicule disponible" value={vehicleId} onChange={event=>selectVehicle(event.target.value)} className="mt-1 w-full rounded border p-2.5"><option value="">Sélectionner</option>{vehicles.map(item=><option key={item.id} value={item.id}>{item.brand} {item.model} — {item.stockNumber} — {item.mileage.toLocaleString('fr-FR')} km</option>)}</select></label>{!vehiclesQuery.isLoading&&!vehicles.length&&<p className="text-xs text-amber-700">Aucun véhicule disponible dans l’agence.</p>}<div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold">N° de permis *<input aria-label="Numéro de permis" value={licenseNumber} onChange={event=>setLicenseNumber(event.target.value)} className="mt-1 w-full rounded border p-2.5"/></label><label className="text-xs font-semibold">Kilométrage départ *<input aria-label="Kilométrage départ" type="number" min={vehicle?.mileage??0} value={mileageOut} onChange={event=>setMileageOut(Number(event.target.value))} className="mt-1 w-full rounded border p-2.5"/></label></div><div className="flex justify-end gap-2 border-t pt-3"><Button variant="outline" onClick={onClose}>Annuler</Button><Button loading={start.isPending} disabled={!valid} onClick={()=>void submit()}>{start.isPending?'Démarrage…':'Démarrer l’essai'}</Button></div></div></Modal>
+};

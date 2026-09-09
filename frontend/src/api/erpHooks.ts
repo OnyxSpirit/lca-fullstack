@@ -441,6 +441,7 @@ export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mu
 export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;subject?:string;description?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
 export const useCreateCrmTestDrive=()=>{const qc=useQueryClient();return useMutation({mutationFn:({leadId,...body}:{leadId:string;vehicleId:string;licenseNumber:string;mileageOut:number})=>apiRequest<{id:string;visitId:string;opportunityId:string;leadId:string;stage:string}>(`/showroom/crm/leads/${leadId}/test-drives`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.leadId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['showroom']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
 export interface VehicleFilters {
+  view?: 'active' | 'sold' | 'all';
   agencyId?: string;
   search?: string;
   status?: string;

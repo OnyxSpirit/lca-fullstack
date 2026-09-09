@@ -68,26 +68,50 @@ async function notify(request, vehicleId, agencyId, event, subject, message) { e
     return; await notifyRoles({ agencyId, roles: ['SALES_MANAGER', 'WAREHOUSE_CLERK'], includeGlobalRoles: ['DIRECTOR', 'SUPER_ADMIN'], excludeUserIds: [request.user.sub], subject, message, eventType: event.replace(':', '.'), referenceType: 'vehicle', referenceId: vehicleId, priority: event === 'vehicles:transferred' ? 'high' : 'normal' }); }
 vehicleRouter.get('/documents/business/vehicle/:id/pdf', authorize(...READ), asyncHandler(async (request, response) => { const row = await accessible(idOf(request.params.id), request); const data = mapVehicle(row, hasFinance(request)); const pdf = simplePdf([`${data.brand} ${data.model} - ${data.version}`, `Stock: ${data.stockNumber} | Type: ${data.vehicleType.toUpperCase()}`, `VIN: ${data.vin}`, `Immatriculation: ${data.registrationNumber || 'Non immatricule'}`, `Annee: ${data.year || '-'} | Kilometrage: ${data.mileage} km`, `Energie: ${data.fuelType || '-'} | Transmission: ${data.transmission || '-'}`, `Prix catalogue: ${data.salePrice ?? 0} XAF`, `Agence: ${data.agencyName}${data.locationName ? ' - ' + data.locationName : ''}`, `Photo catalogue: ${data.primaryImage || 'Aucune'}`]); response.setHeader('Content-Type', 'application/pdf'); response.setHeader('Content-Disposition', `${request.query.download === 'true' ? 'attachment' : 'inline'}; filename="${data.stockNumber}.pdf"`); response.send(pdf); }));
 vehicleRouter.get('/vehicle-references', authorize(...READ), asyncHandler(async (request, response) => { const agencyId = agency(request, request.query.agencyId); const [brands, models, versions, locations, suppliers, features] = await Promise.all([query('SELECT id,name,code FROM brands WHERE is_active=TRUE ORDER BY name'), query('SELECT id,brand_id,name,code FROM models WHERE is_active=TRUE ORDER BY name'), query('SELECT id,model_id,name,engine,fuel_type,transmission,power FROM versions WHERE is_active=TRUE ORDER BY name'), query('SELECT id,agency_id,name,type,address FROM locations WHERE is_active=TRUE AND agency_id=? ORDER BY name', [agencyId]), query('SELECT id,name,code FROM suppliers WHERE is_active=TRUE ORDER BY name'), query('SELECT id,name FROM vehicle_features WHERE is_active=TRUE ORDER BY name')]); response.json({ brands, models, versions, locations, suppliers, features }); }));
-vehicleRouter.get('/vehicles', authorize(...READ), asyncHandler(async (request, response) => { const scoped = scope(request); const clauses = [scoped.sql, 'v.archived_at IS NULL']; const params = [...scoped.params]; for (const [key, column, allowed] of [['status', 'v.status', DB_STATUSES], ['type', 'v.vehicle_type', TYPES]]) {
-    const value = txt(request.query[key]);
-    if (value) {
-        if (!allowed.includes(value))
-            throw new HttpError(400, `Filtre ${key} invalide`);
-        clauses.push(`${column}=?`);
-        params.push(value);
+vehicleRouter.get('/vehicles', authorize(...READ), asyncHandler(async (request, response) => {
+    const scoped = scope(request), clauses = [scoped.sql, 'v.archived_at IS NULL'], params = [...scoped.params];
+    const requestedStatus = txt(request.query.status), view = txt(request.query.view) || 'active';
+    if (!['active', 'sold', 'all'].includes(view))
+        throw new HttpError(400, 'Vue de stock invalide');
+    if (!requestedStatus) {
+        if (view === 'active')
+            clauses.push("v.status NOT IN('sold','delivered')");
+        if (view === 'sold')
+            clauses.push("v.status IN('sold','delivered')");
     }
-} const fuel = txt(request.query.fuel); if (fuel) {
-    clauses.push('v.fuel_type=?');
-    params.push(fuel);
-} const locationId = txt(request.query.locationId); if (locationId) {
-    clauses.push('v.location_id=?');
-    params.push(locationId);
-} const dormant = txt(request.query.dormant); if (dormant === 'true')
-    clauses.push('v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)'); const search = txt(request.query.search, 120); if (search) {
-    const term = `%${search}%`;
-    clauses.push(`(b.name LIKE ? OR m.name LIKE ? OR ve.name LIKE ? OR v.vin LIKE ? OR v.stock_number LIKE ? OR v.registration_number LIKE ?)`);
-    params.push(term, term, term, term, term, term);
-} const page = Math.max(1, Number(request.query.page) || 1); const pageSize = Math.min(100, Math.max(1, Number(request.query.pageSize) || 50)); const order = { oldest: 'v.entry_date ASC', price_asc: 'v.sale_price ASC', price_desc: 'v.sale_price DESC', mileage: 'v.mileage ASC' }[txt(request.query.sort)] ?? 'v.created_at DESC'; const rows = await query(`${baseSelect} WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, pageSize, (page - 1) * pageSize]); const [total] = await query(`SELECT COUNT(*) total FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id WHERE ${clauses.join(' AND ')}`, params); response.json({ items: rows.map(row => mapVehicle(row, hasFinance(request))), total: Number(total?.total ?? 0), page, pageSize }); }));
+    for (const [key, column, allowed] of [['status', 'v.status', DB_STATUSES], ['type', 'v.vehicle_type', TYPES]]) {
+        const value = txt(request.query[key]);
+        if (value) {
+            if (!allowed.includes(value))
+                throw new HttpError(400, `Filtre ${key} invalide`);
+            clauses.push(`${column}=?`);
+            params.push(value);
+        }
+    }
+    const fuel = txt(request.query.fuel);
+    if (fuel) {
+        clauses.push('v.fuel_type=?');
+        params.push(fuel);
+    }
+    const locationId = txt(request.query.locationId);
+    if (locationId) {
+        clauses.push('v.location_id=?');
+        params.push(locationId);
+    }
+    const dormant = txt(request.query.dormant);
+    if (dormant === 'true')
+        clauses.push('v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)');
+    const search = txt(request.query.search, 120);
+    if (search) {
+        const term = `%${search}%`;
+        clauses.push(`(b.name LIKE ? OR m.name LIKE ? OR ve.name LIKE ? OR v.vin LIKE ? OR v.stock_number LIKE ? OR v.registration_number LIKE ?)`);
+        params.push(term, term, term, term, term, term);
+    }
+    const page = Math.max(1, Number(request.query.page) || 1), pageSize = Math.min(100, Math.max(1, Number(request.query.pageSize) || 50)), order = { oldest: 'v.entry_date ASC', price_asc: 'v.sale_price ASC', price_desc: 'v.sale_price DESC', mileage: 'v.mileage ASC' }[txt(request.query.sort)] ?? 'v.created_at DESC';
+    const rows = await query(`${baseSelect} WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, pageSize, (page - 1) * pageSize]);
+    const [total] = await query(`SELECT COUNT(*) total FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id WHERE ${clauses.join(' AND ')}`, params);
+    response.json({ items: rows.map(row => mapVehicle(row, hasFinance(request))), total: Number(total?.total ?? 0), page, pageSize });
+}));
 vehicleRouter.get('/vehicles/:id', authorize(...READ), asyncHandler(async (request, response) => response.json(mapVehicle(await accessible(idOf(request.params.id), request), hasFinance(request)))));
 vehicleRouter.get('/vehicles/:id/360', authorize(...READ), asyncHandler(async (request, response) => { const id = idOf(request.params.id); const vehicle = await accessible(id, request); const [images, features, statusHistory, movements, sales, reservations, repairOrders, deliveries, documents, prices] = await Promise.all([query('SELECT id,file_path,thumbnail_path,mime_type,file_size,sort_order,is_primary,created_at FROM vehicle_images WHERE vehicle_id=? ORDER BY is_primary DESC,sort_order,id', [id]), query('SELECT vf.id,vf.name FROM vehicle_features vf JOIN vehicle_feature_assignments vfa ON vfa.feature_id=vf.id WHERE vfa.vehicle_id=? ORDER BY vf.name', [id]), query(`SELECT h.id,h.old_status,h.new_status,h.reason,h.changed_at,CONCAT_WS(' ',u.first_name,u.last_name) changed_by_name FROM vehicle_status_history h LEFT JOIN users u ON u.id=h.changed_by WHERE h.vehicle_id=? ORDER BY h.changed_at DESC`, [id]), query(`SELECT vm.*,fl.name from_location_name,tl.name to_location_name,fa.name from_agency_name,ta.name to_agency_name,CONCAT_WS(' ',u.first_name,u.last_name) performed_by_name FROM vehicle_movements vm LEFT JOIN locations fl ON fl.id=vm.from_location_id LEFT JOIN locations tl ON tl.id=vm.to_location_id LEFT JOIN agencies fa ON fa.id=vm.from_agency_id LEFT JOIN agencies ta ON ta.id=vm.to_agency_id LEFT JOIN users u ON u.id=vm.performed_by WHERE vm.vehicle_id=? ORDER BY vm.moved_at DESC`, [id]), query(`SELECT s.id,s.sale_number,s.customer_id,s.status,s.total,s.created_at,CONCAT_WS(' ',c.first_name,c.last_name) customer_name FROM sale_items si JOIN sales s ON s.id=si.sale_id JOIN customers c ON c.id=s.customer_id WHERE si.vehicle_id=? ORDER BY s.created_at DESC`, [id]), query(`SELECT r.id,r.status,r.reserved_at,r.expires_at,r.customer_id,CONCAT_WS(' ',c.first_name,c.last_name) customer_name FROM reservations r JOIN customers c ON c.id=r.customer_id WHERE r.vehicle_id=? ORDER BY r.reserved_at DESC`, [id]), query('SELECT id,order_number,customer_id,status,complaint,created_at FROM repair_orders WHERE vehicle_id=? ORDER BY created_at DESC', [id]), query('SELECT id,delivery_number,status,scheduled_at,delivered_at FROM deliveries WHERE vehicle_id=? ORDER BY created_at DESC', [id]), query(`SELECT id,document_type,file_name,file_url,mime_type,file_size,created_at FROM documents WHERE entity_type='vehicle' AND entity_id=? AND is_archived=FALSE ORDER BY created_at DESC`, [id]), hasFinance(request) ? query('SELECT * FROM vehicle_price_history WHERE vehicle_id=? ORDER BY changed_at DESC', [id]) : Promise.resolve([])]); response.json({ vehicle: mapVehicle(vehicle, hasFinance(request)), images, features, statusHistory, movements, sales, reservations, repairOrders, deliveries, documents, priceHistory: prices }); }));
 vehicleRouter.post('/vehicles', authorize(...WRITE), asyncHandler(async (request, response) => { const vin = txt(request.body.vin, 17).toUpperCase(); if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))

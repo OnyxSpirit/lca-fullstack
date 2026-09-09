@@ -76,7 +76,7 @@ test('les modules visibles respectent la matrice des 13 rôles',()=>{
     PARTS_MANAGER:['service','workshop','parts','documents','reports'],
     WAREHOUSE_CLERK:['service','parts','documents'],
     DELIVERY_MANAGER:['customers','vehicles','sales','deliveries','documents'],
-    ACCOUNTANT:['customers','sales','service','billing','documents','reports'],
+    ACCOUNTANT:['customers','sales','billing','documents','reports'],
   };
   const business=['crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','reports','users','settings'];
   for(const role of roles)for(const module of business)assert.equal(canAccessModule(role,'view',module),expected[role].includes(module),`${role} / ${module}`);

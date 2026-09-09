@@ -33,13 +33,14 @@ export const VehiclesListPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [inventoryView, setInventoryView] = useState<'active'|'sold'|'all'>('active');
   const [selectedFuel, setSelectedFuel] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [onlyDormant, setOnlyDormant] = useState(false);
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
   const deferredSearch=useDeferredValue(searchQuery);
   const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
-  const vehiclesQuery=useVehiclesQuery({agencyId:currentAgency?.id,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,dormant:onlyDormant});
+  const vehiclesQuery=useVehiclesQuery({agencyId:currentAgency?.id,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,dormant:onlyDormant});
   const statsQuery=useVehicleStatsQuery(currentAgency?.id),stats=statsQuery.data;
   const vehicles = vehiclesQuery.data ?? [];
 
@@ -48,7 +49,7 @@ export const VehiclesListPage: React.FC = () => {
   const availableCount = stats?.available??0;
   const dormantCount = stats?.dormant??0;
   const totalStockValue = stats?.stockValue??0;
-  const hasFilters=Boolean(searchQuery||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||onlyDormant);
+  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||onlyDormant);
 
   return (
     <div className="space-y-6">
@@ -150,6 +151,9 @@ export const VehiclesListPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <select value={inventoryView} onChange={(e)=>{setInventoryView(e.target.value as 'active'|'sold'|'all');setSelectedStatus('ALL')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium">
+            <option value="active">Stock actif</option><option value="sold">Vendus / livrés</option><option value="all">Tous les véhicules</option>
+          </select>
           <select value={selectedType} onChange={(e)=>setSelectedType(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium">
             <option value="ALL">Tous types</option><option value="new">VN</option><option value="used">VO</option><option value="demo">Démonstration</option><option value="courtesy">Courtoisie</option>
           </select>

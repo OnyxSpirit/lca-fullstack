@@ -30,7 +30,7 @@ export const SaleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const salesQuery = useSaleDetailQuery(id); const saleStatus = useSaleStatusMutation();
-  const currentUser=useAuthStore(s=>s.currentUser),agencyId=useAuthStore(s=>s.currentAgency?.id),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canPay=hasPermission(roles,'billing.pay'),canCreateInvoice=hasPermission(roles,'billing.create');
+  const currentUser=useAuthStore(s=>s.currentUser),agencyId=useAuthStore(s=>s.currentAgency?.id),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canPay=hasPermission(roles,'billing.pay'),canCreateInvoice=hasPermission(roles,'billing.create'),canUpdateSale=hasPermission(roles,'sales.update'),canCancelSale=hasPermission(roles,'sales.cancel'),canPlanDelivery=hasPermission(roles,'deliveries.create'),canFinalizeCommercial=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER'].includes(role));
   const { addToast } = useUiStore();
 
   const sale = salesQuery.data;
@@ -63,6 +63,9 @@ export const SaleDetailPage: React.FC = () => {
     RESERVATION: 'COMMANDE', COMMANDE: 'FINANCEMENT_VALIDE', FINANCEMENT_VALIDE: 'PREPARATION', PREPARATION: 'PRET_LIVRAISON',
   };
   const nextLabel: Record<string, string> = { COMMANDE: 'Confirmer la commande', FINANCEMENT_VALIDE: 'Valider le financement', PREPARATION: 'Lancer la préparation', PRET_LIVRAISON: 'Déclarer prêt à livrer' };
+  const next=nextStatus[sale.status],isReadyTransition=next==='PRET_LIVRAISON';
+  const readyBlocked=!invoice||invoice.remainingAmountTTC>.001;
+  const cancellationBlocked=Number(invoice?.paidAmountTTC??0)>0||['PRET_LIVRAISON','LIVRE'].includes(sale.status);
 
   return (
     <div className="space-y-6">
@@ -86,9 +89,9 @@ export const SaleDetailPage: React.FC = () => {
               Imprimer Bon de Commande
             </Button>
 
-            {nextStatus[sale.status] && <Button variant="primary" size="sm" loading={saleStatus.isPending} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(nextStatus[sale.status]!)}>{nextLabel[nextStatus[sale.status]!]}</Button>}
-            {sale.status === 'PRET_LIVRAISON' && <Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
-            {!['LIVRE','ANNULE'].includes(sale.status) && <Button variant="danger" size="sm" loading={saleStatus.isPending} onClick={()=>{const reason=window.prompt("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button>}
+            {next&&canUpdateSale&&(!isReadyTransition||canFinalizeCommercial)&&<div title={isReadyTransition&&readyBlocked?'Une facture active et entièrement réglée est requise.':undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={isReadyTransition&&readyBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
+            {sale.status === 'PRET_LIVRAISON'&&canPlanDelivery&&<Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
+            {canCancelSale&&!['LIVRE','ANNULE'].includes(sale.status)&&<div title={cancellationBlocked?'Une vente encaissée ou engagée en livraison ne peut plus être annulée.':undefined}><Button variant="danger" size="sm" loading={saleStatus.isPending} disabled={cancellationBlocked} onClick={()=>{const reason=window.prompt("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button></div>}
           </div>
         }
       />

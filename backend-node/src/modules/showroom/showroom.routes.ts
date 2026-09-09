@@ -44,7 +44,7 @@ showroomRouter.post('/showroom/crm/leads/:leadId/test-drives',authorize(...COMME
   if(request.user!.roles.includes('SALES_AGENT')&&String(lead.assigned_user_id)!==request.user!.sub)throw new HttpError(403,'Ce prospect appartient à un autre commercial');
   if(!lead.assigned_user_id)throw new HttpError(409,'Un commercial doit être affecté avant l’essai');
   const[vehicle]=await query<RowDataPacket[]>(`SELECT id,mileage,status,agency_id FROM vehicles WHERE id=? AND agency_id=? AND archived_at IS NULL`,[vehicleId,lead.agency_id]);
-  if(!vehicle||!['available','reserved'].includes(vehicle.status))throw new HttpError(409,'Véhicule indisponible pour un essai');
+  if(!vehicle||vehicle.status!=='available')throw new HttpError(409,'Véhicule indisponible pour un essai');
   const mileage=Number(request.body.mileageOut??vehicle.mileage);
   if(!Number.isInteger(mileage)||mileage<Number(vehicle.mileage))throw new HttpError(400,'Kilométrage de départ invalide');
   const licenseNumber=text(request.body.licenseNumber,'Permis',100,true)!;
@@ -77,7 +77,7 @@ showroomRouter.post('/showroom/:id/test-drives',authorize(...COMMERCIAL),asyncHa
   if(String(visit.assigned_user_id)!==request.user!.sub&&!has(request,['SALES_MANAGER','DIRECTOR','SUPER_ADMIN']))throw new HttpError(403,'Visite affectée à un autre conseiller');
   const vehicleId=idOf(String(request.body.vehicleId));
   const[vehicle]=await query<RowDataPacket[]>(`SELECT id,mileage,status,agency_id FROM vehicles WHERE id=? AND agency_id=? AND archived_at IS NULL`,[vehicleId,visit.agency_id]);
-  if(!vehicle||!['available','reserved'].includes(vehicle.status))throw new HttpError(409,'Véhicule indisponible pour un essai');
+  if(!vehicle||vehicle.status!=='available')throw new HttpError(409,'Véhicule indisponible pour un essai');
   const mileage=Number(request.body.mileageOut??vehicle.mileage);
   if(!Number.isInteger(mileage)||mileage<Number(vehicle.mileage))throw new HttpError(400,'Kilométrage de départ invalide');
   const driveId=await transaction(async connection=>{

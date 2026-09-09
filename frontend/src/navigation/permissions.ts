@@ -20,7 +20,7 @@ export const ROLE_PERMISSIONS:Readonly<Record<UserRole,readonly AppPermission[]>
   PARTS_MANAGER:[...common,...modules('service','workshop','parts','documents','reports'),'parts.manageCatalog','parts.manageStock','parts.viewFinancials','parts.receive','parts.order','documents.upload','documents.archive','reports.export'],
   WAREHOUSE_CLERK:[...common,...modules('service','parts','documents'),'parts.manageStock','parts.receive','documents.upload'],
   DELIVERY_MANAGER:[...common,...modules('customers','vehicles','sales','deliveries','documents'),'deliveries.create','deliveries.update','deliveries.complete','documents.upload','documents.archive'],
-  ACCOUNTANT:[...common,...modules('customers','sales','service','billing','documents','reports'),'billing.create','billing.pay','billing.credit','billing.refund','documents.upload','documents.archive','reports.export'],
+  ACCOUNTANT:[...common,...modules('customers','sales','billing','documents','reports'),'billing.create','billing.pay','billing.credit','billing.refund','documents.upload','documents.archive','reports.export'],
 };
 
 export const BACKEND_ROLE_ALIASES:Readonly<Record<string,UserRole>>={SUPER_ADMIN:'SUPER_ADMIN',DIRECTOR:'DIRECTION',DIRECTION:'DIRECTION',SALES_MANAGER:'SALES_MANAGER',SALES_AGENT:'SALES_REP',SALES_REP:'SALES_REP',RECEPTIONIST:'RECEPTIONIST',SERVICE_MANAGER:'SERVICE_MANAGER',SERVICE_ADVISOR:'SERVICE_ADVISOR',WORKSHOP_MANAGER:'WORKSHOP_CHIEF',WORKSHOP_CHIEF:'WORKSHOP_CHIEF',TECHNICIAN:'TECHNICIAN',PARTS_MANAGER:'PARTS_MANAGER',WAREHOUSE_CLERK:'WAREHOUSE_CLERK',DELIVERY_MANAGER:'DELIVERY_MANAGER',ACCOUNTANT:'ACCOUNTANT'};

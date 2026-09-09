@@ -13,7 +13,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import { useSaleDetailQuery, useSaleStatusMutation } from '../../api/erpHooks';
+import { useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation } from '../../api/erpHooks';
 import { saleStatusToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -21,16 +21,20 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Card, CardHeader, CardTitle } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, formatDateTime } from '../../lib/utils';
 import { openBusinessPdf } from '../../services/businessPdf';
+import { useAuthStore } from '../../stores/authStore';
+import { hasPermission } from '../../navigation/permissions';
 
 export const SaleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const salesQuery = useSaleDetailQuery(id); const saleStatus = useSaleStatusMutation();
+  const currentUser=useAuthStore(s=>s.currentUser),agencyId=useAuthStore(s=>s.currentAgency?.id),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canPay=hasPermission(roles,'billing.pay');
   const { addToast } = useUiStore();
 
   const sale = salesQuery.data;
+  const invoiceQuery=useInvoiceQuery(sale?.invoiceId,agencyId),invoice=invoiceQuery.data;
 
   if (salesQuery.isLoading) return <div className="p-8 text-sm text-slate-500">Chargement du dossier de vente…</div>;
   if (!sale) {
@@ -229,14 +233,20 @@ export const SaleDetailPage: React.FC = () => {
 
               <div className="space-y-2 pt-2">
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">Acompte perçu</span>
+                  <span className="text-slate-500">Total encaissé</span>
                   <span className="font-bold text-emerald-600">{formatCurrency(sale.depositPaidTTC)}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-500">Solde restant</span>
                   <span className="font-bold text-slate-900">{formatCurrency(sale.remainingBalanceTTC)}</span>
                 </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500">Situation financière</span>
+                  <Badge variant={sale.remainingBalanceTTC<=0?'success':sale.depositPaidTTC>0?'warning':'default'}>{sale.remainingBalanceTTC<=0?'Soldée':sale.depositPaidTTC>0?'Partiellement payée':'Non réglée'}</Badge>
+                </div>
               </div>
+
+              {invoice?.payments?.length?<div className="rounded-xl border border-slate-200 p-3"><p className="mb-2 font-bold text-slate-800">Historique des règlements</p><div className="space-y-2">{invoice.payments.map(payment=><div key={payment.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2"><div><p className="font-mono font-semibold">{payment.paymentNumber}</p><p className="text-[11px] text-slate-500">{formatDateTime(payment.paymentDate)} · {payment.paymentMethod}{payment.reference?` · ${payment.reference}`:''}</p></div><span className="font-bold text-emerald-700">{formatCurrency(payment.amount)}</span></div>)}</div></div>:sale.invoiceId&&!invoiceQuery.isLoading?<p className="text-[11px] text-slate-500">Aucun règlement validé sur cette facture.</p>:null}
 
               <Button
                 variant="primary"
@@ -245,7 +255,7 @@ export const SaleDetailPage: React.FC = () => {
               >
                 Voir Planning Livraison
               </Button>
-              {sale.invoiceId&&<Button variant="outline" className="w-full" onClick={()=>navigate(`/billing/${sale.invoiceId}`)}>Voir la facture et les règlements</Button>}
+              {sale.invoiceId&&<Button variant={canPay&&sale.remainingBalanceTTC>0?'primary':'outline'} className="w-full" onClick={()=>navigate(`/billing/${sale.invoiceId}`)}>{canPay&&sale.remainingBalanceTTC>0?'Enregistrer un règlement':'Voir la facture et les règlements'}</Button>}
               {!sale.invoiceId&&<p className="text-[11px] text-amber-700">Aucune facture de vente n’est encore liée. L’encaissement reste réservé au rôle financier autorisé.</p>}
             </div>
           </Card>

@@ -14,4 +14,4 @@ saleRouter.patch('/sales/:id',authorize(...WRITE),asyncHandler(async(req,res)=>{
   if(Object.hasOwn(req.body??{},'salespersonId'))throw new HttpError(409,'La réaffectation d’une vente créée nécessite une règle métier explicite');
   res.json(await service.update(String(req.params.id),req.body,req));
 }));
-saleRouter.patch('/sales/:id/status',authorize(...WRITE),asyncHandler(async(req,res)=>{await service.one(String(req.params.id),req);res.json(await service.updateStatus(String(req.params.id),req.body.status,req.body.reason,req))}));
+saleRouter.patch('/sales/:id/status',authorize(...WRITE),asyncHandler(async(req,res)=>{await service.one(String(req.params.id),req);if(req.body.status==='delivered')await service.assertFinanciallySettledForFinalization(String(req.params.id),req);res.json(await service.updateStatus(String(req.params.id),req.body.status,req.body.reason,req))}));

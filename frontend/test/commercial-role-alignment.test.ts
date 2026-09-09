@@ -6,11 +6,11 @@ import {appointmentDateError,appointmentIso,parseLocalAppointment} from '../src/
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('COM-RM-01 valide date et heure, explique le blocage et produit un instant ISO',()=>{
-  const now=new Date('2026-09-09T10:00:00Z');
+  const now=new Date('2099-09-09T10:00:00Z');
   assert.match(appointmentDateError('',now)??'',/date et l’heure/);
-  assert.match(appointmentDateError('2026-09-09T09:00',now)??'',/futur/);
-  assert.equal(appointmentDateError('2026-09-09T12:00',now),null);
-  assert.equal(appointmentIso('2026-09-09T12:00'),new Date(2026,8,9,12,0).toISOString());
+  assert.match(appointmentDateError('2099-09-09T09:00',now)??'',/futur/);
+  assert.equal(appointmentDateError('2099-09-09T12:00',now),null);
+  assert.equal(appointmentIso('2099-09-09T12:00'),new Date(2099,8,9,12,0).toISOString());
   const page=read('../src/modules/crm/CrmPage.tsx'),policy=read('../src/modules/crm/crmAppointmentPolicy.ts');
   assert.match(page,/disabled=\{Boolean\(appointmentDateError\(scheduledAt\)\)\}/);
   assert.match(policy,/Renseignez la date et l’heure/);

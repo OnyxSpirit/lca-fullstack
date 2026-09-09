@@ -246,7 +246,8 @@ export const CustomerDetailPage: React.FC = () => {
                   <th className="py-2.5 px-4">N° Commande</th>
                   <th className="py-2.5 px-4">Véhicule</th>
                   <th className="py-2.5 px-4">Montant TTC</th>
-                  <th className="py-2.5 px-4">Financement</th>
+                  <th className="py-2.5 px-4">Payé</th>
+                  <th className="py-2.5 px-4">Reste</th>
                   <th className="py-2.5 px-4">Statut</th>
                 </tr>
               </thead>
@@ -256,7 +257,8 @@ export const CustomerDetailPage: React.FC = () => {
                     <td className="py-2.5 px-4 font-bold text-blue-700">{s.saleNumber}</td>
                     <td className="py-2.5 px-4 font-semibold text-slate-800">{s.vehicleLabel}</td>
                     <td className="py-2.5 px-4 font-bold">{formatCurrency(s.totalSaleTTC)}</td>
-                    <td className="py-2.5 px-4 text-slate-600">{s.financingType}</td>
+                    <td className="py-2.5 px-4 font-semibold text-emerald-700">{formatCurrency(s.paidAmountTTC??0)}</td>
+                    <td className="py-2.5 px-4 font-semibold text-rose-700">{formatCurrency(s.remainingBalanceTTC??0)}</td>
                     <td className="py-2.5 px-4"><StatusBadge status={s.status} type="sale" /></td>
                   </tr>
                 ))}

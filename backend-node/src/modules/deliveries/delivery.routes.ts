@@ -10,6 +10,7 @@ import { asyncHandler } from "../../middleware/error-handler.js";
 import { emitToAgency } from "../../realtime/socket.js";
 import { HttpError } from "../../shared/http-error.js";
 import { notifyRoles as createRoleNotifications } from "../notifications/notification.service.js";
+import { assertFinanciallySettled } from "../billing/payment.domain.js";
 
 export const deliveryRouter = Router();
 const READ = [
@@ -71,7 +72,7 @@ const scope = (request: Request, alias = "d") =>
   unrestricted(request)
     ? { sql: "1=1", params: [] as unknown[] }
     : { sql: `${alias}.agency_id=?`, params: [request.user!.agencyId] };
-const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_total,s.balance_due,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone,c.email,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.vin,v.registration_number,v.mileage vehicle_mileage,CONCAT_WS(' ',sp.first_name,sp.last_name) salesperson_name,CONCAT_WS(' ',du.first_name,du.last_name) delivery_specialist_name,a.name agency_name FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users sp ON sp.id=s.salesperson_id LEFT JOIN users du ON du.id=d.delivery_specialist_id JOIN agencies a ON a.id=d.agency_id`;
+const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone,c.email,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.vin,v.registration_number,v.mileage vehicle_mileage,CONCAT_WS(' ',sp.first_name,sp.last_name) salesperson_name,CONCAT_WS(' ',du.first_name,du.last_name) delivery_specialist_name,a.name agency_name FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users sp ON sp.id=s.salesperson_id LEFT JOIN users du ON du.id=d.delivery_specialist_id JOIN agencies a ON a.id=d.agency_id`;
 
 async function accessible(id: string, request: Request): Promise<any> {
   const scoped = scope(request);
@@ -227,7 +228,7 @@ deliveryRouter.get(
     response.json({ ...totals[0], ...upcoming[0] });
   }),
 );
-deliveryRouter.get('/deliveries/candidates',authorize(...READ),asyncHandler(async(request,response)=>{const scoped=scope(request,'s'),agent=request.user!.roles.includes('SALES_AGENT');const rows=await query<RowDataPacket[]>(`SELECT s.id sale_id,s.sale_number,s.customer_id,s.salesperson_id,s.agency_id,s.status,s.total,s.balance_due,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,si.vehicle_id,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id WHERE ${scoped.sql}${agent?' AND s.salesperson_id=?':''} AND s.status='ready_for_delivery' AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.sale_id=s.id AND d.status<>'cancelled') ORDER BY s.updated_at,s.id`,[...scoped.params,...(agent?[request.user!.sub]:[])]);response.json(rows)}));
+deliveryRouter.get('/deliveries/candidates',authorize(...READ),asyncHandler(async(request,response)=>{const scoped=scope(request,'s'),agent=request.user!.roles.includes('SALES_AGENT');const rows=await query<RowDataPacket[]>(`SELECT s.id sale_id,s.sale_number,s.customer_id,s.salesperson_id,s.agency_id,s.status,s.total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,si.vehicle_id,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id WHERE ${scoped.sql}${agent?' AND s.salesperson_id=?':''} AND s.status='ready_for_delivery' AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.sale_id=s.id AND d.status<>'cancelled') ORDER BY s.updated_at,s.id`,[...scoped.params,...(agent?[request.user!.sub]:[])]);response.json(rows)}));
 
 deliveryRouter.get(
   "/deliveries/:id",
@@ -557,8 +558,7 @@ deliveryRouter.post(
         409,
         "Tous les documents obligatoires doivent être remis",
       );
-    if (Number(row.balance_due) > 0)
-      throw new HttpError(409, `Solde client restant: ${row.balance_due} XAF`);
+    assertFinanciallySettled(row.balance_due, "livraison");
     const hash = createHash("sha256")
       .update(`${id}|${signer}|${signature}|${new Date().toISOString()}`)
       .digest("hex");

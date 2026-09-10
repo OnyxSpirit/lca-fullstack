@@ -335,7 +335,7 @@ export interface RepairOrder {
   qualityControls?: RepairQualityControl[];
   history?: RepairOrderHistory[];
   handover?: {customerName:string;mileageOut:number|null;observations:string;signatureData:string;handedOverAt:string}|null;
-  invoice?: {id:string;invoiceNumber:string;subtotal:number;taxTotal:number;total:number;status:string}|null;
+  invoice?: {id:string;invoiceNumber:string;subtotal:number;taxTotal:number;total:number;amountPaid:number;balanceDue:number;status:string}|null;
   symptomsReported: string;
   diagnosticNotes: string;
   operations: ServiceOperation[];

@@ -16,11 +16,11 @@ const invalidateBusiness = (qc: ReturnType<typeof useQueryClient>) => Promise.al
   qc.invalidateQueries({ queryKey: settingKeys.workshop }),
 ]);
 
-export const useSettingsQuery = () => useQuery({ queryKey: settingKeys.settings, queryFn: () => apiRequest<ConcessionSettings>('/settings'), enabled: enabled() });
+export const useSettingsQuery = (allowed=true) => useQuery({ queryKey: settingKeys.settings, queryFn: () => apiRequest<ConcessionSettings>('/settings'), enabled: enabled()&&allowed });
 export const useUpdateSettings = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (body: Pick<ConcessionSettings, 'billing' | 'workshop'>) => apiRequest<ConcessionSettings>('/settings', { method: 'PUT', body: JSON.stringify(body) }), onSuccess: () => invalidateBusiness(qc) }); };
-export const useCurrentConcessionQuery = () => useQuery({ queryKey: settingKeys.identity, queryFn: () => apiRequest<ConcessionIdentity>('/concessions/current'), enabled: enabled() });
+export const useCurrentConcessionQuery = (allowed=true) => useQuery({ queryKey: settingKeys.identity, queryFn: () => apiRequest<ConcessionIdentity>('/concessions/current'), enabled: enabled()&&allowed });
 export const useUpdateConcession = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (body: Omit<ConcessionIdentity, 'id'>) => apiRequest<ConcessionIdentity>('/concessions/current', { method: 'PATCH', body: JSON.stringify(body) }), onSuccess: () => invalidateBusiness(qc) }); };
-export const useSettingsAgenciesQuery = () => useQuery({ queryKey: settingKeys.agencies, queryFn: () => apiRequest<SettingsAgency[]>('/agencies'), enabled: enabled() });
+export const useSettingsAgenciesQuery = (allowed=true) => useQuery({ queryKey: settingKeys.agencies, queryFn: () => apiRequest<SettingsAgency[]>('/agencies'), enabled: enabled()&&allowed });
 export const useCreateAgency = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (body: AgencyInput) => apiRequest<{ agencyId: string }>('/agencies', { method: 'POST', body: JSON.stringify(body) }), onSuccess: () => qc.invalidateQueries({ queryKey: settingKeys.agencies }) }); };
 export const useUpdateAgency = () => { const qc = useQueryClient(); return useMutation({ mutationFn: ({ id, ...body }: AgencyInput & { id: string }) => apiRequest<{ agencyId: string }>(`/agencies/${id}`, { method: 'PATCH', body: JSON.stringify(body) }), onSuccess: () => qc.invalidateQueries({ queryKey: settingKeys.agencies }) }); };
 export const useUpdateAgencyStatus = () => { const qc = useQueryClient(); return useMutation({ mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => apiRequest<{ agencyId: string; isActive: boolean }>(`/agencies/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) }), onSuccess: () => qc.invalidateQueries({ queryKey: settingKeys.agencies }) }); };

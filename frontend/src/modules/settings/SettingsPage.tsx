@@ -6,20 +6,24 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useUiStore } from '../../stores/uiStore';
 import { type AgencyInput, type ConcessionIdentity, type SettingsAgency, type WorkshopRates, useAgencyActions, useCurrentConcessionQuery, useSettingsAgenciesQuery, useSettingsQuery, useUpdateConcession, useUpdateSettings } from '../../api/settingHooks';
+import { BaysSettings, SuppliersSettings } from './OperationalResourcesSettings';
+import { useAuthStore } from '../../stores/authStore';
+import { hasPermission } from '../../navigation/permissions';
 
-type Tab = 'general' | 'workshop' | 'agencies' | 'integrations';
+type Tab = 'general' | 'workshop' | 'suppliers' | 'agencies' | 'integrations';
 const field = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
 const emptyIdentity: Omit<ConcessionIdentity, 'id'> = { name: '', legalName: null, taxIdentifier: null, address: null, city: null, country: 'République du Congo', currencyCode: 'XAF', timezone: 'Africa/Brazzaville' };
 const emptyAgency: AgencyInput = { name: '', code: '', address: '', city: '', phone: '', email: '' };
 
 export const SettingsPage: React.FC = () => {
-  const [tab, setTab] = useState<Tab>('general');
+  const user=useAuthStore(s=>s.currentUser),roles=user?.roles?.length?user.roles:user?[user.role]:[],admin=hasPermission(roles,'settings.manage'),partsManager=roles.includes('PARTS_MANAGER'),tabs:Tab[]=admin?['general','workshop','suppliers','agencies','integrations']:partsManager?['suppliers']:['workshop'];
+  const [tab, setTab] = useState<Tab>(partsManager&&!admin?'suppliers':admin?'general':'workshop');
   const [identity, setIdentity] = useState(emptyIdentity);
   const [vat, setVat] = useState(18.9);
   const [rates, setRates] = useState<WorkshopRates>({ T1: 35000, T2: 45000, T3: 55000, T4: 45000 });
   const [agencyForm, setAgencyForm] = useState<AgencyInput>(emptyAgency);
   const [editedAgency, setEditedAgency] = useState<SettingsAgency | null>(null);
-  const settings = useSettingsQuery(), concession = useCurrentConcessionQuery(), agencies = useSettingsAgenciesQuery();
+  const settings = useSettingsQuery(admin), concession = useCurrentConcessionQuery(admin), agencies = useSettingsAgenciesQuery(admin);
   const updateSettings = useUpdateSettings(), updateConcession = useUpdateConcession(), agencyActions = useAgencyActions();
   const addToast = useUiStore(s => s.addToast);
 
@@ -36,7 +40,7 @@ export const SettingsPage: React.FC = () => {
 
   return <div className="space-y-6">
     <PageHeader title="Paramètres concession" subtitle="Identité légale, fiscalité, barèmes atelier et agences." breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Paramètres' }]} />
-    <div className="flex gap-1 overflow-x-auto border-b border-slate-200">{(['general','workshop','agencies','integrations'] as Tab[]).map(key => <button key={key} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${tab === key ? 'border-[#8f1722] text-[#8f1722]' : 'border-transparent text-slate-500'}`} onClick={() => setTab(key)}>{({ general:'Identité & fiscalité', workshop:'Barèmes atelier', agencies:`Agences (${agencies.data?.length ?? 0})`, integrations:'Intégrations' })[key]}</button>)}</div>
+    <div className="flex gap-1 overflow-x-auto border-b border-slate-200">{tabs.map(key => <button key={key} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${tab === key ? 'border-[#8f1722] text-[#8f1722]' : 'border-transparent text-slate-500'}`} onClick={() => setTab(key)}>{({ general:'Identité & fiscalité', workshop:'Atelier & ponts', suppliers:'Fournisseurs', agencies:`Agences (${agencies.data?.length ?? 0})`, integrations:'Intégrations' })[key]}</button>)}</div>
 
     {tab === 'general' && <Card><CardHeader><div><CardTitle>Informations de la concession</CardTitle><CardDescription>Ces données alimentent notamment les documents commerciaux et comptables.</CardDescription></div></CardHeader><form onSubmit={saveIdentity} className="grid gap-4 md:grid-cols-2">
       {[['name','Nom commercial'],['legalName','Raison sociale'],['taxIdentifier','Identifiant fiscal / NIU'],['address','Adresse'],['city','Ville'],['country','Pays'],['currencyCode','Devise ISO'],['timezone','Fuseau horaire']].map(([key,label]) => <label key={key} className="text-xs font-semibold text-slate-700">{label}<input required={['name','currencyCode','timezone'].includes(key)} className={`${field} mt-1`} value={String(identity[key as keyof typeof identity] ?? '')} onChange={e => updateIdentity(key as keyof typeof identity, e.target.value)} /></label>)}
@@ -44,7 +48,9 @@ export const SettingsPage: React.FC = () => {
       <div className="flex items-end gap-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateConcession.isPending}>Enregistrer l’identité</Button><Button type="button" variant="outline" onClick={saveBusiness} loading={updateSettings.isPending}>Enregistrer la TVA</Button></div>
     </form></Card>}
 
-    {tab === 'workshop' && <Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Tarifs HT en XAF appliqués aux nouvelles lignes de main-d’œuvre.</CardDescription></div></CardHeader><form onSubmit={saveBusiness} className="grid gap-4 md:grid-cols-2">{([['T1','T1 · Entretien rapide'],['T2','T2 · Mécanique'],['T3','T3 · Diagnostic et électronique'],['T4','T4 · Carrosserie et peinture']] as const).map(([key,label]) => <label key={key} className="text-xs font-semibold text-slate-700">{label}<div className="mt-1 flex items-center gap-2"><input className={field} type="number" min="0" step="1" value={rates[key]} onChange={e => setRates(current => ({ ...current, [key]: Number(e.target.value) }))} /><span className="whitespace-nowrap text-slate-500">XAF HT/h</span></div></label>)}<div className="md:col-span-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateSettings.isPending}>Enregistrer les barèmes</Button></div></form></Card>}
+    {tab === 'workshop' && <div className="space-y-4"><Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Tarifs HT en XAF appliqués aux nouvelles lignes de main-d’œuvre.</CardDescription></div></CardHeader><form onSubmit={saveBusiness} className="grid gap-4 md:grid-cols-2">{([['T1','T1 · Entretien rapide'],['T2','T2 · Mécanique'],['T3','T3 · Diagnostic et électronique'],['T4','T4 · Carrosserie et peinture']] as const).map(([key,label]) => <label key={key} className="text-xs font-semibold text-slate-700">{label}<div className="mt-1 flex items-center gap-2"><input className={field} type="number" min="0" step="1" value={rates[key]} onChange={e => setRates(current => ({ ...current, [key]: Number(e.target.value) }))} /><span className="whitespace-nowrap text-slate-500">XAF HT/h</span></div></label>)}<div className="md:col-span-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateSettings.isPending}>Enregistrer les barèmes</Button></div></form></Card><BaysSettings/></div>}
+
+    {tab === 'suppliers' && <SuppliersSettings/>}
 
     {tab === 'agencies' && <div className="space-y-4"><Card><CardHeader><div><CardTitle>Créer une agence</CardTitle><CardDescription>Les codes doivent être uniques dans la base.</CardDescription></div></CardHeader><form onSubmit={createAgency} className="grid gap-3 md:grid-cols-3">{(['name','code','address','city','phone','email'] as const).map(key => <input key={key} required={key === 'name' || key === 'code'} className={field} placeholder={({name:'Nom',code:'Code',address:'Adresse',city:'Ville',phone:'Téléphone',email:'E-mail'})[key]} value={String(agencyForm[key] ?? '')} onChange={e => setAgencyForm(current => ({ ...current, [key]: e.target.value }))} />)}<div><Button type="submit" icon={<Plus className="h-4 w-4" />} loading={agencyActions.create.isPending}>Créer l’agence</Button></div></form></Card>
       {agencies.isError && <Card className="border-red-200 text-sm text-red-700">{agencies.error instanceof Error ? agencies.error.message : 'Chargement impossible'}</Card>}

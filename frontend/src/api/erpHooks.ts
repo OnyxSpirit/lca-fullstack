@@ -179,6 +179,9 @@ const mapLead = (r: any): Lead => ({
   updatedAt: r.updatedAt ?? "",
   score: n(r.probability),
   canStartTestDrive: Boolean(r.canStartTestDrive),
+  testDriveStatus: r.testDriveStatus ?? null,
+  testDriveReturnedAt: r.testDriveReturnedAt ?? undefined,
+  canCreateQuotation: Boolean(r.canCreateQuotation),
 });
 const mapSale = (r: any): Sale => ({
   id: s(r.id),
@@ -858,7 +861,7 @@ export function useShowroomActions() {
           method: "PATCH",
           body: JSON.stringify(body),
         }),
-      onSuccess: done,
+      onSuccess: () => {void done();void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.notifications});},
     }),
     cancelDrive: useMutation({
       mutationFn: ({ id, ...body }: any) =>

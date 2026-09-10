@@ -95,6 +95,9 @@ export interface Lead {
   createdAt: string;
   opportunityId?: string;
   canStartTestDrive?: boolean;
+  testDriveStatus?: 'planned' | 'in_progress' | 'completed' | 'cancelled' | null;
+  testDriveReturnedAt?: string;
+  canCreateQuotation?: boolean;
   customerId?: string;
   lostReason?: string;
   updatedAt: string;

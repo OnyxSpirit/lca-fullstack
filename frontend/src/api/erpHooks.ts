@@ -936,6 +936,11 @@ export const useDeliveryStatsQuery = () =>
 export const useCreateDelivery = () =>
   mutation<any>(() => "/deliveries", "POST", erpKeys.deliveries);
 export const useDeliveryCandidatesQuery = () => useQuery({queryKey:[...erpKeys.deliveries,'candidates'],queryFn:()=>apiRequest<any[]>('/deliveries/candidates'),enabled:enabled()});
+export const useDeliveryTemplatesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'templates'],queryFn:()=>apiRequest<any[]>('/deliveries/checklist-templates'),enabled:enabled()&&requestEnabled});
+export const useDeliveryTemplateActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:[...erpKeys.deliveries,'templates']});return{
+  create:useMutation({mutationFn:(body:any)=>apiRequest('/deliveries/checklist-templates',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+  update:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/deliveries/checklist-templates/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
+}};
 export function useDeliveryChecklist() {
   const qc = useQueryClient();
   return useMutation({

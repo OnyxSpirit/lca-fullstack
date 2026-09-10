@@ -12,6 +12,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { NewDeliveryModal } from './NewDeliveryModal';
 import { useAuthStore } from '../../stores/authStore';
 import { hasPermission } from '../../navigation/permissions';
+import { DeliveryChecklistTemplates } from './DeliveryChecklistTemplates';
 
 export const DeliveriesPage:React.FC=()=>{
   const navigate=useNavigate(),[params]=useSearchParams(),requestedSaleId=params.get('saleId')??'',addToast=useUiStore(s=>s.addToast),currentUser=useAuthStore(s=>s.currentUser),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canCreate=hasPermission(roles,'deliveries.create');
@@ -29,6 +30,7 @@ export const DeliveriesPage:React.FC=()=>{
     {list.isError&&<ErrorBox error={list.error} retry={()=>list.refetch()}/>}
     {!list.isLoading&&!list.isError&&<div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">{deliveries.map((item:any)=><Card key={item.id} className="space-y-4"><div className="flex justify-between"><div><div className="font-bold">{item.deliveryNumber}</div><div className="text-xs text-slate-500">{formatDate(item.deliveryDate)} {item.deliveryTimeSlot}</div></div><Badge variant={item.status==='LIVRE_SIGNE'?'success':item.status==='REPORTE'?'danger':'primary'}>{item.status.replaceAll('_',' ')}</Badge></div><div className="bg-slate-50 rounded-lg p-3 text-sm"><strong>{item.customerName}</strong><div className="text-xs text-slate-500">{item.customerPhone}</div><div className="mt-2 text-xs font-semibold">{item.vehicleLabel}</div><div className="font-mono text-[11px]">{item.vehicleVin}</div></div><div className="text-xs"><div className="flex justify-between"><span>Checklist</span><strong>{item.checklistProgress?.completed??0}/{item.checklistProgress?.total??0}</strong></div><div className="h-1.5 bg-slate-100 rounded mt-1"><div className="h-full bg-[#8f1722] rounded" style={{width:`${item.checklistProgress?.total?item.checklistProgress.completed/item.checklistProgress.total*100:0}%`}}/></div></div><div className="flex justify-end gap-2"><Button size="xs" variant="outline" onClick={()=>openBusinessPdf('delivery',item.id).catch(value=>error('PV indisponible',value))}>PV</Button><Button size="xs" onClick={()=>navigate(`/deliveries/${item.id}`)}>Ouvrir</Button></div></Card>)}{!deliveries.length&&<div className="col-span-full border border-dashed rounded-xl p-12 text-center text-sm text-slate-500">Aucune livraison ne correspond aux filtres.</div>}</div>}
     <NewDeliveryModal isOpen={newOpen} initialSaleId={requestedSaleId} onClose={()=>setNewOpen(false)}/>
+    {roles.some(role=>['SUPER_ADMIN','DIRECTION'].includes(role))&&<DeliveryChecklistTemplates/>}
   </div>;
 };
 

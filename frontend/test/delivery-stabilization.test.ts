@@ -1,0 +1,11 @@
+import assert from'node:assert/strict';
+import{readFileSync}from'node:fs';
+import{test}from'node:test';
+const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
+
+test('DEL RBAC masque les opérations aux commerciaux et comptable',()=>{const permissions=read('../src/navigation/permissions.ts');for(const role of['SALES_MANAGER','SALES_REP','ACCOUNTANT']){const block=permissions.match(new RegExp(`${role}:\\[(.*?)\\],\\n`,'s'))?.[1]??'';assert.doesNotMatch(block,/deliveries\.create|deliveries\.update|deliveries\.complete/,role)}});
+test('DEL planification exige un Responsable livraison actif de la même agence',()=>{const modal=read('../src/modules/deliveries/NewDeliveryModal.tsx');assert.match(modal,/roles\.includes\('DELIVERY_MANAGER'\)/);assert.match(modal,/user\.agencyId===auth\.currentAgency\?\.id/);assert.match(modal,/deliverySpecialistId/);assert.match(modal,/required value=\{deliverySpecialistId\}/)});
+test('DEL checklist affiche et verrouille chaque phase',()=>{const page=read('../src/modules/deliveries/DeliveryDetailPage.tsx');assert.match(page,/preparation:'Préparation',quality:'Contrôle qualité',handover:'Remise client'/);assert.match(page,/activePhase\[delivery\.status\]!==category/);assert.match(page,/readOnly=delivered\|\|cancelled/);assert.match(page,/Checklist de contrôle qualité incomplète/)});
+test('DEL signature bloque double clic et affiche Finalisation',()=>{const page=read('../src/modules/deliveries/DeliveryDetailPage.tsx');assert.match(page,/signLock\.current/);assert.match(page,/loading=\{signMutation\.isPending\}/);assert.match(page,/disabled=\{signDisabled\|\|signMutation\.isPending\}/);assert.match(page,/Finalisation\.\.\./)});
+test('DEL documents distinguent fichier joint et remise physique',()=>{const page=read('../src/modules/deliveries/DeliveryDetailPage.tsx');assert.match(page,/pièce jointe numérique et la remise physique/);assert.match(page,/received:false/);assert.match(page,/documentsComplete/);assert.match(page,/readOnly/)});
+test('DEL annulation n’est plus affichée comme report',()=>{const map=read('../src/services/mysqlStatusMap.ts');assert.match(map,/cancelled: 'ANNULE'/);assert.doesNotMatch(map,/cancelled: 'REPORTE'/)});

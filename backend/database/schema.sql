@@ -1321,12 +1321,16 @@ CREATE TABLE deliveries (
 CREATE TABLE delivery_checklists (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     delivery_id BIGINT UNSIGNED NOT NULL,
+    template_id BIGINT UNSIGNED NULL,
     item_name VARCHAR(200) NOT NULL,
+    category ENUM('preparation','quality','documents','handover') NOT NULL DEFAULT 'quality',
+    sort_order INT NOT NULL DEFAULT 0,
     is_required BOOLEAN NOT NULL DEFAULT TRUE,
     is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     completed_by BIGINT UNSIGNED NULL,
     completed_at DATETIME NULL,
     notes TEXT NULL,
+    INDEX idx_delivery_checklist_phase (delivery_id,category,is_required,is_completed,sort_order),
     CONSTRAINT fk_dc_delivery FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE,
     CONSTRAINT fk_dc_user FOREIGN KEY (completed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -1360,6 +1364,7 @@ CREATE TABLE delivery_signatures (
     signed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ip_address VARCHAR(45) NULL,
     CONSTRAINT fk_ds_delivery FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_delivery_signature_final (delivery_id),
     CONSTRAINT fk_delivery_signature_user FOREIGN KEY (signed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
@@ -1394,7 +1399,6 @@ INSERT INTO delivery_checklist_templates(agency_id,item_name,category,is_require
 (NULL,'Nettoyage extérieur','preparation',TRUE,20),
 (NULL,'Contrôle esthétique','quality',TRUE,30),
 (NULL,'Contrôle mécanique','quality',TRUE,40),
-(NULL,'Documents administratifs complets','documents',TRUE,50),
 (NULL,'Accessoires installés','preparation',TRUE,60),
 (NULL,'Carburant ou batterie chargé','preparation',TRUE,70),
 (NULL,'Double des clés remis','handover',TRUE,80),

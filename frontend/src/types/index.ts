@@ -464,7 +464,8 @@ export type DeliveryStatus =
   | 'RDV_CONFIRME'
   | 'EN_COURS_DE_LIVRAISON'
   | 'LIVRE_SIGNE'
-  | 'REPORTE';
+  | 'REPORTE'
+  | 'ANNULE';
 
 export interface DeliveryChecklist {
   cleaningInterior: boolean;

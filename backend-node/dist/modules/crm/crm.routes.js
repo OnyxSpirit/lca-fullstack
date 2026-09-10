@@ -117,6 +117,11 @@ crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (reque
     const leadFields = { firstName: 'first_name', lastName: 'last_name', companyName: 'company_name', email: 'email', phone: 'phone', source: 'source', priority: 'priority', notes: 'notes' };
     const opportunityFields = { title: 'title', expectedValue: 'expected_value', probability: 'probability', expectedCloseDate: 'expected_close_date' };
     const leadSets = [], leadValues = [], oppSets = [], oppValues = [];
+    const receptionist = hasRole(request, ['RECEPTIONIST']);
+    if (receptionist && (Object.keys(body).length !== 1 || !Object.hasOwn(body, 'assignedUserId')))
+        throw new HttpError(403, 'Le Réceptionniste peut uniquement affecter un prospect Nouveau non pris en charge');
+    if (receptionist && (current.stage !== 'new' || current.assigned_user_id != null))
+        throw new HttpError(409, 'Seul un prospect Nouveau non affecté peut être attribué par le Réceptionniste');
     for (const [key, column] of Object.entries(leadFields))
         if (Object.hasOwn(body, key)) {
             let value = text(body[key], key, key === 'notes' ? 10000 : key === 'companyName' ? 200 : key === 'email' ? 190 : key === 'phone' ? 50 : 100);
@@ -150,7 +155,11 @@ crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (reque
     }
     if (!leadSets.length && !oppSets.length)
         throw new HttpError(400, 'Aucun champ modifiable fourni');
-    await transaction(async (connection) => { if (leadSets.length)
+    await transaction(async (connection) => { if (receptionist) {
+        const [locked] = await connection.execute('SELECT l.assigned_user_id,o.stage FROM leads l JOIN opportunities o ON o.lead_id=l.id WHERE l.id=? FOR UPDATE', [leadId]);
+        if (!locked[0] || locked[0].stage !== 'new' || locked[0].assigned_user_id != null)
+            throw new HttpError(409, 'Ce prospect a déjà été pris en charge et ne peut plus être affecté par le Réceptionniste');
+    } if (leadSets.length)
         await connection.execute(`UPDATE leads SET ${leadSets.join(',')} WHERE id=?`, [...leadValues, leadId]); if (oppSets.length)
         await connection.execute(`UPDATE opportunities SET ${oppSets.join(',')} WHERE lead_id=?`, [...oppValues, leadId]); const reassigned = assignedUserId !== String(current.assigned_user_id ?? ''); await connection.execute(`INSERT INTO activities(customer_id,lead_id,opportunity_id,assigned_user_id,type,subject,description,status,completed_at) VALUES(?,?,?,?,?,?,?,'completed',NOW())`, [current.customer_id, leadId, current.opportunity_id, request.user.sub, 'note', reassigned ? 'Réaffectation commerciale' : 'Fiche prospect mise à jour', reassigned ? `Commercial : ${current.assigned_user_id ?? 'non affecté'} → ${assignedUserId}` : `Champs modifiés : ${[...Object.keys(body)].join(', ')}`]); });
     if (assignedUserId && assignedUserId !== String(current.assigned_user_id ?? ''))

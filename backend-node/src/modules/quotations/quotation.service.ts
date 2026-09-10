@@ -6,6 +6,7 @@ import {unrestricted} from '../../middleware/authorize.js';
 import {emitToAgency} from '../../realtime/socket.js';
 import {HttpError} from '../../shared/http-error.js';
 import {notifyRoles} from '../notifications/notification.service.js';
+import {archiveQuotation,safelyArchive} from '../documents/business-document.service.js';
 
 const SELECT=`SELECT q.*,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,o.assigned_user_id commercial_owner_id,CONCAT_WS(' ',owner.first_name,owner.last_name) commercial_owner_name,CONCAT_WS(' ',creator.first_name,creator.last_name) created_by_name,qi.vehicle_id,qi.description,qi.quantity,qi.unit_price,qi.discount,qi.tax_rate,qi.line_total,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.stock_number FROM quotations q JOIN customers c ON c.id=q.customer_id LEFT JOIN opportunities o ON o.id=q.opportunity_id LEFT JOIN users owner ON owner.id=o.assigned_user_id LEFT JOIN users creator ON creator.id=q.created_by LEFT JOIN quotation_items qi ON qi.quotation_id=q.id LEFT JOIN vehicles v ON v.id=qi.vehicle_id LEFT JOIN versions ve ON ve.id=v.version_id LEFT JOIN models m ON m.id=ve.model_id LEFT JOIN brands b ON b.id=m.brand_id`;
 const id=(value:unknown,label='Identifiant')=>{const result=String(value??'');if(!/^[1-9]\d*$/.test(result))throw new HttpError(400,`${label} invalide`);return result};
@@ -53,5 +54,6 @@ export async function validate(value:unknown,request:Request){
     await connection.execute(`INSERT INTO activities(customer_id,lead_id,opportunity_id,assigned_user_id,type,subject,description,status,completed_at) VALUES(?,?,?,?,?,'Devis émis',?,'completed',NOW())`,[quotation.customer_id,quotation.lead_id,quotation.opportunity_id,request.user!.sub,'note',`Devis ${quotation.quotation_number} émis. Propriétaire commercial : ${quotation.commercial_owner_id}.`]);
     await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'quotations','quotation',?,'quotation.issued',?,?,?,?)`,[request.user!.sub,quotationId,JSON.stringify({status:'draft',commercialOwnerId:String(quotation.commercial_owner_id)}),JSON.stringify({status:'sent',issuedBy:request.user!.sub}),request.ip??null,request.get('user-agent')??null]);
   });
+  await safelyArchive(`quotation:${quotationId}:issued`,()=>archiveQuotation(quotationId,request.user!.sub));
   return one(quotationId,request);
 }

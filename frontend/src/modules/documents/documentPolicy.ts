@@ -23,6 +23,6 @@ const policies:Record<DocumentEntityType,UserRole[]>={
 export const documentEntitiesForRoles=(roles:UserRole[])=>options.filter(option=>roles.some(role=>policies[option.value].includes(role)));
 export const documentTypesForRoles=(roles:UserRole[])=>{
   const allowed=new Set(documentEntitiesForRoles(roles).map(option=>option.value));
-  return ['Carte grise','Pièce d’identité','Permis','Contrat','Bon de commande','Facture fournisseur','Contrôle technique','PV livraison','Justificatif','Autre']
+  return ['Carte grise','Pièce d’identité','Permis','Contrat','Devis','Bon de commande','Facture client','Reçu de paiement','Facture fournisseur','Contrôle technique','PV livraison','Justificatif','Autre']
     .filter(type=>type!=='Facture fournisseur'||allowed.has('supplier'));
 };

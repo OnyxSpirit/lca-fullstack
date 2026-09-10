@@ -8,6 +8,7 @@ import { HttpError } from '../../shared/http-error.js';
 import { notifyRoles } from '../notifications/notification.service.js';
 import { assertFinanciallySettled } from '../billing/payment.domain.js';
 import { assertSaleTransition, saleTotals, validateCreateSale } from './sale.domain.js';
+import {archiveSaleOrder,safelyArchive} from '../documents/business-document.service.js';
 
 export async function assertFinanciallySettledForFinalization(saleId:string,request:Request){await transaction(async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT s.agency_id,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) financial_balance FROM sales s WHERE s.id=? FOR UPDATE`,[id(saleId)]),sale=rows[0];if(!sale)throw new HttpError(404,'Vente introuvable');if(!unrestricted(request)&&String(sale.agency_id)!==String(request.user!.agencyId))throw new HttpError(403,'Vente rattachée à une autre agence');assertFinanciallySettled(sale.financial_balance,'vente')})}
 
@@ -84,6 +85,7 @@ export async function updateStatus(saleId:string,value:unknown,reasonValue:unkno
     return{agencyId:String(sale.agency_id),status,vehicleId:sale.vehicle_id?String(sale.vehicle_id):null};
   });
   emitToAgency(result.agencyId,'sales:status',{id:saleId,status:result.status,vehicleId:result.vehicleId});
+  if(result.status==='confirmed')await safelyArchive(`sale:${saleId}:confirmed`,()=>archiveSaleOrder(saleId,request.user!.sub));
   if(['cancelled','ready_for_delivery'].includes(result.status))await notifyRoles({agencyId:result.agencyId,roles:result.status==='ready_for_delivery'?['DELIVERY_MANAGER']:['SALES_MANAGER'],includeGlobalRoles:['DIRECTOR','SUPER_ADMIN'],subject:result.status==='ready_for_delivery'?'Vente prête pour livraison':'Vente annulée',message:`La vente ${saleId} est au statut ${result.status}.`,eventType:`sale.${result.status}`,referenceType:'sale',referenceId:saleId,eventKey:`sale.status:${saleId}:${result.status}`});
   return one(saleId,request);
 }

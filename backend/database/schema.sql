@@ -1570,6 +1570,8 @@ CREATE TABLE notifications (
 CREATE TABLE documents (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     uploaded_by BIGINT UNSIGNED NULL,
+    origin ENUM('manual','generated') NOT NULL DEFAULT 'manual',
+    source_key VARCHAR(190) NULL,
     document_type VARCHAR(100) NULL,
     file_name VARCHAR(255) NOT NULL,
     file_url VARCHAR(500) NOT NULL,
@@ -1591,6 +1593,7 @@ CREATE TABLE documents (
     INDEX idx_documents_type (document_type),
     INDEX idx_documents_hash_entity (entity_type,entity_id,file_hash),
     INDEX idx_documents_parent (parent_document_id),
+    UNIQUE INDEX uk_documents_source_key (source_key),
     CONSTRAINT fk_document_user FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_documents_archived_by FOREIGN KEY (archived_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_documents_parent FOREIGN KEY (parent_document_id) REFERENCES documents(id) ON DELETE SET NULL

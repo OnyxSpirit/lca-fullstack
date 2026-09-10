@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Router, type Request } from "express";
 import PDFDocument from "pdfkit";
+import {archiveDelivery,safelyArchive} from "../documents/business-document.service.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { execute, query, transaction } from "../../config/database.js";
 import { authorize, unrestricted } from "../../middleware/authorize.js";
@@ -576,7 +577,7 @@ deliveryRouter.post(
       await audit(connection,request,id,'delivery.finalized',{status:'ready',vehicleStatus:vehicle.status,vehicleMileage:Number(vehicle.mileage)},{status:'delivered',vehicleStatus:'delivered',mileage,signer,signedAt:signedAt.toISOString(),hash});
       return{duplicate:false,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
     });
-    if(result.duplicate)return response.json(await detail(id,request));
+    if(result.duplicate){await safelyArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));return response.json(await detail(id,request));}
     emitToAgency(result.agencyId, "deliveries:delivered", { id });
     await notifyRoles(
       result.agencyId,
@@ -585,6 +586,7 @@ deliveryRouter.post(
       `${result.deliveryNumber} a été signé par ${signer}`,
       id,
     );
+    await safelyArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));
     response.json(await detail(id, request));
   }),
 );

@@ -511,6 +511,12 @@ ALTER TABLE documents
   ADD CONSTRAINT fk_documents_archived_by FOREIGN KEY (archived_by) REFERENCES users(id) ON DELETE SET NULL,
   ADD CONSTRAINT fk_documents_parent FOREIGN KEY (parent_document_id) REFERENCES documents(id) ON DELETE SET NULL;
 
+-- 021_ged_business_archive.sql
+ALTER TABLE documents
+  ADD COLUMN origin ENUM('manual','generated') NOT NULL DEFAULT 'manual' AFTER uploaded_by,
+  ADD COLUMN source_key VARCHAR(190) NULL AFTER origin,
+  ADD UNIQUE INDEX uk_documents_source_key (source_key);
+
 -- 015_notifications_reliability.sql
 ALTER TABLE notifications
   ADD COLUMN delivery_status ENUM('queued','sent','failed') NOT NULL DEFAULT 'sent' AFTER status,

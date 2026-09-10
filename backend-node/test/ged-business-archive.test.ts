@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
+const ged=source('src/modules/documents/business-document.service.ts');
+const quote=source('src/modules/quotations/quotation.service.ts');
+const sale=source('src/modules/sales/sale.service.ts');
+const billing=source('src/modules/billing/billing.routes.ts');
+const delivery=source('src/modules/deliveries/delivery.routes.ts');
+const routes=source('src/modules/documents/document.routes.ts');
+const migration=source('../backend/database/migrations/021_ged_business_archive.sql');
+
+test('GED-AUTO-01/02 devis émis et idempotent',()=>{assert.match(quote,/archiveQuotation/);assert.match(ged,/quotation:\$\{id\}:issued:v1/);assert.match(migration,/UNIQUE INDEX uk_documents_source_key/)});
+test('GED-AUTO-03/04 vente confirmée sans effet sur GET PDF',()=>{assert.match(sale,/status==='confirmed'.*archiveSaleOrder/);assert.doesNotMatch(source('src/modules/sales/sale.routes.ts'),/get\([^\n]+pdf[^\n]+archiveBusinessDocument/)});
+test('GED-AUTO-05 facture émise',()=>{assert.equal((billing.match(/archiveInvoice\(/g)??[]).length>=2,true);assert.match(ged,/invoice:\$\{id\}:issued:v1/)});
+test('GED-AUTO-06/07/08 un reçu stable par paiement',()=>{assert.match(billing,/archivePayment\(result.id/);assert.match(ged,/payment:\$\{id\}:confirmed:v1/)});
+test('GED-AUTO-09/10 livraison finalisée et retry réparateur',()=>{assert.equal((delivery.match(/archiveDelivery\(id/g)??[]).length,2);assert.match(ged,/delivery:\$\{id\}:finalized:v1/)});
+test('GED-MANUAL-01..04 dépôt manuel conservé',()=>{const storage=source('src/modules/documents/document-storage.ts');assert.match(routes,/documentRouter.post\('\/documents'/);assert.match(routes,/documentMultipart/);assert.match(storage,/image\/png/);assert.match(routes,/resolveDocumentEntity/)});
+test('GED-SEARCH-01..04 recherche globale et contextes transversaux',()=>{assert.match(routes,/d.file_name LIKE/);assert.match(routes,/contextClause/);assert.match(routes,/sales WHERE customer_id/);assert.match(routes,/deliveries WHERE vehicle_id/)});
+test('GED-RBAC-01..05 politiques et agence conservées',()=>{const access=source('src/modules/documents/document-access.ts');assert.match(access,/POLICIES/);assert.match(access,/unrestricted/);assert.match(routes,/typeScope/);assert.match(routes,/e.agency_id=\?/)});
+test('archivage après commit et consultation sans INSERT',()=>{assert.match(ged,/safelyArchive/);assert.doesNotMatch(billing.slice(billing.indexOf("get('/invoices/:id/pdf'")),/INSERT INTO documents/);assert.doesNotMatch(delivery.slice(delivery.indexOf('"/deliveries/:id/pdf"')),/INSERT INTO documents/)});

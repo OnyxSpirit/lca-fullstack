@@ -15,12 +15,8 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./deploy/mysql.cnf:/etc/mysql/conf.d/lca.cnf:ro
-      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
-      # Le schéma consolidé intègre 003 à 016, mais pas 001, 002 ni 017.
-      - ./backend/database/migrations/001_refresh_tokens.sql:/docker-entrypoint-initdb.d/002-refresh-tokens.sql:ro
-      - ./backend/database/migrations/002_global_settings_scope.sql:/docker-entrypoint-initdb.d/003-global-settings.sql:ro
-      - ./backend/database/migrations/017_concession_settings.sql:/docker-entrypoint-initdb.d/004-settings.sql:ro
-      - ./backend-node/database/migrations/001_sales_stabilization.sql:/docker-entrypoint-initdb.d/005-sales.sql:ro
+      - ./backend-node/database/baseline/001_initial_schema.sql:/docker-entrypoint-initdb.d/001-initial-schema.sql:ro
+      - ./backend-node/database/seeds/001_system_seed.sql:/docker-entrypoint-initdb.d/002-system-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
       interval: 10s
@@ -50,8 +46,10 @@ services:
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
       UPLOAD_DIR: /app/uploads
       GED_STORAGE_DIR: /app/ged-storage
+      DATABASE_ROOT: /app/database
     expose: ["3001"]
-    volumes: [uploads_data:/app/uploads, ged_data:/app/ged-storage]
+    volumes: [uploads_data:/app/uploads, ged_data:/app/ged-storage, ./backend-node/database:/app/database:ro]
+    command: ["sh", "-c", "node dist/scripts/database-bootstrap.js && node dist/server.js"]
     depends_on:
       mysql: { condition: service_healthy }
     healthcheck:
@@ -92,7 +90,9 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@lca.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD requis pour seed-admin}
+      DATABASE_ROOT: /app/database
     command: ["node", "dist/scripts/seed-admin.js"]
+    volumes: [./backend-node/database:/app/database:ro]
     depends_on:
       mysql: { condition: service_healthy }
     networks: [private]

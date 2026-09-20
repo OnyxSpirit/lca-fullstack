@@ -9,6 +9,9 @@ import {pool} from '../src/config/database.js';
 const originalExecute=pool.execute.bind(pool);
 const token=jwt.sign({sub:'200',email:'manager@test.local',roles:['SALES_MANAGER'],agencyId:'1'},env.jwt.accessSecret,{expiresIn:'5m'});
 before(()=>{(pool as any).execute=async(sql:string,params:unknown[]=[])=>{
+  if(sql.includes('SELECT id,agency_id FROM users'))return[[{id:'200',agency_id:'1'}],[]];
+  if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:'1',code:'CONSEILLER_PREMIUM_TEST_9381',is_system:0}],[]];
+  if(sql.includes('SELECT p.code,rp.scope'))return[[{code:'notifications.view',scope:'OWN'}],[]];
   assert.equal(String(params[0]),'200');
   if(sql.includes('COUNT(*)')&&sql.includes('read_at IS NULL'))return[[{total:2}],[]];
   if(sql.includes('COUNT(*)'))return[[{total:2}],[]];

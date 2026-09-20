@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+import {documentAccessPredicate} from '../src/modules/documents/document-access.js';
+import {MAX_DOCUMENT_SIZE,resolveDocumentPath,validateDocumentFile} from '../src/modules/documents/document-storage.js';
+
+const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
+const request=(permissions:Record<string,string>,isSuperAdmin=false)=>({
+  user:{sub:'7',agencyId:'11'},
+  rbac:{isSuperAdmin,permissions:new Map(Object.entries(permissions))},
+}) as any;
+
+test('GED-01 les routes utilisent les trois permissions dynamiques',()=>{const routes=source('src/modules/documents/document.routes.ts');for(const code of ['ged.view','ged.upload','ged.archive'])assert.match(routes,new RegExp(`requirePermission\\('${code}'\\)`));assert.doesNotMatch(routes,/authorizeRoles|DIRECTOR|PARTS_MANAGER|ACCOUNTANT/)});
+test('GED-02 la liste intersecte scope GED et scope métier',()=>{const result=documentAccessPredicate(request({'ged.view':'AGENCY','customers.view':'AGENCY'}),'ged.view');assert.match(result.clause,/d\.entity_type=\?/);assert.equal((result.clause.match(/e\.agency_id=\?/g)??[]).length,2);assert.deepEqual(result.params,['customer','11','11'])});
+test('GED-03 OWN est uploaded_by et reste intersecté avec le scope métier',()=>{const result=documentAccessPredicate(request({'ged.view':'OWN','customers.view':'AGENCY'}),'ged.view');assert.match(result.clause,/d\.uploaded_by=\?/);assert.match(result.clause,/e\.agency_id=\?/);assert.deepEqual(result.params,['customer','7','11'])});
+test('GED-04 OWN métier sans ownership fiable est refusé',()=>{const result=documentAccessPredicate(request({'ged.view':'GLOBAL','customers.view':'OWN'}),'ged.view');assert.match(result.clause,/1=0/)});
+test('GED-05 CONCESSION dépend des agences persistées',()=>{const result=documentAccessPredicate(request({'ged.view':'CONCESSION','customers.view':'CONCESSION'}),'ged.view');assert.equal((result.clause.match(/actor\.concession_id=target\.concession_id/g)??[]).length,2);assert.deepEqual(result.params,['customer','11','11'])});
+test('GED-06 GLOBAL ne crée pas un bypass Super Admin',()=>{const result=documentAccessPredicate(request({'ged.view':'GLOBAL','customers.view':'AGENCY'}),'ged.view');assert.match(result.clause,/e\.agency_id=\?/);assert.deepEqual(result.params,['customer','11'])});
+test('GED-07 un faux SUPER_ADMIN ne reçoit aucun droit',()=>{const result=documentAccessPredicate(request({}),'ged.view');assert.equal(result.clause,'1=0');assert.deepEqual(result.params,[])});
+test('GED-08 chaque accès direct recharge document puis ressource',()=>{const access=source('src/modules/documents/document-access.ts');assert.match(access,/WHERE d\.id=\?/);assert.match(access,/resolveDocumentEntity\(request,type,String\(doc\.entity_id\),permission/)});
+test('GED-09 upload dérive auteur et ressource côté serveur',()=>{const routes=source('src/modules/documents/document.routes.ts');assert.match(routes,/\[r\.user!\.sub,documentType/);assert.match(routes,/resolveDocumentEntity\(r,type,id\(r\.body\.entityId\),'ged\.upload'\)/);assert.doesNotMatch(routes,/r\.body\.(agencyId|uploadedBy|fileUrl|archivedBy)/)});
+test('GED-10 archive et version utilisent leur propre scope',()=>{const routes=source('src/modules/documents/document.routes.ts');assert.match(routes,/getAccessibleDocument\(r,documentId,'ged\.archive',true\)/);assert.match(routes,/getAccessibleDocument\(r,parentId,'ged\.upload',true\)/)});
+test('GED-11 les formats exécutables et incohérents sont refusés',()=>{assert.throws(()=>validateDocumentFile({originalName:'virus.exe',mimeType:'application/octet-stream',buffer:Buffer.from('MZ')}));assert.throws(()=>validateDocumentFile({originalName:'facture.pdf',mimeType:'application/pdf',buffer:Buffer.from('MZ executable')}))});
+test('GED-12 zéro octet et dépassement de taille sont refusés',()=>{assert.throws(()=>validateDocumentFile({originalName:'x.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(0)}));assert.throws(()=>validateDocumentFile({originalName:'x.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(MAX_DOCUMENT_SIZE+1)}))});
+test('GED-13 traversal est bloqué dans les clés GED et legacy',()=>{assert.throws(()=>resolveDocumentPath('ged:../../etc/passwd'));assert.throws(()=>resolveDocumentPath('/uploads/../../etc/passwd'))});
+test('GED-14 stockage génère des noms UUID sans nom original',()=>{const storage=source('src/modules/documents/document-storage.ts');assert.match(storage,/randomUUID\(\)/);assert.match(storage,/flag:'wx'/);assert.doesNotMatch(storage,/path\.join\(storageRoot[^\n]*originalName/)});
+test('GED-15 un échec INSERT nettoie le fichier écrit',()=>{const routes=source('src/modules/documents/document.routes.ts');assert.equal((routes.match(/unlink\(stored\.absolute\)\.catch/g)??[]).length>=2,true)});
+test('GED-16 la GED privée n’est pas montée en statique',()=>{const app=source('src/app.ts');assert.doesNotMatch(app,/app\.use\('\/uploads',express\.static/);assert.match(app,/\['avatars','vehicles','deliveries'\]/);assert.doesNotMatch(app,/GED_STORAGE_DIR.*express\.static/)});
+test('GED-17 download contrôle avant accès filesystem',()=>{const routes=source('src/modules/documents/document.routes.ts'),start=routes.indexOf("get('/documents/:id/download'");const section=routes.slice(start,start+700);assert.ok(section.indexOf('getAccessibleDocument')<section.indexOf('requireDocumentFile'));assert.match(section,/filename\*=UTF-8''\$\{encodeURIComponent/)});
+test('GED-18 archivage conserve le fichier et trace le serveur',()=>{const routes=source('src/modules/documents/document.routes.ts'),start=routes.indexOf("delete('/documents/:id'"),end=routes.indexOf("post('/documents/:id/restore'",start);assert.match(routes,/is_archived=TRUE,archived_at=NOW\(\),archived_by=\?/);assert.doesNotMatch(routes.slice(start,end),/unlink\(/)});
+test('GED-19 stockage Docker et sauvegarde sont persistants',()=>{const compose=source('../docker-compose.yml'),backup=source('../scripts/backup.sh'),restore=source('../scripts/restore.sh');assert.match(compose,/ged_data:\/app\/ged-storage/);assert.match(backup,/lca_ged_data/);assert.match(restore,/ged\.tar\.gz/)});
+test('GED-20 filtres, pagination et SQL sont bornés',()=>{const routes=source('src/modules/documents/document.routes.ts');assert.match(routes,/Math\.min\(100/);assert.match(routes,/d\.document_type=\?/);assert.match(routes,/LIMIT \? OFFSET \?/);assert.doesNotMatch(routes,/ORDER BY \$\{/) });

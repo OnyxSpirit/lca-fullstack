@@ -1,7 +1,7 @@
-type ShowroomUser={status:string;agencyId:string;roles?:string[];role:string};
+type ShowroomUser={id?:string;name?:string;status:string;agencyId:string;isSystemSuperAdmin?:boolean;permissions?:Record<string,unknown>|string[];roles?:string[];role?:string};
 type ClassifiedVisit={status:string;assignedUserId?:string|null};
 
-export const eligibleShowroomSalesUsers=<T extends ShowroomUser>(users:T[],agencyId?:string)=>users.filter(user=>user.status==='active'&&Boolean(agencyId)&&user.agencyId===agencyId&&(user.roles?.length?user.roles:[user.role]).some(role=>['SALES_REP','SALES_MANAGER'].includes(role)));
+export const eligibleShowroomSalesUsers=<T extends ShowroomUser>(users:T[],agencyId?:string)=>users.filter(user=>{const permissions=Array.isArray(user.permissions)?user.permissions:Object.keys(user.permissions??{});return !user.isSystemSuperAdmin&&user.status==='active'&&Boolean(agencyId)&&user.agencyId===agencyId&&(permissions.includes('sales.create')||permissions.includes('crm.prospect.update'))});
 
 export const showroomVisitorErrors=(visitorName:string,phone:string)=>{
   const errors:{visitorName?:string;phone?:string}={};

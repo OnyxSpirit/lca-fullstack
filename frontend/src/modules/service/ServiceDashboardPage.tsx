@@ -25,14 +25,13 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewRepairOrderModal } from './NewRepairOrderModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
-import { canAccessModule, hasPermission } from '../../navigation/permissions';
 
 export const ServiceDashboardPage: React.FC = () => {
   const repairQuery=useRepairOrdersQuery();
   const repairOrders = repairQuery.data ?? [];
   const stats=useRepairStatsQuery();
   const navigate = useNavigate();
-  const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canCreate=hasPermission(roles,'service.create'),canViewWorkshop=canAccessModule(roles,'view','workshop');
+  const can=useAuthStore(state=>state.can),canCreate=can('service.order.create'),canViewWorkshop=can('workshop.view');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');

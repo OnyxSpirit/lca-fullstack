@@ -46,4 +46,4 @@ Les chemins communs et constructeurs de détails sont centralisés dans `src/nav
 
 ## Limite de l’environnement d’audit
 
-Le backend réel `http://localhost:3001` et MySQL n’étaient pas démarrés au début de l’audit. Les parcours frontend ont donc été isolés avec une API factice locale. Les erreurs métier 401/403 du backend réel devront être rejouées une fois NestJS et MySQL démarrés avec les comptes de chaque rôle.
+Le backend réel `http://localhost:3001` et MySQL n’étaient pas démarrés au début de cet audit historique. Les parcours frontend avaient donc été isolés avec une API factice locale. Les erreurs métier 401/403 doivent être rejouées avec `backend-node/`, MySQL et des comptes de test contrôlés pour chaque ensemble de permissions/scopes.

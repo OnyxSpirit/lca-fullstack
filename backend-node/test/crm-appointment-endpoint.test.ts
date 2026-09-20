@@ -13,7 +13,7 @@ const token=jwt.sign({sub:'100',email:'agent@test.local',roles:['SALES_AGENT'],a
 const lead=()=>({lead_id:'10',opportunity_id:'20',customer_id:null,first_name:'Awa',last_name:'Test',company_name:null,email:'awa@test.local',phone:'+242060000001',source:'Web',lead_status:stage==='qualified'?'qualified':'new',priority:'medium',assigned_user_id:'100',created_by:'100',title:'SUV',stage,expected_value:15000000,probability:60,expected_close_date:null,lost_reason:null,notes:null,assigned_user_name:'Agent Test',created_by_name:'Agent Test',agency_id:'1',agency_name:'Agence Test',created_at:'2026-09-08',updated_at:'2026-09-08'});
 
 before(()=>{
-  (pool as any).execute=async(sql:string)=>sql.includes('FROM leads l JOIN opportunities o')?[[lead()],[]]:[[],[]];
+  (pool as any).execute=async(sql:string)=>{if(sql.includes('FROM leads l JOIN opportunities o'))return[[lead()],[]];if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:'role-dynamic',code:'CRM_TEST_DYNAMIC',is_system:0}],[]];if(sql.includes('SELECT p.code,rp.scope'))return[[{code:'crm.appointment.create',scope:'OWN'},{code:'crm.pipeline.advance',scope:'OWN'}],[]];return[[],[]]};
   (pool as any).getConnection=async()=>({
     beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},
     execute:async(sql:string,params:unknown[]=[])=>{writes.push({sql,params});return sql.includes('INSERT INTO activities')?[{insertId:501,affectedRows:1},[]]:[{affectedRows:1},[]]},

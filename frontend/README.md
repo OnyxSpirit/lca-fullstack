@@ -1,185 +1,61 @@
-# LCA Automotive ERP
+# Frontend LCA
 
-Application de gestion intégrée pour concession automobile.
+Interface React 19 et TypeScript construite avec Vite. Les données serveur sont
+gérées par TanStack Query, Zustand reste réservé à la session et à l’état UI,
+et Socket.IO actualise les caches après les événements métier.
 
-Le système centralise les opérations commerciales, la gestion des véhicules,
-l'atelier, les pièces détachées, le SAV, la facturation, les livraisons,
-les utilisateurs et les tableaux de bord.
+## Installation
 
----
+```bash
+cp .env.example .env
+npm ci
+npm run dev
+```
 
-# 1. Présentation
+En développement :
 
-LCA Automotive ERP est une plateforme destinée à digitaliser et centraliser
-les opérations d'une concession automobile.
+```env
+VITE_API_URL=http://localhost:3001/api
+```
 
-L'application permet notamment de gérer :
+L’interface écoute sur `http://localhost:3000`. En production Docker,
+`VITE_API_URL=/api` est injecté au build et Nginx sert l’application ainsi que
+les reverse proxies `/api`, `/uploads` et `/socket.io`.
 
-- les clients
-- les prospects
-- les ventes de véhicules
-- le stock automobile
-- les ateliers
-- les techniciens
-- les pièces détachées
-- les ordres de réparation
-- le SAV
-- les devis
-- les factures
-- les paiements
-- les livraisons
-- les utilisateurs
-- les rôles et permissions
-- les statistiques et tableaux de bord
+## Scripts
 
----
+```bash
+npm run lint
+npm test
+npm run build
+npm run preview
+```
 
-# 2. Objectifs du projet
+Le build génère `dist/`. Une réussite du build ne remplace pas les parcours
+comportementaux dans le navigateur, notamment la navigation profonde, les
+réponses 401/403 et les actions conditionnées par permissions.
 
-Les principaux objectifs sont :
+## Navigation et accès
 
-- Centraliser les données de la concession.
-- Réduire les opérations manuelles.
-- Améliorer le suivi des clients.
-- Améliorer le suivi des véhicules.
-- Optimiser la gestion de l'atelier.
-- Assurer la traçabilité des opérations.
-- Sécuriser l'accès aux données.
-- Fournir des tableaux de bord permettant le pilotage de l'activité.
+Les chemins sont centralisés dans `src/navigation/routes.ts`. Les routes
+inconnues affichent une page 404 et les routes protégées restaurent la
+destination après connexion. Le détail de l’audit historique est conservé
+dans `NAVIGATION_AUDIT.md`.
 
----
+Le frontend consomme les permissions et scopes renvoyés par l’API via
+`can(...)`. Il ne doit pas autoriser une action à partir d’un nom de rôle : le
+backend demeure l’autorité de sécurité. `SUPER_ADMIN` est le seul rôle système
+spécial.
 
-# 3. Modules
+## Temps réel
 
-## CRM & Prospection
+`src/services/realtime.ts` déduit l’origine backend de `VITE_API_URL`, se
+connecte au namespace `/realtime` avec le JWT dans `auth.token` et utilise le
+path Engine.IO `/socket.io`. Après reconnexion ou événement, les ressources
+concernées sont rafraîchies par TanStack Query.
 
-Gestion :
+## Principaux modules
 
-- prospects
-- clients
-- opportunités
-- campagnes
-- relances
-- historique des interactions
-
-## Stock automobile
-
-Gestion :
-
-- véhicules
-- entrées en stock
-- sorties
-- disponibilité
-- immobilisation
-- historique des véhicules
-
-## Ventes
-
-Gestion :
-
-- opportunités
-- devis
-- commandes
-- ventes
-- commerciaux
-- commissions
-
-## Atelier
-
-Gestion :
-
-- rendez-vous
-- ordres de réparation
-- techniciens
-- planning
-- postes de travail
-- temps d'intervention
-- statut des réparations
-
-## Pièces détachées
-
-Gestion :
-
-- catalogue
-- stock
-- fournisseurs
-- commandes fournisseurs
-- mouvements de stock
-- seuils d'alerte
-
-## SAV
-
-Gestion :
-
-- rendez-vous
-- réclamations
-- ordres de réparation
-- historique client
-- garanties
-
-## Facturation
-
-Gestion :
-
-- devis
-- factures
-- paiements
-- échéances
-- avoirs
-
-## Livraison
-
-Gestion :
-
-- préparation du véhicule
-- contrôle qualité
-- documents
-- livraison
-- remise des clés
-
-## Reporting
-
-Gestion :
-
-- chiffre d'affaires
-- ventes
-- stock
-- atelier
-- SAV
-- pièces
-- performances commerciales
-
----
-
-# 4. Architecture
-
-L'application est organisée selon une architecture séparant :
-
-- Frontend
-- Backend
-- Base de données
-- Services externes
-
-Architecture générale :
-
-Frontend
-   |
-   | HTTP / REST API
-   |
-Backend
-   |
-   +------ Database
-   |
-   +------ Services externes
-
-# Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Run the app:
-   `npm run dev`
-
-// react-example
+CRM, Clients 360°, véhicules VN/VO, ventes, showroom, livraisons, SAV/OR,
+planning atelier, pièces et approvisionnements, facturation, GED, reporting,
+notifications, utilisateurs/RBAC et paramètres.

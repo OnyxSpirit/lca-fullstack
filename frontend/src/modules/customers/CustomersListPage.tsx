@@ -23,7 +23,6 @@ import { Modal } from '../../components/ui/Modal';
 import { useUiStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
-import { hasPermission } from '../../navigation/permissions';
 
 type CustomerAccountType='Particulier'|'Professionnel';
 type CustomerCivility='M.'|'Mme'|'Société';
@@ -35,9 +34,8 @@ const phoneValid=(value:string)=>{const digits=value.replace(/\D/g,'');return !v
 
 export const CustomersListPage: React.FC = () => {
   const { addToast } = useUiStore();
-  const { currentUser, currentAgency } = useAuthStore();
-  const roles=currentUser?.roles?.length?currentUser.roles:currentUser?[currentUser.role]:[];
-  const canCreateCustomer=hasPermission(roles,'customers.create');
+  const { currentUser, currentAgency, can } = useAuthStore();
+  const canCreateCustomer=can('customers.create');
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,7 +75,7 @@ export const CustomersListPage: React.FC = () => {
       city: newCustomerForm.city,
       country: 'Congo',
       agencyId:currentAgency?.id,
-      assignedUserId: currentUser?.id,
+      assignedUserId: currentUser?.isSystemSuperAdmin ? undefined : currentUser?.id,
     });
     addToast({
       type: 'success',

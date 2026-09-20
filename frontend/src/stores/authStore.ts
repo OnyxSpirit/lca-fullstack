@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { User, Agency, UserRole, PermissionAction } from '../types';
+import { User, Agency, PermissionAction, EffectivePermissionScope } from '../types';
 import { apiRequest } from '../services/apiClient';
 import { connectRealtime, disconnectRealtime } from '../services/realtime';
-import { canAccessModule, normalizeRole } from '../navigation/permissions';
+import { hasDynamicPermission } from '../navigation/permissions';
 
 const AUTH_STORAGE_KEY = 'lca-auth-user';
 const ACCESS_TOKEN_KEY = 'lca-access-token';
@@ -20,7 +20,17 @@ interface AuthState {
   setCurrentAgency: (agency: Agency) => void;
   setDirectory: (users: User[], agencies: Agency[]) => void;
   hasPermission: (action: PermissionAction, module: string) => boolean;
+  can: (permissionCode: string) => boolean;
+  permissionScope: (permissionCode: string) => EffectivePermissionScope | null | undefined;
+  refreshPermissions: () => Promise<void>;
 }
+
+type AuthProfile = { id: string; firstName: string; lastName: string; email: string; agencyId: string; agencyName: string; agencyCode: string; avatar: string | null; roles: string[]; role: { id: string | null; code: string; isSystemSuperAdmin?: boolean }; permissions: { code: string; scope: EffectivePermissionScope | null }[] };
+const toUser = (profile: AuthProfile): User => {
+  const roles = profile.roles;
+  const primaryRole = profile.role.code || roles[0] || '';
+  return { id: profile.id, name: `${profile.firstName} ${profile.lastName}`, email: profile.email, role: primaryRole, roles, primaryRole, roleCode: profile.role.code, roleTitle: profile.role.code.replaceAll('_', ' '), avatar: profile.avatar ?? '', agencyId: profile.agencyId, agencyName: profile.agencyName, department: '', phone: '', status: 'active', isSystemSuperAdmin: Boolean(profile.role.isSystemSuperAdmin), permissions: Object.fromEntries(profile.permissions.map(({ code, scope }) => [code, scope])) };
+};
 
 const storedUser = typeof window !== 'undefined' ? localStorage.getItem(AUTH_STORAGE_KEY) : null;
 const parsedUser = storedUser ? JSON.parse(storedUser) as User : null;
@@ -35,9 +45,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email, password) => {
     try {
-      const response = await apiRequest<{ accessToken: string; refreshToken: string; user: { id: string; firstName: string; lastName: string; email: string; agencyId: string; agencyName:string;agencyCode:string;avatar:string|null;roles: string[] } }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      const roles=response.user.roles.map(normalizeRole).filter((role):role is UserRole=>Boolean(role));const primaryRole=roles[0]??'RECEPTIONIST';
-      const user: User = { id: response.user.id, name: `${response.user.firstName} ${response.user.lastName}`, email: response.user.email, role:primaryRole,roles,primaryRole, roleTitle: primaryRole.replaceAll('_', ' '), avatar: response.user.avatar??'', agencyId: response.user.agencyId, agencyName: response.user.agencyName, department: '', phone: '', status: 'active' };
+      const response = await apiRequest<{ accessToken: string; refreshToken: string; user: AuthProfile }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      const user = toUser(response.user);
       const agency: Agency = { id: user.agencyId, name: response.user.agencyName, code: response.user.agencyCode, city: '', address: '', phone: '', email: '', isMain: true, isActive: true };
       localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken); localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken); localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
       connectRealtime(response.accessToken); set({ currentUser: user, currentAgency: agency, allUsers: [user], allAgencies: [agency], isAuthenticated: true }); return { success: true };
@@ -62,6 +71,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasPermission: (action, module) => {
     const { currentUser } = get();
     if (!currentUser) return false;
-    return canAccessModule(currentUser.roles?.length?currentUser.roles:[currentUser.role], action, module);
+    const dynamicCode = `${module === 'service' ? 'workshop' : module}.${action === 'view' ? 'view' : action}`;
+    return hasDynamicPermission(currentUser.permissions,dynamicCode);
+  },
+  can: (permissionCode) => hasDynamicPermission(get().currentUser?.permissions,permissionCode),
+  permissionScope: (permissionCode) => { const permissions = get().currentUser?.permissions; return permissions?.['*'] ?? permissions?.[permissionCode]; },
+  refreshPermissions: async () => {
+    const { user: profile } = await apiRequest<{ user: AuthProfile }>('/auth/me');
+    const user = toUser(profile);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    set((state) => ({ currentUser: user, currentAgency: { id: user.agencyId, name: user.agencyName, code: profile.agencyCode, city: '', address: '', phone: '', email: '', isMain: true, isActive: true }, allUsers: state.allUsers.map((entry) => entry.id === user.id ? user : entry) }));
   },
 }));

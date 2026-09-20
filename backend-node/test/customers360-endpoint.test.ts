@@ -21,6 +21,14 @@ const customer=(id:string,type:'individual'|'company')=>({
 
 before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
+    if(sql.includes('FROM user_roles ur JOIN roles r'))return[[{id:'role-test',code:'CUSTOMER_SUPPORT_TEST',is_system:0}],[]];
+    if(sql.includes('FROM role_permissions rp JOIN permissions p'))return[[
+      {code:'customers.view',scope:'AGENCY'},{code:'customers.history.view',scope:'AGENCY'},
+      {code:'crm.prospect.view',scope:'AGENCY'},{code:'vehicles.view',scope:'AGENCY'},
+      {code:'sales.view',scope:'AGENCY'},{code:'quotations.view',scope:'AGENCY'},
+      {code:'service.order.view',scope:'AGENCY'},{code:'billing.invoice.view',scope:'AGENCY'},
+      {code:'billing.payment.view',scope:'AGENCY'},
+    ],[]];
     if(sql.includes('FROM customers c JOIN agencies a')){
       const id=String(params[0]??'');
       if(id==='1')return[[customer('1','individual')],[]];

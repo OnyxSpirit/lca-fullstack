@@ -32,23 +32,25 @@ import { VehicleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { apiDownload } from '../../services/apiClient';
 import { openBusinessPdf } from '../../services/businessPdf';
-import { canChangeVehicleStatus, canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
 
 export const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const vehicleQuery=useVehicle360Query(id); const statusMutation = useVehicleStatusMutation();
   const imageMutations=useVehicleImages();
-  const currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean);
-  const canEdit=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.update');
-  const canCreateSale=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'sales.create');
-  const canCreateRepairOrder=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'service.create');
-  const canViewDocuments=hasPermission(roles as Parameters<typeof hasPermission>[0],'documents.view');
-  const canChangeStatus=canChangeVehicleStatus(roles as Parameters<typeof canChangeVehicleStatus>[0]);
-  const canViewFinancials=canPerformWorkflowAction(roles as Parameters<typeof canPerformWorkflowAction>[0],'vehicles.viewFinancials');
+  const can=useAuthStore(state=>state.can);
+  const canEdit=can('vehicles.update');
+  const canManageImages=can('vehicles.images.manage');
+  const canCreateSale=can('sales.create');
+  const canCreateRepairOrder=can('service.order.create');
+  const canViewDocuments=can('ged.view');
+  const canChangeStatus=can('vehicles.status.update');
+  const canViewFinancials=can('vehicles.financials.view');
   const { setActiveQuickActionModal, addToast } = useUiStore();
 
   const vehicle = vehicleQuery.data?.vehicle;
+  const manualTransitions:Partial<Record<VehicleStatus,VehicleStatus[]>>={COMMANDE:['EN_TRANSIT','RECEPTIONNE'],EN_TRANSIT:['RECEPTIONNE'],RECEPTIONNE:['PREPARATION','DISPONIBLE'],PREPARATION:['DISPONIBLE'],DISPONIBLE:['PREPARATION'],RESERVE:['DISPONIBLE'],VENDU:[],LIVRE:[]};
+  const manualStatusOptions=vehicle?manualTransitions[vehicle.status]??[]:[];
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
   const [editOpen,setEditOpen]=useState(false);
@@ -95,19 +97,13 @@ export const VehicleDetailPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             {canEdit&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
             {/* Quick Status Selector */}
-            {canChangeStatus&&<select
+            {canChangeStatus&&manualStatusOptions.length>0&&<select
               value={vehicle.status}
               onChange={(e) => handleStatusChange(e.target.value as VehicleStatus)}
               className="text-xs font-bold p-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none"
             >
-              <option value="COMMANDE">Statut : Commandé</option>
-              <option value="EN_TRANSIT">Statut : En transit</option>
-              <option value="RECEPTIONNE">Statut : Réceptionné</option>
-              <option value="PREPARATION">Statut : En préparation</option>
-              <option value="DISPONIBLE">Statut : Disponible à la vente</option>
-              <option value="RESERVE">Statut : Réservé</option>
-              <option value="VENDU">Statut : Vendu</option>
-              <option value="LIVRE">Statut : Livré au client</option>
+              <option value={vehicle.status}>Statut actuel : {vehicle.status}</option>
+              {manualStatusOptions.map(status=><option key={status} value={status}>Passer à : {status}</option>)}
             </select>}
 
             <Button
@@ -165,7 +161,7 @@ export const VehicleDetailPage: React.FC = () => {
               ))}
             </div>
           )}
-          {canEdit&&<div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label>{vehicleQuery.data?.images?.map((image:any,index:number)=><div key={image.id} className="flex gap-1"><Button size="xs" variant="outline" disabled={Boolean(image.is_primary)} onClick={()=>imageMutations.primary.mutate({id:vehicle.id,imageId:String(image.id)})}>{index===0?'Principale':'Définir principale'}</Button><Button size="xs" variant="outline" onClick={()=>{if(window.confirm('Supprimer cette photo du catalogue ?'))imageMutations.remove.mutate({id:vehicle.id,imageId:String(image.id)})}}>Supprimer</Button></div>)}</div>}
+          {canManageImages&&<div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label>{vehicleQuery.data?.images?.map((image:any,index:number)=><div key={image.id} className="flex gap-1"><Button size="xs" variant="outline" disabled={Boolean(image.is_primary)} onClick={()=>imageMutations.primary.mutate({id:vehicle.id,imageId:String(image.id)})}>{index===0?'Principale':'Définir principale'}</Button><Button size="xs" variant="outline" onClick={()=>{if(window.confirm('Supprimer cette photo du catalogue ?'))imageMutations.remove.mutate({id:vehicle.id,imageId:String(image.id)})}}>Supprimer</Button></div>)}</div>}
         </div>
 
         {/* Commercial Highlights Card */}

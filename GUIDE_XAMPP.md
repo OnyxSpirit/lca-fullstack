@@ -1,58 +1,83 @@
-# Test local avec MySQL/MariaDB de XAMPP
+# Développement local avec MySQL de XAMPP
 
-## 1. Démarrer la base
+Cette procédure utilise `backend-node/`, l’unique backend du projet. Apache
+n’est requis que pour phpMyAdmin ; React et Express utilisent leurs propres
+ports.
 
-Dans le panneau XAMPP, démarrez **MySQL**. Apache n'est pas requis pour React ou NestJS ; il sert seulement si vous utilisez phpMyAdmin.
+## 1. Préparer MySQL
 
-## 2. Importer le schéma
+Démarrez MySQL dans XAMPP et créez une base vide `concession_erp`. Le projet
+cible MySQL 8. Les variantes MariaDB de XAMPP ne sont pas la cible certifiée :
+validez leur compatibilité avant de les utiliser.
 
-Ouvrez `http://localhost/phpmyadmin`, puis utilisez **Importer** avec `backend/database/schema.sql`.
-
-Attention : ce fichier recrée les tables et supprime leurs données existantes. Utilisez une base de test ou faites une sauvegarde avant de le réimporter.
-
-Le schéma utilise `utf8mb4`, InnoDB, des clés étrangères, des ENUM et JSON compatibles avec les versions modernes de MariaDB fournies par XAMPP.
-
-## 3. Configurer l'API
-
-Dans `backend/` :
+## 2. Configurer et initialiser le backend
 
 ```bash
-cp .env.xampp.example .env
-npm install
+cd backend-node
+cp .env.example .env
+npm ci
+npm run db:bootstrap
 ```
 
-Modifiez `.env` si le port, l'utilisateur ou le mot de passe MySQL diffèrent de votre installation. Avec XAMPP standard, l'utilisateur est souvent `root` avec un mot de passe vide.
+La configuration locale fournie utilise `DB_HOST=127.0.0.1`, `DB_PORT=3306`,
+`DB_USER=root` et un `DB_PASSWORD` vide. Adaptez uniquement les valeurs qui
+diffèrent dans XAMPP. `DB_HOST` ne doit contenir ni `http://` ni numéro de port.
 
-Créez ensuite le compte administrateur :
+Le bootstrap initialise une base vide. Sur une base non vide dépourvue de
+`schema_migrations`, il s’arrête volontairement : sauvegardez puis suivez la
+procédure d’adoption décrite dans `backend-node/database/README.md`. Il ne
+supprime pas automatiquement une base existante.
+
+Renseignez ensuite dans `.env` :
+
+```env
+ADMIN_EMAIL=admin@lca.local
+ADMIN_PASSWORD=un-mot-de-passe-initial-fort
+```
+
+Puis lancez :
 
 ```bash
 npm run seed:admin
-npm run start:dev
+npm run dev
 ```
 
-Vérifiez la connexion MySQL dans le navigateur : `http://localhost:3001/api/health`. La réponse attendue contient `"database":"connected"`.
+Contrôlez `http://localhost:3001/api/health`. La réponse doit indiquer que la
+base est connectée.
 
-Swagger est disponible sur `http://localhost:3001/api/docs`.
+## 3. Démarrer le frontend
 
-## 4. Configurer le frontend
-
-Dans un autre terminal :
+Dans un autre terminal, depuis la racine du projet :
 
 ```bash
 cd frontend
 cp .env.example .env
-npm install
+npm ci
 npm run dev
 ```
 
-La valeur importante est :
+Conservez :
 
 ```env
 VITE_API_URL=http://localhost:3001/api
 ```
 
-Ouvrez `http://localhost:3000` et connectez-vous avec `ADMIN_EMAIL` et `ADMIN_PASSWORD` définis dans `backend/.env`.
+Ouvrez `http://localhost:3000`. Si le port backend change, reportez le même
+port dans `VITE_API_URL`. L’URL de connexion utilisateur reste `/login` dans le
+frontend ; ce n’est pas l’adresse de l’API.
 
-## Ports occupés
+## 4. Vérifier avant de développer
 
-Si XAMPP utilise un autre port MySQL, changez uniquement `DB_PORT`. Si le port 3001 est pris, changez `PORT` côté backend et reportez la même valeur dans `VITE_API_URL` côté frontend.
+```bash
+cd backend-node
+npm run lint
+npm run build
+
+cd ../frontend
+npm run lint
+npm run build
+```
+
+Les médias sont écrits dans `backend-node/uploads/` et les documents GED dans
+`backend-node/ged-storage/`, sauf surcharge de `UPLOAD_DIR` et
+`GED_STORAGE_DIR`.

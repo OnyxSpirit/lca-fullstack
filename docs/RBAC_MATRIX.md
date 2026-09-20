@@ -1,77 +1,79 @@
-# Matrice RBAC LCA
+# Référence RBAC dynamique LCA
 
-Le backend conserve l’autorité de sécurité (`authorize`, périmètre agence et contrôles de propriété). Le frontend utilise la matrice unique `frontend/src/navigation/permissions.ts` pour prévenir les actions refusées. Les alias frontend historiques correspondent à `DIRECTION = DIRECTOR`, `SALES_REP = SALES_AGENT` et `WORKSHOP_CHIEF = WORKSHOP_MANAGER`.
+Ce document décrit le modèle d’autorisation, pas une matrice figée par intitulé
+de rôle. Les rôles métier sont configurables en base. Ajouter ou renommer un
+rôle ne doit pas nécessiter de modifier le code.
 
-## Modules visibles
+## Autorité et évaluation
 
-Tous les rôles voient Dashboard, Portail des modules et Notifications. Le symbole `R` signifie lecture, `A` administration/action complète et `-` aucun accès.
+Le backend `backend-node/` est l’unique autorité. Chaque endpoint sensible :
 
-| Module | SUPER_ADMIN | DIRECTOR | SALES_MANAGER | SALES_AGENT | RECEPTIONIST | SERVICE_MANAGER | SERVICE_ADVISOR | WORKSHOP_MANAGER | TECHNICIAN | PARTS_MANAGER | WAREHOUSE_CLERK | DELIVERY_MANAGER | ACCOUNTANT |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| CRM | A | A | A | A | R/C | - | - | - | - | - | - | - | - |
-| Clients 360 | A | A | A | A | R/C | A | A | - | - | - | - | R | R |
-| Véhicules | A | A | R | R | R | R | R | R | - | - | - | R | - |
-| Showroom | A | A | A | A | R/C/Affecter | - | - | - | - | - | - | - | - |
-| Ventes | A | A | A | A | - | - | - | - | - | - | - | R | R |
-| Livraisons | A | A | R | R | - | - | - | - | - | - | - | A | - |
-| SAV / OR | A | A | - | - | - | A | A | A | R/U affectés | R lié | R lié | - | R financier |
-| Atelier | A | A | - | - | - | A | R | A | U affecté | R | - | - | - |
-| Pièces | A | A | - | - | - | R/U lié | R lié | R/U lié | R lié | A | U | - | - |
-| Facturation | A | A | - | - | - | R SAV | - | - | - | - | - | - | A |
-| GED | A | A | A | A | - | A | A | A | A technique | A | A logistique | A | A financier |
-| Reporting | A | A | Commercial | - | - | SAV | - | Atelier | - | Pièces | - | - | Financier |
-| Utilisateurs/RBAC | A | - | - | - | - | - | - | - | - | - | - | - | - |
-| Paramètres | A | A concession | - | - | - | - | - | - | - | - | - | - | - |
+1. exige une permission explicite avec `requirePermission(...)` ;
+2. récupère le scope attribué à cette permission ;
+3. applique le périmètre `OWN`, `AGENCY`, `CONCESSION` ou `GLOBAL` ;
+4. vérifie l’ownership à partir de la vraie relation métier de la ressource ;
+5. refuse un appel direct par identifiant hors périmètre.
 
-## Actions déterminantes
+Le frontend utilise `can(...)` pour présenter l’interface, mais son masquage
+n’est jamais une mesure de sécurité. Les payloads de permissions peuvent être
+normalisés depuis leur représentation API sans logique fondée sur le nom du
+rôle.
 
-| Action | Rôles autorisés |
+## Scopes
+
+| Scope | Portée attendue |
 |---|---|
-| Créer prospect | SUPER_ADMIN, DIRECTOR, SALES_MANAGER, SALES_AGENT, RECEPTIONIST |
-| Changer étape, journal CRM, gagné/perdu | SUPER_ADMIN, DIRECTOR, SALES_MANAGER, SALES_AGENT |
-| Créer/modifier vente | SUPER_ADMIN, DIRECTOR, SALES_MANAGER, SALES_AGENT |
-| Enregistrer visiteur | SUPER_ADMIN, DIRECTOR, SALES_MANAGER, RECEPTIONIST |
-| Affecter visiteur | SUPER_ADMIN, DIRECTOR, SALES_MANAGER, RECEPTIONIST |
-| Prendre en charge, essai, clôture showroom | SUPER_ADMIN, DIRECTOR, SALES_MANAGER, SALES_AGENT |
-| Encaisser, avoir, remboursement | SUPER_ADMIN, DIRECTOR, ACCOUNTANT |
-| Gérer ressources atelier | SUPER_ADMIN, DIRECTOR, SERVICE_MANAGER, WORKSHOP_MANAGER |
-| Pointer une intervention | SUPER_ADMIN, DIRECTOR, WORKSHOP_MANAGER, SERVICE_ADVISOR, TECHNICIAN |
-| Catalogue/commandes pièces | SUPER_ADMIN, DIRECTOR, PARTS_MANAGER |
-| Réception/mouvements pièces | SUPER_ADMIN, DIRECTOR, PARTS_MANAGER, WAREHOUSE_CLERK |
-| Planifier/clôturer livraison | SUPER_ADMIN, DIRECTOR, DELIVERY_MANAGER |
+| `OWN` | ressources réellement affectées à l’utilisateur |
+| `AGENCY` | ressources de l’agence autorisée |
+| `CONCESSION` | agences de la concession autorisée |
+| `GLOBAL` | toutes les concessions |
 
-## Routes et endpoints audités
+Un utilisateur de la même agence n’est pas owner par simple appartenance à
+l’agence. Par exemple, une visite showroom utilise son commercial affecté et
+un essai son advisor. Les autres modules suivent leurs relations métier
+respectives.
 
-Les routes React listes et détails sont toutes enveloppées par `ModuleGuard`; les routes inconnues conservent une page 404. Sidebar et Portail appellent tous deux la même matrice.
+## Administration et délégation
 
-| Famille API | Lecture | Écriture/action | Portée |
-|---|---|---|---|
-| `/leads`, `/activities` | CRM_READ | CRM_WRITE, CRM_STAGE, CRM_ACTIVITY | agence + commercial |
-| `/customers` | READ | WRITE | agence + propriété commerciale |
-| `/vehicles` | READ | WRITE | agence; données financières filtrées backend |
-| `/showroom` | READ | RECEPTION ou COMMERCIAL selon action | agence + conseiller affecté |
-| `/sales` | READ | WRITE | agence + commercial |
-| `/deliveries` | READ | rôles livraison/action | agence + responsable |
-| `/repair-orders`, `/workshop` | READ | CREATE, MANAGE, TECH, ITEMS selon action | agence + technicien/OR |
-| `/parts`, `/purchase-orders` | READ | CATALOG, STOCK, ORDER, RECEIVE | agence + emplacement |
-| `/invoices`, `/payments` | READ | CREATE, PAY, CREDIT, REFUND | agence |
-| `/documents` | READ_ROLES | UPLOAD_ROLES, ARCHIVE_ROLES | type d’entité + agence |
-| `/reports` | ALL puis SALES/WORKSHOP/PARTS/FIN | export selon section | agence; global Direction/Admin |
-| `/users`, `/settings` | administration | administration | agence/concession/global |
+- `roles.permissions.manage` est requis pour modifier les permissions ou leurs scopes ;
+- un administrateur ne peut déléguer une permission qu’il ne possède pas ;
+- il ne peut déléguer un scope supérieur au sien ;
+- les scopes de `users.view`, `users.create`, `users.update`, activation,
+  changement de rôle et changement d’agence sont appliqués côté backend ;
+- la protection du dernier `SUPER_ADMIN` actif reste obligatoire ;
+- `SUPER_ADMIN` est le seul rôle système spécial.
 
-## Divergences corrigées
+Les codes comme `DIRECTOR`, `SALES_AGENT` ou `TECHNICIAN` ne confèrent aucun
+privilège implicite. Les affectations de ressources se fondent sur état actif,
+agence, rôle actif et permissions métier requises.
 
-| Module | Action | Frontend avant | Backend | Correction |
-|---|---|---|---|---|
-| CRM | Avancer / étape | Réception visible | interdit | masqué / lecture seule |
-| CRM | Journal commercial | Réception visible | interdit | formulaire masqué et CRM_ACTIVITY séparé |
-| CRM | Vente | Réception visible | interdit | masqué dans tous les points d’entrée |
-| CRM | Perdu | absent | motif obligatoire supporté | étape ajoutée avec motif obligatoire |
-| Showroom | Affecter | liste parfois vide | réception autorisée | actifs de l’agence, mapping de rôle normalisé |
-| Showroom | Prendre en charge / essai / clôture | Réception visible | interdit | masqué |
-| Quick Actions | opérations | filtrage incomplet | routes spécialisées | filtrage par permission et garde des modales |
-| Dashboard/recherche | requêtes invisibles | appels API systématiques | 403 selon rôle | requêtes conditionnées au module |
-| Véhicule 360 | coûts et marges | trop visibles | DTO partiellement filtré | onglet et marge masqués sans permission |
-| Idempotence | `crypto.randomUUID()` direct | panne possible en contexte non sécurisé | clé requise | helper cryptographique avec `getRandomValues` |
+## Familles de permissions
 
-Une action est masquée lorsque le rôle ne l’obtient jamais. Elle reste visible mais désactivée avec une raison lorsque seul l’état métier courant la bloque.
+Le catalogue canonique est le seed
+`backend-node/database/seeds/001_system_seed.sql`. Il couvre notamment CRM,
+clients, véhicules, ventes, showroom, livraisons, SAV, atelier, pièces,
+facturation, GED, reporting, utilisateurs, rôles et paramètres. Le seed ou une
+migration versionnée est la source à modifier lorsqu’une permission évolue.
+
+## Contrôles de non-régression
+
+Les tests doivent au minimum couvrir : rôle arbitraire avec permission,
+intitulé historique sans permission, utilisateur inactif, autre agence,
+ressource OWN personnelle, ressource OWN d’un autre utilisateur, scopes
+AGENCY/CONCESSION/GLOBAL et appel direct hors scope. Les recherches de noms de
+rôle dans le runtime servent à détecter les hardcodes, pas à documenter une
+autorisation.
+
+## Rôles à l’installation
+
+Une installation neuve crée uniquement le rôle système **Super Administrateur**
+(`SUPER_ADMIN`, système et actif). Toutes les permissions actives du catalogue
+lui sont affectées avec le scope `GLOBAL`, après la déclaration complète du catalogue.
+Les rôles métier sont créés dynamiquement par le Super Admin selon l’organisation
+de la concession, avec les permissions et scopes `OWN`, `AGENCY`, `CONCESSION`, `GLOBAL`.
+Aucun nom de rôle métier ne confère de privilège. Le bypass exige le code
+`SUPER_ADMIN` et le statut système persisté, pour un rôle et un utilisateur actifs.
+
+Cette évolution du seed concerne les installations neuves uniquement. Le bootstrap
+ne rejoue pas le seed sur une base versionnée et ne supprime aucun rôle existant.
+Aucune migration de nettoyage ni modification du schéma consolidé 033 n’est nécessaire.

@@ -11,11 +11,14 @@ type Fixture={id:string;agencyId:string;active:boolean;roles:string[]};
 let users:Record<string,Fixture>={},created:{assignedUserId:string|null;createdBy:string}|null=null,opportunityAssignedUserId:string|null=null,nextId=100;
 const token=(role:string,id:string,agencyId:string|null='1')=>jwt.sign({sub:id,email:`${id}@test.local`,roles:[role],agencyId},env.jwt.accessSecret,{expiresIn:'5m'});
 const payload={firstName:'Awa',lastName:'Test',phone:'+242 06 000 00 00',title:'SUV',source:'Passage Showroom'};
+const permissions=(role:string)=>role==='RECEPTIONIST'?['crm.prospect.view','crm.prospect.create','crm.prospect.assign']:role==='SALES_AGENT'||role==='SALES_MANAGER'?['crm.prospect.view','crm.prospect.create','crm.prospect.update','crm.prospect.assign']:['crm.prospect.view','crm.prospect.create'];
 const leadRow=()=>({lead_id:String(nextId),opportunity_id:String(nextId+1),customer_id:null,first_name:'Awa',last_name:'Test',company_name:null,email:null,phone:payload.phone,source:payload.source,lead_status:'new',priority:'medium',assigned_user_id:created?.assignedUserId??null,created_by:created?.createdBy??null,title:'SUV',stage:'new',expected_value:null,probability:null,expected_close_date:null,lost_reason:null,notes:null,assigned_user_name:created?.assignedUserId?'Commercial Test':'',created_by_name:'Créateur Test',agency_id:'1',agency_name:'Agence A',created_at:'2026-09-08',updated_at:'2026-09-08'});
 
 before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
-    if(sql.includes('u.is_active,GROUP_CONCAT(r.code) roles')){const user=users[String(params[0])];return[user?[{id:user.id,agency_id:user.agencyId,is_active:user.active,roles:user.roles.join(',')}]:[],[]]}
+    if(sql.includes('SELECT r.id,r.code,r.is_system')){const id=String(params[0]),role=users[id]?.roles[0]??(id==='10'?'RECEPTIONIST':id==='20'?'SALES_AGENT':id==='40'?'DIRECTOR':'CRM_TEST_DYNAMIC');return[[{id:`role-${id}`,code:role,is_system:role==='SUPER_ADMIN'?1:0}],[]]}
+    if(sql.includes('SELECT p.code,rp.scope')){const role=String(params[0]).replace('role-','')==='10'?'RECEPTIONIST':String(params[0]).replace('role-','')==='20'?'SALES_AGENT':String(params[0]).replace('role-','')==='40'?'DIRECTOR':'CRM_TEST_DYNAMIC';return[permissions(role).map(code=>({code,scope:'AGENCY'})),[]]}
+    if(sql.includes("p.code IN('sales.create','crm.prospect.update')")){const user=users[String(params[0])];return[user?[{id:user.id,agency_id:user.agencyId,concession_id:'1',is_active:user.active,eligible:user.roles.some(role=>['SALES_AGENT','SALES_MANAGER'].includes(role))?1:0}]:[],[]]}
     if(sql.includes('FROM leads l JOIN opportunities o'))return[created?[leadRow()]:[],[]];
     return[[],[]];
   };

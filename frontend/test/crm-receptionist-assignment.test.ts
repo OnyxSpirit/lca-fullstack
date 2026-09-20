@@ -7,33 +7,32 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('REC-CRM-01..05 le sélecteur Réceptionniste ne propose que les commerciaux actifs de son agence',()=>{
   const users=[
-    {id:'agent',status:'active',agencyId:'1',roles:['SALES_REP'],role:'SALES_REP'},
-    {id:'manager',status:'active',agencyId:'1',roles:['SALES_MANAGER'],role:'SALES_MANAGER'},
-    {id:'other',status:'active',agencyId:'2',roles:['SALES_REP'],role:'SALES_REP'},
-    {id:'accountant',status:'active',agencyId:'1',roles:['ACCOUNTANT'],role:'ACCOUNTANT'},
-    {id:'technician',status:'active',agencyId:'1',roles:['TECHNICIAN'],role:'TECHNICIAN'},
-    {id:'reception',status:'active',agencyId:'1',roles:['RECEPTIONIST'],role:'RECEPTIONIST'},
-    {id:'inactive',status:'inactive',agencyId:'1',roles:['SALES_REP'],role:'SALES_REP'},
+    {id:'agent',status:'active',agencyId:'1',roles:['ROLE_A'],role:'RECEPTIONIST',permissions:{'sales.create':'OWN'}},
+    {id:'manager',status:'active',agencyId:'1',roles:['ROLE_B'],role:'RECEPTIONIST',permissions:{'crm.prospect.update':'AGENCY'}},
+    {id:'other',status:'active',agencyId:'2',roles:['ROLE_C'],role:'RECEPTIONIST',permissions:{'sales.create':'OWN'}},
+    {id:'accountant',status:'active',agencyId:'1',roles:['ROLE_D'],role:'RECEPTIONIST',permissions:{}},
+    {id:'technician',status:'active',agencyId:'1',roles:['ROLE_E'],role:'RECEPTIONIST',permissions:{}},
+    {id:'reception',status:'active',agencyId:'1',roles:['ROLE_F'],role:'RECEPTIONIST',permissions:{}},
+    {id:'inactive',status:'inactive',agencyId:'1',roles:['ROLE_G'],role:'RECEPTIONIST',permissions:{'sales.create':'OWN'}},
   ];
-  assert.deepEqual(eligibleShowroomSalesUsers(users,'1').map(user=>user.id),['agent','manager']);
+  assert.deepEqual(eligibleShowroomSalesUsers(users as any,'1').map(user=>user.id),['agent','manager']);
   const modal=read('../src/modules/crm/NewLeadModal.tsx');
-  assert.match(modal,/canAssignTeam=roles\.includes\('RECEPTIONIST'\)/);
+  assert.match(modal,/state\.can\('crm\.prospect\.assign'\)/);
   assert.match(modal,/Conseiller commercial/);
   assert.match(modal,/<option value="">À affecter<\/option>/);
   assert.match(modal,/Le prospect sera créé comme non affecté/);
 });
 
-test('REC-CRM-10/11 l’UI limite l’affectation Réceptionniste au prospect Nouveau non affecté',()=>{
+test('REC-CRM-10/11 l’UI gouverne l’affectation avec crm.prospect.assign',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx');
-  assert.match(page,/selectedLead\.stage==='NOUVEAU'&&!selectedLead\.assignedToId/);
-  assert.match(page,/isReceptionist\?'Affecter':'Modifier'/);
-  assert.match(page,/payload=isReceptionist\?\{id:editLead\.id,assignedUserId:editLead\.assignedToId\}/);
-  assert.match(page,/disabled=\{isReceptionist&&!editLead\.assignedToId\}/);
+  assert.match(page,/canAssignLead=can\('crm\.prospect\.assign'\)/);
+  assert.match(page,/canAssignLead\?\{assignedUserId:editLead\.assignedToId\}/);
+  assert.match(page,/!canUpdateLead&&canAssignLead&&!editLead\.assignedToId/);
 });
 
 test('REC-CRM-12/13 les parcours commerciaux restent disponibles',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx');
-  assert.match(page,/const isSalesManager=roles\.includes\('SALES_MANAGER'\)/);
+  assert.match(page,/canUpdateStage = can\('crm\.pipeline\.advance'\)/);
   assert.match(page,/canUpdateStage/);
-  assert.match(page,/!isReceptionist\|\|/);
+  assert.doesNotMatch(page,/isReceptionist|isSalesManager/);
 });

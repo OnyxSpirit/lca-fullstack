@@ -18,13 +18,13 @@ test('RBAC Comptable conserve la facturation sans exposition SAV',()=>{
   assert.doesNotMatch(accountant,/sales\.update|sales\.cancel/);
 });
 
-test('Commercial, Responsable commercial et Comptable voient les actions conformes',()=>{
+test('les actions commerciales sont pilotées uniquement par les permissions dynamiques',()=>{
 	const page=read('../src/modules/sales/SaleDetailPage.tsx');
-  assert.match(page,/canUpdateSale=hasPermission\(roles,'sales\.update'\)/);
-  assert.match(page,/canCancelSale=hasPermission\(roles,'sales\.cancel'\)/);
-  assert.match(page,/canFinalizeCommercial=roles\.some/);
-  assert.match(page,/!isReadyTransition\|\|canFinalizeCommercial/);
+  assert.match(page,/canUpdateSale=can\('sales\.update'\)/);
+  assert.match(page,/canCancelSale=can\('sales\.cancel'\)/);
+  assert.match(page,/canConfirm=can\('sales\.confirm'\)/);
   assert.match(page,/disabled=\{isReadyTransition&&readyBlocked\}/);
+  assert.doesNotMatch(page,/roles\.some|SALES_AGENT|SALES_MANAGER|DIRECTOR/);
 });
 
 test('PAY double clic désactive immédiatement la validation et conserve une intention',()=>{

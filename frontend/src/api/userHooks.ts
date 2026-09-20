@@ -1,19 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../services/apiClient';
 
-export interface AdminUser{id:string;firstName:string;lastName:string;fullName:string;email:string;phone:string|null;jobTitle:string|null;agencyId:string;agencyName:string;roles:string[];isActive:boolean;avatar:string|null;createdAt:string;updatedAt:string}
-export interface RolePermission{id:string;module:string;action:string;code:string;description:string|null}
-export interface Role{id:string;code:string;name:string;description:string|null;is_system?:boolean;permissions?:RolePermission[]}
+export interface AdminUser{id:string;firstName:string;lastName:string;fullName:string;email:string;phone:string|null;jobTitle:string|null;agencyId:string;agencyName:string;roles:string[];isActive:boolean;isEmployee:boolean;employeeProfileId:string|null;employeeNumber:string|null;employeePosition:string|null;employeeHireDate:string|null;employeeStatus:'active'|'inactive'|'departed'|null;avatar:string|null;createdAt:string;updatedAt:string}
+export type RbacScope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
+export interface RolePermission{id:string|number;module:string;action:string;code:string;label?:string;group_name?:string|null;description:string|null;scope?:RbacScope|null}
+export interface PermissionCatalogItem extends RolePermission{is_active:boolean}
+export interface Role{id:string|number;code:string;name:string;description:string|null;is_system?:boolean;is_active?:boolean;user_count?:number;permissions?:RolePermission[]}
 export interface UserFilters{active?:''|'true'|'false';agencyId?:string;role?:string;search?:string}
-export interface CreateUserPayload{firstName:string;lastName:string;email:string;phone?:string;jobTitle?:string;agencyId:string;roles:string[];password:string}
+export interface CreateUserPayload{firstName:string;lastName:string;email:string;phone?:string;jobTitle?:string;agencyId:string;roles:string[];password:string;isEmployee?:boolean;employeeNumber?:string;employeePosition?:string;employeeHireDate?:string;employeeStatus?:'active'|'inactive'|'departed'}
 export type UpdateUserPayload=Omit<CreateUserPayload,'password'>;
-export const userKeys={all:['users-admin']as const,detail:(id:string)=>['user',id]as const,directory:['user-directory']as const,roles:['roles']as const};
+export const userKeys={all:['users-admin']as const,detail:(id:string)=>['user',id]as const,directory:['user-directory']as const,roles:['roles']as const,permissions:['permissions']as const};
 const params=(f:UserFilters)=>{const p=new URLSearchParams();Object.entries(f).forEach(([k,v])=>{if(v)p.set(k,v)});return p.toString()};
 const invalidate=(qc:ReturnType<typeof useQueryClient>)=>{void qc.invalidateQueries({queryKey:userKeys.all});void qc.invalidateQueries({queryKey:['users']});void qc.invalidateQueries({queryKey:userKeys.directory});void qc.invalidateQueries({queryKey:['technicians']})};
 export const useUsersAdminQuery=(filters:UserFilters)=>useQuery({queryKey:[...userKeys.all,filters],queryFn:()=>apiRequest<AdminUser[]>(`/users?${params(filters)}`)});
 export const useUserQuery=(id?:string)=>useQuery({queryKey:userKeys.detail(id??''),queryFn:()=>apiRequest<AdminUser>(`/users/${id}`),enabled:Boolean(id)});
-export const useRolesQuery=()=>useQuery({queryKey:userKeys.roles,queryFn:()=>apiRequest<Role[]>('/roles')});
-export const useRolePermissionsQuery=(id?:string)=>useQuery({queryKey:['roles',id,'permissions'],queryFn:()=>apiRequest<Role>(`/roles/${id}/permissions`),enabled:Boolean(id)});
+export const useRolesQuery=(enabled=true)=>useQuery({queryKey:userKeys.roles,queryFn:()=>apiRequest<Role[]>('/roles'),enabled});
+export const usePermissionsCatalogQuery=(enabled=true)=>useQuery({queryKey:userKeys.permissions,queryFn:()=>apiRequest<PermissionCatalogItem[]>('/permissions'),enabled});
+export const rolePermissionKey=(id:string|number)=>['roles',String(id),'permissions']as const;
+export const useRolePermissionsQuery=(id?:string|number,enabled=true)=>useQuery({queryKey:rolePermissionKey(id??''),queryFn:()=>apiRequest<Role>(`/roles/${id}/permissions`),enabled:Boolean(id)&&enabled});
 export const useChangeMyPassword=()=>useMutation({mutationFn:(body:{currentPassword:string;newPassword:string})=>apiRequest<{success:boolean}>('/users/me/password',{method:'PATCH',body:JSON.stringify(body)})});
 export const useUploadMyAvatar=()=>{const qc=useQueryClient();return useMutation({mutationFn:(file:File)=>{const body=new FormData();body.set('file',file);return apiRequest<AdminUser>('/users/me/avatar',{method:'POST',body})},onSuccess:()=>{void qc.invalidateQueries({queryKey:['user','me']});void qc.invalidateQueries({queryKey:['users']})}})};
 export const useDeleteMyAvatar=()=>{const qc=useQueryClient();return useMutation({mutationFn:()=>apiRequest<AdminUser>('/users/me/avatar',{method:'DELETE'}),onSuccess:()=>{void qc.invalidateQueries({queryKey:['user','me']});void qc.invalidateQueries({queryKey:['users']})}})};
@@ -25,3 +29,4 @@ export function useUserActions(){const qc=useQueryClient();return{
  avatar:useMutation({mutationFn:({id,file}:{id:string;file:File})=>{const body=new FormData();body.set('file',file);return apiRequest<AdminUser>(`/users/${id}/avatar`,{method:'POST',body})},onSuccess:()=>invalidate(qc)}),
  deleteAvatar:useMutation({mutationFn:(id:string)=>apiRequest<AdminUser>(`/users/${id}/avatar`,{method:'DELETE'}),onSuccess:()=>invalidate(qc)})
 }}
+export function useRoleActions(){const qc=useQueryClient();const invalidateRoles=()=>{void qc.invalidateQueries({queryKey:userKeys.roles});void qc.invalidateQueries({queryKey:userKeys.permissions});void qc.invalidateQueries({queryKey:userKeys.all});void qc.invalidateQueries({queryKey:userKeys.directory})};return{create:useMutation({mutationFn:(body:{code:string;name:string;description?:string;permissions?:{permissionId:string;scope:RbacScope|null}[]})=>apiRequest<Role>('/roles',{method:'POST',body:JSON.stringify(body)}),onSuccess:role=>{qc.setQueryData(rolePermissionKey(role.id),role);invalidateRoles()}}),update:useMutation({mutationFn:({id,body}:{id:string|number;body:{code?:string;name?:string;description?:string;permissions?:{permissionId:string;scope:RbacScope|null}[]}})=>apiRequest<Role>(`/roles/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(role,_variables)=>{qc.setQueryData(rolePermissionKey(role.id),role);void qc.invalidateQueries({queryKey:rolePermissionKey(role.id)});invalidateRoles()}}),status:useMutation({mutationFn:({id,isActive}:{id:string|number;isActive:boolean})=>apiRequest<Role>(`/roles/${id}/status`,{method:'PATCH',body:JSON.stringify({isActive})}),onSuccess:role=>{qc.setQueryData(rolePermissionKey(role.id),role);void qc.invalidateQueries({queryKey:rolePermissionKey(role.id)});invalidateRoles()}}),remove:useMutation({mutationFn:({id,replacementRoleId}:{id:string|number;replacementRoleId?:string})=>apiRequest<{success:boolean;reassignedUsers:string[]}>(`/roles/${id}`,{method:'DELETE',body:JSON.stringify({replacementRoleId})}),onSuccess:(_,variables)=>{qc.removeQueries({queryKey:rolePermissionKey(variables.id)});invalidateRoles()}})};}

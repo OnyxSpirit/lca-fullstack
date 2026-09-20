@@ -28,7 +28,6 @@ import { Modal } from '../../components/ui/Modal';
 import { useEntityDocuments } from '../../api/documentHooks';
 import { apiDownload } from '../../services/apiClient';
 import { useAuthStore } from '../../stores/authStore';
-import { canAccessModule, canPerformWorkflowAction } from '../../navigation/permissions';
 
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,32 +35,34 @@ export const CustomerDetailPage: React.FC = () => {
   const customerQuery=useCustomer360Query(id);const data=customerQuery.data;
   const timeline=data?.timeline??[],customerVehicles=data?.vehicles??[],customerSales=data?.sales??[],customerQuotations=data?.quotations??[],customerORs=data?.repairOrders??[],customerInvoices=data?.invoices??[],contacts=data?.contacts??[],opportunities=data?.opportunities??[];
   const { setActiveQuickActionModal,addToast } = useUiStore();
-  const currentUser=useAuthStore(state=>state.currentUser);
-  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
-  const canViewSales=canAccessModule(roles,'view','sales');
-  const canViewService=canAccessModule(roles,'view','service');
-  const canViewBilling=canAccessModule(roles,'view','billing');
-  const canViewDocuments=canAccessModule(roles,'view','documents');
-  const canViewVehicles=canAccessModule(roles,'view','vehicles');
+  const can=useAuthStore(state=>state.can);
+  const canViewSales=can('sales.view');
+  const canViewQuotations=can('quotations.view');
+  const canViewCrm=can('crm.prospect.view');
+  const canViewService=can('service.order.view');
+  const canViewBilling=can('billing.invoice.view');
+  const canViewDocuments=can('ged.view');
+  const canViewVehicles=can('vehicles.view');
+  const canViewHistory=can('customers.history.view');
   const documentsQuery=useEntityDocuments('customer',id,canViewDocuments),documents=documentsQuery.data??[];
-  const canCreateSale=canPerformWorkflowAction(roles,'sales.create');
-  const canCreateRepairOrder=canPerformWorkflowAction(roles,'service.create');
-  const canUpdateCustomer=canPerformWorkflowAction(roles,'customers.update');
+  const canCreateSale=can('sales.create');
+  const canCreateRepairOrder=can('service.order.create');
+  const canUpdateCustomer=can('customers.update');
 
   const customer = data?.customer;
   const customerName=customer?(customer.type==='Professionnel'?(customer.company||[customer.firstName,customer.lastName].filter(Boolean).join(' ')||customer.code):[customer.civility,customer.firstName,customer.lastName].filter(Boolean).join(' ')):'';
-  const [activeTab, setActiveTab] = useState<'timeline' | 'contacts' | 'opportunities' | 'vehicles' | 'sales' | 'sav' | 'billing' | 'documents'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'contacts' | 'opportunities' | 'vehicles' | 'sales' | 'sav' | 'billing' | 'documents'>('contacts');
   const tabs=[
-    {key:'timeline',label:'Timeline Événements'},
+    ...(canViewHistory?[{key:'timeline',label:'Timeline Événements'}]:[]),
     {key:'contacts',label:`Contacts (${contacts.length})`},
-    {key:'opportunities',label:`Opportunités (${opportunities.length})`},
-    {key:'vehicles',label:`Véhicules Rattachés (${customerVehicles.length})`},
-    ...(canViewSales?[{key:'sales',label:`Ventes & Devis (${customerSales.length+customerQuotations.length})`}]:[]),
+    ...(canViewCrm?[{key:'opportunities',label:`Opportunités (${opportunities.length})`}]:[]),
+    ...(canViewVehicles?[{key:'vehicles',label:`Véhicules Rattachés (${customerVehicles.length})`}]:[]),
+    ...(canViewSales||canViewQuotations?[{key:'sales',label:`Ventes & Devis (${customerSales.length+customerQuotations.length})`}]:[]),
     ...(canViewService?[{key:'sav',label:`Atelier SAV & OR (${customerORs.length})`}]:[]),
     ...(canViewBilling?[{key:'billing',label:`Facturation (${customerInvoices.length})`}]:[]),
     ...(canViewDocuments?[{key:'documents',label:`Documents (${documents.length})`}]:[]),
   ] as const;
-  useEffect(()=>{if(!tabs.some(tab=>tab.key===activeTab))setActiveTab('timeline')},[activeTab,canViewSales,canViewService,canViewBilling,canViewDocuments]);
+  useEffect(()=>{if(!tabs.some(tab=>tab.key===activeTab))setActiveTab('contacts')},[activeTab,canViewHistory,canViewCrm,canViewVehicles,canViewSales,canViewQuotations,canViewService,canViewBilling,canViewDocuments]);
   const downloadDocument=async(document:(typeof documents)[number])=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
   const [contactOpen,setContactOpen]=useState(false);const createContact=useCreateCustomerContact(id);const[contact,setContact]=useState({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false});const[contactError,setContactError]=useState('');
 
@@ -197,7 +198,7 @@ export const CustomerDetailPage: React.FC = () => {
         </Card>
       )}
 
-      {activeTab === 'contacts' && <Card><CardHeader><div className="flex items-center justify-between"><CardTitle>Contacts du client</CardTitle><Button size="xs" variant="primary" onClick={()=>setContactOpen(true)}>Ajouter un contact</Button></div></CardHeader><div className="space-y-2">{contacts.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs"><div className="font-bold">{item.first_name} {item.last_name}{item.is_primary?' • Principal':''}</div><div className="text-slate-500">{item.role_title||'—'} • {item.phone||'—'} • {item.email||'—'}</div></div>)}{!contacts.length&&<p className="text-xs text-slate-500">Aucun contact enregistré.</p>}</div></Card>}
+      {activeTab === 'contacts' && <Card><CardHeader><div className="flex items-center justify-between"><CardTitle>Contacts du client</CardTitle>{canUpdateCustomer&&<Button size="xs" variant="primary" onClick={()=>setContactOpen(true)}>Ajouter un contact</Button>}</div></CardHeader><div className="space-y-2">{contacts.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs"><div className="font-bold">{item.first_name} {item.last_name}{item.is_primary?' • Principal':''}</div><div className="text-slate-500">{item.role_title||'—'} • {item.phone||'—'} • {item.email||'—'}</div></div>)}{!contacts.length&&<p className="text-xs text-slate-500">Aucun contact enregistré.</p>}</div></Card>}
 
       {activeTab === 'opportunities' && <Card><CardHeader><CardTitle>Opportunités liées</CardTitle></CardHeader><div className="space-y-2">{opportunities.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs flex justify-between"><div><div className="font-bold">{item.title}</div><div className="text-slate-500">Probabilité : {item.probability}%</div></div><div className="font-semibold">{item.stage}</div></div>)}{!opportunities.length&&<p className="text-xs text-slate-500">Aucune opportunité rattachée.</p>}</div></Card>}
 

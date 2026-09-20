@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
-import {canChangeVehicleStatus,canNavigateToRoute,hasPermission,visibleNotificationTypes} from '../src/navigation/permissions.js';
+import {canNavigateToRoute,hasPermission,visibleNotificationTypes} from '../src/navigation/permissions.js';
 import {eligibleShowroomSalesUsers,showroomVisitorErrors} from '../src/modules/showroom/showroomPolicy.js';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
@@ -10,10 +10,10 @@ const receptionist=['RECEPTIONIST'] as const;
 test('REC-01 le réceptionniste lit le stock sans commandes de mutation',()=>{
   assert.equal(hasPermission([...receptionist],'vehicles.view'),true);
   assert.equal(hasPermission([...receptionist],'vehicles.update'),false);
-  assert.equal(canChangeVehicleStatus([...receptionist]),false);
   const page=read('../src/modules/vehicles/VehicleDetailPage.tsx');
-  assert.match(page,/canChangeStatus&&<select/);
-  assert.match(page,/canEdit&&<div className="flex flex-wrap gap-2">/);
+  assert.match(page,/canChangeStatus=can\('vehicles\.status\.update'\)/);
+  assert.match(page,/canChangeStatus&&manualStatusOptions\.length>0&&<select/);
+  assert.match(page,/canManageImages&&<div className="flex flex-wrap gap-2">/);
   assert.match(page,/canCreateSale&&<Button/);
   assert.match(page,/canCreateRepairOrder&&<Button/);
   assert.match(page,/tab\.key!=='documents'\|\|canViewDocuments/);
@@ -39,11 +39,11 @@ test('REC-03 Client 360 filtre compteurs, onglets, requête GED et action OR',()
 
 test('REC-04 le commercial doit être actif, commercial et appartenir à la même agence',()=>{
   const users=[
-    {id:'same',status:'active',agencyId:'1',roles:['SALES_REP'],role:'SALES_REP'},
-    {id:'manager',status:'active',agencyId:'1',roles:['SALES_MANAGER'],role:'SALES_MANAGER'},
-    {id:'other',status:'active',agencyId:'2',roles:['SALES_REP'],role:'SALES_REP'},
-    {id:'inactive',status:'inactive',agencyId:'1',roles:['SALES_REP'],role:'SALES_REP'},
-    {id:'reception',status:'active',agencyId:'1',roles:['RECEPTIONIST'],role:'RECEPTIONIST'},
+    {id:'same',status:'active',agencyId:'1',permissions:{'sales.create':'AGENCY'}},
+    {id:'manager',status:'active',agencyId:'1',permissions:['crm.prospect.update']},
+    {id:'other',status:'active',agencyId:'2',permissions:{'sales.create':'AGENCY'}},
+    {id:'inactive',status:'inactive',agencyId:'1',permissions:{'sales.create':'AGENCY'}},
+    {id:'reception',status:'active',agencyId:'1',permissions:{}},
   ];
   assert.deepEqual(eligibleShowroomSalesUsers(users,'1').map(user=>user.id),['same','manager']);
   assert.match(read('../src/modules/showroom/ShowroomPage.tsx'),/Aucun conseiller commercial actif dans cette agence/);
@@ -63,7 +63,7 @@ test('REC-07 le portail retire les coûts internes pour les profils non financie
 });
 
 test('REC-08 les filtres et destinations de notifications respectent le rôle',()=>{
-  assert.deepEqual(visibleNotificationTypes([...receptionist]),['lead','showroom','vehicle']);
+  assert.deepEqual(visibleNotificationTypes([...receptionist]),['lead','showroom','vehicle','customer']);
   assert.equal(canNavigateToRoute([...receptionist],'/vehicles/42'),true);
   assert.equal(canNavigateToRoute([...receptionist],'/sales/42'),false);
   assert.equal(canNavigateToRoute([...receptionist],'/service/repair-orders/42'),false);

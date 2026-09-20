@@ -1,15 +1,17 @@
 import type { PermissionAction, User, UserRole } from '../types';
 
-export type ModulePermission = 'dashboard'|'modules'|'crm'|'customers'|'vehicles'|'showroom'|'sales'|'deliveries'|'service'|'workshop'|'parts'|'billing'|'documents'|'notifications'|'reports'|'users'|'settings';
+export type ModulePermission = 'dashboard'|'modules'|'crm'|'customers'|'vehicles'|'showroom'|'sales'|'deliveries'|'service'|'workshop'|'parts'|'billing'|'documents'|'notifications'|'reports'|'hr'|'users'|'settings';
 export type WorkflowPermission = 'crm.stage.update'|'crm.activity.create'|'crm.close.won'|'crm.close.lost'|'sales.create'|'sales.update'|'sales.cancel'|'showroom.register'|'showroom.assign'|'showroom.cancelWaiting'|'showroom.takeOver'|'showroom.testDrive'|'showroom.returnTestDrive'|'showroom.complete'|'vehicles.create'|'vehicles.update'|'vehicles.viewFinancials'|'customers.create'|'customers.update'|'service.create'|'service.update'|'service.assign'|'service.invoice'|'workshop.manageResources'|'workshop.assign'|'workshop.timeTrack'|'parts.manageCatalog'|'parts.manageStock'|'parts.viewFinancials'|'parts.receive'|'parts.order'|'billing.create'|'billing.pay'|'billing.credit'|'billing.refund'|'deliveries.create'|'deliveries.update'|'deliveries.complete'|'documents.upload'|'documents.archive'|'reports.export'|'users.manage'|'settings.manage';
 export type AppPermission = `${ModulePermission}.view`|WorkflowPermission;
+export const hasDynamicPermission=(permissions:Record<string,unknown>|undefined,permissionCode:string)=>Boolean(permissions&&(Object.hasOwn(permissions,'*')||Object.hasOwn(permissions,permissionCode)));
 
 const modules=(...values:ModulePermission[]):AppPermission[]=>values.map(value=>`${value}.view` as AppPermission);
 const common=modules('dashboard','modules','notifications');
 
+/** Matrice historique conservée pour compatibilité et tests ; le runtime utilise les permissions serveur. */
 export const ROLE_PERMISSIONS:Readonly<Record<UserRole,readonly AppPermission[]>>={
   SUPER_ADMIN:[...modules('dashboard','modules','crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','notifications','reports','users','settings'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.create','vehicles.update','vehicles.viewFinancials','customers.create','customers.update','service.create','service.update','service.assign','service.invoice','workshop.manageResources','workshop.assign','workshop.timeTrack','parts.manageCatalog','parts.manageStock','parts.viewFinancials','parts.receive','parts.order','billing.create','billing.pay','billing.credit','billing.refund','deliveries.create','deliveries.update','deliveries.complete','documents.upload','documents.archive','reports.export','users.manage','settings.manage'],
-  DIRECTION:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','reports','settings'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.create','vehicles.update','vehicles.viewFinancials','customers.create','customers.update','service.create','service.update','service.assign','service.invoice','workshop.manageResources','workshop.assign','workshop.timeTrack','parts.manageCatalog','parts.manageStock','parts.viewFinancials','parts.receive','parts.order','billing.create','billing.pay','billing.credit','billing.refund','deliveries.create','deliveries.update','deliveries.complete','documents.upload','documents.archive','reports.export','settings.manage'],
+  DIRECTION:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','service','workshop','parts','billing','documents','reports','users','settings'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.create','vehicles.update','vehicles.viewFinancials','customers.create','customers.update','service.create','service.update','service.assign','service.invoice','workshop.manageResources','workshop.assign','workshop.timeTrack','parts.manageCatalog','parts.manageStock','parts.viewFinancials','parts.receive','parts.order','billing.create','billing.pay','billing.credit','billing.refund','deliveries.create','deliveries.update','deliveries.complete','documents.upload','documents.archive','reports.export','users.manage','settings.manage'],
   SALES_MANAGER:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','documents','reports'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','sales.cancel','showroom.register','showroom.assign','showroom.cancelWaiting','showroom.takeOver','showroom.testDrive','showroom.complete','vehicles.update','vehicles.viewFinancials','customers.create','customers.update','documents.upload','documents.archive','reports.export'],
   SALES_REP:[...common,...modules('crm','customers','vehicles','showroom','sales','deliveries','documents'),'crm.stage.update','crm.activity.create','crm.close.won','crm.close.lost','sales.create','sales.update','showroom.takeOver','showroom.testDrive','showroom.complete','customers.create','customers.update','documents.upload'],
   RECEPTIONIST:[...common,...modules('crm','customers','vehicles','showroom'),'showroom.register','showroom.assign','showroom.cancelWaiting','customers.create'],
@@ -29,18 +31,10 @@ export function hasPermission(subject:Pick<User,'roles'|'role'>|UserRole[]|UserR
 export function canAccessModule(roles:UserRole[]|UserRole,action:PermissionAction,module:string):boolean{if(action==='view')return hasPermission(roles,`${module}.view` as AppPermission);const aliases:Partial<Record<PermissionAction,WorkflowPermission>>={create:`${module}.create` as WorkflowPermission,update:`${module}.update` as WorkflowPermission,delete:`${module}.archive` as WorkflowPermission,cancel:`${module}.cancel` as WorkflowPermission,export:'reports.export',assign:`${module}.assign` as WorkflowPermission};const permission=aliases[action];return Boolean(permission&&hasPermission(roles,permission))}
 export function canPerformWorkflowAction(roles:UserRole[]|UserRole,permission:WorkflowPermission):boolean{return hasPermission(roles,permission)}
 
-const VEHICLE_STATUS_ROLES:readonly UserRole[]=['SUPER_ADMIN','DIRECTION','SALES_MANAGER','WAREHOUSE_CLERK','SERVICE_MANAGER'];
-
-/** Mirrors backend-node PATCH /vehicles/:id/status without broadening vehicles.update. */
-export function canChangeVehicleStatus(roles:UserRole[]|UserRole):boolean{
-  const values=Array.isArray(roles)?roles:[roles];
-  return values.some(role=>VEHICLE_STATUS_ROLES.includes(role));
-}
-
 const routeModules:ReadonlyArray<[string,ModulePermission]>=[
   ['/service','service'],['/workshop','workshop'],['/deliveries','deliveries'],
   ['/vehicles','vehicles'],['/customers','customers'],['/showroom','showroom'],
-  ['/billing','billing'],['/documents','documents'],['/reports','reports'],
+  ['/billing','billing'],['/documents','documents'],['/reports','reports'],['/hr','hr'],
   ['/parts','parts'],['/sales','sales'],['/crm','crm'],['/users','users'],
   ['/settings','settings'],['/notifications','notifications'],['/modules','modules'],
   ['/dashboard','dashboard'],
@@ -51,10 +45,13 @@ export function moduleForRoute(path:string):ModulePermission|null{
   return routeModules.find(([root])=>pathname===root||pathname.startsWith(`${root}/`))?.[1]??null;
 }
 
+const dynamicModuleCodes:Record<ModulePermission,string>={dashboard:'dashboard.view',modules:'dashboard.view',crm:'crm.prospect.view',customers:'customers.view',vehicles:'vehicles.view',showroom:'showroom.view',sales:'sales.view',deliveries:'delivery.view',service:'service.order.view',workshop:'workshop.view',parts:'parts.view',billing:'billing.view',documents:'ged.view',notifications:'notifications.view',reports:'reporting.view',hr:'hr.view',users:'users.view',settings:'settings.view'};
+export function canNavigateWithPermissions(permissions:Record<string,unknown>|undefined,path:string){const module=moduleForRoute(path);return module!==null&&hasDynamicPermission(permissions,dynamicModuleCodes[module])}
+
 export function canNavigateToRoute(roles:UserRole[]|UserRole,path:string):boolean{
   const module=moduleForRoute(path);
   return module!==null&&hasPermission(roles,`${module}.view`);
 }
 
-const notificationCategories=[['lead','crm.view'],['sale','sales.view'],['showroom','showroom.view'],['vehicle','vehicles.view'],['repair_order','service.view'],['part','parts.view'],['delivery','deliveries.view'],['invoice','billing.view'],['document','documents.view']]as const;
+const notificationCategories=[['lead','crm.view'],['sale','sales.view'],['showroom','showroom.view'],['vehicle','vehicles.view'],['repair_order','service.view'],['part','parts.view'],['delivery','deliveries.view'],['invoice','billing.view'],['document','documents.view'],['reservation','sales.view'],['payment','billing.view'],['credit_note','billing.view'],['purchase_order','parts.view'],['customer','customers.view']]as const;
 export function visibleNotificationTypes(roles:UserRole[]|UserRole):string[]{return notificationCategories.filter(([,permission])=>hasPermission(roles,permission)).map(([type])=>type)}

@@ -20,33 +20,33 @@ test('RDV-03/04/07 interprète datetime-local explicitement dans le fuseau Afric
   const previous=process.env.TZ;
   process.env.TZ='Africa/Brazzaville';
   try{
-    const now=new Date('2026-09-09T09:00:00.000Z');
-    assert.match(appointmentDateError('2026-09-09T09:59',now)??'',/futur/);
-    assert.equal(appointmentDateError('2026-09-11T10:00',now),null);
-    assert.equal(parseLocalAppointment('2026-09-11T10:00')?.getHours(),10);
-    assert.equal(appointmentIso('2026-09-11T10:00'),'2026-09-11T09:00:00.000Z');
+    const now=new Date('2099-09-09T09:00:00.000Z');
+    assert.match(appointmentDateError('2099-09-09T09:59',now)??'',/futur/);
+    assert.equal(appointmentDateError('2099-09-11T10:00',now),null);
+    assert.equal(parseLocalAppointment('2099-09-11T10:00')?.getHours(),10);
+    assert.equal(appointmentIso('2099-09-11T10:00'),'2099-09-11T09:00:00.000Z');
   }finally{process.env.TZ=previous}
 });
 
-test('COM-RM-04 expose commercial, étape et priorité au manager et les envoie au backend',()=>{
+test('COM-RM-04 expose commercial, étape et priorité avec la permission dynamique et les envoie au backend',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx'),hooks=read('../src/api/erpHooks.ts');
-  assert.match(page,/isSalesManager&&/);
+  assert.match(page,/canAssignLead&&/);
   assert.match(page,/Filtrer par étape/);
   assert.match(page,/Filtrer par commercial/);
   assert.match(hooks,/params\.set\("stage", stage\)/);
   assert.match(hooks,/params\.set\("commercialId", commercialId\)/);
 });
 
-test('COM-RM-05 cache la gestion d’équipe au commercial et la conserve au manager',()=>{
+test('COM-RM-05 conditionne la gestion d’équipe par crm.prospect.assign',()=>{
   const modal=read('../src/modules/crm/NewLeadModal.tsx');
   assert.match(modal,/canAssignTeam/);
-  assert.match(modal,/roles\.includes\('SALES_MANAGER'\)/);
-  assert.match(modal,/automatiquement affecté à votre portefeuille/);
+  assert.match(modal,/can\('crm\.prospect\.assign'\)/);
+  assert.match(modal,/L’affectation dépend de vos permissions CRM/);
 });
 
-test('le devis permet au propriétaire ou au manager de l’émettre, expose le PDF et conserve le propriétaire',()=>{
+test('le devis exige quotations.validate, expose le PDF et conserve le propriétaire',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx'),pdf=read('../src/services/businessPdf.ts');
-  assert.match(page,/canIssueQuotation&&quotation\.status==='draft'/);
+  assert.match(page,/canValidateQuotation&&quotation\.status==='draft'/);
   assert.match(page,/Émettre le devis/);
   assert.match(page,/useValidateQuotation/);
   assert.match(page,/openBusinessPdf\('quotation'/);

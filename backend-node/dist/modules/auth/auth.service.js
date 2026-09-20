@@ -4,9 +4,21 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.js';
 import { execute, query } from '../../config/database.js';
 import { HttpError } from '../../shared/http-error.js';
+import { resolveRbacContext } from '../rbac/rbac.service.js';
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 async function rolesFor(userId) {
-    return (await query('SELECT r.code FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=?', [userId])).map((row) => row.code);
+    return (await query('SELECT r.code FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=? AND r.is_active=TRUE', [userId])).map((row) => row.code);
+}
+async function userProfile(user) {
+    const rbac = await resolveRbacContext(String(user.id));
+    if (!rbac.roleCode)
+        throw new HttpError(403, 'ROLE_INACTIVE_OR_MISSING');
+    return {
+        id: String(user.id), firstName: user.first_name, lastName: user.last_name, email: user.email,
+        agencyId: String(user.agency_id), agencyName: user.agency_name ?? '', agencyCode: user.agency_code ?? '', avatar: user.avatar_path ?? null,
+        roles: [rbac.roleCode], role: { id: rbac.roleId, code: rbac.roleCode, isSystemSuperAdmin: rbac.isSuperAdmin },
+        permissions: rbac.isSuperAdmin ? [{ code: '*', scope: 'GLOBAL' }] : [...rbac.permissions.entries()].map(([code, scope]) => ({ code, scope })),
+    };
 }
 async function issueTokens(user, roles) {
     const payload = { sub: String(user.id), email: user.email, roles, agencyId: user.agency_id == null ? null : String(user.agency_id) };
@@ -22,9 +34,11 @@ export async function login(email, password) {
     if (!user || !user.is_active || !(await argon2.verify(user.password_hash, password)))
         throw new HttpError(401, 'Identifiants invalides');
     const roles = await rolesFor(String(user.id));
+    if (!roles.length)
+        throw new HttpError(403, 'ROLE_INACTIVE_OR_MISSING');
     const tokens = await issueTokens(user, roles);
     await execute('UPDATE users SET last_login_at=NOW() WHERE id=?', [user.id]);
-    return { ...tokens, user: { id: String(user.id), firstName: user.first_name, lastName: user.last_name, email: user.email, agencyId: String(user.agency_id), agencyName: user.agency_name, agencyCode: user.agency_code, avatar: user.avatar_path ?? null, roles } };
+    return { ...tokens, user: await userProfile(user) };
 }
 export async function refresh(refreshToken) {
     try {
@@ -37,11 +51,20 @@ export async function refresh(refreshToken) {
         const [user] = await query('SELECT id,agency_id,first_name,last_name,email,password_hash,is_active FROM users WHERE id=? AND is_active=TRUE', [payload.sub]);
         if (!user)
             throw new Error();
-        return issueTokens(user, await rolesFor(String(user.id)));
+        const roles = await rolesFor(String(user.id));
+        if (!roles.length)
+            throw new Error();
+        return { ...(await issueTokens(user, roles)), user: await userProfile(user) };
     }
     catch {
         throw new HttpError(401, 'Refresh token invalide');
     }
+}
+export async function me(userId) {
+    const [user] = await query('SELECT u.id,u.agency_id,u.first_name,u.last_name,u.email,u.password_hash,u.is_active,u.avatar_path,a.name agency_name,a.code agency_code FROM users u JOIN agencies a ON a.id=u.agency_id WHERE u.id=? AND u.is_active=TRUE LIMIT 1', [userId]);
+    if (!user)
+        throw new HttpError(401, 'Utilisateur inactif ou introuvable');
+    return { user: await userProfile(user) };
 }
 export async function logout(refreshToken) {
     await execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=? AND revoked_at IS NULL', [hashToken(refreshToken)]);

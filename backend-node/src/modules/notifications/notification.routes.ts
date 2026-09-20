@@ -3,8 +3,10 @@ import type {RowDataPacket} from 'mysql2/promise';
 import {execute,query} from '../../config/database.js';
 import {asyncHandler} from '../../middleware/error-handler.js';
 import {HttpError} from '../../shared/http-error.js';
+import {requirePermission} from '../../middleware/require-permission.js';
 
 export const notificationRouter=Router();
+notificationRouter.use('/notifications',requirePermission('notifications.view'));
 const routeId=(value:string|string[]|undefined)=>{const id=Array.isArray(value)?value[0]:value;if(!id||!/^[1-9]\d*$/.test(id))throw new HttpError(400,'Identifiant invalide');return id};
 const text=(value:unknown,max=100)=>typeof value==='string'?value.trim().slice(0,max):'';
 

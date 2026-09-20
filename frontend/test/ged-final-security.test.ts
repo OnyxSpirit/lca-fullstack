@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
+const hooks=source('src/api/documentHooks.ts'),page=source('src/modules/documents/DocumentsGedPage.tsx'),app=source('src/App.tsx');
+test('GED-FE-01 navigation et module reposent sur ged.view',()=>{assert.match(app,/documents:'ged\.view'/);assert.doesNotMatch(page,/DIRECTOR|ACCOUNTANT|PARTS_MANAGER|roles\.includes/)});
+test('GED-FE-02 les queries sont conditionnées par permission',()=>{assert.match(hooks,/can\('ged\.view'\)/);assert.match(hooks,/can\('ged\.upload'\)/);assert.match(hooks,/enabled:Boolean/)});
+test('GED-FE-03 cache contextualisé utilisateur et agence',()=>{assert.match(hooks,/\['documents',userId,agencyId/);assert.match(hooks,/currentUser\?\.id/);assert.match(hooks,/currentAgency\?\.id/)});
+test('GED-FE-04 téléchargement passe uniquement par API protégée',()=>{assert.match(page,/apiDownload\(`\/documents\/\$\{d\.id\}\/download`\)/);assert.doesNotMatch(page,/\/uploads\/|fileUrl/)});
+test('GED-FE-05 upload est permissionné et bloque le double clic',()=>{assert.match(page,/canUpload=auth\.can\('ged\.upload'\)/);assert.match(page,/loading=\{mutate\.isPending\}/);assert.match(page,/disabled=\{!file\|\|!selected\|\|!documentType\}/)});
+test('GED-FE-06 archivage est distinct de la lecture',()=>{assert.match(page,/canArchive=auth\.can\('ged\.archive'\)/);assert.match(page,/canArchive&&<Button/)});
+test('GED-FE-07 erreurs et empty state sont explicites',()=>{assert.match(page,/Téléchargement impossible/);assert.match(page,/Dépôt impossible/);assert.match(page,/Aucun document trouvé/)});
+test('GED-FE-08 React rend les métadonnées comme texte',()=>{assert.doesNotMatch(page,/dangerouslySetInnerHTML|innerHTML/);assert.match(page,/\{d\.fileName\}/);assert.match(page,/\{detail\.fileName\}/)});

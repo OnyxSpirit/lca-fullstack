@@ -1,17 +1,17 @@
 import { Router } from 'express';
-import { authorize } from '../../middleware/authorize.js';
+import { requirePermission } from '../../middleware/require-permission.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
-import { HttpError } from '../../shared/http-error.js';
+import { assertPermission } from '../rbac/rbac.service.js';
 import * as service from './sale.service.js';
 
 export const saleRouter=Router();
-const READ=['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT','DELIVERY_MANAGER','ACCOUNTANT'];
-const WRITE=['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT'];
-saleRouter.get('/sales',authorize(...READ),asyncHandler(async(req,res)=>res.json(await service.list(req.query,req))));
-saleRouter.get('/sales/:id',authorize(...READ),asyncHandler(async(req,res)=>res.json(await service.one(String(req.params.id),req))));
-saleRouter.post('/sales',authorize(...WRITE),asyncHandler(async(req,res)=>res.status(201).json(await service.create(req.body,req))));
-saleRouter.patch('/sales/:id',authorize(...WRITE),asyncHandler(async(req,res)=>{
-  if(Object.hasOwn(req.body??{},'salespersonId'))throw new HttpError(409,'La réaffectation d’une vente créée nécessite une règle métier explicite');
-  res.json(await service.update(String(req.params.id),req.body,req));
+
+saleRouter.get('/sales',requirePermission('sales.view'),asyncHandler(async(request,response)=>response.json(await service.list(request.query,request))));
+saleRouter.get('/sales/:id',requirePermission('sales.view'),asyncHandler(async(request,response)=>response.json(await service.one(String(request.params.id),request,'sales.view'))));
+saleRouter.post('/sales',requirePermission('sales.create'),asyncHandler(async(request,response)=>response.status(201).json(await service.create(request.body,request))));
+saleRouter.patch('/sales/:id',requirePermission('sales.update'),asyncHandler(async(request,response)=>response.json(await service.update(String(request.params.id),request.body,request))));
+saleRouter.patch('/sales/:id/status',asyncHandler(async(request,response)=>{
+  const permission=request.body?.status==='cancelled'?'sales.cancel':'sales.confirm';
+  await assertPermission(request,permission);
+  response.json(await service.updateStatus(String(request.params.id),request.body?.status,request.body?.reason,request,permission));
 }));
-saleRouter.patch('/sales/:id/status',authorize(...WRITE),asyncHandler(async(req,res)=>{await service.one(String(req.params.id),req);if(req.body.status==='delivered')await service.assertFinanciallySettledForFinalization(String(req.params.id),req);res.json(await service.updateStatus(String(req.params.id),req.body.status,req.body.reason,req))}));

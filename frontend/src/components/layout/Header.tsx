@@ -21,12 +21,11 @@ import { Button } from '../ui/Button';
 import { assetUrl } from '../../services/apiClient';
 import { useChangeMyPassword, useUploadMyAvatar } from '../../api/userHooks';
 import { usePwaInstall } from '../../hooks/usePwaInstall';
-import { canNavigateToRoute } from '../../navigation/permissions';
+import { canNavigateWithPermissions } from '../../navigation/permissions';
 
 export const Header: React.FC = () => {
-  const { currentUser, currentAgency, allAgencies, setCurrentAgency, logout } = useAuthStore();
-  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
-  const notificationsQuery = useNotificationsQuery({page:1,pageSize:5});
+  const { currentUser, currentAgency, allAgencies, setCurrentAgency, logout, can } = useAuthStore();
+  const notificationsQuery = useNotificationsQuery({page:1,pageSize:5},can('notifications.view'));
   const notifications = notificationsQuery.data?.items ?? [];
   const { markAsRead } = useNotificationActions();
   const {
@@ -37,7 +36,7 @@ export const Header: React.FC = () => {
   const navigate = useNavigate();
   const changePassword=useChangeMyPassword();
   const uploadMyAvatar=useUploadMyAvatar();
-  const canViewSettings=useAuthStore((state)=>state.hasPermission('view','settings'));
+  const canViewSettings=useAuthStore((state)=>state.can('settings.view'));
   const { canInstall, install } = usePwaInstall();
 
   const [agencyDropdownOpen, setAgencyDropdownOpen] = useState(false);
@@ -211,7 +210,7 @@ export const Header: React.FC = () => {
                     <div
                       key={notif.id}
                       onClick={() => {
-                        void markAsRead.mutateAsync(notif.id).then(()=>{if(canNavigateToRoute(roles,notif.linkRoute))navigate(notif.linkRoute);setNotifDropdownOpen(false)}).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}));
+                        void markAsRead.mutateAsync(notif.id).then(()=>{if(canNavigateWithPermissions(currentUser.permissions,notif.linkRoute))navigate(notif.linkRoute);setNotifDropdownOpen(false)}).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}));
                       }}
                       className={`p-3 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${
                         !notif.isRead ? 'bg-blue-50/40' : ''

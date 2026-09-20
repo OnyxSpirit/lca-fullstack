@@ -28,10 +28,11 @@ import { useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { ROUTES } from '../../navigation/routes';
+import { canNavigateWithPermissions } from '../../navigation/permissions';
 
 export const Sidebar: React.FC = () => {
-  const { currentUser, hasPermission } = useAuthStore();
-  const notifications = useNotificationsQuery({page:1,pageSize:1}).data;
+  const { currentUser, can } = useAuthStore();
+  const notifications = useNotificationsQuery({page:1,pageSize:1},can('notifications.view')).data;
   const {
     sidebarCollapsed,
     toggleSidebar,
@@ -156,6 +157,12 @@ export const Sidebar: React.FC = () => {
           icon: <FileText className="w-4 h-4" />,
           module: 'documents',
         },
+        {
+          to: ROUTES.hr,
+          label: 'RH & Administration',
+          icon: <Users className="w-4 h-4" />,
+          module: 'hr',
+        },
       ],
     },
     {
@@ -212,7 +219,7 @@ export const Sidebar: React.FC = () => {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4 text-[13px] scrollbar-thin scrollbar-thumb-zinc-700">
         {sections.map((section, sIdx) => {
           // Filter items by RBAC permissions
-          const visibleItems = section.items.filter((item) => hasPermission('view', item.module));
+          const visibleItems = section.items.filter((item) => canNavigateWithPermissions(currentUser.permissions,item.to));
           if (visibleItems.length === 0) return null;
 
           return (

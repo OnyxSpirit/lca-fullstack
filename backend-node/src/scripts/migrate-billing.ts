@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pool } from '../config/database.js';
 
-const migrationPath = resolve(process.cwd(), '../backend/database/migrations/018_billing_stabilization.sql');
+const migrationPath = resolve(process.cwd(), 'database/legacy-migrations/018_billing_stabilization.sql');
 const sql = await readFile(migrationPath, 'utf8');
 const statements = sql
   .split(';')

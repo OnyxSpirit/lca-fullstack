@@ -1,0 +1,15 @@
+import assert from'node:assert/strict';import{readFileSync}from'node:fs';import test from'node:test';
+const source=(p:string)=>readFileSync(new URL(`../${p}`,import.meta.url),'utf8'),dashboard=source('src/modules/dashboard/DashboardPage.tsx'),hooks=source('src/api/dashboardHooks.ts'),search=source('src/components/layout/GlobalSearchModal.tsx'),sidebar=source('src/components/layout/Sidebar.tsx'),portal=source('src/modules/modules-portal/ModulesPortalPage.tsx');
+test('DASH-FE-01 overview est contextualisé et permissionné',()=>{assert.match(hooks,/auth\.currentUser\?\.id,auth\.currentAgency\?\.id/);assert.match(hooks,/auth\.can\('dashboard\.view'\)/)});
+test('DASH-FE-02 sections sensibles utilisent can',()=>{for(const p of ['billing.view','sales.view','crm.prospect.view','vehicles.view','showroom.view'])assert.match(dashboard,new RegExp(`can\\('${p.replace('.','\\.')}'\\)`))});
+test('DASH-FE-03 marge exige vehicles.financials.view',()=>assert.match(dashboard,/canViewMargin=can\('vehicles\.financials\.view'\)&&canViewSales/));
+test('DASH-FE-04 raccourci prospect exige create',()=>assert.match(dashboard,/can\('crm\.prospect\.create'\).*\+ Prospect/s));
+test('DASH-FE-05 aucun KPI fictif historique',()=>assert.doesNotMatch(dashboard,/\+14%|12[.,]5%|4 essais|8 actifs|20 véhicules|3 visiteurs|2 prévus|3 en cours/));
+test('NAV-FE-01 Sidebar et Portal partagent la politique centrale',()=>{assert.match(sidebar,/canNavigateWithPermissions/);assert.match(portal,/canNavigateWithPermissions/);assert.doesNotMatch(sidebar,/hasPermission\('view'/);assert.doesNotMatch(portal,/hasPermission\('view'/)});
+test('NAV-FE-02 aucun nom de rôle ne gouverne ces écrans',()=>{for(const s of [dashboard,sidebar,portal,search])assert.doesNotMatch(s,/DIRECTOR|DIRECTION|ACCOUNTANT|RECEPTIONIST|roles\.includes/)});
+test('SEARCH-FE-01 une seule query serveur remplace les listes complètes',()=>{assert.match(search,/useGlobalSearchQuery/);assert.doesNotMatch(search,/useCustomersQuery|useInvoicesQuery|useVehiclesQuery|usePartsQuery/)});
+test('SEARCH-FE-02 query inactive modale fermée et avant deux caractères',()=>{assert.match(hooks,/requestEnabled&&q\.length>=2/);assert.match(search,/useGlobalSearchQuery\(debounced,globalSearchOpen\)/)});
+test('SEARCH-FE-03 debounce et AbortSignal évitent les courses',()=>{assert.match(search,/setTimeout\(\(\)=>setDebounced/);assert.match(hooks,/queryFn:\(\{signal\}\)/)});
+test('SEARCH-FE-04 cache isolé utilisateur agence requête',()=>assert.match(hooks,/\['global-search',auth\.currentUser\?\.id,auth\.currentAgency\?\.id,q\]/));
+test('SEARCH-FE-05 loading empty erreur et navigation sont explicites',()=>{for(const x of ['Recherche en cours','Aucun résultat','Recherche indisponible','navigate(route)'])assert.match(search,new RegExp(x.replace(/[()]/g,'\\$&')))});
+test('SEARCH-FE-06 rendu texte sans XSS',()=>{assert.doesNotMatch(search,/dangerouslySetInnerHTML|innerHTML/);assert.match(search,/\{item\.label\}/)});

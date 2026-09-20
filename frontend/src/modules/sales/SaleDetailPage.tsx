@@ -13,7 +13,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import { useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation } from '../../api/erpHooks';
+import { useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation, useUpdateSale } from '../../api/erpHooks';
 import { saleStatusToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -24,17 +24,16 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate, formatDateTime } from '../../lib/utils';
 import { openBusinessPdf } from '../../services/businessPdf';
 import { useAuthStore } from '../../stores/authStore';
-import { hasPermission } from '../../navigation/permissions';
 
 export const SaleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const salesQuery = useSaleDetailQuery(id); const saleStatus = useSaleStatusMutation();
-  const currentUser=useAuthStore(s=>s.currentUser),agencyId=useAuthStore(s=>s.currentAgency?.id),roles=currentUser.roles?.length?currentUser.roles:[currentUser.role],canPay=hasPermission(roles,'billing.pay'),canCreateInvoice=hasPermission(roles,'billing.create'),canUpdateSale=hasPermission(roles,'sales.update'),canCancelSale=hasPermission(roles,'sales.cancel'),canPlanDelivery=hasPermission(roles,'deliveries.create'),canFinalizeCommercial=roles.some(role=>['SUPER_ADMIN','DIRECTION','SALES_MANAGER'].includes(role));
+  const salesQuery = useSaleDetailQuery(id); const saleStatus = useSaleStatusMutation(); const updateSale=useUpdateSale();
+  const agencyId=useAuthStore(s=>s.currentAgency?.id),can=useAuthStore(s=>s.can),canViewInvoice=can('billing.invoice.view'),canViewPayments=can('billing.payment.view'),canPay=can('billing.payment.collect'),canCreateInvoice=can('billing.invoice.create'),canUpdateSale=can('sales.update'),canCancelSale=can('sales.cancel'),canViewDelivery=can('delivery.view'),canPlanDelivery=can('delivery.prepare'),canConfirm=can('sales.confirm');
   const { addToast } = useUiStore();
 
   const sale = salesQuery.data;
-  const invoiceQuery=useInvoiceQuery(sale?.invoiceId,agencyId),invoice=invoiceQuery.data;
+  const invoiceQuery=useInvoiceQuery(sale?.invoiceId,agencyId,canViewInvoice),invoice=invoiceQuery.data;
 
   if (salesQuery.isLoading) return <div className="p-8 text-sm text-slate-500">Chargement du dossier de vente…</div>;
   if (!sale) {
@@ -80,6 +79,7 @@ export const SaleDetailPage: React.FC = () => {
         badge={<StatusBadge status={sale.status} type="sale" />}
         actions={
           <div className="flex items-center gap-2">
+            {canUpdateSale&&['DEVIS','RESERVATION'].includes(sale.status)&&<Button variant="outline" size="sm" onClick={()=>{const notes=window.prompt('Notes de la vente',sale.notes??'');if(notes!==null)void updateSale.mutateAsync({id:sale.id,notes}).catch(error=>addToast({type:'error',title:'Modification impossible',description:error instanceof Error?error.message:'Erreur API'}))}}>Modifier les notes</Button>}
             <Button
               variant="outline"
               size="sm"
@@ -89,7 +89,7 @@ export const SaleDetailPage: React.FC = () => {
               Imprimer Bon de Commande
             </Button>
 
-            {next&&canUpdateSale&&(!isReadyTransition||canFinalizeCommercial)&&<div title={isReadyTransition&&readyBlocked?'Une facture active et entièrement réglée est requise.':undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={isReadyTransition&&readyBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
+            {next&&canConfirm&&<div title={isReadyTransition&&readyBlocked?'Une facture active et entièrement réglée est requise.':undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={isReadyTransition&&readyBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
             {sale.status === 'PRET_LIVRAISON'&&canPlanDelivery&&<Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
             {canCancelSale&&!['LIVRE','ANNULE'].includes(sale.status)&&<div title={cancellationBlocked?'Une vente encaissée ou engagée en livraison ne peut plus être annulée.':undefined}><Button variant="danger" size="sm" loading={saleStatus.isPending} disabled={cancellationBlocked} onClick={()=>{const reason=window.prompt("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button></div>}
           </div>
@@ -234,7 +234,7 @@ export const SaleDetailPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="space-y-2 pt-2">
+              {canViewPayments&&<div className="space-y-2 pt-2">
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-500">Total encaissé</span>
                   <span className="font-bold text-emerald-600">{formatCurrency(sale.depositPaidTTC)}</span>
@@ -247,18 +247,19 @@ export const SaleDetailPage: React.FC = () => {
                   <span className="text-slate-500">Situation financière</span>
                   <Badge variant={sale.remainingBalanceTTC<=0?'success':sale.depositPaidTTC>0?'warning':'default'}>{sale.remainingBalanceTTC<=0?'Soldée':sale.depositPaidTTC>0?'Partiellement payée':'Non réglée'}</Badge>
                 </div>
-              </div>
+              </div>}
 
-              {invoice?.payments?.length?<div className="rounded-xl border border-slate-200 p-3"><p className="mb-2 font-bold text-slate-800">Historique des règlements</p><div className="space-y-2">{invoice.payments.map(payment=><div key={payment.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2"><div><p className="font-mono font-semibold">{payment.paymentNumber}</p><p className="text-[11px] text-slate-500">{formatDateTime(payment.paymentDate)} · {payment.paymentMethod}{payment.reference?` · ${payment.reference}`:''}</p></div><span className="font-bold text-emerald-700">{formatCurrency(payment.amount)}</span></div>)}</div></div>:sale.invoiceId&&!invoiceQuery.isLoading?<p className="text-[11px] text-slate-500">Aucun règlement validé sur cette facture.</p>:null}
+              {canViewPayments&&(invoice?.payments?.length?<div className="rounded-xl border border-slate-200 p-3"><p className="mb-2 font-bold text-slate-800">Historique des règlements</p><div className="space-y-2">{invoice.payments.map(payment=><div key={payment.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2"><div><p className="font-mono font-semibold">{payment.paymentNumber}</p><p className="text-[11px] text-slate-500">{formatDateTime(payment.paymentDate)} · {payment.paymentMethod}{payment.reference?` · ${payment.reference}`:''}</p></div><span className="font-bold text-emerald-700">{formatCurrency(payment.amount)}</span></div>)}</div></div>:sale.invoiceId&&!invoiceQuery.isLoading?<p className="text-[11px] text-slate-500">Aucun règlement validé sur cette facture.</p>:null)}
 
-              <Button
+              {canViewDelivery&&<Button
                 variant="primary"
                 className="w-full"
                 onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}
               >
                 Voir Planning Livraison
-              </Button>
-              {sale.invoiceId&&<Button variant={canPay&&sale.remainingBalanceTTC>0?'primary':'outline'} className="w-full" onClick={()=>navigate(`/billing/${sale.invoiceId}`)}>{canPay&&sale.remainingBalanceTTC>0?'Enregistrer un règlement':'Voir la facture et les règlements'}</Button>}
+              </Button>}
+              {sale.invoiceId&&canViewInvoice&&<Button variant={canPay&&sale.remainingBalanceTTC>0?'primary':'outline'} className="w-full" onClick={()=>navigate(`/billing/${sale.invoiceId}`)}>{canPay&&sale.remainingBalanceTTC>0?'Enregistrer un règlement':'Voir la facture et les règlements'}</Button>}
+              {sale.invoiceId&&canViewInvoice&&!canPay&&sale.remainingBalanceTTC>0&&<p className="text-[11px] text-slate-500">L’encaissement doit être effectué par la comptabilité.</p>}
               {!sale.invoiceId&&canCreateInvoice&&<Button variant="outline" className="w-full" onClick={()=>navigate(`/billing?saleId=${encodeURIComponent(sale.id)}`)}>Créer la facture de vente</Button>}
               {!sale.invoiceId&&<p className="text-[11px] text-amber-700">Aucune facture de vente n’est encore liée. L’encaissement est réservé à un rôle financier autorisé et commence après émission de la facture.</p>}
               {sale.invoiceId&&!canPay&&sale.remainingBalanceTTC>0&&<p className="text-[11px] text-slate-500">Un solde reste dû. Son encaissement doit être effectué par la comptabilité ou un rôle financier autorisé.</p>}

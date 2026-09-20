@@ -18,4 +18,5 @@ const token = (body: unknown) => {
 
 authRouter.post('/login', asyncHandler(async (request, response) => { const input=credentials(request.body); response.json(await service.login(input.email,input.password)); }));
 authRouter.post('/refresh', asyncHandler(async (request, response) => response.json(await service.refresh(token(request.body)))));
+authRouter.get('/me', authenticate, asyncHandler(async (request, response) => response.json(await service.me(request.user!.sub))));
 authRouter.post('/logout', authenticate, asyncHandler(async (request, response) => { await service.logout(token(request.body)); response.json({ success: true }); }));

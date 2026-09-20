@@ -1,15 +1,12 @@
 import { Router } from 'express';
 import { execute, query, transaction } from '../../config/database.js';
-import { authorize, unrestricted } from '../../middleware/authorize.js';
+import { requireAnyPermission, requirePermission } from '../../middleware/require-permission.js';
+import { assertPermission } from '../rbac/rbac.service.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { HttpError } from '../../shared/http-error.js';
 import { notifyCrm } from './crm.notifications.js';
 import { resolveLeadAssignee, validateLeadAssignee } from './crm-assignment.js';
 export const crmRouter = Router();
-const CRM_READ = ['SUPER_ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'SALES_AGENT', 'RECEPTIONIST'];
-const CRM_WRITE = ['SUPER_ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'SALES_AGENT', 'RECEPTIONIST'];
-const CRM_STAGE = ['SUPER_ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'SALES_AGENT'];
-const CRM_ACTIVITY = ['SUPER_ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'SALES_AGENT'];
 const stages = ['new', 'contacted', 'qualified', 'appointment', 'test_drive', 'offer', 'negotiation', 'won', 'lost'];
 const activityTypes = ['call', 'email', 'task', 'appointment', 'test_drive', 'note', 'other'];
 const activityStatuses = ['planned', 'completed', 'cancelled'];
@@ -41,26 +38,30 @@ const dateValue = (value, name) => { if (value == null || value === '')
     throw new HttpError(400, `${name} doit être au format AAAA-MM-JJ`); return value; };
 const routeId = (value) => { const id = Array.isArray(value) ? value[0] : value; if (!id || !/^\d+$/.test(id))
     throw new HttpError(400, 'Identifiant invalide'); return id; };
-const hasRole = (request, roles) => Boolean(request.user?.roles.some(role => roles.includes(role)));
-function scope(request, alias = 'COALESCE(u.agency_id,creator.agency_id)') {
+export function crmLeadScope(request, permission, alias = 'COALESCE(u.agency_id,creator.agency_id)', applyFilters = false) {
     const requestedAgency = typeof request.query.agencyId === 'string' ? request.query.agencyId : null;
     const requestedCommercial = typeof request.query.commercialId === 'string' ? request.query.commercialId : null;
-    if (unrestricted(request))
-        return { sql: `(? IS NULL OR ${alias}=?) AND (? IS NULL OR l.assigned_user_id=?)`, params: [requestedAgency, requestedAgency, requestedCommercial, requestedCommercial] };
+    const permissionScope = request.rbac?.isSuperAdmin ? 'GLOBAL' : request.rbac?.permissions.get(permission);
+    if (permissionScope === 'GLOBAL')
+        return applyFilters ? { sql: `(? IS NULL OR ${alias}=?) AND (? IS NULL OR l.assigned_user_id=?)`, params: [requestedAgency, requestedAgency, requestedCommercial, requestedCommercial] } : { sql: '1=1', params: [] };
     const agencyId = request.user?.agencyId;
     if (!agencyId)
         throw new HttpError(403, 'Aucune agence associée à cet utilisateur');
-    if (hasRole(request, ['SALES_AGENT'])) {
-        if (requestedCommercial && requestedCommercial !== request.user?.sub)
-            throw new HttpError(403, 'Un commercial ne peut consulter que son portefeuille');
+    if (permissionScope === 'OWN') {
+        if (applyFilters && requestedCommercial && requestedCommercial !== request.user?.sub)
+            throw new HttpError(403, 'Cet utilisateur ne peut consulter que son portefeuille');
         return { sql: `${alias}=? AND l.assigned_user_id=?`, params: [agencyId, request.user?.sub] };
     }
-    return { sql: `${alias}=? AND (? IS NULL OR l.assigned_user_id=?)`, params: [agencyId, requestedCommercial, requestedCommercial] };
+    if (permissionScope === 'CONCESSION')
+        return applyFilters ? { sql: `${alias} IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?)) AND (? IS NULL OR l.assigned_user_id=?)`, params: [agencyId, requestedCommercial, requestedCommercial] } : { sql: `${alias} IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`, params: [agencyId] };
+    return applyFilters ? { sql: `${alias}=? AND (? IS NULL OR l.assigned_user_id=?)`, params: [agencyId, requestedCommercial, requestedCommercial] } : { sql: `${alias}=?`, params: [agencyId] };
 }
-async function accessibleLead(id, request) { const scoped = scope(request); const [row] = await query(`${leadSelect} WHERE l.id=? AND ${scoped.sql}`, [id, ...scoped.params]); if (!row)
+async function accessibleLead(id, request, permission = 'crm.prospect.view') { const scoped = crmLeadScope(request, permission); const [row] = await query(`${leadSelect} WHERE l.id=? AND ${scoped.sql}`, [id, ...scoped.params]); if (!row)
     throw new HttpError(404, 'Prospect introuvable'); return row; }
-crmRouter.get('/leads', authorize(...CRM_READ), asyncHandler(async (request, response) => {
-    const scoped = scope(request);
+async function leadById(id) { const [row] = await query(`${leadSelect} WHERE l.id=?`, [id]); if (!row)
+    throw new HttpError(404, 'Prospect introuvable'); return row; }
+crmRouter.get('/leads', requirePermission('crm.prospect.view'), asyncHandler(async (request, response) => {
+    const scoped = crmLeadScope(request, 'crm.prospect.view', 'COALESCE(u.agency_id,creator.agency_id)', true);
     const search = typeof request.query.search === 'string' ? request.query.search.trim() : '';
     const term = `%${search}%`;
     const normalizedPhone = search.replace(/[^\d+]/g, '');
@@ -74,8 +75,8 @@ crmRouter.get('/leads', authorize(...CRM_READ), asyncHandler(async (request, res
     const rows = await query(`${leadSelect} WHERE ${scoped.sql} AND (?='' OR l.first_name LIKE ? OR l.last_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR o.title LIKE ? OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) AND (? IS NULL OR o.stage=?) AND (? IS NULL OR l.priority=?) ORDER BY l.updated_at DESC LIMIT 200`, [...scoped.params, search, term, term, term, term, term, normalizedPhone, phoneTerm, stage, stage, priority, priority]);
     response.json(rows.map(mapLead));
 }));
-crmRouter.get('/leads/:id', authorize(...CRM_READ), asyncHandler(async (request, response) => { response.json(mapLead(await accessibleLead(routeId(request.params.id), request))); }));
-crmRouter.post('/leads', authorize(...CRM_WRITE), asyncHandler(async (request, response) => {
+crmRouter.get('/leads/:id', requirePermission('crm.prospect.view'), asyncHandler(async (request, response) => { response.json(mapLead(await accessibleLead(routeId(request.params.id), request))); }));
+crmRouter.post('/leads', requirePermission('crm.prospect.create'), asyncHandler(async (request, response) => {
     const body = request.body;
     const title = text(body.title, 'title', 200, true);
     const firstName = text(body.firstName, 'firstName', 100);
@@ -101,6 +102,8 @@ crmRouter.post('/leads', authorize(...CRM_WRITE), asyncHandler(async (request, r
     const stage = text(body.stage, 'stage', 30) ?? 'new';
     if (stage !== 'new')
         throw new HttpError(409, 'Un prospect doit commencer à l’étape Nouveau');
+    if (body.assignedUserId != null && body.assignedUserId !== '')
+        await assertPermission(request, 'crm.prospect.assign');
     const assigned = await resolveLeadAssignee(body.assignedUserId, request), assignedUserId = assigned.assignedUserId;
     const expectedValue = numberValue(body.expectedValue, 'expectedValue', 0, 9999999999999999);
     const probability = numberValue(body.probability, 'probability', 0, 100);
@@ -108,20 +111,22 @@ crmRouter.post('/leads', authorize(...CRM_WRITE), asyncHandler(async (request, r
     const notes = text(body.notes, 'notes', 10000), leadStatus = leadStatusForStage(stage);
     const created = await transaction(async (connection) => { const [lead] = await connection.execute(`INSERT INTO leads(assigned_user_id,created_by,source,status,priority,first_name,last_name,company_name,email,phone,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, [assignedUserId, request.user.sub, source, leadStatus, priority, firstName, lastName, companyName, email, phone, notes]); const [opportunity] = await connection.execute(`INSERT INTO opportunities(lead_id,assigned_user_id,title,stage,expected_value,probability,expected_close_date,notes) VALUES(?,?,?,?,?,?,?,?)`, [lead.insertId, assignedUserId, title, stage, expectedValue, probability, expectedCloseDate, notes]); return { id: String(lead.insertId), opportunityId: String(opportunity.insertId) }; });
     await notifyCrm({ leadId: created.id, agencyId: assigned.agencyId, assignedUserId, actorUserId: request.user.sub, subject: 'Nouveau prospect', message: assignedUserId ? `Le prospect ${[firstName, lastName].filter(Boolean).join(' ') || companyName} vous a été attribué.` : `Le prospect ${[firstName, lastName].filter(Boolean).join(' ') || companyName} est à affecter.` });
-    response.status(201).json(mapLead(await accessibleLead(created.id, request)));
+    response.status(201).json(mapLead(await leadById(created.id)));
 }));
-crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (request, response) => {
+crmRouter.patch('/leads/:id', requireAnyPermission(['crm.prospect.update', 'crm.prospect.assign']), asyncHandler(async (request, response) => {
     const leadId = routeId(request.params.id);
-    const current = await accessibleLead(leadId, request);
     const body = request.body;
+    const assignmentOnly = Object.keys(body).length === 1 && Object.hasOwn(body, 'assignedUserId');
+    if (assignmentOnly)
+        await assertPermission(request, 'crm.prospect.assign');
+    else
+        await assertPermission(request, 'crm.prospect.update');
+    if (Object.hasOwn(body, 'assignedUserId'))
+        await assertPermission(request, 'crm.prospect.assign');
+    const current = await accessibleLead(leadId, request, assignmentOnly ? 'crm.prospect.assign' : 'crm.prospect.update');
     const leadFields = { firstName: 'first_name', lastName: 'last_name', companyName: 'company_name', email: 'email', phone: 'phone', source: 'source', priority: 'priority', notes: 'notes' };
     const opportunityFields = { title: 'title', expectedValue: 'expected_value', probability: 'probability', expectedCloseDate: 'expected_close_date' };
     const leadSets = [], leadValues = [], oppSets = [], oppValues = [];
-    const receptionist = hasRole(request, ['RECEPTIONIST']);
-    if (receptionist && (Object.keys(body).length !== 1 || !Object.hasOwn(body, 'assignedUserId')))
-        throw new HttpError(403, 'Le Réceptionniste peut uniquement affecter un prospect Nouveau non pris en charge');
-    if (receptionist && (current.stage !== 'new' || current.assigned_user_id != null))
-        throw new HttpError(409, 'Seul un prospect Nouveau non affecté peut être attribué par le Réceptionniste');
     for (const [key, column] of Object.entries(leadFields))
         if (Object.hasOwn(body, key)) {
             let value = text(body[key], key, key === 'notes' ? 10000 : key === 'companyName' ? 200 : key === 'email' ? 190 : key === 'phone' ? 50 : 100);
@@ -145,8 +150,6 @@ crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (reque
     let assignedUserId = current.assigned_user_id == null ? null : String(current.assigned_user_id), agencyId = current.agency_id == null ? null : String(current.agency_id);
     if (Object.hasOwn(body, 'assignedUserId')) {
         assignedUserId = text(body.assignedUserId, 'assignedUserId', 30, true);
-        if (hasRole(request, ['SALES_AGENT']) && assignedUserId !== request.user?.sub)
-            throw new HttpError(403, 'Un commercial ne peut pas réattribuer son portefeuille');
         agencyId = (await validateLeadAssignee(assignedUserId, request)).agencyId;
         leadSets.push('assigned_user_id=?');
         leadValues.push(assignedUserId);
@@ -155,20 +158,16 @@ crmRouter.patch('/leads/:id', authorize(...CRM_WRITE), asyncHandler(async (reque
     }
     if (!leadSets.length && !oppSets.length)
         throw new HttpError(400, 'Aucun champ modifiable fourni');
-    await transaction(async (connection) => { if (receptionist) {
-        const [locked] = await connection.execute('SELECT l.assigned_user_id,o.stage FROM leads l JOIN opportunities o ON o.lead_id=l.id WHERE l.id=? FOR UPDATE', [leadId]);
-        if (!locked[0] || locked[0].stage !== 'new' || locked[0].assigned_user_id != null)
-            throw new HttpError(409, 'Ce prospect a déjà été pris en charge et ne peut plus être affecté par le Réceptionniste');
-    } if (leadSets.length)
+    await transaction(async (connection) => { if (leadSets.length)
         await connection.execute(`UPDATE leads SET ${leadSets.join(',')} WHERE id=?`, [...leadValues, leadId]); if (oppSets.length)
         await connection.execute(`UPDATE opportunities SET ${oppSets.join(',')} WHERE lead_id=?`, [...oppValues, leadId]); const reassigned = assignedUserId !== String(current.assigned_user_id ?? ''); await connection.execute(`INSERT INTO activities(customer_id,lead_id,opportunity_id,assigned_user_id,type,subject,description,status,completed_at) VALUES(?,?,?,?,?,?,?,'completed',NOW())`, [current.customer_id, leadId, current.opportunity_id, request.user.sub, 'note', reassigned ? 'Réaffectation commerciale' : 'Fiche prospect mise à jour', reassigned ? `Commercial : ${current.assigned_user_id ?? 'non affecté'} → ${assignedUserId}` : `Champs modifiés : ${[...Object.keys(body)].join(', ')}`]); });
     if (assignedUserId && assignedUserId !== String(current.assigned_user_id ?? ''))
         await notifyCrm({ leadId, agencyId, assignedUserId, actorUserId: request.user.sub, subject: 'Prospect réattribué', message: `Le prospect #${leadId} vous a été attribué.` });
-    response.json(mapLead(await accessibleLead(leadId, request)));
+    response.json(mapLead(await leadById(leadId)));
 }));
-crmRouter.patch('/leads/:id/stage', authorize(...CRM_STAGE), asyncHandler(async (request, response) => {
+crmRouter.patch('/leads/:id/stage', requirePermission('crm.pipeline.advance'), asyncHandler(async (request, response) => {
     const leadId = routeId(request.params.id);
-    const current = await accessibleLead(leadId, request);
+    const current = await accessibleLead(leadId, request, 'crm.pipeline.advance');
     const stage = text(request.body?.stage, 'stage', 30, true);
     if (!stages.includes(stage))
         throw new HttpError(400, 'Étape CRM invalide');
@@ -192,8 +191,11 @@ crmRouter.patch('/leads/:id/stage', authorize(...CRM_STAGE), asyncHandler(async 
         if (!quotation)
             throw new HttpError(409, 'Un devis réel est requis pour négocier');
     }
-    if (stage === 'lost' && current.stage === 'won')
-        throw new HttpError(409, 'Une opportunité gagnée ne peut pas être perdue');
+    if (stage === 'lost') {
+        await assertPermission(request, 'crm.prospect.lose');
+        if (current.stage === 'won')
+            throw new HttpError(409, 'Une opportunité gagnée ne peut pas être perdue');
+    }
     await transaction(async (connection) => {
         await connection.execute(`UPDATE opportunities SET stage=?,lost_reason=?,lost_at=IF(?='lost',NOW(),NULL) WHERE lead_id=?`, [stage, stage === 'lost' ? lostReason : null, stage, leadId]);
         await connection.execute(`UPDATE leads SET status=? WHERE id=?`, [leadStatusForStage(stage), leadId]);
@@ -202,10 +204,10 @@ crmRouter.patch('/leads/:id/stage', authorize(...CRM_STAGE), asyncHandler(async 
         await connection.execute(`INSERT INTO activities(customer_id,lead_id,opportunity_id,assigned_user_id,type,subject,description,status,completed_at) VALUES(?,?,?,?,?,'Étape CRM mise à jour',?,'completed',NOW())`, [current.customer_id, leadId, current.opportunity_id, request.user.sub, 'note', `Étape : ${current.stage} → ${stage}${lostReason ? ` — Motif : ${lostReason}` : ''}`]);
     });
     await notifyCrm({ leadId, agencyId: current.agency_id == null ? null : String(current.agency_id), assignedUserId: current.assigned_user_id == null ? null : String(current.assigned_user_id), actorUserId: request.user.sub, subject: 'Étape CRM mise à jour', message: `Le prospect #${leadId} est maintenant à l’étape ${stage}.` });
-    response.json(mapLead(await accessibleLead(leadId, request)));
+    response.json(mapLead(await accessibleLead(leadId, request, 'crm.pipeline.advance')));
 }));
-crmRouter.post('/leads/:id/appointments', authorize(...CRM_ACTIVITY), asyncHandler(async (request, response) => {
-    const leadId = routeId(request.params.id), current = await accessibleLead(leadId, request);
+crmRouter.post('/leads/:id/appointments', requirePermission('crm.appointment.create'), asyncHandler(async (request, response) => {
+    const leadId = routeId(request.params.id), current = await accessibleLead(leadId, request, 'crm.appointment.create');
     if (!['qualified', 'appointment'].includes(current.stage))
         throw new HttpError(409, 'Le prospect doit être qualifié avant de planifier un rendez-vous');
     if (!current.assigned_user_id)
@@ -218,8 +220,8 @@ crmRouter.post('/leads/:id/appointments', authorize(...CRM_ACTIVITY), asyncHandl
     await notifyCrm({ leadId, agencyId: current.agency_id == null ? null : String(current.agency_id), assignedUserId: current.assigned_user_id == null ? null : String(current.assigned_user_id), actorUserId: request.user.sub, subject: 'Rendez-vous commercial planifié', message: `Un rendez-vous a été planifié pour le prospect #${leadId}.` });
     response.status(201).json({ id: activityId, leadId, stage: 'appointment', scheduledAt: parsed.toISOString() });
 }));
-crmRouter.get('/leads/:id/activities', authorize(...CRM_READ), asyncHandler(async (request, response) => { const leadId = routeId(request.params.id); await accessibleLead(leadId, request); const rows = await query(`SELECT a.id,a.customer_id,a.lead_id,a.opportunity_id,a.assigned_user_id,a.type,a.subject,a.description,a.status,a.due_at,a.completed_at,a.created_at,CONCAT_WS(' ',u.first_name,u.last_name) assigned_user_name FROM activities a LEFT JOIN users u ON u.id=a.assigned_user_id WHERE a.lead_id=? ORDER BY a.created_at DESC LIMIT 200`, [leadId]); response.json(rows.map(row => ({ id: String(row.id), customerId: row.customer_id == null ? null : String(row.customer_id), leadId: String(row.lead_id), opportunityId: row.opportunity_id == null ? null : String(row.opportunity_id), assignedUserId: row.assigned_user_id == null ? null : String(row.assigned_user_id), assignedUserName: row.assigned_user_name ?? '', type: row.type, subject: row.subject, description: row.description ?? '', status: row.status, dueAt: row.due_at, completedAt: row.completed_at, createdAt: row.created_at }))); }));
-crmRouter.post('/activities', authorize(...CRM_ACTIVITY), asyncHandler(async (request, response) => { const body = request.body; const leadId = text(body.leadId, 'leadId', 30, true); const lead = await accessibleLead(leadId, request); const type = text(body.type, 'type', 30, true); if (!activityTypes.includes(type))
+crmRouter.get('/leads/:id/activities', requirePermission('crm.activity.view'), asyncHandler(async (request, response) => { const leadId = routeId(request.params.id); await accessibleLead(leadId, request, 'crm.activity.view'); const rows = await query(`SELECT a.id,a.customer_id,a.lead_id,a.opportunity_id,a.assigned_user_id,a.type,a.subject,a.description,a.status,a.due_at,a.completed_at,a.created_at,CONCAT_WS(' ',u.first_name,u.last_name) assigned_user_name FROM activities a LEFT JOIN users u ON u.id=a.assigned_user_id WHERE a.lead_id=? ORDER BY a.created_at DESC LIMIT 200`, [leadId]); response.json(rows.map(row => ({ id: String(row.id), customerId: row.customer_id == null ? null : String(row.customer_id), leadId: String(row.lead_id), opportunityId: row.opportunity_id == null ? null : String(row.opportunity_id), assignedUserId: row.assigned_user_id == null ? null : String(row.assigned_user_id), assignedUserName: row.assigned_user_name ?? '', type: row.type, subject: row.subject, description: row.description ?? '', status: row.status, dueAt: row.due_at, completedAt: row.completed_at, createdAt: row.created_at }))); }));
+crmRouter.post('/activities', requirePermission('crm.activity.create'), asyncHandler(async (request, response) => { const body = request.body; const leadId = text(body.leadId, 'leadId', 30, true); const lead = await accessibleLead(leadId, request, 'crm.activity.create'); const type = text(body.type, 'type', 30, true); if (!activityTypes.includes(type))
     throw new HttpError(400, "Type d'activité invalide"); const status = text(body.status, 'status', 30) ?? 'completed'; if (!activityStatuses.includes(status))
     throw new HttpError(400, "Statut d'activité invalide"); const subject = text(body.subject, 'subject', 255, true); const description = text(body.description, 'description', 10000); const dueAt = body.dueAt == null || body.dueAt === '' ? null : new Date(String(body.dueAt)); if (dueAt && Number.isNaN(dueAt.getTime()))
     throw new HttpError(400, 'dueAt est invalide'); const result = await execute(`INSERT INTO activities(customer_id,lead_id,opportunity_id,assigned_user_id,type,subject,description,status,due_at,completed_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, [lead.customer_id ?? null, leadId, lead.opportunity_id, request.user.sub, type, subject, description, status, dueAt, status === 'completed' ? new Date() : null]); await notifyCrm({ leadId, agencyId: lead.agency_id == null ? null : String(lead.agency_id), assignedUserId: lead.assigned_user_id == null ? null : String(lead.assigned_user_id), actorUserId: request.user.sub, subject: 'Nouvelle activité CRM', message: `${subject} a été ajouté au prospect #${leadId}.` }); response.status(201).json({ id: String(result.insertId) }); }));

@@ -23,6 +23,7 @@ import { DocumentsGedPage } from './modules/documents/DocumentsGedPage';
 import { UsersManagementPage } from './modules/users/UsersManagementPage';
 import { SettingsPage } from './modules/settings/SettingsPage';
 import { NotificationsPage } from './modules/notifications/NotificationsPage';
+import { HrAdministrationPage } from './modules/hr/HrAdministrationPage';
 import { DeliveryDetailPage } from './modules/deliveries/DeliveryDetailPage';
 import { SparePartDetailPage } from './modules/parts/SparePartDetailPage';
 import { LoginPage } from './modules/auth/LoginPage';
@@ -30,7 +31,6 @@ import { useAuthStore } from './stores/authStore';
 import { AppBootstrap } from './components/AppBootstrap';
 import { NotFoundPage } from './modules/errors/NotFoundPage';
 import { ROUTES } from './navigation/routes';
-import { canAccessModule } from './navigation/permissions';
 import type { ModuleKey } from './navigation/routes';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
@@ -40,10 +40,10 @@ function ProtectedLayout() {
   const location = useLocation();
   return isAuthenticated ? <AppLayout /> : <Navigate to={ROUTES.login} state={{ from: location }} replace />;
 }
+const MODULE_PERMISSION: Record<ModuleKey, string> = { dashboard:'dashboard.view', modules:'dashboard.view', crm:'crm.prospect.view', showroom:'showroom.view', vehicles:'vehicles.view', sales:'sales.view', deliveries:'delivery.view', customers:'customers.view', service:'service.order.view', workshop:'workshop.view', parts:'parts.view', billing:'billing.view', reports:'reporting.view', documents:'ged.view', hr:'hr.view', users:'users.view', settings:'settings.view', notifications:'notifications.view' };
 function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNode}) {
-  const user=useAuthStore(state=>state.currentUser);
-  const roles=user?.roles?.length?user.roles:user?[user.role]:[];
-  return canAccessModule(roles,'view',module)?<>{children}</>:<AccessDeniedPage/>;
+  const can=useAuthStore(state=>state.can);
+  return can(MODULE_PERMISSION[module])?<>{children}</>:<AccessDeniedPage/>;
 }
 
 export default function App() {
@@ -77,6 +77,7 @@ export default function App() {
           <Route path="billing/:id" element={<ModuleGuard module="billing"><InvoiceDetailPage /></ModuleGuard>} />
           <Route path="reports" element={<ModuleGuard module="reports"><ReportsPage /></ModuleGuard>} />
           <Route path="documents" element={<ModuleGuard module="documents"><DocumentsGedPage /></ModuleGuard>} />
+          <Route path="hr" element={<ModuleGuard module="hr"><HrAdministrationPage /></ModuleGuard>} />
           <Route path="users" element={<ModuleGuard module="users"><UsersManagementPage /></ModuleGuard>} />
           <Route path="settings" element={<ModuleGuard module="settings"><SettingsPage /></ModuleGuard>} />
           <Route path="*" element={<NotFoundPage />} />

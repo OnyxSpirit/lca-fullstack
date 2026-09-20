@@ -7,4 +7,5 @@ backups/
 **/dist/
 **/uploads/
 **/ged-storage/
+**/.claude/
 

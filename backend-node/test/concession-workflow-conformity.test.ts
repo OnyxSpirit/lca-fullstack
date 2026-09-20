@@ -20,13 +20,14 @@ test('PAY-DOUBLE la transaction verrouille la facture avant de relire la clé id
   assert.ok(payment.indexOf('access(invoiceId,r,c,true)')<payment.indexOf('WHERE idempotency_key=?'));
   assert.match(payment,/invoice_id.*idempotency_key/);
   assert.match(payment,/SELECT status FROM sales WHERE id=\? FOR UPDATE/);
-  assert.match(read('../../backend/database/schema.sql'),/UNIQUE KEY uk_payment_idempotency \(idempotency_key\)/);
+  assert.match(read('../database/baseline/001_initial_schema.sql'),/UNIQUE KEY uk_payment_idempotency \(idempotency_key\)/);
 });
 
 test('DEL-01..05 validation finale: facture, solde, rôle et livraison dédiée',()=>{
   const service=read('../src/modules/sales/sale.service.ts');
   assert.match(service,/status==='ready_for_delivery'/);
-  assert.match(service,/\['SUPER_ADMIN','DIRECTOR','SALES_MANAGER'\]/);
+  assert.match(service,/permission:'sales\.confirm'\|'sales\.cancel'/);
+  assert.match(service,/Permission de confirmation requise/);
   assert.match(service,/Une facture active est requise/);
   assert.match(service,/entièrement réglée/);
   assert.match(service,/status==='delivered'.*module Livraisons/);

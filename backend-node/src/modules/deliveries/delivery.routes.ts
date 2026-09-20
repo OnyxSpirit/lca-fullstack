@@ -3,27 +3,20 @@ import path from "node:path";
 import { Router, type Request } from "express";
 import PDFDocument from "pdfkit";
 import {archiveDelivery,safelyArchive} from "../documents/business-document.service.js";
+import {renderDeliveryDocument} from "../documents/commercial-document.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { execute, query, transaction } from "../../config/database.js";
-import { authorize, unrestricted } from "../../middleware/authorize.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { asyncHandler } from "../../middleware/error-handler.js";
 import { emitToAgency } from "../../realtime/socket.js";
 import { HttpError } from "../../shared/http-error.js";
-import { notifyRoles as createRoleNotifications } from "../notifications/notification.service.js";
+import { notifyPermissions as createPermissionNotifications } from "../notifications/notification.service.js";
 import { assertFinanciallySettled } from "../billing/payment.domain.js";
 import {assertHandoverMileage,deliverySignatureHash} from './delivery.domain.js';
+import {operationalCandidateSql} from '../users/operational-candidate.js';
 
 export const deliveryRouter = Router();
-const READ = [
-  "SUPER_ADMIN",
-  "DIRECTOR",
-  "SALES_MANAGER",
-  "SALES_AGENT",
-  "DELIVERY_MANAGER",
-  "RECEPTIONIST",
-];
-const CREATE = ["SUPER_ADMIN", "DIRECTOR", "DELIVERY_MANAGER"];
-const OPERATE = ["SUPER_ADMIN", "DIRECTOR", "DELIVERY_MANAGER"];
+type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel';
 const STATUSES = [
   "planned",
   "preparing",
@@ -58,43 +51,64 @@ const mysqlDateTime = (value: unknown, label: string) => {
   if (Number.isNaN(parsed.getTime())) throw new HttpError(400, `${label} invalide`);
   return parsed.toISOString().slice(0, 19).replace("T", " ");
 };
-const agency = (request: Request, requested?: unknown) => {
-  if (unrestricted(request) && requested) return String(requested);
+const permissionScope=(request:Request,permission:DeliveryPermission)=>request.rbac?.isSuperAdmin?'GLOBAL':request.rbac?.permissions.get(permission);
+async function canViewFinancials(request:Request,agencyId:unknown){
+  if(request.rbac?.isSuperAdmin)return true;
+  const value=request.rbac?.permissions.get('billing.payment.view');
+  if(value==='GLOBAL')return true;
+  if(!request.user?.agencyId)return false;
+  if(value==='AGENCY')return String(agencyId)===String(request.user.agencyId);
+  if(value==='CONCESSION'){const rows=await query<RowDataPacket[]>('SELECT a.id FROM agencies a JOIN agencies current ON current.concession_id=a.concession_id WHERE a.id=? AND current.id=?',[agencyId,request.user.agencyId]);return Boolean(rows[0])}
+  return false;
+}
+const agency = (request: Request, permission:DeliveryPermission, requested?: unknown) => {
+  if (permissionScope(request,permission)==='GLOBAL' && requested) return idOf(String(requested));
   if (!request.user?.agencyId)
     throw new HttpError(403, "Aucune agence associée");
   return request.user.agencyId;
 };
-const scope = (request: Request, alias = "d") =>
-  unrestricted(request)
-    ? { sql: "1=1", params: [] as unknown[] }
-    : { sql: `${alias}.agency_id=?`, params: [request.user!.agencyId] };
+const scope=(request:Request,permission:DeliveryPermission,alias='d')=>{const value=permissionScope(request,permission);if(value==='GLOBAL')return{sql:'1=1',params:[] as unknown[]};if(value==='CONCESSION')return{sql:`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[request.user!.agencyId]};if(value==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[request.user!.agencyId]};if(value==='OWN'&&alias==='d')return{sql:`${alias}.delivery_specialist_id=?`,params:[request.user!.sub]};if(value==='OWN')return{sql:'1=0',params:[] as unknown[]};throw new HttpError(403,'Périmètre Livraison insuffisant.');};
 const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone,c.email,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.vin,v.registration_number,v.mileage vehicle_mileage,CONCAT_WS(' ',sp.first_name,sp.last_name) salesperson_name,CONCAT_WS(' ',du.first_name,du.last_name) delivery_specialist_name,a.name agency_name FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users sp ON sp.id=s.salesperson_id LEFT JOIN users du ON du.id=d.delivery_specialist_id JOIN agencies a ON a.id=d.agency_id`;
 
-async function accessible(id: string, request: Request): Promise<any> {
-  const scoped = scope(request);
-  const ownerSql=request.user!.roles.includes('SALES_AGENT')?' AND s.salesperson_id=?':'';
+async function accessible(id: string, request: Request, permission:DeliveryPermission): Promise<any> {
+  const scoped = scope(request,permission);
   const [row] = await query<RowDataPacket[]>(
-    `${selection} WHERE d.id=? AND ${scoped.sql}${ownerSql}`,
-    [id, ...scoped.params,...(ownerSql?[request.user!.sub]:[])],
+    `${selection} WHERE d.id=? AND ${scoped.sql}`,
+    [id, ...scoped.params],
   );
   if (!row) throw new HttpError(404, "Livraison introuvable");
-  return row;
+  return {...row,financially_cleared:Number(row.balance_due)<=.001,balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null};
 }
-async function detail(id: string, request: Request): Promise<any> {
-  const row = await accessible(id, request);
+async function canAccessNested(id:string,request:Request,permissions:DeliveryPermission[]){
+  if(request.rbac?.isSuperAdmin)return true;
+  for(const permission of permissions){
+    if(!request.rbac?.permissions.has(permission))continue;
+    const scoped=scope(request,permission);
+    const rows=await query<RowDataPacket[]>(`SELECT d.id FROM deliveries d WHERE d.id=? AND ${scoped.sql} LIMIT 1`,[id,...scoped.params]);
+    if(rows[0])return true;
+  }
+  return false;
+}
+async function detail(id: string, request: Request, permission:DeliveryPermission='delivery.view'): Promise<any> {
+  const row = await accessible(id, request,permission);
+  const [canChecklist,canDocuments,canSignature]=await Promise.all([
+    canAccessNested(id,request,['delivery.checklist.view','delivery.checklist.manage']),
+    canAccessNested(id,request,['delivery.documents.view','delivery.checklist.manage']),
+    canAccessNested(id,request,['delivery.signature.capture','delivery.complete']),
+  ]);
   const [checklist, documents, signatures, history] = await Promise.all([
-    query<RowDataPacket[]>(
+    canChecklist?query<RowDataPacket[]>(
       "SELECT dc.*,CONCAT_WS(' ',u.first_name,u.last_name) completed_by_name FROM delivery_checklists dc LEFT JOIN users u ON u.id=dc.completed_by WHERE dc.delivery_id=? ORDER BY FIELD(dc.category,'preparation','quality','handover','documents'),dc.sort_order,dc.id",
       [id],
-    ),
-    query<RowDataPacket[]>(
+    ):Promise.resolve([]),
+    canDocuments?query<RowDataPacket[]>(
       "SELECT dd.*,CONCAT_WS(' ',u.first_name,u.last_name) received_by_name FROM delivery_documents dd LEFT JOIN users u ON u.id=dd.received_by WHERE dd.delivery_id=? ORDER BY dd.id",
       [id],
-    ),
-    query<RowDataPacket[]>(
+    ):Promise.resolve([]),
+    canSignature?query<RowDataPacket[]>(
       "SELECT id,signer_name,signed_by,signature_data,consent_text,document_hash,signed_at,ip_address FROM delivery_signatures WHERE delivery_id=? ORDER BY signed_at DESC",
       [id],
-    ),
+    ):Promise.resolve([]),
     query<RowDataPacket[]>(
       "SELECT h.*,CONCAT_WS(' ',u.first_name,u.last_name) changed_by_name FROM delivery_status_history h LEFT JOIN users u ON u.id=h.changed_by WHERE h.delivery_id=? ORDER BY h.changed_at DESC",
       [id],
@@ -104,12 +118,12 @@ async function detail(id: string, request: Request): Promise<any> {
 }
 async function notifyRoles(
   agencyId: string,
-  roles: string[],
+  permissions: string[],
   subject: string,
   message: string,
   referenceId: string,
 ) {
-  await createRoleNotifications({agencyId,roles,includeGlobalRoles:['DIRECTOR','SUPER_ADMIN'],subject,message,eventType:'delivery.status_changed',referenceType:'delivery',referenceId,priority:'normal'});
+  await createPermissionNotifications({agencyId,permissions,subject,message,eventType:'delivery.status_changed',referenceType:'delivery',referenceId,priority:'normal'});
 }
 async function audit(connection:PoolConnection,request:Request,deliveryId:string,action:string,oldValues:unknown,newValues:unknown){
   await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'deliveries','delivery',?,?,?,?,?,?)`,[request.user!.sub,deliveryId,action,oldValues==null?null:JSON.stringify(oldValues),newValues==null?null:JSON.stringify(newValues),request.ip??null,request.get('user-agent')??null]);
@@ -141,12 +155,11 @@ function line(doc: PDFKit.PDFDocument, label: string, value: unknown) {
 
 deliveryRouter.get(
   "/deliveries",
-  authorize(...READ),
+  requirePermission('delivery.view'),
   asyncHandler(async (request, response) => {
-    const scoped = scope(request),
+    const scoped = scope(request,'delivery.view'),
       conditions = [scoped.sql],
       params = [...scoped.params];
-    if(request.user!.roles.includes('SALES_AGENT')){conditions.push('s.salesperson_id=?');params.push(request.user!.sub)}
     if (typeof request.query.status === "string" && request.query.status) {
       if (!STATUSES.includes(request.query.status))
         throw new HttpError(400, "Statut invalide");
@@ -198,22 +211,24 @@ deliveryRouter.get(
       );
     }
     response.json(
-      rows.map((row) => ({
+      await Promise.all(rows.map(async(row) => ({
         ...row,
+        financially_cleared:Number(row.balance_due)<=.001,
+        balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null,
         checklist_progress: progress.get(String(row.id)) ?? {
           total: 0,
           completed: 0,
         },
-      })),
+      }))),
     );
   }),
 );
 
 deliveryRouter.get(
   "/deliveries/stats",
-  authorize(...READ),
+  requirePermission('delivery.view'),
   asyncHandler(async (request, response) => {
-    const scoped = scope(request);
+    const scoped = scope(request,'delivery.view');
     const [totals, upcoming] = await Promise.all([
       query<RowDataPacket[]>(
         `SELECT COUNT(*) total,SUM(status='planned') planned,SUM(status IN ('preparing','quality_control')) preparing,SUM(status='ready') ready,SUM(status='delivered') delivered,SUM(status='cancelled') cancelled,SUM(status='delivered' AND DATE(delivered_at)=CURDATE()) delivered_today FROM deliveries d WHERE ${scoped.sql}`,
@@ -227,17 +242,28 @@ deliveryRouter.get(
     response.json({ ...totals[0], ...upcoming[0] });
   }),
 );
-deliveryRouter.get('/deliveries/candidates',authorize(...READ),asyncHandler(async(request,response)=>{const scoped=scope(request,'s'),agent=request.user!.roles.includes('SALES_AGENT');const rows=await query<RowDataPacket[]>(`SELECT s.id sale_id,s.sale_number,s.customer_id,s.salesperson_id,s.agency_id,s.status,s.total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,si.vehicle_id,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id WHERE ${scoped.sql}${agent?' AND s.salesperson_id=?':''} AND s.status='ready_for_delivery' AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.sale_id=s.id AND d.status<>'cancelled') ORDER BY s.updated_at,s.id`,[...scoped.params,...(agent?[request.user!.sub]:[])]);response.json(rows)}));
+deliveryRouter.get('/deliveries/candidates',requirePermission('delivery.schedule'),asyncHandler(async(request,response)=>{
+  const scoped=scope(request,'delivery.schedule','s');
+  const rows=await query<RowDataPacket[]>(`SELECT s.id sale_id,s.sale_number,s.customer_id,s.salesperson_id,s.agency_id,s.status,s.total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,si.vehicle_id,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id WHERE ${scoped.sql} AND s.status='ready_for_delivery' AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.sale_id=s.id AND d.status<>'cancelled') ORDER BY s.updated_at,s.id`,scoped.params);
+  response.json(await Promise.all(rows.map(async row=>({...row,financially_cleared:Number(row.balance_due)<=.001,balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null}))));
+}));
 
-const TEMPLATE_ADMIN=['SUPER_ADMIN','DIRECTOR'];
+deliveryRouter.get('/deliveries/candidates/:saleId/specialists',requirePermission('delivery.schedule'),asyncHandler(async(request,response)=>{
+  const saleId=idOf(request.params.saleId),scoped=scope(request,'delivery.schedule','s');
+  const[sale]=await query<RowDataPacket[]>(`SELECT s.agency_id FROM sales s WHERE s.id=? AND s.status='ready_for_delivery' AND ${scoped.sql}`,[saleId,...scoped.params]);
+  if(!sale)throw new HttpError(404,'Vente prête introuvable dans votre périmètre');
+  const rows=await query<RowDataPacket[]>(`SELECT DISTINCT u.id,CONCAT_WS(' ',u.first_name,u.last_name) display_name,u.agency_id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')} ORDER BY display_name,u.id`,[sale.agency_id]);
+  response.json(rows.map(row=>({id:String(row.id),name:String(row.display_name),agencyId:String(row.agency_id)})));
+}));
+
 const CHECKLIST_CATEGORIES=['preparation','quality','documents','handover'];
-deliveryRouter.get('/deliveries/checklist-templates',authorize(...OPERATE),asyncHandler(async(request,response)=>{const agencyId=agency(request,request.query.agencyId);const rows=await query<RowDataPacket[]>('SELECT id,agency_id,item_name,category,is_required,sort_order,is_active,created_at FROM delivery_checklist_templates WHERE agency_id IS NULL OR agency_id=? ORDER BY category,sort_order,id',[agencyId]);response.json(rows)}));
-deliveryRouter.post('/deliveries/checklist-templates',authorize(...TEMPLATE_ADMIN),asyncHandler(async(request,response)=>{const agencyId=request.body.agencyId?agency(request,request.body.agencyId):null,name=text(request.body.itemName,'Nom',200,true)!,category=text(request.body.category,'Catégorie',30,true)!;if(!CHECKLIST_CATEGORIES.includes(category))throw new HttpError(400,'Catégorie de checklist invalide');const sortOrder=Number(request.body.sortOrder??0);if(!Number.isInteger(sortOrder)||sortOrder<0)throw new HttpError(400,'Ordre invalide');const result=await execute('INSERT INTO delivery_checklist_templates(agency_id,item_name,category,is_required,sort_order,is_active) VALUES(?,?,?,?,?,?)',[agencyId,name,category,Boolean(request.body.isRequired),sortOrder,request.body.isActive!==false]);response.status(201).json({id:String(result.insertId)});}));
-deliveryRouter.patch('/deliveries/checklist-templates/:templateId',authorize(...TEMPLATE_ADMIN),asyncHandler(async(request,response)=>{const templateId=idOf(request.params.templateId),name=text(request.body.itemName,'Nom',200,true)!,category=text(request.body.category,'Catégorie',30,true)!;if(!CHECKLIST_CATEGORIES.includes(category))throw new HttpError(400,'Catégorie de checklist invalide');const sortOrder=Number(request.body.sortOrder??0);if(!Number.isInteger(sortOrder)||sortOrder<0)throw new HttpError(400,'Ordre invalide');const result=await execute('UPDATE delivery_checklist_templates SET item_name=?,category=?,is_required=?,sort_order=?,is_active=? WHERE id=?',[name,category,Boolean(request.body.isRequired),sortOrder,request.body.isActive!==false,templateId]);if(!result.affectedRows)throw new HttpError(404,'Template de checklist introuvable');response.json({success:true});}));
+deliveryRouter.get('/deliveries/checklist-templates',requirePermission('delivery.checklist.view'),asyncHandler(async(request,response)=>{const agencyId=agency(request,'delivery.checklist.view',request.query.agencyId);const rows=await query<RowDataPacket[]>('SELECT id,agency_id,item_name,category,is_required,sort_order,is_active,created_at FROM delivery_checklist_templates WHERE agency_id IS NULL OR agency_id=? ORDER BY category,sort_order,id',[agencyId]);response.json(rows)}));
+deliveryRouter.post('/deliveries/checklist-templates',requirePermission('delivery.checklist.manage'),asyncHandler(async(request,response)=>{const agencyId=request.body.agencyId?agency(request,'delivery.checklist.manage',request.body.agencyId):null,name=text(request.body.itemName,'Nom',200,true)!,category=text(request.body.category,'Catégorie',30,true)!;if(!CHECKLIST_CATEGORIES.includes(category))throw new HttpError(400,'Catégorie de checklist invalide');const sortOrder=Number(request.body.sortOrder??0);if(!Number.isInteger(sortOrder)||sortOrder<0)throw new HttpError(400,'Ordre invalide');const result=await execute('INSERT INTO delivery_checklist_templates(agency_id,item_name,category,is_required,sort_order,is_active) VALUES(?,?,?,?,?,?)',[agencyId,name,category,Boolean(request.body.isRequired),sortOrder,request.body.isActive!==false]);response.status(201).json({id:String(result.insertId)});}));
+deliveryRouter.patch('/deliveries/checklist-templates/:templateId',requirePermission('delivery.checklist.manage'),asyncHandler(async(request,response)=>{const templateId=idOf(request.params.templateId),name=text(request.body.itemName,'Nom',200,true)!,category=text(request.body.category,'Catégorie',30,true)!;if(!CHECKLIST_CATEGORIES.includes(category))throw new HttpError(400,'Catégorie de checklist invalide');const sortOrder=Number(request.body.sortOrder??0);if(!Number.isInteger(sortOrder)||sortOrder<0)throw new HttpError(400,'Ordre invalide');const result=await execute('UPDATE delivery_checklist_templates SET item_name=?,category=?,is_required=?,sort_order=?,is_active=? WHERE id=?',[name,category,Boolean(request.body.isRequired),sortOrder,request.body.isActive!==false,templateId]);if(!result.affectedRows)throw new HttpError(404,'Template de checklist introuvable');response.json({success:true});}));
 
 deliveryRouter.get(
   "/deliveries/:id",
-  authorize(...READ),
+  requirePermission('delivery.view'),
   asyncHandler(async (request, response) =>
     response.json(await detail(idOf(request.params.id), request)),
   ),
@@ -245,7 +271,7 @@ deliveryRouter.get(
 
 deliveryRouter.post(
   "/deliveries",
-  authorize(...CREATE),
+  requirePermission('delivery.schedule'),
   asyncHandler(async (request, response) => {
     if (!request.body.deliverySpecialistId)
       throw new HttpError(400, "Le Responsable livraison est obligatoire");
@@ -254,18 +280,19 @@ deliveryRouter.post(
       location = text(request.body.deliveryLocation, "Lieu", 255),
       notes = text(request.body.customerNotes, "Notes", 5000),
       specialist = idOf(String(request.body.deliverySpecialistId));
+    const concessionScope=permissionScope(request,'delivery.schedule')==='CONCESSION'?scope(request,'delivery.schedule','s'):null;
     const [sale] = await query<RowDataPacket[]>(
-      `SELECT s.customer_id,s.agency_id,s.status,s.balance_due,si.vehicle_id FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL WHERE s.id=?`,
-      [saleId],
+      `SELECT s.customer_id,s.agency_id,s.status,s.balance_due,si.vehicle_id FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL WHERE s.id=?${concessionScope?` AND ${concessionScope.sql}`:''}`,
+      [saleId,...(concessionScope?.params??[])],
     );
     if (!sale) throw new HttpError(404, "Vente ou véhicule introuvable");
-    const agencyId = agency(request, sale.agency_id);
+    const agencyId = concessionScope?String(sale.agency_id):agency(request,'delivery.schedule', sale.agency_id);
     if (String(sale.agency_id) !== agencyId)
       throw new HttpError(403, "Vente rattachée à une autre agence");
     if (sale.status !== "ready_for_delivery")
       throw new HttpError(409, "La vente doit être prête à livrer");
     const [u] = await query<RowDataPacket[]>(
-      `SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.code='DELIVERY_MANAGER'`,
+      `SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')}`,
       [specialist, agencyId],
     );
     if (!u) throw new HttpError(400, "Responsable livraison invalide pour cette agence");
@@ -275,7 +302,7 @@ deliveryRouter.post(
       if(!lockedSale)throw new HttpError(404,'Vente ou véhicule introuvable');
       if(String(lockedSale.agency_id)!==agencyId)throw new HttpError(403,'Vente rattachée à une autre agence');
       if(lockedSale.status!=='ready_for_delivery')throw new HttpError(409,'La vente doit être prête à livrer');
-      const[lockedUsers]=await connection.execute<RowDataPacket[]>(`SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.code='DELIVERY_MANAGER' FOR UPDATE`,[specialist,agencyId]);
+      const[lockedUsers]=await connection.execute<RowDataPacket[]>(`SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')} FOR UPDATE`,[specialist,agencyId]);
       if(!lockedUsers[0])throw new HttpError(400,'Responsable livraison invalide pour cette agence');
       const [existing] = await connection.execute<RowDataPacket[]>(
         `SELECT id FROM deliveries WHERE sale_id=? AND status<>'cancelled' FOR UPDATE`,
@@ -319,21 +346,21 @@ deliveryRouter.post(
     emitToAgency(agencyId, "deliveries:created", { id, deliveryNumber });
     await notifyRoles(
       agencyId,
-      ["DELIVERY_MANAGER"],
+      ['delivery.prepare'],
       "Livraison à préparer",
       `${deliveryNumber} est planifiée le ${scheduledAt}`,
       id,
     );
-    response.status(201).json(await detail(id, request));
+    response.status(201).json(await detail(id, request,'delivery.schedule'));
   }),
 );
 
 deliveryRouter.patch(
   "/deliveries/:id/status",
-  authorize(...OPERATE),
+  requirePermission('delivery.prepare'),
   asyncHandler(async (request, response) => {
     const id = idOf(request.params.id),
-      row = await accessible(id, request),
+      row = await accessible(id, request,'delivery.prepare'),
       status = text(request.body.status, "Statut", 30, true)!;
     if (!STATUSES.includes(status)) throw new HttpError(400, "Statut invalide");
     if (!ALLOWED[row.status]?.includes(status))
@@ -341,10 +368,10 @@ deliveryRouter.patch(
         409,
         `Transition ${row.status} → ${status} interdite`,
       );
-    if (status === "delivered")
+    if (status === "delivered" || status === "cancelled")
       throw new HttpError(
         409,
-        "Utilisez la signature client pour livrer le véhicule",
+        status === "delivered" ? "Utilisez la signature client pour livrer le véhicule" : "Utilisez l’action d’annulation dédiée",
       );
     const reason = text(
       request.body.reason,
@@ -381,16 +408,37 @@ deliveryRouter.patch(
       await audit(connection,request,id,'delivery.status_changed',{status:row.status},{status,reason});
     });
     emitToAgency(String(row.agency_id), "deliveries:status", { id, status });
-    response.json(await detail(id, request));
+    response.json(await detail(id, request,'delivery.prepare'));
+  }),
+);
+
+deliveryRouter.patch(
+  "/deliveries/:id/cancel",
+  requirePermission('delivery.cancel'),
+  asyncHandler(async (request,response)=>{
+    const id=idOf(request.params.id),row=await accessible(id,request,'delivery.cancel'),reason=text(request.body.reason,'Motif',500,true)!;
+    if(row.status==='delivered')throw new HttpError(409,'Une livraison physiquement terminée ne peut pas être annulée');
+    if(row.status==='cancelled')return response.json(await detail(id,request,'delivery.cancel'));
+    await transaction(async connection=>{
+      const[rows]=await connection.execute<RowDataPacket[]>('SELECT status FROM deliveries WHERE id=? FOR UPDATE',[id]),current=rows[0];
+      if(!current)throw new HttpError(404,'Livraison introuvable');
+      if(current.status==='delivered')throw new HttpError(409,'Une livraison physiquement terminée ne peut pas être annulée');
+      if(current.status==='cancelled')return;
+      await connection.execute("UPDATE deliveries SET status='cancelled',cancellation_reason=? WHERE id=?",[reason,id]);
+      await connection.execute("INSERT INTO delivery_status_history(delivery_id,old_status,new_status,reason,changed_by) VALUES(?,?,'cancelled',?,?)",[id,current.status,reason,request.user!.sub]);
+      await audit(connection,request,id,'delivery.cancelled',{status:current.status},{status:'cancelled',reason});
+    });
+    emitToAgency(String(row.agency_id),'deliveries:status',{id,status:'cancelled'});
+    response.json(await detail(id,request,'delivery.cancel'));
   }),
 );
 
 deliveryRouter.patch(
   "/deliveries/:id/reschedule",
-  authorize(...OPERATE),
+  requirePermission('delivery.schedule'),
   asyncHandler(async (request, response) => {
     const id = idOf(request.params.id),
-      row = await accessible(id, request),
+      row = await accessible(id, request,'delivery.schedule'),
       scheduled = mysqlDateTime(request.body.scheduledAt, "Nouvelle date"),
       reason = text(request.body.reason, "Motif du report", 500, true)!;
     if (["delivered","cancelled"].includes(row.status))
@@ -414,22 +462,22 @@ deliveryRouter.patch(
     });
     await notifyRoles(
       String(row.agency_id),
-      ["SALES_AGENT", "SALES_MANAGER"],
+      ['delivery.view'],
       "Livraison reportée",
       `${row.delivery_number}: ${reason}`,
       id,
     );
-    response.json(await detail(id, request));
+    response.json(await detail(id, request,'delivery.schedule'));
   }),
 );
 
 deliveryRouter.patch(
   "/deliveries/:id/checklist/:itemId",
-  authorize(...OPERATE),
+  requirePermission('delivery.checklist.manage'),
   asyncHandler(async (request, response) => {
     const id = idOf(request.params.id),
       itemId = idOf(request.params.itemId),
-      row = await accessible(id, request);
+      row = await accessible(id, request,'delivery.checklist.manage');
     if (["delivered", "cancelled"].includes(row.status))
       throw new HttpError(409, "Cette livraison ne peut plus être modifiée");
     if (!["preparing", "quality_control", "ready"].includes(row.status))
@@ -448,16 +496,16 @@ deliveryRouter.patch(
       itemId,
       completed,
     });
-    response.json(await detail(id, request));
+    response.json(await detail(id, request,'delivery.checklist.manage'));
   }),
 );
 
 deliveryRouter.post(
   "/deliveries/:id/documents",
-  authorize(...OPERATE),
+  requirePermission('delivery.checklist.manage'),
   asyncHandler(async (request, response) => {
     const id = idOf(request.params.id),
-      row = await accessible(id, request),
+      row = await accessible(id, request,'delivery.checklist.manage'),
       name = text(request.body.documentName, "Nom du document", 200, true)!,
       type = text(request.body.documentType, "Type", 100),
       fileName = text(request.body.fileName, "Nom du fichier", 255),
@@ -505,17 +553,17 @@ deliveryRouter.post(
       deliveryId: id,
       documentId: String(result.insertId),
     });
-    response.status(201).json(await detail(id, request));
+    response.status(201).json(await detail(id, request,'delivery.checklist.manage'));
   }),
 );
 
 deliveryRouter.patch(
   "/deliveries/:id/documents/:documentId",
-  authorize(...OPERATE),
+  requirePermission('delivery.checklist.manage'),
   asyncHandler(async (request, response) => {
     const id = idOf(request.params.id),
       documentId = idOf(request.params.documentId),
-      row = await accessible(id, request),
+      row = await accessible(id, request,'delivery.checklist.manage'),
       received = Boolean(request.body.received);
     if (["delivered", "cancelled"].includes(row.status))throw new HttpError(409,"Les documents d’une livraison finalisée ne peuvent plus être modifiés");
     await transaction(async connection=>{
@@ -524,16 +572,17 @@ deliveryRouter.patch(
       await connection.execute("UPDATE delivery_documents SET received=?,received_by=?,received_at=IF(?,NOW(),NULL) WHERE id=?",[received,received?request.user!.sub:null,received,documentId]);
       await audit(connection,request,id,'delivery.document_received',{documentId,received:Boolean(docs[0].received)},{documentId,received});
     });
-    response.json(await detail(id, request));
+    response.json(await detail(id, request,'delivery.checklist.manage'));
   }),
 );
 
 deliveryRouter.post(
   "/deliveries/:id/sign",
-  authorize(...OPERATE),
+  requirePermission('delivery.signature.capture'),
+  requirePermission('delivery.complete'),
   asyncHandler(async (request, response) => {
     const id = idOf(request.params.id),
-      scopedRow = await accessible(id, request),
+      scopedRow = await accessible(id, request,'delivery.complete'),
       signer = text(request.body.signerName, "Signataire", 200, true)!,
       signature = text(
         request.body.signatureData,
@@ -555,7 +604,7 @@ deliveryRouter.post(
       if(String(delivery.agency_id)!==String(scopedRow.agency_id))throw new HttpError(403,'Livraison rattachée à une autre agence');
       if(delivery.status==='delivered')return{duplicate:true,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
       if(delivery.status!=='ready')throw new HttpError(409,'La livraison doit être prête avant signature');
-      if(delivery.sale_status==='cancelled')throw new HttpError(409,'La vente associée est annulée');
+      if(delivery.sale_status!=='ready_for_delivery')throw new HttpError(409,`Le statut de la vente (${delivery.sale_status}) est incompatible avec la remise`);
       const[invoices]=await connection.execute<RowDataPacket[]>("SELECT id,balance_due,status FROM invoices WHERE sale_id=? AND status<>'cancelled' ORDER BY id DESC LIMIT 1 FOR UPDATE",[delivery.sale_id]);
       if(!invoices[0])throw new HttpError(409,'La facture de vente est absente');
       assertFinanciallySettled(invoices[0].balance_due,'livraison');
@@ -565,7 +614,7 @@ deliveryRouter.post(
       if(Number(pendingDocs[0]?.count??0)>0)throw new HttpError(409,'Les documents obligatoires ne sont pas tous remis.');
       const[vehicles]=await connection.execute<RowDataPacket[]>('SELECT id,status,mileage FROM vehicles WHERE id=? FOR UPDATE',[delivery.vehicle_id]),vehicle=vehicles[0];
       if(!vehicle)throw new HttpError(409,'Le véhicule associé est introuvable');
-      if(['available','reserved','delivered'].includes(String(vehicle.status)))throw new HttpError(409,`Le statut actuel du véhicule (${vehicle.status}) est incompatible avec la livraison`);
+      if(vehicle.status!=='sold')throw new HttpError(409,`Le statut actuel du véhicule (${vehicle.status}) est incompatible avec la livraison`);
       const mileage=assertHandoverMileage(vehicle.mileage,requestedMileage);
       const hash=deliverySignatureHash({deliveryId:id,saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),signer,mileage,signedAt:signedAt.toISOString(),signature});
       await connection.execute('INSERT INTO delivery_signatures(delivery_id,signer_name,signed_by,signature_data,consent_text,document_hash,signed_at,ip_address) VALUES(?,?,?,?,?,?,?,?)',[id,signer,request.user!.sub,signature,consent,hash,signedAtSql,request.ip??null]);
@@ -577,62 +626,27 @@ deliveryRouter.post(
       await audit(connection,request,id,'delivery.finalized',{status:'ready',vehicleStatus:vehicle.status,vehicleMileage:Number(vehicle.mileage)},{status:'delivered',vehicleStatus:'delivered',mileage,signer,signedAt:signedAt.toISOString(),hash});
       return{duplicate:false,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
     });
-    if(result.duplicate){await safelyArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));return response.json(await detail(id,request));}
+    if(result.duplicate){await safelyArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));return response.json(await detail(id,request,'delivery.complete'));}
     emitToAgency(result.agencyId, "deliveries:delivered", { id });
     await notifyRoles(
       result.agencyId,
-      ["SALES_AGENT", "SALES_MANAGER", "DIRECTOR"],
+      ['delivery.view'],
       "Véhicule livré",
       `${result.deliveryNumber} a été signé par ${signer}`,
       id,
     );
     await safelyArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));
-    response.json(await detail(id, request));
+    response.json(await detail(id, request,'delivery.complete'));
   }),
 );
 
 deliveryRouter.get(
   "/deliveries/:id/pdf",
-  authorize(...READ),
+  requirePermission('delivery.view'),
+  requirePermission('delivery.documents.view'),
   asyncHandler(async (request, response) => {
-    const row = await detail(idOf(request.params.id), request);
-    const buffer = await pdfBuffer((doc) => {
-      header(doc, "PROCÈS-VERBAL DE LIVRAISON");
-      line(doc, "Numéro", row.delivery_number);
-      line(doc, "Date prévue", row.scheduled_at);
-      line(doc, "Date de remise", row.delivered_at);
-      line(doc, "Client", row.customer_name);
-      line(doc, "Véhicule", row.vehicle_label);
-      line(doc, "VIN", row.vin);
-      line(doc, "Immatriculation", row.registration_number);
-      line(doc, "Kilométrage", row.mileage_at_delivery);
-      line(doc, "Lieu", row.delivery_location);
-      line(doc, "Responsable livraison", row.delivery_specialist_name);
-      doc.moveDown().fontSize(11).font("Helvetica-Bold").text("Contrôles");
-      for (const item of row.checklist)
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .text(`${item.is_completed ? "✓" : "○"} ${item.item_name}`);
-      doc.moveDown().fontSize(11).font('Helvetica-Bold').text('Documents remis');
-      for(const item of row.documents)doc.fontSize(9).font('Helvetica').text(`${item.received?'✓':'○'} ${item.document_name}${item.is_required?' *':''}`);
-      doc.moveDown();
-      line(doc, "Signataire", row.signatures[0]?.signer_name);
-      line(doc, "Signature enregistrée le", row.signatures[0]?.signed_at);
-      line(doc, "Empreinte", row.signatures[0]?.document_hash);
-      const signatureData=String(row.signatures[0]?.signature_data??'');
-      if(signatureData.startsWith('data:image/png;base64,')){
-        try{doc.moveDown().fontSize(10).font('Helvetica-Bold').text('Signature client');doc.image(Buffer.from(signatureData.split(',')[1]??'','base64'),{fit:[180,80]});}catch{doc.fontSize(8).font('Helvetica').text('Image de signature illisible.');}
-      }
-      doc
-        .moveDown(2)
-        .fontSize(8)
-        .fillColor("#64748b")
-        .text(
-          `Document généré le ${new Date().toLocaleString("fr-CG")} — devise XAF`,
-          { align: "center" },
-        );
-    });
+    const row = await detail(idOf(request.params.id), request,'delivery.documents.view');
+    const buffer = await renderDeliveryDocument(String(row.id));
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader(
       "Content-Disposition",
@@ -644,9 +658,9 @@ deliveryRouter.get(
 
 deliveryRouter.get(
   "/deliveries-planning/pdf",
-  authorize(...READ),
+  requirePermission('delivery.view'),
   asyncHandler(async (request, response) => {
-    const scoped = scope(request),
+    const scoped = scope(request,'delivery.view'),
       date =
         typeof request.query.date === "string"
           ? request.query.date

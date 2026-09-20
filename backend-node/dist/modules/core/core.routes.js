@@ -1,14 +1,13 @@
 import { Router } from 'express';
-import { query } from '../../config/database.js';
-import { authorize, unrestricted } from '../../middleware/authorize.js';
+import { requirePermission } from '../../middleware/require-permission.js';
+import { one as accessibleSale } from '../sales/sale.service.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
-import { HttpError } from '../../shared/http-error.js';
+import { renderSaleOrderDocument } from '../documents/commercial-document.js';
 export const coreRouter = Router();
-const saleSelect = `SELECT s.*,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,si.vehicle_id,v.vin,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id LEFT JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL LEFT JOIN vehicles v ON v.id=si.vehicle_id LEFT JOIN versions ve ON ve.id=v.version_id LEFT JOIN models m ON m.id=ve.model_id LEFT JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id`;
-function simplePdf(lines) { const safe = (v) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E]/g, '').replace(/[()\\]/g, '\\$&'), stream = ['BT', '/F1 20 Tf', '50 790 Td', `(${safe(lines[0] ?? 'Vente')}) Tj`, '/F1 11 Tf', ...lines.slice(1).flatMap(line => ['0 -28 Td', `(${safe(line)}) Tj`]), 'ET'].join('\n'), objects = [`1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj`, `2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj`, `3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj`, `4 0 obj << /Length ${Buffer.byteLength(stream)} >> stream\n${stream}\nendstream endobj`, `5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj`]; let pdf = '%PDF-1.4\n', offsets = [0]; for (const object of objects) {
-    offsets.push(Buffer.byteLength(pdf));
-    pdf += `${object}\n`;
-} const xref = Buffer.byteLength(pdf); pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(v => String(v).padStart(10, '0') + ' 00000 n ').join('\n')}\ntrailer << /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`; return Buffer.from(pdf); }
-coreRouter.get('/documents/business/sale/:id/pdf', authorize('SUPER_ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'SALES_AGENT', 'DELIVERY_MANAGER', 'ACCOUNTANT'), asyncHandler(async (request, response) => { const [row] = await query(`${saleSelect} WHERE s.id=?`, [request.params.id]); if (!row)
-    throw new HttpError(404, 'Vente introuvable'); if (!unrestricted(request) && String(row.agency_id) !== String(request.user?.agencyId))
-    throw new HttpError(403, 'Vente rattachée à une autre agence'); const pdf = simplePdf([`VENTE ${row.sale_number}`, `Client : ${row.customer_name}`, `Vehicule : ${row.vehicle_label ?? '—'} | VIN : ${row.vin ?? '—'}`, `Statut : ${row.status}`, `Sous-total : ${Number(row.subtotal).toLocaleString('fr-FR')} XAF`, `Remise : ${Number(row.discount_total).toLocaleString('fr-FR')} XAF`, `Total : ${Number(row.total).toLocaleString('fr-FR')} XAF`, `Acompte : ${Number(row.deposit_amount).toLocaleString('fr-FR')} XAF`, `Solde : ${Number(row.balance_due).toLocaleString('fr-FR')} XAF`]); response.setHeader('Content-Type', 'application/pdf'); response.setHeader('Content-Disposition', `${request.query.download === 'true' ? 'attachment' : 'inline'}; filename="vente-${row.sale_number}.pdf"`); response.send(pdf); }));
+coreRouter.get('/documents/business/sale/:id/pdf', requirePermission('sales.view'), asyncHandler(async (request, response) => {
+    const sale = await accessibleSale(String(request.params.id), request);
+    const pdf = await renderSaleOrderDocument(String(request.params.id));
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `${request.query.download === 'true' ? 'attachment' : 'inline'}; filename="bon-commande-${sale.sale_number}.pdf"`);
+    response.send(pdf);
+}));

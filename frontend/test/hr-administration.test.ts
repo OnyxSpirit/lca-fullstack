@@ -1,0 +1,10 @@
+import assert from'node:assert/strict';
+import{readFileSync}from'node:fs';
+import test from'node:test';
+const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
+const app=read('../src/App.tsx'),page=read('../src/modules/hr/HrAdministrationPage.tsx'),hooks=read('../src/api/hrHooks.ts'),users=read('../src/modules/users/UsersManagementPage.tsx'),navigation=read('../src/navigation/permissions.ts');
+test('RH possède une route et un garde dynamique',()=>{assert.match(app,/ModuleGuard module="hr"/);assert.match(navigation,/hr:'hr.view'/);assert.doesNotMatch(page,/HR_MANAGER|DRH|RESPONSABLE_RH/)});
+test('les six sections fonctionnelles sont présentes et masquées par permission',()=>{for(const label of ['Vue d’ensemble','Personnel','Salaires','Stocks internes','Budgets & Dépenses','Reporting'])assert.match(page,new RegExp(label.replace(/[&]/g,'&')));for(const permission of ['hr.employees.view','hr.salary.view','hr.stock.view','hr.budget.view','hr.reporting.view'])assert.match(page,new RegExp(permission.replaceAll('.','\\.')))});
+test('les queries TanStack sont désactivables avant tout appel interdit',()=>{for(const hook of ['useHrOverviewQuery','useEmployeesQuery','useSalariesQuery','useStockQuery','useBudgetsQuery','useExpensesQuery','useHrReportingQuery'])assert.match(hooks,new RegExp(`export const ${hook}.*enabled`))});
+test('la création utilisateur propose explicitement Employé Oui ou Non',()=>{assert.match(users,/Employé de l’entreprise/);assert.match(users,/<option value="no">Non<\/option>/);assert.match(users,/<option value="yes">Oui<\/option>/);assert.match(users,/canManageEmployees=auth.can\('hr.employees.manage'\)/)});
+test('les salaires et actions sensibles ont des permissions séparées',()=>{assert.match(page,/can\('hr.salary.manage'\)/);assert.match(page,/can\('hr.stock.entry'\)/);assert.match(page,/can\('hr.stock.exit'\)/);assert.match(page,/can\('hr.expense.create'\)/)});

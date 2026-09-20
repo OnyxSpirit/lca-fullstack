@@ -6,5 +6,5 @@ export const authorize = (...roles: string[]) => (request: Request, _response: R
   next(new HttpError(403, 'Vous ne disposez pas des droits nécessaires'));
 };
 
-export const unrestricted = (request: Request) => Boolean(request.user?.roles.some((role) => ['SUPER_ADMIN', 'DIRECTOR'].includes(role)));
+export const unrestricted = (request: Request) => request.rbac?.isSuperAdmin === true;
 export const scopedAgencyId = (request: Request) => unrestricted(request) ? null : request.user?.agencyId ?? null;

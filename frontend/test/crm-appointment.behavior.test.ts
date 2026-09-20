@@ -25,7 +25,7 @@ after(()=>dom.window.close());
 test('RDV-01/02/05/06 utilise le vrai datetime-local, active le bouton puis exécute la mutation',async()=>{
   const{render,fireEvent,screen,cleanup,waitFor}=await import('@testing-library/react');
   const{useAuthStore}=await import('../src/stores/authStore.js');
-  useAuthStore.setState({currentUser:{id:'100',name:'Agent Test',email:'agent@test.local',role:'SALES_REP',roles:['SALES_REP'],primaryRole:'SALES_REP',roleTitle:'Commercial',avatar:'',agencyId:'1',agencyName:'Agence Test',department:'Ventes',phone:'',status:'active'},currentAgency:{id:'1',name:'Agence Test',code:'AG1',city:'',address:'',phone:'',email:'',isMain:true,isActive:true},isAuthenticated:true});
+  useAuthStore.setState({currentUser:{id:'100',name:'Agent Test',email:'agent@test.local',role:'SALES_REP',roles:['SALES_REP'],primaryRole:'SALES_REP',roleTitle:'Commercial',avatar:'',agencyId:'1',agencyName:'Agence Test',department:'Ventes',phone:'',status:'active',permissions:{'crm.prospect.view':'OWN','crm.activity.view':'OWN','crm.appointment.create':'OWN'}},currentAgency:{id:'1',name:'Agence Test',code:'AG1',city:'',address:'',phone:'',email:'',isMain:true,isActive:true},isAuthenticated:true});
   const{CrmPage}=await import('../src/modules/crm/CrmPage.js');
   const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});
   render(React.createElement(QueryClientProvider,{client},React.createElement(MemoryRouter,null,React.createElement(CrmPage))));
@@ -39,13 +39,13 @@ test('RDV-01/02/05/06 utilise le vrai datetime-local, active le bouton puis exé
   const submit=screen.getByRole('button',{name:'Enregistrer le rendez-vous'}) as HTMLButtonElement;
   assert.equal(submit.disabled,true);
   assert.ok(screen.getByText(/Renseignez la date et l’heure/));
-  fireEvent.change(dateInput,{target:{value:'2026-09-11T10:00'}});
-  assert.equal(dateInput.value,'2026-09-11T10:00');
+  fireEvent.change(dateInput,{target:{value:'2099-09-11T10:00'}});
+  assert.equal(dateInput.value,'2099-09-11T10:00');
   assert.equal(submit.disabled,false);
   assert.equal(screen.queryByText(/Renseignez la date et l’heure/),null);
   fireEvent.click(submit);
   await waitFor(()=>assert.ok(appointmentPayload));
-  assert.equal(appointmentPayload?.scheduledAt,new Date(2026,8,11,10,0).toISOString());
+  assert.equal(appointmentPayload?.scheduledAt,new Date(2099,8,11,10,0).toISOString());
   await waitFor(()=>assert.equal(screen.queryByText('Planifier un rendez-vous commercial'),null));
   assert.ok(leadReads>=2);
   cleanup();client.clear();

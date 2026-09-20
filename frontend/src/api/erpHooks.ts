@@ -22,6 +22,7 @@ import type {
   Technician,
   TechnicianUnavailability,
   WorkshopBay,
+  WorkshopInterventionHistory,
   WorkshopSchedule,
   WorkshopStats,
   CrmActivity,
@@ -204,6 +205,10 @@ const mapSale = (r: any): Sale => ({
   registrationFeesTTC: 0,
   administrativeFeesTTC: 0,
   totalSaleTTC: n(r.total),
+  taxMode: r.tax_mode??'TAX_EXEMPT',
+  priceInputMode: r.price_input_mode??'HT',
+  taxRate: n(r.tax_rate_snapshot),
+  currencyCode: r.currency_code??undefined,
   depositPaidTTC: r.invoice_id ? n(r.invoice_amount_paid) : n(r.deposit_amount),
   remainingBalanceTTC: r.invoice_id ? n(r.invoice_balance_due) : n(r.balance_due),
   invoiceId: r.invoice_id == null ? undefined : s(r.invoice_id),
@@ -246,6 +251,8 @@ export const mapRepair = (r: any): RepairOrder => ({
   inspection:r.inspection?{id:s(r.inspection.id),fuelLevel:r.inspection.fuel_level??'',cleanliness:r.inspection.cleanliness??'',bodyworkDamage:r.inspection.bodywork_damage??'',itemsInVehicle:r.inspection.items_in_vehicle??'',mileage:r.inspection.mileage==null?null:n(r.inspection.mileage),observations:r.inspection.observations??'',customerSignature:r.inspection.customer_signature??'',inspectedBy:s(r.inspection.inspected_by),inspectedAt:r.inspection.inspected_at}:null,
   diagnostics:(r.diagnostics??[]).map((x:any)=>({id:s(x.id),technicianId:s(x.technician_id),technicianName:x.technician_name??'',diagnosis:x.diagnosis,recommendations:x.recommendations??'',estimatedHours:n(x.estimated_hours),diagnosedAt:x.diagnosed_at})),
   approvals:(r.approvals??[]).map((x:any)=>({id:s(x.id),approved:Boolean(x.approved),approvedAmount:x.approved_amount==null?null:n(x.approved_amount),customerName:x.customer_name,signatureData:x.signature_data??'',notes:x.notes??'',recordedByName:x.recorded_by_name??'',recordedAt:x.recorded_at})),
+  estimateItems:(r.estimateItems??[]).map((x:any)=>({id:s(x.id),itemType:x.item_type,partId:s(x.part_id),partReference:x.part_reference??'',description:x.description,quantity:n(x.quantity),unitPrice:n(x.unit_price),discount:n(x.discount),taxRate:n(x.tax_rate),lineTotal:n(x.line_total),interventionId:s(x.intervention_id),interventionTechnicianId:s(x.intervention_technician_id),interventionStatus:x.intervention_status??'',actualHours:n(x.actual_hours),reservationId:s(x.reservation_id),reservedQuantity:n(x.reserved_quantity),consumedQuantity:n(x.consumed_quantity),reservationStatus:x.reservation_status??'',actualItemId:s(x.actual_item_id),actualQuantity:n(x.actual_quantity)})),
+  estimateSummary:{gross:n(r.estimateSummary?.gross),discount:n(r.estimateSummary?.discount),subtotal:n(r.estimateSummary?.subtotal),tax:n(r.estimateSummary?.tax),total:n(r.estimateSummary?.total),currencyCode:r.estimateSummary?.currencyCode??'XAF',byType:r.estimateSummary?.byType??{}},
   interventions:(r.interventions??[]).map((x:any)=>({id:s(x.id),technicianId:s(x.technician_id),technicianName:x.technician_name??'',description:x.description,interventionType:x.intervention_type??'',plannedHours:n(x.planned_hours),actualHours:n(x.actual_hours),unitPrice:n(x.unit_price),lineTotal:n(x.line_total),status:x.status})),
   sessions:(r.sessions??[]).map((x:any)=>({id:s(x.id),technicianId:s(x.technician_id),technicianName:x.technician_name??'',interventionId:s(x.intervention_id),bayId:s(x.bay_id),startedAt:x.started_at,endedAt:x.ended_at??null,status:x.status})),
   reservations:(r.reservations??[]).map((x:any)=>({id:s(x.id),partId:s(x.part_id),partReference:x.part_reference??'',partName:x.part_name??'',locationName:x.location_name??'Non précisé',quantity:n(x.quantity),status:x.status,createdAt:x.created_at})),
@@ -253,11 +260,13 @@ export const mapRepair = (r: any): RepairOrder => ({
   history:(r.history??[]).map((x:any)=>({id:s(x.id),oldStatus:x.old_status??null,newStatus:x.new_status,reason:x.reason??'',changedByName:x.changed_by_name??'',changedAt:x.changed_at})),
   handover:r.handover?{customerName:r.handover.customer_name,mileageOut:r.handover.mileage_out==null?null:n(r.handover.mileage_out),observations:r.handover.observations??'',signatureData:r.handover.signature_data??'',handedOverAt:r.handover.handed_over_at}:null,
   invoice:r.invoice?{id:s(r.invoice.id),invoiceNumber:r.invoice.invoice_number,subtotal:n(r.invoice.subtotal),taxTotal:n(r.invoice.tax_total),total:n(r.invoice.total),amountPaid:n(r.invoice.amount_paid),balanceDue:n(r.invoice.balance_due),status:r.invoice.status}:null,
+  financiallyCleared:Boolean(r.financially_cleared),
   symptomsReported: r.complaint ?? "",
   diagnosticNotes: r.diagnosis_summary ?? "",
   operations:(r.interventions??[]).map((x:any)=>({id:s(x.id),code:`INT-${x.id}`,description:x.description,estimatedHours:n(x.planned_hours),actualHours:n(x.actual_hours),hourlyRateHT:n(x.unit_price),technicianId:s(x.technician_id),status:x.status==='completed'?'Termine':x.status==='in_progress'?'En_Cours':'A_Faire'})),
-  parts:(r.items??[]).filter((x:any)=>x.item_type==='part'&&x.status!=='cancelled').map((x:any)=>({id:s(x.id),partId:s(x.part_id),partReference:x.part_reference??'',description:x.description,quantity:n(x.quantity),unitPriceHT:n(x.unit_price),totalHT:n(x.line_total)})),
-  laborItems:(r.items??[]).filter((x:any)=>x.item_type==='labor'&&x.status!=='cancelled').map((x:any)=>({id:s(x.id),interventionId:s(x.intervention_id),description:x.description,quantity:n(x.quantity),unitPrice:n(x.unit_price),taxRate:n(x.tax_rate),lineTotal:n(x.line_total)})),
+  parts:(r.items??[]).filter((x:any)=>x.item_type==='part'&&x.status!=='cancelled').map((x:any)=>({id:s(x.id),partId:s(x.part_id),partReference:x.part_reference??'',description:x.description,quantity:n(x.quantity),unitPriceHT:n(x.unit_price),discount:n(x.discount),taxRate:n(x.tax_rate),totalHT:n(x.line_total)})),
+  laborItems:(r.items??[]).filter((x:any)=>x.item_type==='labor'&&x.status!=='cancelled').map((x:any)=>({id:s(x.id),interventionId:s(x.intervention_id),description:x.description,quantity:n(x.quantity),unitPrice:n(x.unit_price),discount:n(x.discount),taxRate:n(x.tax_rate),lineTotal:n(x.line_total)})),
+  financialSummary:{gross:n(r.financialSummary?.gross),discount:n(r.financialSummary?.discount),subtotal:n(r.financialSummary?.subtotal),tax:n(r.financialSummary?.tax),total:n(r.financialSummary?.total),currencyCode:r.financialSummary?.currencyCode??'XAF'},
   estimatedTotalTTC: n(r.estimated_total),
   finalTotalTTC: n(r.actual_total),
   warrantyCovered: Boolean(r.warranty_covered),
@@ -377,11 +386,8 @@ function resource<T>(key: readonly string[], path: string, map: (r: any) => T) {
     enabled: enabled(),
   });
 }
-export const useUsersQuery = () =>
-  resource<User>(
-    erpKeys.users,
-    "/users/directory",
-    (r: any) =>
+export const useUsersQuery = (requestEnabled=true) =>
+  useQuery({queryKey:erpKeys.users,enabled:enabled()&&requestEnabled,queryFn:async()=>(await apiRequest<any[]>("/users/directory")).map((r:any)=>
       ({
         id: s(r.id),
         name: r.displayName,
@@ -396,8 +402,9 @@ export const useUsersQuery = () =>
         department: "",
         phone: "",
         status: r.isActive ? "active" : "inactive",
-      }) as User,
-  );
+        isSystemSuperAdmin: Boolean(r.isSystemSuperAdmin),
+        permissions: Array.isArray(r.permissions)?r.permissions:Object.keys(r.permissions??{}),
+      }) as User)});
 export const useAgenciesQuery = () =>
   resource<Agency>(erpKeys.agencies, "/agencies", (r: any) => ({
     id: s(r.id),
@@ -436,10 +443,13 @@ export const useLeadsQuery = (search = "", priority = "", requestEnabled = true,
     },
     enabled: enabled() && requestEnabled,
   });
-export const useLeadActivitiesQuery=(leadId?:string)=>useQuery({queryKey:[...erpKeys.leads,leadId,'activities'],queryFn:()=>apiRequest<CrmActivity[]>(`/leads/${leadId}/activities`),enabled:enabled()&&Boolean(leadId)});
-export const useLeadQuotationsQuery=(opportunityId?:string)=>useQuery({queryKey:[...erpKeys.quotations,'opportunity',opportunityId],queryFn:()=>apiRequest<Quotation[]>(`/quotations/opportunity/${opportunityId}`),enabled:enabled()&&Boolean(opportunityId)});
-export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(body:{opportunityId:string;vehicleId:string;discount:number;validUntil?:string;notes?:string})=>apiRequest<Quotation>('/quotations',{method:'POST',body:JSON.stringify(body)}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
+export const useLeadActivitiesQuery=(leadId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.leads,leadId,'activities'],queryFn:()=>apiRequest<CrmActivity[]>(`/leads/${leadId}/activities`),enabled:enabled()&&requestEnabled&&Boolean(leadId)});
+export const useLeadQuotationsQuery=(opportunityId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.quotations,'opportunity',opportunityId],queryFn:()=>apiRequest<Quotation[]>(`/quotations/opportunity/${opportunityId}`),enabled:enabled()&&requestEnabled&&Boolean(opportunityId)});
+export const useQuotationConfig=()=>useQuery({queryKey:[...erpKeys.quotations,'config'],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string;defaultTaxMode:'TAXABLE';defaultPriceInputMode:'HT'}>('/quotations/config'),enabled:enabled()});
+export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(body:{opportunityId:string;vehicleId:string;discount:number;validUntil?:string;notes?:string;taxMode:'TAXABLE'|'TAX_EXEMPT';priceInputMode:'HT'|'TTC';taxRate:number})=>apiRequest<Quotation>('/quotations',{method:'POST',body:JSON.stringify(body)}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
+export const useUpdateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;discount?:number;validUntil?:string;notes?:string})=>apiRequest<Quotation>(`/quotations/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/validate`,{method:'POST'}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
+export const useCancelQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,status='cancelled',reason}:{id:string;status?:'cancelled'|'rejected';reason:string})=>apiRequest<Quotation>(`/quotations/${id}/cancel`,{method:'POST',body:JSON.stringify({status,reason})}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:Record<string,unknown>&{id:string})=>apiRequest(`/leads/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.leads})})};
 export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;subject?:string;description?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
 export const useCreateCrmTestDrive=()=>{const qc=useQueryClient();return useMutation({mutationFn:({leadId,...body}:{leadId:string;vehicleId:string;licenseNumber:string;mileageOut:number})=>apiRequest<{id:string;visitId:string;opportunityId:string;leadId:string;stage:string}>(`/showroom/crm/leads/${leadId}/test-drives`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.leadId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['showroom']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
@@ -450,12 +460,20 @@ export interface VehicleFilters {
   status?: string;
   type?: string;
   fuel?: string;
+  brandId?: string;
+  modelId?: string;
   dormant?: boolean;
   sort?: string;
   page?: number;
   pageSize?: number;
 }
-export const useVehiclesQuery = (filters: VehicleFilters = {}, requestEnabled = true) =>
+export interface VehicleListResult {
+  items: Vehicle[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+export const useVehicleListQuery = (filters: VehicleFilters = {}, requestEnabled = true) =>
   useQuery({
     queryKey: [...erpKeys.vehicles, filters],
     queryFn: async () => {
@@ -470,13 +488,24 @@ export const useVehiclesQuery = (filters: VehicleFilters = {}, requestEnabled = 
         page: number;
         pageSize: number;
       }>(`/vehicles?${params}`);
-      return data.items.map(mapVehicle);
+      return {...data,items:data.items.map(mapVehicle)} satisfies VehicleListResult;
     },
     enabled: enabled() && requestEnabled,
   });
+export const useVehiclesQuery = (filters: VehicleFilters = {}, requestEnabled = true) => {
+  const query=useVehicleListQuery(filters,requestEnabled);
+  return {...query,data:query.data?.items};
+};
+export interface VehicleFilterOption { id:string; name:string }
+export interface VehicleModelFilterOption extends VehicleFilterOption { brandId:string }
+export const useVehicleFilterOptionsQuery=(filters:{agencyId?:string;view?:VehicleFilters['view'];brandId?:string}={},requestEnabled=true)=>useQuery({
+  queryKey:[...erpKeys.vehicles,'filter-options',filters],
+  queryFn:()=>{const params=new URLSearchParams();Object.entries(filters).forEach(([key,value])=>{if(value)params.set(key,value)});return apiRequest<{brands:VehicleFilterOption[];models:VehicleModelFilterOption[]}>(`/vehicles/filter-options?${params}`)},
+  enabled:enabled()&&requestEnabled,
+});
 export interface VehicleStats {
   total:number; ordered:number; inTransit:number; received:number; preparation:number;
-  available:number; reserved:number; sold:number; delivered:number; dormant:number; stockValue?:number;
+  available:number; availableForSale:number; reserved:number; sold:number; delivered:number; dormant:number; stockValue?:number;
 }
 export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   queryKey:[...erpKeys.vehicles,'stats',agencyId],
@@ -488,8 +517,16 @@ export const useQuotationsQuery = (requestEnabled=true) => useQuery({queryKey:er
 export const useRepairOrdersQuery = (search="",status="",requestEnabled=true) => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()&&requestEnabled});
 export const useRepairStatsQuery = () => useQuery({queryKey:["repair-orders","stats"],queryFn:()=>apiRequest<any>("/repair-orders/stats"),enabled:enabled()});
 export const usePartsQuery = (agencyId?:string,filters:{search?:string;categoryId?:string}={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.parts,agencyId,filters],queryFn:async()=>{const p=new URLSearchParams();if(agencyId)p.set('agencyId',agencyId);if(filters.search)p.set('search',filters.search);if(filters.categoryId)p.set('categoryId',filters.categoryId);return(await apiRequest<any[]>(`/parts?${p}`)).map(mapPart);},enabled:enabled()&&Boolean(agencyId)&&requestEnabled});
-export const usePartReferencesQuery=(agencyId?:string)=>useQuery({queryKey:['part-references',agencyId],queryFn:()=>apiRequest<any>(`/part-references?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
-export const usePurchaseOrdersQuery=(agencyId?:string)=>useQuery({queryKey:['purchase-orders',agencyId],queryFn:()=>apiRequest<any[]>(`/purchase-orders?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId)});
+export interface PartCategory {id:string;parent_id:string|null;name:string;code:string;description:string|null;is_active:number|boolean}
+export const usePartCategoriesQuery=(requestEnabled=true)=>useQuery({queryKey:['part-categories'],queryFn:()=>apiRequest<PartCategory[]>('/part-categories'),enabled:enabled()&&requestEnabled});
+export const useSavePartCategory=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id?:string;name:string;code:string;parentId:string|null;description:string;isActive:boolean})=>apiRequest(id?`/part-categories/${id}`:'/part-categories',{method:id?'PATCH':'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:['part-categories']});void qc.invalidateQueries({queryKey:['part-references']})}})};
+export interface PartLocation {id:string;agencyId:string;agencyName:string;name:string;type:'warehouse';address:string;isActive:boolean}
+export interface PartLocationAgency {id:string;name:string;code:string}
+export const usePartLocationAgenciesQuery=(actorId?:string,requestEnabled=true)=>useQuery({queryKey:['part-location-agencies',actorId],queryFn:()=>apiRequest<PartLocationAgency[]>('/part-locations/agencies'),enabled:enabled()&&requestEnabled&&Boolean(actorId)});
+export const usePartLocationsQuery=(agencyId?:string,actorId?:string,requestEnabled=true)=>useQuery({queryKey:['part-locations',actorId,agencyId],queryFn:()=>apiRequest<PartLocation[]>(`/part-locations?targetAgency=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&requestEnabled&&Boolean(agencyId)&&Boolean(actorId)});
+export const useSavePartLocation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,targetAgency,...body}:{id?:string;targetAgency:string;name:string;address:string;isActive:boolean})=>apiRequest(id?`/part-locations/${id}`:`/part-locations?targetAgency=${encodeURIComponent(targetAgency)}`,{method:id?'PATCH':'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:['part-locations']});void qc.invalidateQueries({queryKey:['part-references']})}})};
+export const usePartReferencesQuery=(agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['part-references',agencyId],queryFn:()=>apiRequest<any>(`/part-references?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&requestEnabled&&Boolean(agencyId),staleTime:300_000});
+export const usePurchaseOrdersQuery=(agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['purchase-orders',agencyId],queryFn:()=>apiRequest<any[]>(`/purchase-orders?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&requestEnabled&&Boolean(agencyId)});
 export const usePurchaseOrderDetailQuery=(id?:string,agencyId?:string)=>useQuery({queryKey:['purchase-orders',id,agencyId],queryFn:()=>apiRequest<any>(`/purchase-orders/${id}?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(id)&&Boolean(agencyId)});
 export const useDeliveriesQuery = (
   filters: { search?: string; status?: string; dateFrom?: string; dateTo?: string; assignedUserId?: string } = {},
@@ -505,7 +542,7 @@ export const useDeliveriesQuery = (
     enabled: enabled() && requestEnabled,
   });
 export const useInvoicesQuery = (filters:Record<string,string>={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()&&requestEnabled});
-export const useInvoiceQuery=(id?:string,agencyId?:string)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?agencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&Boolean(id)&&Boolean(agencyId)});
+export const useInvoiceQuery=(id?:string,agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?agencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&requestEnabled&&Boolean(id)&&Boolean(agencyId)});
 export const useBillingConfigQuery=(agencyId?:string)=>useQuery({queryKey:['billing-config',agencyId],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string}>(`/billing/config?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
 export const useCustomerDetailQuery = (id?: string) =>
   useQuery({
@@ -521,26 +558,26 @@ export const useCustomer360Query = (id?: string) =>
       return {
         ...data,
         customer: mapCustomer(data.customer),
-        vehicles: data.vehicles.map((v: any) => ({
+        vehicles: (data.vehicles ?? []).map((v: any) => ({
           ...v,
           status:
             vehicleStatusFromDb[v.status as keyof typeof vehicleStatusFromDb] ??
             v.status,
         })),
-        sales: data.sales.map((sale: any) => ({
+        sales: (data.sales ?? []).map((sale: any) => ({
           ...sale,
           status:
             saleStatusFromDb[sale.status as keyof typeof saleStatusFromDb] ??
             sale.status,
         })),
-        repairOrders: data.repairOrders.map((order: any) => ({
+        repairOrders: (data.repairOrders ?? []).map((order: any) => ({
           ...order,
           status:
             repairOrderStatusFromDb[
               order.status as keyof typeof repairOrderStatusFromDb
             ] ?? order.status,
         })),
-        invoices: data.invoices.map((invoice: any) => ({
+        invoices: (data.invoices ?? []).map((invoice: any) => ({
           ...invoice,
           status:
             invoiceStatusFromDb[
@@ -598,13 +635,13 @@ export const useVehicleReferencesQuery = () =>
     enabled: enabled(),
     staleTime: 300_000,
   });
-export const usePartDetailQuery = (id?: string,agencyId?:string) =>
+export const usePartDetailQuery = (id?: string,agencyId?:string,requestEnabled=true) =>
   useQuery({
     queryKey: ["parts", id,agencyId],
     queryFn: async () => mapPart(await apiRequest<any>(`/parts/${id}?agencyId=${encodeURIComponent(agencyId!)}`)),
-    enabled: enabled() && Boolean(id)&&Boolean(agencyId),
+    enabled: enabled() && requestEnabled && Boolean(id)&&Boolean(agencyId),
   });
-export const usePartMovementsQuery=(id?:string,agencyId?:string,filters:Record<string,string>={})=>useQuery({queryKey:['parts',id,'movements',agencyId,filters],queryFn:()=>{const p=new URLSearchParams({agencyId:agencyId!});Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return apiRequest<any[]>(`/parts/${id}/movements?${p}`)},enabled:enabled()&&Boolean(id)&&Boolean(agencyId)});
+export const usePartMovementsQuery=(id?:string,agencyId?:string,filters:Record<string,string>={},requestEnabled=true)=>useQuery({queryKey:['parts',id,'movements',agencyId,filters],queryFn:()=>{const p=new URLSearchParams({agencyId:agencyId!});Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return apiRequest<any[]>(`/parts/${id}/movements?${p}`)},enabled:enabled()&&requestEnabled&&Boolean(id)&&Boolean(agencyId)});
 export const useSaleDetailQuery = (id?: string) =>
   useQuery({
     queryKey: ["sales", id],
@@ -629,6 +666,12 @@ export const useCreateLead = () =>
   mutation<any>(() => "/leads", "POST", erpKeys.leads);
 export interface CreateSalePayload { customerId:string;vehicleId:string;agencyId:string;salespersonId?:string;discount:number;depositAmount:number;notes:string;idempotencyKey:string;opportunityId?:string;quotationId?:string }
 export const useCreateSale = () => { const qc=useQueryClient();return useMutation({mutationFn:(body:CreateSalePayload)=>apiRequest('/sales',{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.customers})}}); };
+export interface ServiceVehicleOption {id:string;vin:string;registrationNumber:string;label:string}
+export interface AdvisorCandidate {id:string;name:string}
+export interface RepairOrderCustomerOption {id:string;code:string;civility:string;firstName:string;lastName:string;companyName:string;phone:string;agencyId:string}
+export const useRepairOrderCustomersQuery=(actorId?:string,requestEnabled=true)=>useQuery({queryKey:['repair-order-customer-candidates',actorId],queryFn:()=>apiRequest<RepairOrderCustomerOption[]>('/repair-orders/customer-candidates'),enabled:enabled()&&requestEnabled&&Boolean(actorId)});
+export const useAdvisorCandidatesQuery=(agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['repair-order-advisors',agencyId],queryFn:()=>apiRequest<AdvisorCandidate[]>(`/repair-orders/advisor-candidates?targetAgency=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&requestEnabled&&Boolean(agencyId)});
+export const useCustomerServiceVehiclesQuery=(customerId?:string,requestEnabled=true)=>useQuery({queryKey:['repair-order-customer-vehicles',customerId],queryFn:()=>apiRequest<ServiceVehicleOption[]>(`/repair-orders/customer-vehicles?customerId=${encodeURIComponent(customerId!)}`),enabled:enabled()&&requestEnabled&&Boolean(customerId)});
 export const useCreateRepairOrder = () =>
   mutation<any>(() => "/repair-orders", "POST", erpKeys.repairOrders);
 export const useCreateInvoice = () =>
@@ -666,6 +709,10 @@ export function useSaleStatusMutation() {
     onSuccess: () => {void qc.invalidateQueries({ queryKey: erpKeys.sales });void qc.invalidateQueries({queryKey:erpKeys.vehicles});},
   });
 }
+export function useUpdateSale() {
+  const qc=useQueryClient();
+  return useMutation({mutationFn:({id,...body}:{id:string;notes?:string;salespersonId?:string})=>apiRequest(`/sales/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(_,input)=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:[...erpKeys.sales,input.id]})}});
+}
 export function useRepairStatusMutation() {
   const qc = useQueryClient();
   return useMutation({
@@ -697,11 +744,11 @@ export function usePartAction(){const qc=useQueryClient();return useMutation({mu
 export function useCreatePurchaseOrder(){const qc=useQueryClient();return useMutation({mutationFn:(body:any)=>apiRequest('/purchase-orders',{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:erpKeys.parts})}})}
 export function usePurchaseOrderStatus(){const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/purchase-orders/${id}/status`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>void qc.invalidateQueries({queryKey:['purchase-orders']})})}
 export function useReceivePurchaseOrder(){const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/purchase-orders/${id}/receipts`,{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:erpKeys.parts})}})}
-export const usePaymentMethodsQuery = () =>
+export const usePaymentMethodsQuery = (requestEnabled=true) =>
   useQuery({
     queryKey: ["payment-methods"],
     queryFn: () => apiRequest<any[]>("/invoices/payment-methods"),
-    enabled: enabled(),
+    enabled: enabled()&&requestEnabled,
     staleTime: 300_000,
   });
 export function useInvoicePayment() {
@@ -719,23 +766,29 @@ export function useBillingAction(){const qc=useQueryClient();return useMutation(
 const mapTechnician=(r:any):Technician=>({id:s(r.id),userId:s(r.user_id),agencyId:s(r.agency_id),name:r.name??'',specialty:r.specialty??'',employeeCode:r.employee_code??'',hourlyRate:n(r.hourly_rate),availableHoursPerDay:n(r.available_hours_per_day),isActive:Boolean(r.is_active)});
 const mapWorkshopBay=(r:any):WorkshopBay=>({id:s(r.id),agencyId:s(r.agency_id),name:r.name??'',bayType:r.bay_type??'',capacity:n(r.capacity),status:r.status,occupiedNow:Boolean(r.occupied_now)});
 const mapWorkshopSchedule=(r:any):WorkshopSchedule=>({id:s(r.id),agencyId:s(r.agency_id),technicianId:s(r.technician_id),bayId:s(r.bay_id),repairOrderId:s(r.repair_order_id),interventionId:s(r.intervention_id),startsAt:r.starts_at,endsAt:r.ends_at,status:r.status,orderNumber:r.order_number??'',customerName:r.customer_name??'',vehicleLabel:r.vehicle_label??'',registrationNumber:r.registration_number??'',technicianName:r.technician_name??'',bayName:r.bay_name??'',bayStatus:r.bay_status??'available',bayOccupiedNow:Boolean(r.bay_occupied_now),interventionDescription:r.intervention_description??''});
+const mapWorkshopInterventionHistory=(r:any):WorkshopInterventionHistory=>({id:s(r.id),repairOrderId:s(r.repair_order_id),orderNumber:r.order_number??'',description:r.description??'',technicianName:r.technician_name??'',bayNames:r.bay_names??'',startedAt:r.started_at??null,endedAt:r.ended_at??null,durationHours:n(r.duration_hours),status:r.status});
 const mapUnavailability=(r:any):TechnicianUnavailability=>({id:s(r.id),technicianId:s(r.technician_id),technicianName:r.technician_name??'',startsAt:r.starts_at,endsAt:r.ends_at,reason:r.reason??'Indisponible'});
-export const useTechniciansQuery = (agencyId?:string) =>
+export const useTechniciansQuery = (agencyId?:string, requestEnabled=true) =>
   useQuery({
     queryKey: ["technicians",agencyId],
     queryFn: async () => (await apiRequest<any[]>(`/workshop/technicians?agencyId=${encodeURIComponent(agencyId!)}`)).map(mapTechnician),
-    enabled: enabled()&&Boolean(agencyId),
+    enabled: enabled()&&requestEnabled&&Boolean(agencyId),
   });
-export const useWorkshopBaysQuery = (agencyId?:string) =>
-  useQuery({ queryKey: ["workshop-bays",agencyId], queryFn: async () => (await apiRequest<any[]>(`/workshop/bays?agencyId=${encodeURIComponent(agencyId!)}`)).map(mapWorkshopBay), enabled: enabled()&&Boolean(agencyId) });
-export const useWorkshopPlanningQuery = (agencyId?: string, from?: string, to?: string, filters: { technicianId?: string; bayId?: string; status?: string } = {}) =>
+export const useRepairTechnicianCandidatesQuery=(repairOrderId?:string)=>useQuery({queryKey:['repair-technician-candidates',repairOrderId],queryFn:async()=>(await apiRequest<any[]>(`/repair-orders/${repairOrderId}/technician-candidates`)).map((row:any)=>({id:s(row.id),userId:s(row.userId),agencyId:s(row.agencyId),name:row.name as string})),enabled:enabled()&&Boolean(repairOrderId)});
+export const useRepairLaborRatesQuery=(repairOrderId?:string)=>useQuery({queryKey:['repair-labor-rates',repairOrderId],queryFn:()=>apiRequest<{rates:Record<'T1'|'T2'|'T3'|'T4',number>;currencyCode:string}>(`/repair-orders/${repairOrderId}/labor-rates`),enabled:enabled()&&Boolean(repairOrderId)});
+export const useRepairAvailablePartsQuery=(repairOrderId?:string,requestEnabled=true)=>useQuery({queryKey:['repair-available-parts',repairOrderId],queryFn:()=>apiRequest<Array<{id:string;reference:string;name:string;salePrice:number;availableStock:number}>>(`/repair-orders/${repairOrderId}/available-parts`),enabled:enabled()&&requestEnabled&&Boolean(repairOrderId)});
+export const useRepairPartStocksQuery=(repairOrderId?:string,partId?:string,requestEnabled=true)=>useQuery({queryKey:['repair-part-stocks',repairOrderId,partId],queryFn:()=>apiRequest<Array<{id:string;locationId:string;locationName:string;availableStock:number}>>(`/repair-orders/${repairOrderId}/available-parts/${partId}/stocks`),enabled:enabled()&&requestEnabled&&Boolean(repairOrderId&&partId)});
+export const useWorkshopBaysQuery = (agencyId?:string, requestEnabled=true) =>
+  useQuery({ queryKey: ["workshop-bays",agencyId], queryFn: async () => (await apiRequest<any[]>(`/workshop/bays?agencyId=${encodeURIComponent(agencyId!)}`)).map(mapWorkshopBay), enabled: enabled()&&requestEnabled&&Boolean(agencyId) });
+export const useWorkshopPlanningQuery = (agencyId?: string, from?: string, to?: string, filters: { technicianId?: string; bayId?: string; status?: string } = {}, requestEnabled=true) =>
   useQuery({
     queryKey: ["workshop-planning", agencyId, from, to, filters],
     queryFn: async () => { const p=new URLSearchParams({agencyId:agencyId!,from:from!,to:to!});Object.entries(filters).forEach(([k,v])=>v&&p.set(k,v));return (await apiRequest<any[]>(`/workshop/planning?${p}`)).map(mapWorkshopSchedule); },
-    enabled: enabled() && Boolean(agencyId && from && to),
+    enabled: enabled() && requestEnabled && Boolean(agencyId && from && to),
   });
-export const useWorkshopStatsQuery = (agencyId?: string, from?: string, to?: string) => useQuery({queryKey:["workshop-stats",agencyId,from,to],queryFn:async()=>{const r=await apiRequest<any>(`/workshop/stats?agencyId=${encodeURIComponent(agencyId!)}&from=${from}&to=${to}`);return{technicians:n(r.technicians),bays:n(r.bays),assignments:n(r.assignments),scheduledHours:n(r.scheduled_hours),actualHours:n(r.actual_hours),capacityHours:n(r.capacity_hours),bayCapacityHours:n(r.bay_capacity_hours),technicianOccupationRate:n(r.technician_occupation_rate),bayOccupationRate:n(r.bay_occupation_rate),productivityRate:n(r.productivity_rate)} satisfies WorkshopStats},enabled:enabled()&&Boolean(agencyId&&from&&to)});
-export const useWorkshopUnavailabilitiesQuery=(agencyId?:string,from?:string,to?:string,technicianId?:string)=>useQuery({queryKey:["workshop-unavailabilities",agencyId,from,to,technicianId],queryFn:async()=>{const p=new URLSearchParams({agencyId:agencyId!,from:from!,to:to!});if(technicianId)p.set('technicianId',technicianId);return(await apiRequest<any[]>(`/workshop/unavailabilities?${p}`)).map(mapUnavailability)},enabled:enabled()&&Boolean(agencyId&&from&&to)});
+export const useWorkshopInterventionHistoryQuery=(requestEnabled=true)=>useQuery({queryKey:['workshop-intervention-history'],queryFn:async()=>(await apiRequest<any[]>('/workshop/interventions/history')).map(mapWorkshopInterventionHistory),enabled:enabled()&&requestEnabled});
+export const useWorkshopStatsQuery = (agencyId?: string, from?: string, to?: string, requestEnabled=true) => useQuery({queryKey:["workshop-stats",agencyId,from,to],queryFn:async()=>{const r=await apiRequest<any>(`/workshop/stats?agencyId=${encodeURIComponent(agencyId!)}&from=${from}&to=${to}`);return{technicians:n(r.technicians),bays:n(r.bays),assignments:n(r.assignments),scheduledHours:n(r.scheduled_hours),actualHours:n(r.actual_hours),capacityHours:n(r.capacity_hours),bayCapacityHours:n(r.bay_capacity_hours),technicianOccupationRate:n(r.technician_occupation_rate),bayOccupationRate:n(r.bay_occupation_rate),productivityRate:n(r.productivity_rate)} satisfies WorkshopStats},enabled:enabled()&&requestEnabled&&Boolean(agencyId&&from&&to)});
+export const useWorkshopUnavailabilitiesQuery=(agencyId?:string,from?:string,to?:string,technicianId?:string,requestEnabled=true)=>useQuery({queryKey:["workshop-unavailabilities",agencyId,from,to,technicianId],queryFn:async()=>{const p=new URLSearchParams({agencyId:agencyId!,from:from!,to:to!});if(technicianId)p.set('technicianId',technicianId);return(await apiRequest<any[]>(`/workshop/unavailabilities?${p}`)).map(mapUnavailability)},enabled:enabled()&&requestEnabled&&Boolean(agencyId&&from&&to)});
 export function useWorkshopScheduleMutation(){const qc=useQueryClient();const done=()=>{qc.invalidateQueries({queryKey:["workshop-planning"]});qc.invalidateQueries({queryKey:["workshop-stats"]});qc.invalidateQueries({queryKey:erpKeys.repairOrders})};return{
   update:useMutation({mutationFn:({id,...body}:{id:string;technicianId:string;bayId?:string;startsAt:string;endsAt:string;agencyId?:string})=>apiRequest(`/workshop/schedules/${id}`,{method:"PATCH",body:JSON.stringify(body)}),onSuccess:done}),
   cancel:useMutation({mutationFn:({id,agencyId}:{id:string;agencyId?:string})=>apiRequest(`/workshop/schedules/${id}`,{method:"DELETE",body:JSON.stringify({agencyId})}),onSuccess:done}),
@@ -774,14 +827,14 @@ const mapShowroom = (r: any) => ({
             : "Annulé",
   waitTimeMinutes: n(r.waitMinutes),
 });
-export const useShowroomBoardQuery = () =>
+export const useShowroomBoardQuery = (requestEnabled=true) =>
   useQuery({
     queryKey: ["showroom"],
     queryFn: async () => {
       const data = await apiRequest<any>("/showroom");
       return { visits: data.visits.map(mapShowroom), metrics: data.metrics };
     },
-    enabled: enabled(),
+    enabled: enabled() && requestEnabled,
   });
 export const useShowroomQuery = () =>
   useQuery({
@@ -873,12 +926,12 @@ export function useShowroomActions() {
     }),
   };
 }
-export const useShowroomDetection = (phone: string) =>
+export const useShowroomDetection = (phone: string, requestEnabled=true) =>
   useQuery({
     queryKey: ["showroom-detect", phone],
     queryFn: () =>
       apiRequest<any>(`/showroom/detect?phone=${encodeURIComponent(phone)}`),
-    enabled: enabled() && phone.replace(/\D/g, "").length >= 6,
+    enabled: enabled() && requestEnabled && phone.replace(/\D/g, "").length >= 6,
   });
 export const useCreateVehicle = () =>
   mutation<any>(() => "/vehicles", "POST", erpKeys.vehicles);
@@ -928,17 +981,18 @@ export function useCreateActivity() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["activities"] }),
   });
 }
-export const useDeliveryDetailQuery = (id?: string) =>
+export const useDeliveryDetailQuery = (id?: string,requestEnabled=true) =>
   useQuery({
     queryKey: ["deliveries", id],
     queryFn: () => apiRequest<any>(`/deliveries/${id}`),
-    enabled: enabled() && Boolean(id),
+    enabled: enabled() && Boolean(id) && requestEnabled,
   });
-export const useDeliveryStatsQuery = () =>
-  useQuery({ queryKey: ["deliveries", "stats"], queryFn: () => apiRequest<any>("/deliveries/stats"), enabled: enabled() });
+export const useDeliveryStatsQuery = (requestEnabled=true) =>
+  useQuery({ queryKey: ["deliveries", "stats"], queryFn: () => apiRequest<any>("/deliveries/stats"), enabled: enabled()&&requestEnabled });
 export const useCreateDelivery = () =>
   mutation<any>(() => "/deliveries", "POST", erpKeys.deliveries);
-export const useDeliveryCandidatesQuery = () => useQuery({queryKey:[...erpKeys.deliveries,'candidates'],queryFn:()=>apiRequest<any[]>('/deliveries/candidates'),enabled:enabled()});
+export const useDeliveryCandidatesQuery = (requestEnabled=true) => useQuery({queryKey:[...erpKeys.deliveries,'candidates'],queryFn:()=>apiRequest<any[]>('/deliveries/candidates'),enabled:enabled()&&requestEnabled});
+export const useDeliverySpecialistsQuery=(saleId:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'candidates',saleId,'specialists'],queryFn:()=>apiRequest<Array<{id:string;name:string;agencyId:string}>>(`/deliveries/candidates/${saleId}/specialists`),enabled:enabled()&&requestEnabled&&Boolean(saleId)});
 export const useDeliveryTemplatesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'templates'],queryFn:()=>apiRequest<any[]>('/deliveries/checklist-templates'),enabled:enabled()&&requestEnabled});
 export const useDeliveryTemplateActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:[...erpKeys.deliveries,'templates']});return{
   create:useMutation({mutationFn:(body:any)=>apiRequest('/deliveries/checklist-templates',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
@@ -980,6 +1034,7 @@ export function useDeliveryActions() {
   };
   return {
     status: useMutation({ mutationFn: ({ deliveryId, ...body }: any) => apiRequest(`/deliveries/${deliveryId}/status`, { method: "PATCH", body: JSON.stringify(body) }), onSuccess: done }),
+    cancel: useMutation({ mutationFn: ({ deliveryId, ...body }: any) => apiRequest(`/deliveries/${deliveryId}/cancel`, { method: "PATCH", body: JSON.stringify(body) }), onSuccess: done }),
     reschedule: useMutation({ mutationFn: ({ deliveryId, ...body }: any) => apiRequest(`/deliveries/${deliveryId}/reschedule`, { method: "PATCH", body: JSON.stringify(body) }), onSuccess: done }),
     addDocument: useMutation({ mutationFn: ({ deliveryId, ...body }: any) => apiRequest(`/deliveries/${deliveryId}/documents`, { method: "POST", body: JSON.stringify(body) }), onSuccess: done }),
     markDocument: useMutation({ mutationFn: ({ deliveryId, documentId, ...body }: any) => apiRequest(`/deliveries/${deliveryId}/documents/${documentId}`, { method: "PATCH", body: JSON.stringify(body) }), onSuccess: done }),
@@ -1003,6 +1058,8 @@ export function useAddRepairItem() {
       qc.invalidateQueries({ queryKey: erpKeys.repairOrders });
       qc.invalidateQueries({ queryKey: ["repair-orders", v.repairOrderId] });
       qc.invalidateQueries({ queryKey: erpKeys.parts });
+      qc.invalidateQueries({queryKey:['repair-available-parts',v.repairOrderId]});
+      qc.invalidateQueries({queryKey:['repair-part-stocks',v.repairOrderId]});
     },
   });
 }
@@ -1014,7 +1071,7 @@ export function useAssignRepairOrder() {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    onSuccess: () => {qc.invalidateQueries({ queryKey: erpKeys.repairOrders });qc.invalidateQueries({queryKey:["workshop-planning"]});qc.invalidateQueries({queryKey:["workshop-stats"]});},
+    onSuccess: () => {qc.invalidateQueries({ queryKey: erpKeys.repairOrders });qc.invalidateQueries({queryKey:["workshop-planning"]});qc.invalidateQueries({queryKey:["workshop-intervention-history"]});qc.invalidateQueries({queryKey:["workshop-stats"]});},
   });
 }
 export function useInvoiceRepairOrder() {
@@ -1028,4 +1085,4 @@ export function useInvoiceRepairOrder() {
     },
   });
 }
-export function useRepairOrderActions(){const qc=useQueryClient();const done=(_:unknown,v:any)=>{qc.invalidateQueries({queryKey:erpKeys.repairOrders});qc.invalidateQueries({queryKey:['repair-orders',v.repairOrderId]});};const action=(suffix:string,method='POST')=>useMutation({mutationFn:({repairOrderId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/${suffix}`,{method,body:JSON.stringify(body)}),onSuccess:done});return{inspection:action('inspection'),diagnostic:action('diagnostics'),approval:action('approval'),intervention:action('interventions'),interventionStatus:useMutation({mutationFn:({repairOrderId,interventionId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/interventions/${interventionId}/status`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),startSession:action('sessions/start'),stopSession:useMutation({mutationFn:({repairOrderId,sessionId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/sessions/${sessionId}/stop`,{method:'PATCH',body:'{}'}),onSuccess:done}),reservePart:action('parts/reserve'),reservationStatus:useMutation({mutationFn:({repairOrderId,reservationId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/parts/reservations/${reservationId}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(data,v)=>{done(data,v);qc.invalidateQueries({queryKey:erpKeys.parts})}}),qualityControl:action('quality-control'),handover:action('handover'),updateItem:useMutation({mutationFn:({repairOrderId,itemId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/items/${itemId}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(data,v)=>{done(data,v);qc.invalidateQueries({queryKey:erpKeys.parts})}}),cancelItem:useMutation({mutationFn:({repairOrderId,itemId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/items/${itemId}`,{method:'DELETE'}),onSuccess:(data,v)=>{done(data,v);qc.invalidateQueries({queryKey:erpKeys.parts})}})}}
+export function useRepairOrderActions(){const qc=useQueryClient();const done=(_:unknown,v:any)=>{qc.invalidateQueries({queryKey:erpKeys.repairOrders});qc.invalidateQueries({queryKey:['repair-orders',v.repairOrderId]});qc.invalidateQueries({queryKey:['repair-available-parts',v.repairOrderId]});qc.invalidateQueries({queryKey:['repair-part-stocks',v.repairOrderId]});qc.invalidateQueries({queryKey:['repair-technician-candidates',v.repairOrderId]});qc.invalidateQueries({queryKey:['workshop-intervention-history']});};const action=(suffix:string,method='POST')=>useMutation({mutationFn:({repairOrderId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/${suffix}`,{method,body:JSON.stringify(body)}),onSuccess:done});return{inspection:action('inspection'),diagnostic:action('diagnostics'),approval:action('approval'),estimateItem:action('estimate-items'),deleteEstimateItem:useMutation({mutationFn:({repairOrderId,itemId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/estimate-items/${itemId}`,{method:'DELETE'}),onSuccess:done}),createEstimateIntervention:useMutation({mutationFn:({repairOrderId,estimateItemId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/estimate-items/${estimateItemId}/intervention`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),reserveEstimatePart:useMutation({mutationFn:({repairOrderId,estimateItemId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/estimate-items/${estimateItemId}/reserve`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(data,v)=>{done(data,v);qc.invalidateQueries({queryKey:erpKeys.parts})}}),intervention:action('interventions'),interventionStatus:useMutation({mutationFn:({repairOrderId,interventionId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/interventions/${interventionId}/status`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),startSession:action('sessions/start'),pauseSession:useMutation({mutationFn:({repairOrderId,sessionId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/sessions/${sessionId}/pause`,{method:'PATCH',body:'{}'}),onSuccess:done}),resumeSession:useMutation({mutationFn:({repairOrderId,sessionId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/sessions/${sessionId}/resume`,{method:'PATCH',body:'{}'}),onSuccess:done}),stopSession:useMutation({mutationFn:({repairOrderId,sessionId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/sessions/${sessionId}/stop`,{method:'PATCH',body:'{}'}),onSuccess:done}),reservePart:action('parts/reserve'),reservationStatus:useMutation({mutationFn:({repairOrderId,reservationId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/parts/reservations/${reservationId}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(data,v)=>{done(data,v);qc.invalidateQueries({queryKey:erpKeys.parts})}}),qualityControl:action('quality-control'),handover:action('handover'),updateItem:useMutation({mutationFn:({repairOrderId,itemId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/items/${itemId}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(data,v)=>{done(data,v);qc.invalidateQueries({queryKey:erpKeys.parts})}}),cancelItem:useMutation({mutationFn:({repairOrderId,itemId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/items/${itemId}`,{method:'DELETE'}),onSuccess:(data,v)=>{done(data,v);qc.invalidateQueries({queryKey:erpKeys.parts})}})}}

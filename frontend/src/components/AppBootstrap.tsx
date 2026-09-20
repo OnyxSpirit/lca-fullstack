@@ -30,15 +30,19 @@ export function AppBootstrap() {
   const authenticated = useAuthStore((s) => s.isAuthenticated);
   const setDirectory = useAuthStore((s) => s.setDirectory);
   const logout = useAuthStore((s) => s.logout);
+  const refreshPermissions = useAuthStore((s) => s.refreshPermissions);
   const users = useUsersQuery(); const agencies = useAgenciesQuery(); const qc = useQueryClient();
   useEffect(() => { if (users.data && agencies.data) setDirectory(users.data, agencies.data); }, [users.data, agencies.data, setDirectory]);
   useEffect(() => {
     const token = localStorage.getItem('lca-access-token'); if (!authenticated || !token) return;
     const socket = connectRealtime(token);
-    Object.entries(eventKeys).forEach(([event,key]) => socket.on(event, () => { void qc.invalidateQueries({ queryKey: key });void qc.invalidateQueries({queryKey:dashboardOverviewKey}); if(event==='showroom:test-drive-completed'){void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.vehicles});} if(event==='parts:stock-changed'){void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:['parts']});} if(event==='settings:updated'){void qc.invalidateQueries({queryKey:['concession-current']});void qc.invalidateQueries({queryKey:['billing-config']});void qc.invalidateQueries({queryKey:['workshop-config']});} }));
-    planningEvents.forEach(event=>socket.on(event,()=>{void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:['workshop-bays']});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['workshop-unavailabilities']});void qc.invalidateQueries({queryKey:dashboardOverviewKey});}));
-    return () => { [...Object.keys(eventKeys),...planningEvents].forEach((event) => socket.off(event)); disconnectRealtime(); };
-  }, [authenticated, qc]);
+    const eventHandlers=new Map<string,()=>void>();
+    Object.entries(eventKeys).forEach(([event,key]) => {const handler=()=>{void qc.invalidateQueries({ queryKey: key });void qc.invalidateQueries({queryKey:dashboardOverviewKey}); if(event==='showroom:test-drive-completed'||event==='sales:created'||event==='sales:status'){void qc.invalidateQueries({queryKey:erpKeys.vehicles});} if(event==='showroom:test-drive-completed'){void qc.invalidateQueries({queryKey:erpKeys.leads});} if(event==='parts:stock-changed'){void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:['parts']});} if(event==='settings:updated'){void qc.invalidateQueries({queryKey:['concession-current']});void qc.invalidateQueries({queryKey:['billing-config']});void qc.invalidateQueries({queryKey:['workshop-config']});}};eventHandlers.set(event,handler);socket.on(event,handler)});
+    const planningHandlers=new Map<string,()=>void>();planningEvents.forEach(event=>{const handler=()=>{void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:['workshop-bays']});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['workshop-unavailabilities']});void qc.invalidateQueries({queryKey:dashboardOverviewKey});};planningHandlers.set(event,handler);socket.on(event,handler)});
+    const rbacUpdated=()=>{void refreshPermissions().then(()=>{void qc.invalidateQueries();}).catch(()=>logout());};
+    socket.on('rbac:updated',rbacUpdated);
+    return () => { eventHandlers.forEach((handler,event)=>socket.off(event,handler));planningHandlers.forEach((handler,event)=>socket.off(event,handler));socket.off('rbac:updated',rbacUpdated);qc.removeQueries({queryKey:['notifications']});disconnectRealtime(); };
+  }, [authenticated, qc, refreshPermissions, logout]);
   useEffect(()=>{const expired=()=>logout();window.addEventListener('lca:session-expired',expired);return()=>window.removeEventListener('lca:session-expired',expired)},[logout]);
   return null;
 }

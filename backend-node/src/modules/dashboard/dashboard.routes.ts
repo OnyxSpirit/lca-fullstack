@@ -1,106 +1,49 @@
-import { Router, type Request } from 'express';
-import type { RowDataPacket } from 'mysql2/promise';
-import { query } from '../../config/database.js';
-import { authorize, unrestricted } from '../../middleware/authorize.js';
-import { asyncHandler } from '../../middleware/error-handler.js';
-import { HttpError } from '../../shared/http-error.js';
+import {Router,type Request} from 'express';
+import type {RowDataPacket} from 'mysql2/promise';
+import {query} from '../../config/database.js';
+import {requirePermission} from '../../middleware/require-permission.js';
+import {asyncHandler} from '../../middleware/error-handler.js';
+import {HttpError} from '../../shared/http-error.js';
+import type {PermissionScope} from '../rbac/rbac.service.js';
 
-export const dashboardRouter = Router();
+export const dashboardRouter=Router();
+const num=(v:unknown)=>Number(v??0);
+export const dashboardComparison=(currentValue:unknown,previousValue:unknown)=>{const current=num(currentValue),previous=num(previousValue),delta=current-previous;return{current,previous,delta,deltaPercent:previous===0?null:delta/previous*100}};
+const first=async(sql:string,params:unknown[])=>(await query<RowDataPacket[]>(sql,params))[0]??({}as RowDataPacket);
+const has=(r:Request,p:string)=>Boolean(r.rbac?.isSuperAdmin||r.rbac?.permissions.has(p));
+function scope(r:Request,p:string,a:string,owner?:string){const s=(r.rbac?.isSuperAdmin?'GLOBAL':r.rbac?.permissions.get(p))as PermissionScope|undefined;if(s==='GLOBAL')return{sql:'1=1',params:[]as unknown[]};if(s==='CONCESSION')return{sql:`${a}.agency_id IN(SELECT x.id FROM agencies x JOIN agencies me ON me.concession_id=x.concession_id WHERE me.id=?)`,params:[r.user?.agencyId]};if(s==='AGENCY')return{sql:`${a}.agency_id=?`,params:[r.user?.agencyId]};if(s==='OWN'&&owner)return{sql:`${a}.${owner}=?`,params:[r.user?.sub]};return null}
+const searchTerm=(v:unknown)=>{const q=typeof v==='string'?v.trim():'';if(q.length<2)throw new HttpError(400,'Saisissez au moins 2 caractères');return`%${q.slice(0,120).replace(/[\\%_]/g,'\\$&')}%`};
 
-const ALL_ROLES = ['SUPER_ADMIN','DIRECTOR','ACCOUNTANT','SALES_MANAGER','SALES_AGENT','RECEPTIONIST','SERVICE_MANAGER','SERVICE_ADVISOR','WORKSHOP_MANAGER','TECHNICIAN','PARTS_MANAGER','WAREHOUSE_CLERK','DELIVERY_MANAGER'];
-const FINANCE_ROLES = ['SUPER_ADMIN','DIRECTOR','ACCOUNTANT','SALES_MANAGER','SALES_AGENT','SERVICE_MANAGER','SERVICE_ADVISOR'];
-const SALES_ROLES = ['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT','DELIVERY_MANAGER','ACCOUNTANT'];
-const CRM_ROLES = ['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT','RECEPTIONIST'];
-const VEHICLE_ROLES = ['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT','RECEPTIONIST','SERVICE_MANAGER','SERVICE_ADVISOR','WORKSHOP_MANAGER','WAREHOUSE_CLERK','DELIVERY_MANAGER'];
-const SHOWROOM_ROLES = ['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT','RECEPTIONIST','DELIVERY_MANAGER'];
-const DELIVERY_ROLES = ['SUPER_ADMIN','DIRECTOR','SALES_MANAGER','SALES_AGENT','RECEPTIONIST','DELIVERY_MANAGER','ACCOUNTANT'];
-const WORKSHOP_ROLES = ['SUPER_ADMIN','DIRECTOR','SERVICE_MANAGER','SERVICE_ADVISOR','WORKSHOP_MANAGER','TECHNICIAN','PARTS_MANAGER','WAREHOUSE_CLERK'];
-
-const number = (value: unknown) => Number(value ?? 0);
-const allowed = (request: Request, roles: string[]) => Boolean(request.user?.roles.some(role => roles.includes(role)));
-export const dashboardComparison = (currentValue: unknown, previousValue: unknown) => {
-  const current = number(currentValue), previous = number(previousValue), delta = current - previous;
-  return { current, previous, delta, deltaPercent: previous === 0 ? null : delta / previous * 100 };
-};
-const first = async (sql: string, params: unknown[]): Promise<RowDataPacket> => (await query<RowDataPacket[]>(sql, params))[0] ?? ({} as RowDataPacket);
-
-function agencyScope(request: Request) {
-  const requested = typeof request.query.agencyId === 'string' && request.query.agencyId ? request.query.agencyId : null;
-  if (requested && !/^\d+$/.test(requested)) throw new HttpError(400, 'Agence invalide');
-  if (unrestricted(request)) return requested;
-  if (!request.user?.agencyId) throw new HttpError(403, 'Aucune agence associée');
-  if (requested && requested !== request.user.agencyId) throw new HttpError(403, 'Cette agence est inaccessible');
-  return request.user.agencyId;
-}
-
-const scope = (alias: string, agencyId: string | null) => agencyId
-  ? { sql: `${alias}.agency_id=?`, params: [agencyId] }
-  : { sql: '1=1', params: [] as unknown[] };
-
-dashboardRouter.get('/dashboard/overview', authorize(...ALL_ROLES), asyncHandler(async (request, response) => {
-  const agencyId = agencyScope(request);
-  const invoiceScope = scope('i', agencyId), salesScope = scope('s', agencyId), vehicleScope = scope('v', agencyId);
-  const showroomScope = scope('sv', agencyId), deliveryScope = scope('d', agencyId), workshopScope = scope('ro', agencyId);
-  const permissions = {
-    revenue: allowed(request, FINANCE_ROLES), sales: allowed(request, SALES_ROLES), crm: allowed(request, CRM_ROLES),
-    vehicles: allowed(request, VEHICLE_ROLES), showroom: allowed(request, SHOWROOM_ROLES), deliveries: allowed(request, DELIVERY_ROLES), workshop: allowed(request, WORKSHOP_ROLES),
-  };
-
-  const financialPromise = permissions.revenue ? Promise.all([
-    first(`SELECT
-      COALESCE(SUM(CASE WHEN i.issue_date>=DATE_FORMAT(CURDATE(),'%Y-%m-01') AND i.issue_date<DATE_ADD(CURDATE(),INTERVAL 1 DAY) THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) current_revenue,
-      COALESCE(SUM(CASE WHEN i.issue_date>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND i.issue_date<DATE_ADD(DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH),INTERVAL (DAY(CURDATE())) DAY) THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) previous_revenue
-      FROM invoices i LEFT JOIN (SELECT invoice_id,SUM(amount) amount FROM credit_notes WHERE status IN('issued','applied') GROUP BY invoice_id) cn ON cn.invoice_id=i.id
-      WHERE i.status<>'cancelled' AND i.issue_date>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND ${invoiceScope.sql}`,[...invoiceScope.params]),
-    first(`SELECT
-      COALESCE(SUM(CASE WHEN s.sold_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01') AND s.sold_at<DATE_ADD(CURDATE(),INTERVAL 1 DAY) THEN si.line_total-(v.purchase_price+v.refurbishment_cost+v.transport_cost+v.administrative_cost+v.additional_costs) ELSE 0 END),0) current_margin,
-      COALESCE(SUM(CASE WHEN s.sold_at>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND s.sold_at<DATE_ADD(DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH),INTERVAL (DAY(CURDATE())) DAY) THEN si.line_total-(v.purchase_price+v.refurbishment_cost+v.transport_cost+v.administrative_cost+v.additional_costs) ELSE 0 END),0) previous_margin
-      FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id
-      WHERE s.status IN('confirmed','preparation','ready_for_delivery','delivered') AND s.sold_at>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND ${salesScope.sql}`,[...salesScope.params]),
-    first(`SELECT
-      COALESCE(SUM(CASE WHEN i.issue_date>=DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY) THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) current_week,
-      COALESCE(SUM(CASE WHEN i.issue_date>=DATE_SUB(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY) AND i.issue_date<DATE_SUB(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY)+INTERVAL (WEEKDAY(CURDATE())+1) DAY THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) previous_week
-      FROM invoices i LEFT JOIN (SELECT invoice_id,SUM(amount) amount FROM credit_notes WHERE status IN('issued','applied') GROUP BY invoice_id) cn ON cn.invoice_id=i.id
-      WHERE i.status<>'cancelled' AND i.issue_date>=DATE_SUB(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY) AND ${invoiceScope.sql}`,[...invoiceScope.params]),
-    query<RowDataPacket[]>(`SELECT DATE(i.issue_date) day,COALESCE(SUM(i.total-COALESCE(cn.amount,0)),0) revenue FROM invoices i LEFT JOIN (SELECT invoice_id,SUM(amount) amount FROM credit_notes WHERE status IN('issued','applied') GROUP BY invoice_id) cn ON cn.invoice_id=i.id WHERE i.status<>'cancelled' AND i.issue_date>=DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY) AND i.issue_date<DATE_ADD(CURDATE(),INTERVAL 1 DAY) AND ${invoiceScope.sql} GROUP BY DATE(i.issue_date) ORDER BY day`,[...invoiceScope.params]),
-    query<RowDataPacket[]>(`SELECT DATE_FORMAT(i.issue_date,'%Y-%m') month,
-      COALESCE(SUM(CASE WHEN i.invoice_type='vehicle' AND st.vehicle_type='new' THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) vn,
-      COALESCE(SUM(CASE WHEN i.invoice_type='vehicle' AND st.vehicle_type='used' THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) vo,
-      COALESCE(SUM(CASE WHEN i.invoice_type IN('workshop','parts') THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) sav
-      FROM invoices i LEFT JOIN (SELECT invoice_id,SUM(amount) amount FROM credit_notes WHERE status IN('issued','applied') GROUP BY invoice_id) cn ON cn.invoice_id=i.id
-      LEFT JOIN (SELECT si.sale_id,MAX(v.vehicle_type) vehicle_type FROM sale_items si JOIN vehicles v ON v.id=si.vehicle_id GROUP BY si.sale_id) st ON st.sale_id=i.sale_id
-      WHERE i.status<>'cancelled' AND i.issue_date>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 5 MONTH) AND ${invoiceScope.sql} GROUP BY DATE_FORMAT(i.issue_date,'%Y-%m') ORDER BY month`,[...invoiceScope.params]),
-  ]) : null;
-
-  const [financial, sales, crm, vehicles, stockDistribution, showroom, testDrives, deliveries, workshop] = await Promise.all([
-    financialPromise,
-    permissions.sales ? first(`SELECT COUNT(DISTINCT CASE WHEN s.sold_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01') AND s.sold_at<DATE_ADD(CURDATE(),INTERVAL 1 DAY) THEN si.vehicle_id END) current_count,COUNT(DISTINCT CASE WHEN s.sold_at>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND s.sold_at<DATE_ADD(DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH),INTERVAL (DAY(CURDATE())) DAY) THEN si.vehicle_id END) previous_count FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL WHERE s.status IN('confirmed','preparation','ready_for_delivery','delivered') AND s.sold_at>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND ${salesScope.sql}`,[...salesScope.params]) : null,
-    permissions.crm ? first(`SELECT COUNT(*) active FROM leads l LEFT JOIN users u ON u.id=l.assigned_user_id LEFT JOIN users creator ON creator.id=l.created_by WHERE l.status NOT IN('converted','lost') AND ${agencyId ? 'COALESCE(u.agency_id,creator.agency_id)=?' : '1=1'}`,agencyId?[agencyId]:[]) : null,
-    permissions.vehicles ? first(`SELECT COUNT(*) total,SUM(v.status='available') available,SUM(v.status='reserved') reserved,SUM(v.status='sold') sold,SUM(v.status='available' AND DATEDIFF(CURDATE(),v.entry_date)>60) dormant FROM vehicles v WHERE ${vehicleScope.sql}`,[...vehicleScope.params]) : null,
-    permissions.vehicles ? query<RowDataPacket[]>(`SELECT COALESCE(NULLIF(v.body_type,''),NULLIF(v.fuel_type,''),'Autres') name,COUNT(*) value FROM vehicles v WHERE v.status IN('received','preparation','available','reserved') AND ${vehicleScope.sql} GROUP BY name ORDER BY value DESC`,[...vehicleScope.params]) : null,
-    permissions.showroom ? first(`SELECT COUNT(*) today_visitors,SUM(sv.status='waiting') waiting,SUM(sv.status IN('assigned','in_progress')) in_progress FROM showroom_visits sv WHERE DATE(sv.arrival_at)=CURDATE() AND ${showroomScope.sql}`,[...showroomScope.params]) : null,
-    permissions.crm ? first(`SELECT COUNT(*) scheduled FROM activities act LEFT JOIN leads l ON l.id=act.lead_id LEFT JOIN users u ON u.id=l.assigned_user_id LEFT JOIN users creator ON creator.id=l.created_by WHERE act.type='test_drive' AND act.status='planned' AND act.due_at>=DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY) AND act.due_at<DATE_ADD(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY) AND ${agencyId ? 'COALESCE(u.agency_id,creator.agency_id)=?' : '1=1'}`,agencyId?[agencyId]:[]) : null,
-    permissions.deliveries ? first(`SELECT SUM(d.status='planned' AND (d.scheduled_at IS NULL OR d.scheduled_at>=NOW())) scheduled,SUM(d.status IN('preparing','quality_control','ready')) in_progress FROM deliveries d WHERE ${deliveryScope.sql}`,[...deliveryScope.params]) : null,
-    permissions.workshop ? first(`SELECT COUNT(*) active FROM repair_orders ro WHERE ro.status IN('planned','received','diagnosis','waiting_approval','in_progress','quality_control','ready') AND ${workshopScope.sql}`,[...workshopScope.params]) : null,
+dashboardRouter.get('/dashboard/overview',requirePermission('dashboard.view'),asyncHandler(async(r,res)=>{
+  const billing=scope(r,'billing.view','i'),sales=scope(r,'sales.view','s','salesperson_id'),crm=scope(r,'crm.prospect.view','l','assigned_user_id'),vehicles=scope(r,'vehicles.view','v'),showroom=scope(r,'showroom.view','sv','assigned_user_id'),deliveries=scope(r,'delivery.view','d','delivery_specialist_id'),workshop=scope(r,'service.order.view','ro','advisor_id'),margin=sales&&has(r,'vehicles.financials.view')?sales:null;
+  const [revenue,salesRow,marginRow,crmRow,vehicleRow,distribution,showroomRow,deliveryRow,workshopRow,weeklySeries,trend]=await Promise.all([
+    billing?first(`SELECT COALESCE(SUM(CASE WHEN i.issue_date>=DATE_FORMAT(CURDATE(),'%Y-%m-01') THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) current,COALESCE(SUM(CASE WHEN i.issue_date>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND i.issue_date<DATE_FORMAT(CURDATE(),'%Y-%m-01') THEN i.total-COALESCE(cn.amount,0) ELSE 0 END),0) previous FROM invoices i LEFT JOIN(SELECT invoice_id,SUM(amount) amount FROM credit_notes WHERE status IN('issued','applied') GROUP BY invoice_id)cn ON cn.invoice_id=i.id WHERE i.status<>'cancelled' AND ${billing.sql}`,billing.params):null,
+    sales?first(`SELECT COUNT(DISTINCT CASE WHEN s.sold_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01') THEN si.vehicle_id END) current,COUNT(DISTINCT CASE WHEN s.sold_at>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND s.sold_at<DATE_FORMAT(CURDATE(),'%Y-%m-01') THEN si.vehicle_id END) previous FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL WHERE s.status IN('confirmed','preparation','ready_for_delivery','delivered') AND ${sales.sql}`,sales.params):null,
+    margin?first(`SELECT COALESCE(SUM(CASE WHEN s.sold_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01') THEN si.line_total-(v.purchase_price+v.refurbishment_cost+v.transport_cost+v.administrative_cost+v.additional_costs) ELSE 0 END),0) current,COALESCE(SUM(CASE WHEN s.sold_at<DATE_FORMAT(CURDATE(),'%Y-%m-01') THEN si.line_total-(v.purchase_price+v.refurbishment_cost+v.transport_cost+v.administrative_cost+v.additional_costs) ELSE 0 END),0) previous FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id WHERE s.sold_at>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 1 MONTH) AND ${margin.sql}`,margin.params):null,
+    crm?first(`SELECT COUNT(*) active,SUM(EXISTS(SELECT 1 FROM activities a WHERE a.lead_id=l.id AND a.type='test_drive' AND a.status='planned' AND a.due_at>=DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY) AND a.due_at<DATE_ADD(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY))) scheduled FROM leads l WHERE l.status NOT IN('converted','lost') AND ${crm.sql}`,crm.params):null,
+    vehicles?first(`SELECT COUNT(*) total,SUM(v.status='available') available,SUM(v.status='reserved') reserved,SUM(v.status='sold') sold,SUM(v.status='available' AND DATEDIFF(CURDATE(),v.entry_date)>60) dormant FROM vehicles v WHERE ${vehicles.sql}`,vehicles.params):null,
+    vehicles?query<RowDataPacket[]>(`SELECT COALESCE(NULLIF(v.body_type,''),NULLIF(v.fuel_type,''),'Autres') name,COUNT(*) value FROM vehicles v WHERE v.status IN('received','preparation','available','reserved') AND ${vehicles.sql} GROUP BY name ORDER BY value DESC`,vehicles.params):[],
+    showroom?first(`SELECT COUNT(*) total,SUM(sv.status='waiting') waiting,SUM(sv.status IN('assigned','in_progress')) progress FROM showroom_visits sv WHERE DATE(sv.arrival_at)=CURDATE() AND ${showroom.sql}`,showroom.params):null,
+    deliveries?first(`SELECT SUM(d.status='planned' AND(d.scheduled_at IS NULL OR d.scheduled_at>=NOW())) scheduled,SUM(d.status IN('preparing','quality_control','ready')) progress FROM deliveries d WHERE ${deliveries.sql}`,deliveries.params):null,
+    workshop?first(`SELECT COUNT(*) active FROM repair_orders ro WHERE ro.status IN('planned','received','diagnosis','waiting_approval','in_progress','quality_control','ready') AND ${workshop.sql}`,workshop.params):null,
+    billing?query<RowDataPacket[]>(`SELECT DATE(i.issue_date) day,SUM(i.total-COALESCE(cn.amount,0)) revenue FROM invoices i LEFT JOIN(SELECT invoice_id,SUM(amount) amount FROM credit_notes WHERE status IN('issued','applied') GROUP BY invoice_id)cn ON cn.invoice_id=i.id WHERE i.status<>'cancelled' AND i.issue_date>=DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY) AND ${billing.sql} GROUP BY DATE(i.issue_date) ORDER BY day`,billing.params):[],
+    billing?query<RowDataPacket[]>(`SELECT DATE_FORMAT(i.issue_date,'%Y-%m') month,SUM(CASE WHEN i.invoice_type='vehicle' AND st.vehicle_type='new' THEN i.total-COALESCE(cn.amount,0) ELSE 0 END) vn,SUM(CASE WHEN i.invoice_type='vehicle' AND st.vehicle_type='used' THEN i.total-COALESCE(cn.amount,0) ELSE 0 END) vo,SUM(CASE WHEN i.invoice_type IN('workshop','parts') THEN i.total-COALESCE(cn.amount,0) ELSE 0 END) sav FROM invoices i LEFT JOIN(SELECT invoice_id,SUM(amount) amount FROM credit_notes WHERE status IN('issued','applied') GROUP BY invoice_id)cn ON cn.invoice_id=i.id LEFT JOIN(SELECT si.sale_id,MAX(v.vehicle_type) vehicle_type FROM sale_items si JOIN vehicles v ON v.id=si.vehicle_id GROUP BY si.sale_id)st ON st.sale_id=i.sale_id WHERE i.status<>'cancelled' AND i.issue_date>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 5 MONTH) AND ${billing.sql} GROUP BY month ORDER BY month`,billing.params):[],
   ]);
+  const weekly=weeklySeries.length?dashboardComparison(weeklySeries.reduce((s,x)=>s+num(x.revenue),0),0):null;
+  res.json({permissions:{revenue:Boolean(billing),margin:Boolean(margin),sales:Boolean(sales),crm:Boolean(crm),vehicles:Boolean(vehicles),showroom:Boolean(showroom),deliveries:Boolean(deliveries),workshop:Boolean(workshop)},revenue:revenue?dashboardComparison(revenue.current,revenue.previous):null,grossMargin:marginRow?dashboardComparison(marginRow.current,marginRow.previous):null,sales:salesRow?{...dashboardComparison(salesRow.current,salesRow.previous),currentMonth:num(salesRow.current),previousMonth:num(salesRow.previous)}:null,crm:crmRow?{activeLeads:num(crmRow.active),scheduledTestDrivesThisWeek:num(crmRow.scheduled),deltaPercent:null}:null,vehicles:vehicleRow?{total:num(vehicleRow.total),available:num(vehicleRow.available),reserved:num(vehicleRow.reserved),sold:num(vehicleRow.sold),dormant:num(vehicleRow.dormant),deltaPercent:null}:null,showroom:showroomRow?{todayVisitors:num(showroomRow.total),waiting:num(showroomRow.waiting),inProgress:num(showroomRow.progress)}:null,deliveries:deliveryRow?{scheduled:num(deliveryRow.scheduled),inProgress:num(deliveryRow.progress)}:null,workshop:workshopRow?{activeRepairOrders:num(workshopRow.active)}:null,weeklyRevenue:weekly?{...weekly,peakDay:String(weeklySeries.reduce((a,b)=>num(a.revenue)>num(b.revenue)?a:b).day)}:null,weeklySeries:weeklySeries.map(x=>({day:String(x.day),revenue:num(x.revenue)})),revenueTrend:trend.map(x=>({month:String(x.month),vn:num(x.vn),vo:num(x.vo),sav:num(x.sav)})),stockDistribution:distribution.map(x=>({name:String(x.name),value:num(x.value)}))});
+}));
 
-  const [financeRows, marginRows, weeklyRows, weeklySeries = [], trend = []] = financial ?? [];
-  const revenue = financeRows ? dashboardComparison(financeRows.current_revenue, financeRows.previous_revenue) : null;
-  const grossMargin = marginRows ? dashboardComparison(marginRows.current_margin, marginRows.previous_margin) : null;
-  const weeklyRevenue = weeklyRows ? { ...dashboardComparison(weeklyRows.current_week, weeklyRows.previous_week), peakDay: weeklySeries.length ? String(weeklySeries.reduce((best,row)=>number(row.revenue)>number(best.revenue)?row:best).day) : null } : null;
-
-  response.json({
-    agencyId, permissions,
-    revenue, grossMargin,
-    sales: sales ? { ...dashboardComparison(sales.current_count,sales.previous_count), currentMonth:number(sales.current_count), previousMonth:number(sales.previous_count) } : null,
-    crm: crm ? { activeLeads:number(crm.active), scheduledTestDrivesThisWeek:number(testDrives?.scheduled), deltaPercent:null } : null,
-    vehicles: vehicles ? { total:number(vehicles.total),available:number(vehicles.available),reserved:number(vehicles.reserved),sold:number(vehicles.sold),dormant:number(vehicles.dormant),deltaPercent:null } : null,
-    showroom: showroom ? { todayVisitors:number(showroom.today_visitors),waiting:number(showroom.waiting),inProgress:number(showroom.in_progress) } : null,
-    deliveries: deliveries ? { scheduled:number(deliveries.scheduled),inProgress:number(deliveries.in_progress) } : null,
-    workshop: workshop ? { activeRepairOrders:number(workshop.active) } : null,
-    weeklyRevenue,
-    weeklySeries: weeklySeries.map(row=>({day:String(row.day),revenue:number(row.revenue)})),
-    revenueTrend: trend.map(row=>({month:String(row.month),vn:number(row.vn),vo:number(row.vo),sav:number(row.sav)})),
-    stockDistribution: (stockDistribution??[]).map(row=>({name:String(row.name),value:number(row.value)})),
-  });
+dashboardRouter.get('/global-search',requirePermission('dashboard.view'),asyncHandler(async(r,res)=>{
+  const q=searchTerm(r.query.q),customers=scope(r,'customers.view','c','assigned_user_id'),vehicles=scope(r,'vehicles.view','v'),leads=scope(r,'crm.prospect.view','l','assigned_user_id'),sales=scope(r,'sales.view','s','salesperson_id'),orders=scope(r,'service.order.view','ro','advisor_id'),invoices=scope(r,'billing.view','i','created_by'),parts=scope(r,'parts.view','ps');
+  const specs:[string,string,ReturnType<typeof scope>,string][]=[
+    ['customer','/customers',customers,`SELECT c.id,COALESCE(NULLIF(c.company_name,''),CONCAT_WS(' ',c.first_name,c.last_name)) label,c.customer_code secondary FROM customers c WHERE %S AND CONCAT_WS(' ',c.customer_code,c.first_name,c.last_name,c.company_name,c.phone,c.email) LIKE ? ESCAPE '\\\\' ORDER BY c.updated_at DESC LIMIT 5`],
+    ['lead','/crm/leads',leads,`SELECT l.id,CONCAT_WS(' ',l.first_name,l.last_name) label,CONCAT_WS(' · ',l.company_name,l.phone) secondary FROM leads l WHERE %S AND CONCAT_WS(' ',l.first_name,l.last_name,l.company_name,l.phone,l.email) LIKE ? ESCAPE '\\\\' ORDER BY l.updated_at DESC LIMIT 5`],
+    ['sale','/sales',sales,`SELECT s.id,CONCAT('Vente ',s.sale_number) label,COALESCE(NULLIF(c.company_name,''),CONCAT_WS(' ',c.first_name,c.last_name)) secondary FROM sales s JOIN customers c ON c.id=s.customer_id WHERE %S AND CONCAT_WS(' ',s.sale_number,c.first_name,c.last_name,c.company_name) LIKE ? ESCAPE '\\\\' ORDER BY s.updated_at DESC LIMIT 5`],
+    ['invoice','/billing',invoices,`SELECT i.id,CONCAT('Facture ',i.invoice_number) label,COALESCE(NULLIF(c.company_name,''),CONCAT_WS(' ',c.first_name,c.last_name)) secondary FROM invoices i JOIN customers c ON c.id=i.customer_id WHERE %S AND CONCAT_WS(' ',i.invoice_number,c.first_name,c.last_name,c.company_name) LIKE ? ESCAPE '\\\\' ORDER BY i.created_at DESC LIMIT 5`],
+    ['repair_order','/service/repair-orders',orders,`SELECT ro.id,CONCAT('OR ',ro.order_number) label,CONCAT_WS(' · ',v.registration_number,v.vin) secondary FROM repair_orders ro JOIN vehicles v ON v.id=ro.vehicle_id WHERE %S AND CONCAT_WS(' ',ro.order_number,v.registration_number,v.vin) LIKE ? ESCAPE '\\\\' ORDER BY ro.updated_at DESC LIMIT 5`],
+  ];
+  const rows=await Promise.all(specs.map(async([type,route,s,sql])=>s?(await query<RowDataPacket[]>(sql.replace('%S',s.sql),[...s.params,q])).map(x=>({type,id:String(x.id),label:String(x.label??''),secondary:String(x.secondary??''),route:type==='invoice'?route:`${route}/${x.id}`})):[]));
+  if(vehicles)rows.push((await query<RowDataPacket[]>(`SELECT v.id,CONCAT_WS(' ',b.name,m.name,ve.name) label,CONCAT_WS(' · ',v.stock_number,v.vin,v.registration_number) secondary FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id WHERE ${vehicles.sql} AND CONCAT_WS(' ',v.stock_number,v.vin,v.registration_number,b.name,m.name,ve.name) LIKE ? ESCAPE '\\\\' ORDER BY v.updated_at DESC LIMIT 5`,[...vehicles.params,q])).map(x=>({type:'vehicle',id:String(x.id),label:String(x.label),secondary:String(x.secondary),route:`/vehicles/${x.id}`})));
+  if(parts)rows.push((await query<RowDataPacket[]>(`SELECT p.id,p.name label,CONCAT_WS(' · ',p.reference,p.oem_reference) secondary FROM parts p JOIN part_stocks ps ON ps.part_id=p.id WHERE ${parts.sql} AND CONCAT_WS(' ',p.reference,p.oem_reference,p.name,p.brand) LIKE ? ESCAPE '\\\\' GROUP BY p.id,p.name,p.reference,p.oem_reference ORDER BY p.name LIMIT 5`,[...parts.params,q])).map(x=>({type:'part',id:String(x.id),label:String(x.label),secondary:String(x.secondary),route:`/parts/${x.id}`})));
+  res.json(rows.flat());
 }));

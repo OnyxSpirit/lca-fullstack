@@ -14,6 +14,7 @@ export const ROUTES = {
   billing: '/billing',
   reports: '/reports',
   documents: '/documents',
+  hr: '/hr',
   notifications: '/notifications',
   users: '/users',
   settings: '/settings',

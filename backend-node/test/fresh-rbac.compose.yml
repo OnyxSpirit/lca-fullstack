@@ -1,0 +1,44 @@
+# Recette jetable uniquement : ports dédiés, données MySQL en tmpfs, aucun volume existant.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: disposable-rbac-root
+      MYSQL_DATABASE: rbac_test
+      MYSQL_USER: rbac_test
+      MYSQL_PASSWORD: disposable-rbac-password
+    ports: ['127.0.0.1:13384:3306']
+    tmpfs: ['/var/lib/mysql']
+    volumes:
+      - ../database/baseline/001_initial_schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+      - ../database/seeds/001_system_seed.sql:/docker-entrypoint-initdb.d/002-seed.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL','MYSQL_PWD=disposable-rbac-root mysqladmin ping -h 127.0.0.1 -uroot --silent']
+      interval: 3s
+      retries: 40
+  backend:
+    build: ..
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      FRONTEND_URL: http://localhost:13081
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: rbac_test
+      DB_PASSWORD: disposable-rbac-password
+      DB_NAME: rbac_test
+      JWT_ACCESS_SECRET: disposable-access-secret-1234567890123456
+      JWT_REFRESH_SECRET: disposable-refresh-secret-123456789012345
+      ADMIN_EMAIL: admin@rbac.test
+      ADMIN_PASSWORD: disposable-admin-password
+    volumes: ['../database:/app/database:ro']
+    command: ['sh','-c','node dist/scripts/database-bootstrap.js && node dist/server.js']
+    depends_on:
+      mysql: {condition: service_healthy}
+    ports: ['127.0.0.1:13082:3001']
+  frontend:
+    build:
+      context: ../../frontend
+      args: {VITE_API_URL: /api}
+    ports: ['127.0.0.1:13081:80']
+    depends_on: [backend]

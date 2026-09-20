@@ -25,6 +25,7 @@ import { settingRouter } from './modules/settings/setting.routes.js';
 import { saleRouter } from './modules/sales/sale.routes.js';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 import { quotationRouter } from './modules/quotations/quotation.routes.js';
+import { hrRouter } from './modules/hr/hr.routes.js';
 
 export function createApp() {
   const app=express();
@@ -32,10 +33,13 @@ export function createApp() {
   app.use(helmet());
   app.use(cors({origin:env.frontendUrl,credentials:true}));
   app.use(express.json({limit:'50mb'}));
-  app.use('/uploads',express.static(path.resolve(process.env.UPLOAD_DIR??'uploads')));
+  const publicUploadRoot=path.resolve(process.env.UPLOAD_DIR??'uploads');
+  // La GED est privée et n'est jamais exposée par express.static. Seuls les
+  // espaces explicitement publics/compatibles conservent leurs URLs historiques.
+  for(const folder of ['avatars','vehicles','deliveries'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
   app.use('/api/auth',authRouter);
-  app.use('/api',authenticate,enforceAgencyScope,userRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryRouter,partRouter,workshopRouter,billingRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,userRouter,hrRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryRouter,partRouter,workshopRouter,billingRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

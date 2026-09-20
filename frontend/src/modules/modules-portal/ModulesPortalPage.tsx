@@ -26,14 +26,13 @@ import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { ROUTES } from '../../navigation/routes';
 import { useDashboardOverviewQuery } from '../../api/dashboardHooks';
-import { canPerformWorkflowAction } from '../../navigation/permissions';
+import { canNavigateWithPermissions } from '../../navigation/permissions';
 
 export const ModulesPortalPage: React.FC = () => {
-  const { hasPermission, currentAgency, currentUser } = useAuthStore();
-  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
-  const canViewVehicleFinancials=canPerformWorkflowAction(roles,'vehicles.viewFinancials');
+  const { currentUser, can } = useAuthStore();
+  const canViewVehicleFinancials=can('vehicles.financials.view');
   const [searchQuery, setSearchQuery] = useState('');
-  const overview = useDashboardOverviewQuery(currentAgency?.id).data;
+  const overview = useDashboardOverviewQuery().data;
 
   interface ModuleItem {
     id: string;
@@ -121,7 +120,7 @@ export const ModulesPortalPage: React.FC = () => {
           description: 'Planning des mises en main, checklist qualité en 8 points et procès-verbal de livraison signé.',
           icon: <Truck className="w-6 h-6 text-cyan-600" />,
           route: ROUTES.deliveries,
-          permissionKey: 'deliveries',
+          permissionKey: 'delivery',
           badgeText: overview?.deliveries ? `${overview.deliveries.scheduled} prévues` : undefined,
           badgeVariant: 'primary',
           features: ['Checklist 8 points', 'Mise en main client', 'PV de livraison', 'Photos véhicule'],
@@ -204,6 +203,15 @@ export const ModulesPortalPage: React.FC = () => {
           features: ['Rôles métier', 'Matrice de droits', 'Audit de sécurité', 'Affectation agence'],
         },
         {
+          id: 'hr',
+          title: 'RH & Administration',
+          description: 'Gestion du personnel, historique salarial, stocks internes, budgets et dépenses.',
+          icon: <Users className="w-6 h-6 text-rose-700" />,
+          route: ROUTES.hr,
+          permissionKey: 'hr',
+          features: ['Personnel', 'Salaires', 'Stocks internes', 'Budgets & dépenses'],
+        },
+        {
           id: 'settings',
           title: 'Paramètres Concession',
           description: 'Configuration du groupe, des concessions multi-sites, barèmes de main d’œuvre et taux de TVA.',
@@ -241,7 +249,7 @@ export const ModulesPortalPage: React.FC = () => {
         {categories.map((cat, idx) => {
           // Filter visible modules
           const visibleModules = cat.modules.filter((m) => {
-            const hasPerm = hasPermission('view', m.permissionKey);
+            const hasPerm = canNavigateWithPermissions(currentUser?.permissions,m.route);
             if (!hasPerm) return false;
             if (!searchQuery) return true;
             const q = searchQuery.toLowerCase();

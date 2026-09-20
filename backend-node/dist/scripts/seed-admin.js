@@ -19,7 +19,7 @@ try {
 ON DUPLICATE KEY UPDATE setting_value=settings.setting_value`, [concession.insertId, concession.insertId, concession.insertId, concession.insertId, concession.insertId]);
     const hash = await argon2.hash(password);
     const [user] = await connection.execute(`INSERT INTO users(agency_id,first_name,last_name,email,password_hash,job_title,is_active)VALUES(?,'Super','Administrateur',?,?,'Super Administrateur',TRUE) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id),password_hash=VALUES(password_hash),is_active=TRUE`, [agency.insertId, email, hash]);
-    const [roles] = await connection.execute(`SELECT id FROM roles WHERE code='SUPER_ADMIN' LIMIT 1`);
+    const [roles] = await connection.execute(`SELECT id FROM roles WHERE code='SUPER_ADMIN' AND is_system=TRUE AND is_active=TRUE LIMIT 1`);
     if (!roles[0])
         throw new Error('Rôle SUPER_ADMIN absent');
     await connection.execute('INSERT IGNORE INTO user_roles(user_id,role_id)VALUES(?,?)', [user.insertId, roles[0].id]);

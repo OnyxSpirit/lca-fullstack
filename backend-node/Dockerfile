@@ -12,8 +12,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
+COPY assets ./assets
 RUN mkdir -p /app/uploads /app/ged-storage && chown -R node:node /app
 USER node
 EXPOSE 3001
 CMD ["node", "dist/server.js"]
-

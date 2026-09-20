@@ -1,1 +1,0 @@
-import { Module } from '@nestjs/common';import { RepairOrdersController,WorkshopController } from './workshop.controller';import { WorkshopService } from './workshop.service';@Module({controllers:[RepairOrdersController,WorkshopController],providers:[WorkshopService]})export class WorkshopModule{}

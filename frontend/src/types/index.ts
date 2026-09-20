@@ -13,7 +13,8 @@ export type UserRole =
   | 'PARTS_MANAGER'
   | 'WAREHOUSE_CLERK'
   | 'DELIVERY_MANAGER'
-  | 'ACCOUNTANT';
+  | 'ACCOUNTANT'
+  | (string & {});
 
 export type PermissionAction =
   | 'view'
@@ -28,6 +29,7 @@ export type PermissionAction =
   | 'assign';
 
 export type PermissionScope = 'groupe' | 'agence' | 'departement' | 'equipe' | 'utilisateur';
+export type EffectivePermissionScope = 'OWN' | 'AGENCY' | 'CONCESSION' | 'GLOBAL';
 
 export interface User {
   id: string;
@@ -36,6 +38,11 @@ export interface User {
   role: UserRole;
   roles: UserRole[];
   primaryRole: UserRole;
+  /** Code serveur, y compris les rôles personnalisés qui ne font pas partie du jeu historique. */
+  roleCode?: string;
+  isSystemSuperAdmin?: boolean;
+  /** Permissions effectivement calculées côté serveur. La clé '*' représente le SUPER_ADMIN système. */
+  permissions?: Record<string, EffectivePermissionScope | null>;
   roleTitle: string;
   avatar: string;
   agencyId: string;
@@ -105,7 +112,7 @@ export interface Lead {
 }
 
 export interface CrmActivity {id:string;leadId:string;opportunityId?:string;assignedUserId:string;assignedUserName:string;type:string;subject:string;description:string;status:string;dueAt?:string;completedAt?:string;createdAt:string}
-export interface Quotation {id:string;quotationNumber:string;opportunityId:string;customerId:string;customerName:string;agencyId:string;salespersonId:string;salespersonName:string;createdById?:string;createdByName?:string;status:string;validUntil?:string;subtotal:number;discountTotal:number;taxTotal:number;total:number;notes:string;createdAt:string;vehicleId:string;vehicleLabel:string;stockNumber:string}
+export interface Quotation {id:string;quotationNumber:string;opportunityId:string;customerId:string;customerName:string;agencyId:string;salespersonId:string;salespersonName:string;createdById?:string;createdByName?:string;status:string;validUntil?:string;subtotal:number;discountTotal:number;taxTotal:number;total:number;taxMode:'TAXABLE'|'TAX_EXEMPT';priceInputMode:'HT'|'TTC';taxRate:number;currencyCode:string;notes:string;createdAt:string;vehicleId:string;vehicleLabel:string;stockNumber:string}
 
 // Customer 360
 export interface Customer {
@@ -241,6 +248,10 @@ export interface Sale {
   registrationFeesTTC: number;
   administrativeFeesTTC: number;
   totalSaleTTC: number;
+  taxMode: 'TAXABLE'|'TAX_EXEMPT';
+  priceInputMode: 'HT'|'TTC';
+  taxRate: number;
+  currencyCode?: string;
   depositPaidTTC: number;
   remainingBalanceTTC: number;
   invoiceId?: string;
@@ -287,12 +298,15 @@ export interface ServicePartUsage {
   description: string;
   quantity: number;
   unitPriceHT: number;
+  discount: number;
+  taxRate: number;
   totalHT: number;
 }
 
 export interface RepairOrderInspection {id:string;fuelLevel:string;cleanliness:string;bodyworkDamage:string;itemsInVehicle:string;mileage:number|null;observations:string;customerSignature:string;inspectedBy:string;inspectedAt:string;}
 export interface RepairOrderDiagnostic {id:string;technicianId:string;technicianName:string;diagnosis:string;recommendations:string;estimatedHours:number;diagnosedAt:string;}
 export interface RepairApproval {id:string;approved:boolean;approvedAmount:number|null;customerName:string;signatureData:string;notes:string;recordedByName:string;recordedAt:string;}
+export interface RepairEstimateItem {id:string;itemType:'part'|'labor';partId:string;partReference:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number;interventionId:string;interventionTechnicianId:string;interventionStatus:string;actualHours:number;reservationId:string;reservedQuantity:number;consumedQuantity:number;reservationStatus:string;actualItemId:string;actualQuantity:number;}
 export interface RepairIntervention {id:string;technicianId:string;technicianName:string;description:string;interventionType:string;plannedHours:number;actualHours:number;unitPrice:number;lineTotal:number;status:'planned'|'assigned'|'in_progress'|'completed'|'cancelled';}
 export interface WorkSession {id:string;technicianId:string;technicianName:string;interventionId:string;bayId:string;startedAt:string;endedAt:string|null;status:'running'|'paused'|'completed'|'cancelled';}
 export interface PartReservation {id:string;partId:string;partReference:string;partName:string;locationName:string;quantity:number;status:'reserved'|'consumed'|'released';createdAt:string;}
@@ -329,6 +343,8 @@ export interface RepairOrder {
   inspection?: RepairOrderInspection|null;
   diagnostics?: RepairOrderDiagnostic[];
   approvals?: RepairApproval[];
+  estimateItems: RepairEstimateItem[];
+  estimateSummary:{gross:number;discount:number;subtotal:number;tax:number;total:number;currencyCode:string;byType?:Record<string,{gross:number;discount:number;subtotal:number;tax:number;total:number}>};
   interventions?: RepairIntervention[];
   sessions?: WorkSession[];
   reservations?: PartReservation[];
@@ -336,11 +352,13 @@ export interface RepairOrder {
   history?: RepairOrderHistory[];
   handover?: {customerName:string;mileageOut:number|null;observations:string;signatureData:string;handedOverAt:string}|null;
   invoice?: {id:string;invoiceNumber:string;subtotal:number;taxTotal:number;total:number;amountPaid:number;balanceDue:number;status:string}|null;
+  financiallyCleared:boolean;
   symptomsReported: string;
   diagnosticNotes: string;
   operations: ServiceOperation[];
   parts: ServicePartUsage[];
-  laborItems?: Array<{id:string;interventionId:string;description:string;quantity:number;unitPrice:number;taxRate:number;lineTotal:number}>;
+  laborItems?: Array<{id:string;interventionId:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number}>;
+  financialSummary:{gross:number;discount:number;subtotal:number;tax:number;total:number;currencyCode:string};
   estimatedTotalTTC: number;
   finalTotalTTC: number;
   warrantyCovered: boolean;
@@ -391,6 +409,19 @@ export interface WorkshopSchedule {
   bayStatus: WorkshopBay['status'];
   bayOccupiedNow: boolean;
   interventionDescription: string;
+}
+
+export interface WorkshopInterventionHistory {
+  id: string;
+  repairOrderId: string;
+  orderNumber: string;
+  description: string;
+  technicianName: string;
+  bayNames: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationHours: number;
+  status: 'planned' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
 }
 
 export interface TechnicianUnavailability {

@@ -14,9 +14,8 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { useVehiclesQuery, useVehicleStatsQuery } from '../../api/erpHooks';
+import { useVehicleFilterOptionsQuery, useVehicleListQuery, useVehicleStatsQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
-import { hasPermission } from '../../navigation/permissions';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -28,7 +27,7 @@ import { NewVehicleModal } from './NewVehicleModal';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
-  const currentAgency=useAuthStore(state=>state.currentAgency),currentUser=useAuthStore(state=>state.currentUser),roles=currentUser?.roles?.length?currentUser.roles:[currentUser?.role].filter(Boolean),canCreate=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.create'),canViewFinancials=hasPermission(roles as Parameters<typeof hasPermission>[0],'vehicles.viewFinancials');
+  const currentAgency=useAuthStore(state=>state.currentAgency),can=useAuthStore(state=>state.can),canCreate=can('vehicles.create'),canViewFinancials=can('vehicles.financials.view');
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,20 +35,27 @@ export const VehiclesListPage: React.FC = () => {
   const [inventoryView, setInventoryView] = useState<'active'|'sold'|'all'>('active');
   const [selectedFuel, setSelectedFuel] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
+  const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
+  const [selectedModel, setSelectedModel] = useState<string>('ALL');
   const [onlyDormant, setOnlyDormant] = useState(false);
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
   const deferredSearch=useDeferredValue(searchQuery);
   const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
-  const vehiclesQuery=useVehiclesQuery({agencyId:currentAgency?.id,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,dormant:onlyDormant});
+  const vehicleFilters={agencyId:currentAgency?.id,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant};
+  const vehiclesQuery=useVehicleListQuery(vehicleFilters);
+  const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:currentAgency?.id,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand});
   const statsQuery=useVehicleStatsQuery(currentAgency?.id),stats=statsQuery.data;
-  const vehicles = vehiclesQuery.data ?? [];
+  const vehicles = vehiclesQuery.data?.items ?? [];
+  const filteredTotal=vehiclesQuery.data?.total??0;
+  const brands=filterOptionsQuery.data?.brands??[],models=filterOptionsQuery.data?.models??[];
 
   const filteredVehicles = vehicles;
 
-  const availableCount = stats?.available??0;
+  const availableCount = stats?.availableForSale??stats?.available??0;
   const dormantCount = stats?.dormant??0;
   const totalStockValue = stats?.stockValue??0;
-  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||onlyDormant);
+  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant);
+  const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false)};
 
   return (
     <div className="space-y-6">
@@ -157,6 +163,12 @@ export const VehiclesListPage: React.FC = () => {
           <select value={selectedType} onChange={(e)=>setSelectedType(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium">
             <option value="ALL">Tous types</option><option value="new">VN</option><option value="used">VO</option><option value="demo">Démonstration</option><option value="courtesy">Courtoisie</option>
           </select>
+          <select value={selectedBrand} onChange={(e)=>{setSelectedBrand(e.target.value);setSelectedModel('ALL')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Marque">
+            <option value="ALL">Toutes marques</option>{brands.map(brand=><option key={brand.id} value={brand.id}>{brand.name}</option>)}
+          </select>
+          <select value={selectedModel} onChange={(e)=>setSelectedModel(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Modèle">
+            <option value="ALL">Tous modèles</option>{models.map(model=><option key={model.id} value={model.id}>{model.name}</option>)}
+          </select>
           {/* Status Filter */}
           <select
             value={selectedStatus}
@@ -187,8 +199,11 @@ export const VehiclesListPage: React.FC = () => {
             <option value="Essence">Essence</option>
             <option value="Diesel">Diesel</option>
           </select>
+          {hasFilters&&<Button variant="outline" size="sm" onClick={resetFilters}>Réinitialiser</Button>}
         </div>
       </div>
+
+      {!vehiclesQuery.isLoading&&!vehiclesQuery.isError&&<p className="text-sm font-medium text-slate-600" aria-live="polite">{filteredTotal} véhicule{filteredTotal>1?'s':''} trouvé{filteredTotal>1?'s':''}</p>}
 
       {vehiclesQuery.isLoading&&<div className="p-8 text-center text-sm text-slate-500">Chargement du stock…</div>}
       {vehiclesQuery.isError&&<div className="p-5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800"><strong>Stock indisponible.</strong> {vehiclesQuery.error instanceof Error?vehiclesQuery.error.message:'Erreur API'}</div>}

@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit",
     "test": "NODE_ENV=test DB_HOST=127.0.0.1 DB_USER=test DB_PASSWORD=test DB_NAME=test JWT_ACCESS_SECRET=12345678901234567890123456789012 JWT_REFRESH_SECRET=abcdefghijklmnopqrstuvwxyz123456 tsx --test test/**/*.test.ts",
     "seed:admin": "tsx src/scripts/seed-admin.ts",
+    "db:bootstrap": "node dist/scripts/database-bootstrap.js",
     "db:migrate:billing": "tsx src/scripts/migrate-billing.ts",
     "db:migrate:customers360": "node dist/scripts/migrate-customers-360.js"
   },

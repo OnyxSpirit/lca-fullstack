@@ -1,120 +1,184 @@
-# LCA Concession ERP — frontend et backend
+# LCA ERP — concession automobile
 
-Cette livraison contient :
+LCA est un ERP/CRM automobile composé de trois éléments :
 
-- `frontend/` : React, TypeScript, Vite, TanStack Query et Zustand (état UI uniquement) ;
-- `backend/` : NestJS, TypeScript et `mysql2/promise` ;
-- `backend-node/` : nouveau backend Express + TypeScript en migration progressive (port 3002) ;
-- `backend/database/schema.sql` : schéma MySQL corrigé ;
-- `docker-compose.yml` : MySQL et API locale.
+- `frontend/` : React 19, TypeScript, Vite, TanStack Query, Zustand et Socket.IO Client ;
+- `backend-node/` : unique backend, fondé sur Express 5, TypeScript, `mysql2/promise`, JWT et Socket.IO ;
+- MySQL 8 : schéma canonique, données système et migrations dans `backend-node/database/`.
 
-Le backend NestJS reste disponible pendant la transition. Consultez `backend-node/README.md` pour les routes déjà migrées avant de modifier `VITE_API_URL`.
+Il n’existe aucun second backend à installer ou à démarrer.
 
-## Identité visuelle LCA
+```text
+React → Nginx → Express (`backend-node`) → MySQL
+                  ↕ Socket.IO
+```
 
-Le frontend utilise une direction artistique propre à la concession : noir carbone, rouge profond `#8f1722`, blanc et fond papier. Les composants partagés ont été densifiés, les angles et ombres réduits, la navigation et le tableau de bord retravaillés, et l'écran de connexion ne dépend plus d'un logo distant ni d'un profil de démonstration.
+Arborescence essentielle :
 
-## Démarrage
+```text
+lca-fullstack/
+├── backend-node/
+│   ├── src/
+│   ├── test/
+│   ├── database/{baseline,seeds,migrations,legacy-migrations}/
+│   └── Dockerfile
+├── frontend/
+├── scripts/
+├── docker-compose.yml
+├── .env.example
+├── README.md
+└── DEPLOYMENT.md
+```
+
+## Prérequis
+
+Les images officielles utilisent Node.js 22, MySQL 8.4 et Nginx 1.27. En
+local, utilisez Node.js 22 avec le npm fourni, ou des versions compatibles avec
+les lockfiles. Le déploiement exige Docker avec le plugin Compose moderne. Les
+versions contrôlées lors de cette mise à jour documentaire sont Node.js
+24.11.1, npm 11.7.0, Docker 29.8.0 et Compose 5.5.1.
+
+## Démarrage local
 
 ```bash
-docker compose up -d mysql
-cd backend
+cd backend-node
 cp .env.example .env
-npm install
-npm run start:dev
+npm ci
+npm run db:bootstrap
+npm run seed:admin
+npm run dev
 ```
 
-Créer ensuite le premier administrateur (changez impérativement le mot de passe) :
-
-```bash
-ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='mot-de-passe-fort' npm run seed:admin
-```
-
-Dans un second terminal :
+Avant `seed:admin`, renseignez un mot de passe fort dans `ADMIN_PASSWORD` de
+`backend-node/.env`. Dans un autre terminal :
 
 ```bash
 cd frontend
 cp .env.example .env
-npm install
+npm ci
 npm run dev
 ```
 
-- Frontend : `http://localhost:3000`
-- API : `http://localhost:3001/api`
-- Swagger : `http://localhost:3001/api/docs`
+- interface : `http://localhost:3000` ;
+- API : `http://localhost:3001/api` ;
+- santé MySQL : `http://localhost:3001/api/health` ;
+- Socket.IO : path `/socket.io`, namespace `/realtime`.
 
-Le schéma SQL est exécuté uniquement lors de l'initialisation d'un volume MySQL vide. En environnement existant, appliquer les fichiers de `backend/database/migrations/` avec l'outil de migration choisi.
+Pour XAMPP, consultez [GUIDE_XAMPP.md](GUIDE_XAMPP.md). Pour Docker et un VPS,
+consultez [DEPLOYMENT.md](DEPLOYMENT.md).
 
-## API disponible
+## Base de données
 
-- `POST /api/auth/login`, `/refresh`, `/logout`
-- `GET|POST|PATCH /api/users`, `/users/me` (création/modification réservée à la direction)
-- `GET /api/agencies`
-- `GET|POST|PATCH /api/customers`
-- `GET|POST /api/leads`, `PATCH /api/leads/:id/stage`
-- `GET|POST /api/vehicles`, `GET /api/vehicles/:id`, `PATCH /api/vehicles/:id/status`
-- `GET|POST /api/sales`, `PATCH /api/sales/:id/status`
-- `POST|DELETE /api/reservations`
-- `GET|POST /api/repair-orders`, affectation et changement de statut
-- `GET /api/workshop/planning`
-- `GET /api/workshop/technicians`
-- `GET /api/parts`, mouvements de stock transactionnels
-- `GET|POST /api/deliveries`, checklist et signature
-- `GET|POST /api/invoices`, paiements et génération PDF
-- `GET /api/invoices/payment-methods`
-- `GET|POST /api/quotations`
-- `GET|POST /api/showroom`, changement de statut
-- `GET|PATCH|DELETE /api/notifications`
-- `GET /api/audit-logs`
-- `GET|POST /api/activities`
-- `GET /api/health` (test public de la connexion MySQL)
+- nouvelle base vide : le bootstrap applique
+  `backend-node/database/baseline/001_initial_schema.sql`, puis
+  `backend-node/database/seeds/001_system_seed.sql` ;
+- base versionnée existante : seules les migrations absentes de
+  `backend-node/database/migrations/`, à partir de `034`, sont appliquées ;
+- base non vide sans table `schema_migrations` : arrêt de sécurité, sans écriture.
 
-## Factures PDF
+Ne rejouez jamais le baseline sur une installation existante. Les migrations
+`001` à `033` de `backend-node/database/legacy-migrations/` sont conservées uniquement pour la
+traçabilité. La procédure détaillée se trouve dans
+[`backend-node/database/README.md`](backend-node/database/README.md).
 
-```text
-GET /api/invoices/:id/pdf                 affichage dans le navigateur / impression
-GET /api/invoices/:id/pdf?download=true   téléchargement
+## Environnement
+
+Le backend utilise `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`,
+`DB_POOL_SIZE`, `FRONTEND_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, les
+TTL JWT, `UPLOAD_DIR`, `GED_STORAGE_DIR` et facultativement `DATABASE_ROOT`.
+`DB_HOST` est un nom d’hôte seul (`127.0.0.1` ou `mysql`), jamais une URL.
+
+Le frontend utilise uniquement `VITE_API_URL`. En local :
+
+```env
+VITE_API_URL=http://localhost:3001/api
 ```
 
-Le PDF est généré côté serveur à partir de la facture et de ses lignes. Le frontend fournit les actions **Imprimer** et **PDF** dans la page de facturation.
+En Docker, il est compilé avec `/api` et Nginx assure le reverse proxy.
 
-## Temps réel Socket.IO
+## Installation Docker
 
-Le namespace est `http://localhost:3001/realtime`. Le client doit envoyer l'access token dans `auth.token`. Après validation JWT, la connexion rejoint automatiquement les salons de l'utilisateur et de son agence.
+```bash
+cp .env.example .env
+# Remplacer toutes les valeurs factices et conserver .env hors Git.
+docker compose config --quiet
+docker compose build
+docker compose up -d
+docker compose --profile tools run --rm seed-admin
+```
 
-Événements diffusés et consommés par le cache TanStack Query :
+Le Compose actuel valide aussi `ADMIN_PASSWORD` lors de la résolution de la
+configuration, même si le profil `tools` n’est exécuté qu’ensuite. Il faut donc
+le renseigner avant `docker compose config --quiet`.
 
-- `sales:created`, `sales:status` ;
-- `reservations:created`, `reservations:cancelled` ;
-- `workshop:repair-order-created`, `workshop:status`, `workshop:assigned` ;
-- `parts:stock-changed` ;
-- `deliveries:created`, `deliveries:checklist`, `deliveries:delivered` ;
-- `billing:invoice-created`, `billing:payment`.
-- `showroom:visit-created`, `showroom:status`.
+La première installation initialise MySQL, démarre le bootstrap, puis Express
+et Nginx. Une mise à jour de production suit une procédure différente :
+sauvegarde, migrations futures, healthchecks et smoke tests, sans supprimer les
+volumes. Voir `DEPLOYMENT.md`.
 
-Le frontend contient `src/services/realtime.ts` pour initialiser la connexion après authentification. `AppBootstrap` invalide automatiquement les ressources concernées lorsqu'un événement arrive.
+## Stockage persistant
 
-## Données frontend
+En Docker, les volumes `lca_mysql_data`, `lca_uploads_data` et
+`lca_ged_data` conservent respectivement MySQL, les médias publics et la GED.
+Les scripts `scripts/backup.sh` et `scripts/restore.sh` sauvegardent et
+restaurent les trois ensembles avec contrôle SHA-256.
 
-Les anciens stores et jeux de données fictifs ont été supprimés. Les clients, prospects, véhicules, ventes, atelier, pièces, livraisons, factures, showroom et notifications proviennent de l'API et sont mis en cache par TanStack Query. Zustand reste limité à la session et à l'état d'interface. Le client renouvelle automatiquement le JWT expiré avec le refresh token.
+## Sécurité et temps réel
 
-## Pourquoi TypeScript dans le backend ?
+Le backend est l’autorité pour l’authentification, les permissions dynamiques,
+les scopes (`OWN`, `AGENCY`, `CONCESSION`, `GLOBAL`) et l’ownership métier. Le
+frontend masque ou désactive les actions via `can(...)`, sans constituer une
+barrière de sécurité. `SUPER_ADMIN` est le seul rôle système spécial.
 
-NestJS compile les sources TypeScript en JavaScript dans `dist/`, et c'est ce JavaScript que Node.js exécute. TypeScript apporte un contrôle statique des DTO, statuts, résultats SQL et services sans ajouter de contrainte au runtime. Un backend JavaScript pur reste possible, mais offrirait moins de sécurité lors des évolutions de ce projet ERP.
+Après authentification JWT, Socket.IO rejoint les salons de l’utilisateur et
+de son périmètre. Les événements métier invalident les caches TanStack Query ;
+les notifications nominatives restent adressées au véritable destinataire.
 
-Toutes les routes sauf connexion et renouvellement demandent un bearer token.
+## Vérifications
 
-## Correspondance MySQL / frontend
+```bash
+cd backend-node
+npm run lint
+npm test
+npm run build
 
-MySQL reste la source de vérité et utilise `snake_case` et des statuts anglais. Le backend expose du `camelCase`. Le fichier `frontend/src/services/mysqlStatusMap.ts` documente les traductions vers les libellés français existants.
+cd ../frontend
+npm run lint
+npm test
+npm run build
 
-## Prochaines priorités MVP
+cd ..
+docker compose config --quiet
+git diff --check
+```
 
-- persister les pièces jointes et documents GED ;
-- étendre la matrice RBAC détaillée à chaque action métier ;
-- ajouter la création des articles de pièces de rechange et des rendez-vous de livraison depuis l'interface ;
-- découper le bundle frontend par routes (le build signale encore un chunk principal volumineux).
+Certaines suites d’intégration nécessitent une instance MySQL de test et des
+variables dédiées. Ne pointez jamais les tests destructifs vers la production.
 
-## XAMPP
+## Documentation complémentaire
 
-La procédure complète se trouve dans `GUIDE_XAMPP.md`. Le fichier `backend/.env.xampp.example` est prévu pour une installation XAMPP standard (`root`, mot de passe vide, port 3306). Après import du schéma, `GET /api/health` permet de confirmer immédiatement que l'API accède à MySQL/MariaDB.
+- `DEPLOYMENT.md` : serveur, Docker, HTTPS, sauvegarde, restauration et upgrade ;
+- `GUIDE_XAMPP.md` : développement local avec MySQL de XAMPP ;
+- `backend-node/README.md` : runtime et variables Express ;
+- `backend-node/database/README.md` : baseline, seed et migrations ;
+- `docs/RBAC_MATRIX.md` : permissions et scopes dynamiques ;
+- `docs/CUSTOMERS_360_PRODUCTION.md` : diagnostic de la fiche Client 360° ;
+- `frontend/NAVIGATION_AUDIT.md` : historique de validation de navigation.
+
+Avant toute opération de production, sauvegardez MySQL, uploads et GED. Ne
+rejouez jamais le baseline, ne lancez jamais les migrations historiques 001–033
+et ne supprimez jamais les volumes pour effectuer une mise à jour.
+
+## Rôles à l’installation
+
+Une installation neuve crée uniquement le rôle système **Super Administrateur**
+(`SUPER_ADMIN`, système et actif). Toutes les permissions actives du catalogue
+lui sont affectées avec le scope `GLOBAL`, après la déclaration complète du catalogue.
+Les rôles métier sont créés dynamiquement par le Super Admin selon l’organisation
+de la concession, avec les permissions et scopes `OWN`, `AGENCY`, `CONCESSION`, `GLOBAL`.
+Aucun nom de rôle métier ne confère de privilège. Le bypass exige le code
+`SUPER_ADMIN` et le statut système persisté, pour un rôle et un utilisateur actifs.
+
+Cette évolution du seed concerne les installations neuves uniquement. Le bootstrap
+ne rejoue pas le seed sur une base versionnée et ne supprime aucun rôle existant.
+Aucune migration de nettoyage ni modification du schéma consolidé 033 n’est nécessaire.

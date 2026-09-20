@@ -43,21 +43,20 @@ import { Badge } from '../../components/ui/Badge';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { formatDeltaPercent, useDashboardOverviewQuery } from '../../api/dashboardHooks';
-import { canAccessModule, canNavigateToRoute, canPerformWorkflowAction, hasPermission } from '../../navigation/permissions';
+import { canNavigateWithPermissions } from '../../navigation/permissions';
 
 export const DashboardPage: React.FC = () => {
-  const { currentUser, currentAgency } = useAuthStore();
-  const roles=currentUser.roles?.length?currentUser.roles:[currentUser.role];
-  const canViewService=canAccessModule(roles,'view','service'),canViewDeliveries=canAccessModule(roles,'view','deliveries');
-  const canViewBilling=canAccessModule(roles,'view','billing'),canViewSales=canAccessModule(roles,'view','sales');
-  const canViewCrm=canAccessModule(roles,'view','crm'),canViewVehicles=canAccessModule(roles,'view','vehicles'),canViewShowroom=canAccessModule(roles,'view','showroom');
-  const canViewReports=canAccessModule(roles,'view','reports');
+  const { currentUser, currentAgency, can } = useAuthStore();
+  const canViewService=can('service.order.view'),canViewDeliveries=can('delivery.view');
+  const canViewBilling=can('billing.view'),canViewSales=can('sales.view'),canViewMargin=can('vehicles.financials.view')&&canViewSales;
+  const canViewCrm=can('crm.prospect.view'),canViewVehicles=can('vehicles.view'),canViewShowroom=can('showroom.view');
+  const canViewReports=can('reporting.view');
   const repairOrders=useRepairOrdersQuery('','',canViewService).data??[],deliveries=useDeliveriesQuery({},canViewDeliveries).data??[];
-  const overviewQuery=useDashboardOverviewQuery(currentAgency?.id),overview=overviewQuery.data;
-  const notificationsQuery=useNotificationsQuery({page:1,pageSize:4}),notifications=notificationsQuery.data?.items??[],notificationActions=useNotificationActions();
+  const overviewQuery=useDashboardOverviewQuery(),overview=overviewQuery.data;
+  const notificationsQuery=useNotificationsQuery({page:1,pageSize:4},can('notifications.view')),notifications=notificationsQuery.data?.items??[],notificationActions=useNotificationActions();
   const { setActiveQuickActionModal } = useUiStore();
   const navigate = useNavigate();
-  const canCreateSale=canPerformWorkflowAction(roles,'sales.create');
+  const canCreateSale=can('sales.create');
 
   const loadingValue=overviewQuery.isLoading?'…':'—';
   const weeklyMax=Math.max(0,...(overview?.weeklySeries.map(item=>item.revenue)??[]));
@@ -113,7 +112,7 @@ export const DashboardPage: React.FC = () => {
           <div className="text-2xl font-bold text-white tracking-tight">
             {overview?.revenue?formatCurrency(overview.revenue.current):loadingValue}
           </div>
-          <div className="text-xs text-zinc-400 mt-1">Marge réelle : {overview?.grossMargin?formatCurrency(overview.grossMargin.current):loadingValue}</div>
+          {canViewMargin&&<div className="text-xs text-zinc-400 mt-1">Marge réelle : {overview?.grossMargin?formatCurrency(overview.grossMargin.current):loadingValue}</div>}
         </div>}
 
         {/* Metric 2: Ventes du Mois */}
@@ -266,7 +265,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div className="space-y-3.5 flex-1 overflow-y-auto">
-              {notifications.map(notification=>{const navigable=canNavigateToRoute(roles,notification.linkRoute);return <div key={notification.id} onClick={()=>{const go=()=>{if(navigable)navigate(notification.linkRoute)};if(notification.isRead)go();else void notificationActions.markAsRead.mutateAsync(notification.id).then(go).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}))}} className={`flex gap-3 items-start border-l-2 border-[#8f1722] pl-3 py-1 rounded-r transition-colors ${navigable?'cursor-pointer hover:bg-slate-800/50':'cursor-default'}`}><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{notification.subject}</p><p className="text-[11px] text-slate-400 truncate">{notification.message}</p></div></div>})}
+              {notifications.map(notification=>{const navigable=canNavigateWithPermissions(currentUser.permissions,notification.linkRoute);return <div key={notification.id} onClick={()=>{const go=()=>{if(navigable)navigate(notification.linkRoute)};if(notification.isRead)go();else void notificationActions.markAsRead.mutateAsync(notification.id).then(go).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}))}} className={`flex gap-3 items-start border-l-2 border-[#8f1722] pl-3 py-1 rounded-r transition-colors ${navigable?'cursor-pointer hover:bg-slate-800/50':'cursor-default'}`}><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-white">{notification.subject}</p><p className="text-[11px] text-slate-400 truncate">{notification.message}</p></div></div>})}
               {!notifications.length&&<p className="text-xs text-slate-400">Aucune alerte enregistrée.</p>}
             </div>
 
@@ -286,13 +285,13 @@ export const DashboardPage: React.FC = () => {
               Actions Rapides
             </h3>
             <div className="grid grid-cols-2 gap-2.5">
-              {canAccessModule(roles,'view','crm')&&<button
+              {can('crm.prospect.create')&&<button
                 onClick={() => setActiveQuickActionModal('lead')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 + Prospect
               </button>}
-              {hasPermission(roles,'service.create')&&<button
+              {can('service.order.create')&&<button
                 onClick={() => setActiveQuickActionModal('or')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
@@ -310,13 +309,13 @@ export const DashboardPage: React.FC = () => {
               >
                 Imprimer BL
               </button>}
-              {hasPermission(roles,'vehicles.create')&&<button
+              {can('vehicles.create')&&<button
                 onClick={() => setActiveQuickActionModal('vehicle')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >
                 + Véhicule
               </button>}
-              {hasPermission(roles,'billing.create')&&<button
+              {can('billing.invoice.create')&&<button
                 onClick={() => setActiveQuickActionModal('invoice')}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-semibold border border-slate-200 text-slate-700 transition-colors cursor-pointer text-center"
               >

@@ -9,7 +9,7 @@ test('TEST-DRIVE-03 le CRM affiche l’essai en cours et désactive le devis ave
   assert.match(page,/Essai en cours/);
   assert.match(page,/disabled=\{!selectedLead\.canCreateQuotation\}/);
   assert.match(page,/En attente du retour de l’essai routier\./);
-  assert.match(page,/canIssueQuotation/);
+  assert.match(page,/canCreateQuotation=can\('quotations\.create'\)/);
 });
 
 test('TEST-DRIVE-05 le retour débloque le devis et synchronise Showroom, CRM et véhicules',()=>{
@@ -23,11 +23,10 @@ test('TEST-DRIVE-05 le retour débloque le devis et synchronise Showroom, CRM et
 });
 
 test('TEST-DRIVE-08 départ commercial et confirmation physique du retour utilisent des permissions distinctes',()=>{
-  const showroom=read('../src/modules/showroom/ShowroomPage.tsx'),permissions=read('../src/navigation/permissions.ts');
-  assert.match(showroom,/canManageTestDrive=canPerformWorkflowAction\(roles,'showroom\.testDrive'\)/);
-  assert.match(showroom,/canReturnTestDrive=canPerformWorkflowAction\(roles,'showroom\.returnTestDrive'\)/);
-  assert.match(permissions,/showroom\.returnTestDrive/);
-  assert.match(permissions,/\['SUPER_ADMIN','DIRECTION','SALES_MANAGER','RECEPTIONIST'\]/);
+  const showroom=read('../src/modules/showroom/ShowroomPage.tsx');
+  assert.match(showroom,/canManageTestDrive=can\('showroom\.visitor\.update'\)/);
+  assert.match(showroom,/canReturnTestDrive=can\('showroom\.status\.update'\)/);
+  assert.doesNotMatch(showroom,/SALES_AGENT|SALES_MANAGER|DIRECTOR|RECEPTIONIST|roles\.includes/);
 });
 
 test('l’état du retour est lu depuis le backend, pas reconstruit artificiellement',()=>{

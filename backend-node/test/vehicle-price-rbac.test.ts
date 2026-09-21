@@ -21,6 +21,6 @@ test('le mapping financier est activé uniquement par vehicles.financials.view d
 
 test('/vehicles/stats ne sélectionne stock_value qu’avec la permission financière',()=>{
   const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
-  assert.match(source,/finance\?',COALESCE\(SUM\(v\.sale_price\),0\) stock_value'/);
-  assert.match(source,/finance\?\{stockValue:/);
+  assert.match(source,/financialScoped\?`,COALESCE\(SUM\(CASE WHEN v\.status IN\('received','preparation','available','reserved'\)/);
+  assert.match(source,/statsQuery\.finance\?\{stockValue:/);
 });

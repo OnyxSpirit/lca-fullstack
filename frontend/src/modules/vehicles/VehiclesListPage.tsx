@@ -104,7 +104,7 @@ export const VehiclesListPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 font-medium">Disponibles à la vente</span>
             <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {availableCount} <span className="text-xs text-slate-400 font-normal">/ {stats?.total??0} total</span>
+              {availableCount} <span className="text-xs text-slate-400 font-normal">véhicule{availableCount===1?'':'s'} disponible{availableCount===1?'':'s'}</span>
             </div>
           </div>
           <Badge variant="success" size="md">En stock</Badge>

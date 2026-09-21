@@ -13,6 +13,7 @@ import { can, type PermissionScope } from '../rbac/rbac.service.js';
 
 export const vehicleRouter=Router();
 const DB_STATUSES=['ordered','in_transit','received','preparation','available','reserved','sold','delivered'];
+export const COMMERCIAL_PARK_STATUSES=['received','preparation','available','reserved'] as const;
 const TYPES=['new','used','demo','courtesy'];
 const uploadRoot=path.resolve(process.env.UPLOAD_DIR??'uploads','vehicles');
 interface ImagePayload { dataUrl:string; name?:string }
@@ -37,12 +38,23 @@ vehicleRouter.use('/vehicles',(request,_response,next)=>{
   next();
 });
 
-vehicleRouter.get('/vehicles/stats',requirePermission('vehicles.view'),asyncHandler(async(request,response)=>{
+export function vehicleStatsQuery(request:Request){
   const scoped=vehicleScope(request,'vehicles.view','v',request.query.agencyId);
   const finance=hasFinance(request);
-  const [row]=await query<RowDataPacket[]>(`SELECT COUNT(*) total,SUM(v.status='ordered') ordered,SUM(v.status='in_transit') in_transit,SUM(v.status='received') received,SUM(v.status='preparation') preparation,SUM(v.status='available') available,SUM(v.status='reserved') reserved,SUM(v.status='sold') sold,SUM(v.status='delivered') delivered,SUM(v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)) dormant${finance?',COALESCE(SUM(v.sale_price),0) stock_value':''} FROM vehicles v WHERE v.archived_at IS NULL AND ${scoped.sql}`,scoped.params);
+  const financialScoped=finance?vehicleScope(request,'vehicles.financials.view','v',request.query.agencyId):null;
+  const financialSelect=financialScoped?`,COALESCE(SUM(CASE WHEN v.status IN('received','preparation','available','reserved') AND (${financialScoped.sql}) THEN v.sale_price ELSE 0 END),0) stock_value`:'';
+  return{
+    sql:`SELECT COUNT(*) total,SUM(v.status='ordered') ordered,SUM(v.status='in_transit') in_transit,SUM(v.status='received') received,SUM(v.status='preparation') preparation,SUM(v.status='available') available,SUM(v.status='reserved') reserved,SUM(v.status='sold') sold,SUM(v.status='delivered') delivered,SUM(v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)) dormant${financialSelect} FROM vehicles v WHERE v.archived_at IS NULL AND ${scoped.sql}`,
+    params:financialScoped?[...financialScoped.params,...scoped.params]:scoped.params,
+    finance,
+  };
+}
+
+vehicleRouter.get('/vehicles/stats',requirePermission('vehicles.view'),asyncHandler(async(request,response)=>{
+  const statsQuery=vehicleStatsQuery(request);
+  const [row]=await query<RowDataPacket[]>(statsQuery.sql,statsQuery.params);
   const availableForSale=Number(row?.available??0);
-  response.json({total:Number(row?.total??0),ordered:Number(row?.ordered??0),inTransit:Number(row?.in_transit??0),received:Number(row?.received??0),preparation:Number(row?.preparation??0),available:availableForSale,availableForSale,reserved:Number(row?.reserved??0),sold:Number(row?.sold??0),delivered:Number(row?.delivered??0),dormant:Number(row?.dormant??0),...(finance?{stockValue:Number(row?.stock_value??0)}:{})});
+  response.json({total:Number(row?.total??0),ordered:Number(row?.ordered??0),inTransit:Number(row?.in_transit??0),received:Number(row?.received??0),preparation:Number(row?.preparation??0),available:availableForSale,availableForSale,reserved:Number(row?.reserved??0),sold:Number(row?.sold??0),delivered:Number(row?.delivered??0),dormant:Number(row?.dormant??0),...(statsQuery.finance?{stockValue:Number(row?.stock_value??0)}:{})});
 }));
 
 const baseSelect=`SELECT v.*,ve.name version,m.id model_id,m.name model,b.id brand_id,b.name brand,a.name agency_name,l.name location_name,s.name supplier_name,CONCAT_WS(' ',u.first_name,u.last_name) created_by_name,(SELECT vi.file_path FROM vehicle_images vi WHERE vi.vehicle_id=v.id ORDER BY vi.is_primary DESC,vi.sort_order,vi.id LIMIT 1) primary_image FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id JOIN agencies a ON a.id=v.agency_id LEFT JOIN locations l ON l.id=v.location_id LEFT JOIN suppliers s ON s.id=v.supplier_id LEFT JOIN users u ON u.id=v.created_by`;

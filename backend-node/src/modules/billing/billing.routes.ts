@@ -53,6 +53,8 @@ billingRouter.get('/invoices/export/accounting',requirePermission('billing.expor
 }));
 billingRouter.get('/invoices',requirePermission('billing.invoice.view'),asyncHandler(async(r,res)=>{
   const scoped=billingScopeSql(r,'billing.invoice.view'),params:any[]=[...scoped.params];let where=scoped.sql;const search=txt(r.query.search,120);
+  const requestedAgency=r.query.billingAgencyId??r.query.agencyId;
+  if(requestedAgency){where+=' AND i.agency_id=?';params.push(id(requestedAgency))}
   if(search){where+=' AND (i.invoice_number LIKE ? OR c.company_name LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR s.sale_number LIKE ? OR ro.order_number LIKE ?)';params.push(...Array(6).fill(`%${search}%`))}
   for(const[k,col]of[['customerId','i.customer_id'],['saleId','i.sale_id'],['type','i.invoice_type']]as const)if(r.query[k]){where+=` AND ${col}=?`;params.push(k==='type'?txt(r.query[k]):id(r.query[k]))}
   if(r.query.status){where+=' AND '+(r.query.status==='overdue'?`i.balance_due>0 AND i.due_date<CURDATE() AND i.status NOT IN('paid','cancelled')`:'i.status=?');if(r.query.status!=='overdue')params.push(txt(r.query.status))}

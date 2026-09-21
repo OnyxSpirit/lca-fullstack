@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { detailRoutes } from '../../navigation/routes';
 import { apiDownload } from '../../services/apiClient';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
@@ -15,7 +16,7 @@ import { NewInvoiceModal } from './NewInvoiceModal';
 
 export const BillingPage: React.FC = () => {
   const navigate = useNavigate(),[searchParams,setSearchParams]=useSearchParams(),initialSaleId=searchParams.get('saleId')??undefined, toast = useUiStore((state) => state.addToast), agency = useAuthStore((state) => state.currentAgency);
-  const canView=useAuthStore(state=>state.can('billing.invoice.view')),canViewPayments=useAuthStore(state=>state.can('billing.payment.view')),canCreate = useAuthStore((state) => state.can('billing.invoice.create')), canExport = useAuthStore((state) => state.can('billing.export'));
+  const canView=useAuthStore(state=>state.can('billing.invoice.view')),canViewPayments=useAuthStore(state=>state.can('billing.payment.view')),canViewRepairOrders=useAuthStore(state=>state.can('service.order.view')),canCreate = useAuthStore((state) => state.can('billing.invoice.create')), canExport = useAuthStore((state) => state.can('billing.export'));
   const [open, setOpen] = useState(false), [search, setSearch] = useState(''), [debounced, setDebounced] = useState('');
   const [status, setStatus] = useState(''), [type, setType] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState('');
   useEffect(() => { const timer = window.setTimeout(() => setDebounced(search.trim()), 300); return () => window.clearTimeout(timer); }, [search]);
@@ -34,7 +35,7 @@ export const BillingPage: React.FC = () => {
     <Card padding="none"><div className="overflow-x-auto"><table className="w-full text-xs"><thead className="bg-slate-50 text-left"><tr><th className="p-3">Facture</th><th>Client</th><th>Type / Source</th><th>Émission / Échéance</th><th>Total</th><th>Encaissé</th><th>Reste</th><th>Statut</th><th></th></tr></thead><tbody>
       {query.isLoading && <TableEmptyState colSpan={9} message="Chargement des factures..." isLoading />}
       {!query.isLoading && !query.isError && invoices.length === 0 && <TableEmptyState colSpan={9} message={hasFilters ? 'Aucune facture ne correspond à vos critères' : 'Aucune facture'} />}
-      {invoices.map((x) => <tr key={x.id} className="border-t hover:bg-red-50/30 cursor-pointer" onClick={() => navigate(`/billing/${x.id}`)}><td className="p-3 font-mono font-bold">{x.invoiceNumber}</td><td>{x.customerName}</td><td>{x.type}<small className="block text-slate-500">{x.relatedDocNumber || 'Manuelle'}</small></td><td>{formatDate(x.issueDate)}<small className="block text-slate-500">{x.dueDate ? formatDate(x.dueDate) : '—'}</small></td><td>{money(x.amountTTC)}</td><td>{canViewPayments?money(x.paidAmountTTC):'Masqué'}</td><td className="font-bold">{canViewPayments?money(x.remainingAmountTTC):'Masqué'}</td><td><StatusBadge status={x.status} type="invoice" /></td><td><Button size="xs" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/billing/${x.id}`); }}>Détails</Button></td></tr>)}
+      {invoices.map((x) => <tr key={x.id} className="border-t hover:bg-red-50/30 cursor-pointer" onClick={() => navigate(`/billing/${x.id}`)}><td className="p-3 font-mono font-bold">{x.invoiceNumber}</td><td>{x.customerName}</td><td>{x.type==='FACTURE_ATELIER_SAV'?'Facture Atelier / SAV':x.type}{x.repairOrderId&&canViewRepairOrders?<button type="button" className="block text-left text-xs text-[#8f1722] hover:underline" onClick={(e)=>{e.stopPropagation();navigate(detailRoutes.repairOrder(x.repairOrderId!))}}>{x.relatedDocNumber}</button>:<small className="block text-slate-500">{x.relatedDocNumber || 'Manuelle'}</small>}</td><td>{formatDate(x.issueDate)}<small className="block text-slate-500">{x.dueDate ? formatDate(x.dueDate) : '—'}</small></td><td>{money(x.amountTTC)}</td><td>{canViewPayments?money(x.paidAmountTTC):'Masqué'}</td><td className="font-bold">{canViewPayments?money(x.remainingAmountTTC):'Masqué'}</td><td><StatusBadge status={x.status} type="invoice" /></td><td><Button size="xs" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/billing/${x.id}`); }}>Détails</Button></td></tr>)}
     </tbody></table></div></Card>{canCreate && <NewInvoiceModal isOpen={open} initialSaleId={initialSaleId} onClose={() => {setOpen(false);if(initialSaleId)setSearchParams({})}} />}
   </div>;
 };

@@ -230,8 +230,9 @@ async function detail(id: string, r: Request): Promise<any> {
     query<RowDataPacket[]>("SELECT e.*,p.reference part_reference,i.id intervention_id,i.technician_id intervention_technician_id,i.status intervention_status,i.actual_hours,pr.id reservation_id,pr.quantity reserved_quantity,pr.consumed_quantity,pr.status reservation_status,roi.id actual_item_id,roi.quantity actual_quantity FROM repair_order_estimate_items e LEFT JOIN parts p ON p.id=e.part_id LEFT JOIN interventions i ON i.estimate_item_id=e.id LEFT JOIN part_reservations pr ON pr.estimate_item_id=e.id LEFT JOIN repair_order_items roi ON roi.estimate_item_id=e.id AND roi.status='active' WHERE e.repair_order_id=? ORDER BY e.id",[id]),
     query<RowDataPacket[]>("SELECT item_type,COALESCE(SUM(quantity*unit_price),0) gross,COALESCE(SUM(discount),0) discount,COALESCE(SUM(line_total),0) subtotal,COALESCE(SUM(line_total*tax_rate/100),0) tax FROM repair_order_estimate_items WHERE repair_order_id=? GROUP BY item_type",[id]),
   ]);
-  const mayViewPayments=await permissionCoversAgency(r,'billing.payment.view',String(ro.agency_id));
-  const invoices=mayViewPayments?await query<RowDataPacket[]>("SELECT id,invoice_number,status,subtotal,tax_total,total,amount_paid,balance_due,issue_date FROM invoices WHERE repair_order_id=? AND status<>'cancelled' ORDER BY id DESC",[id]):[];
+  const mayViewInvoice=await permissionCoversAgency(r,'billing.invoice.view',String(ro.agency_id)),mayViewPayments=await permissionCoversAgency(r,'billing.payment.view',String(ro.agency_id)),mayCollectPayment=await permissionCoversAgency(r,'billing.payment.collect',String(ro.agency_id)),mayAccessInvoice=mayViewInvoice||mayViewPayments||mayCollectPayment;
+  const invoices=mayAccessInvoice?await query<RowDataPacket[]>("SELECT id,invoice_number,status,subtotal,tax_total,total,amount_paid,balance_due,issue_date FROM invoices WHERE repair_order_id=? AND status<>'cancelled' ORDER BY id DESC",[id]):[];
+  const visibleInvoice=invoices[0]?(mayViewPayments||mayCollectPayment?invoices[0]:{...invoices[0],amount_paid:null,balance_due:null}):null;
   const businessConfig=await getEffectiveBusinessSettings(String(ro.agency_id));
   const financialSummary=repairOrderFinancialSummary(financialRows as any,businessConfig.currencyCode);
   const estimateSummary=repairOrderFinancialSummary(estimateRows as any,businessConfig.currencyCode);
@@ -248,7 +249,7 @@ async function detail(id: string, r: Request): Promise<any> {
     reservations,
     qualityControls,
     handover: handovers[0]??null,
-    invoice: invoices[0]??null,
+    invoice:visibleInvoice,
     financialSummary,
     estimateItems,
     estimateSummary,

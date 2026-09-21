@@ -561,6 +561,7 @@ export interface Invoice {
   customerId: string;
   customerName: string;
   relatedDocNumber: string; // Sale # or OR #
+  repairOrderId?: string;
   issueDate: string;
   dueDate: string;
   amountHT: number;

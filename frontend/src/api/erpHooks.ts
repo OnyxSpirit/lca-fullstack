@@ -262,7 +262,7 @@ export const mapRepair = (r: any): RepairOrder => ({
   qualityControls:(r.qualityControls??[]).map((x:any)=>({id:s(x.id),plannedWorkCompleted:Boolean(x.planned_work_completed),defectCorrected:Boolean(x.defect_corrected),roadTestPerformed:Boolean(x.road_test_performed),noLeaks:Boolean(x.no_leaks),levelsChecked:Boolean(x.levels_checked),cleanlinessChecked:Boolean(x.cleanliness_checked),result:x.result,reason:x.reason??'',observations:x.observations??'',controlledByName:x.controlled_by_name??'',controlledAt:x.controlled_at})),
   history:(r.history??[]).map((x:any)=>({id:s(x.id),oldStatus:x.old_status??null,newStatus:x.new_status,reason:x.reason??'',changedByName:x.changed_by_name??'',changedAt:x.changed_at})),
   handover:r.handover?{customerName:r.handover.customer_name,mileageOut:r.handover.mileage_out==null?null:n(r.handover.mileage_out),observations:r.handover.observations??'',signatureData:r.handover.signature_data??'',handedOverAt:r.handover.handed_over_at}:null,
-  invoice:r.invoice?{id:s(r.invoice.id),invoiceNumber:r.invoice.invoice_number,subtotal:n(r.invoice.subtotal),taxTotal:n(r.invoice.tax_total),total:n(r.invoice.total),amountPaid:n(r.invoice.amount_paid),balanceDue:n(r.invoice.balance_due),status:r.invoice.status}:null,
+  invoice:r.invoice?{id:s(r.invoice.id),invoiceNumber:r.invoice.invoice_number,subtotal:n(r.invoice.subtotal),taxTotal:n(r.invoice.tax_total),total:n(r.invoice.total),amountPaid:n(r.invoice.amount_paid),balanceDue:n(r.invoice.balance_due),status:invoiceStatusFromDb[r.invoice.status as keyof typeof invoiceStatusFromDb]??r.invoice.status}:null,
   financiallyCleared:Boolean(r.financially_cleared),
   symptomsReported: r.complaint ?? "",
   diagnosticNotes: r.diagnosis_summary ?? "",
@@ -364,8 +364,9 @@ const mapInvoice = (r: any): Invoice => ({
   relatedDocNumber: r.sale_id
     ? `Vente ${r.sale_id}`
     : r.repair_order_id
-      ? `OR ${r.repair_order_id}`
+      ? r.repair_order_number ?? `OR ${r.repair_order_id}`
       : "",
+  repairOrderId: r.repair_order_id ? s(r.repair_order_id) : undefined,
   issueDate: r.issue_date,
   dueDate: r.due_date ?? "",
   amountHT: n(r.subtotal),
@@ -545,8 +546,9 @@ export const useDeliveriesQuery = (
     },
     enabled: enabled() && requestEnabled,
   });
-export const useInvoicesQuery = (filters:Record<string,string>={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()&&requestEnabled});
-export const useInvoiceQuery=(id?:string,agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?agencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&requestEnabled&&Boolean(id)&&Boolean(agencyId)});
+export const useInvoicesQuery = (filters:Record<string,string>={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k==='agencyId'?'billingAgencyId':k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()&&requestEnabled});
+export const useInvoiceQuery=(id?:string,agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?billingAgencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&requestEnabled&&Boolean(id)&&Boolean(agencyId)});
+export const useInvoicePaymentsQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,'payments'],queryFn:async()=>(await apiRequest<any[]>(`/invoices/${id}/payments`)).map(x=>({id:s(x.id),paymentNumber:x.payment_number,amount:n(x.amount),paymentMethodId:s(x.payment_method_id),paymentMethod:x.payment_method,reference:x.reference??'',status:x.status,paymentDate:x.payment_date,receivedByName:x.received_by_name??''})),enabled:enabled()&&requestEnabled&&Boolean(id)});
 export const useBillingConfigQuery=(agencyId?:string)=>useQuery({queryKey:['billing-config',agencyId],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string}>(`/billing/config?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
 export const useCustomerDetailQuery = (id?: string) =>
   useQuery({
@@ -763,7 +765,7 @@ export function useInvoicePayment() {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    onSuccess: (_,v) => {qc.invalidateQueries({ queryKey: erpKeys.invoices });qc.invalidateQueries({queryKey:['invoices',v.invoiceId]});},
+    onSuccess: (_,v) => {qc.invalidateQueries({ queryKey: erpKeys.invoices });qc.invalidateQueries({queryKey:['invoices',v.invoiceId]});qc.invalidateQueries({queryKey:erpKeys.repairOrders});},
   });
 }
 export function useBillingAction(){const qc=useQueryClient();return useMutation({mutationFn:({path,method='POST',...body}:any)=>apiRequest(path,{method,body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.invoices});void qc.invalidateQueries({queryKey:['invoices']});void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:erpKeys.repairOrders})}})}

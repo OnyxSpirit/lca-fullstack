@@ -26,7 +26,7 @@ test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persist�
     const role=await insert('INSERT INTO roles(name,code) VALUES(?,?)',[`Audit ${scope}`,`REP_${scope}`]);
     const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agencyA,'Audit',scope,`rep-${scope.toLowerCase()}@example.test`,'test']);
     await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);
-    for(const code of ['reporting.view','reporting.export','billing.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view']){
+    for(const code of ['reporting.view','reporting.export','billing.view','billing.invoice.view','billing.payment.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view']){
       const [permission]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,code);
       await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);
     }
@@ -89,6 +89,46 @@ test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persist�
   await pool.execute('UPDATE role_permissions SET scope=? WHERE role_id=? AND permission_id=?',['OWN',mixedRole,viewPermission.id]);
   assert.equal((await get(`finance?${period}`,mixedToken)).status,403);
   assert.ok(invoiceA);
+});
+
+test('SAV-FINANCE-03 : facture de septembre, paiements et remboursement à leurs dates réelles',{skip:!enabled},async()=>{
+  const insert=async(sql:string,params:unknown[]=[])=>String((await execute(sql,params)).insertId);
+  const agency=async(code:string)=>String((await query<RowDataPacket[]>('SELECT id FROM agencies WHERE code=?',[code]))[0].id);
+  const customer=async(code:string)=>String((await query<RowDataPacket[]>('SELECT id FROM customers WHERE customer_code=?',[code]))[0].id);
+  const actor=async(email:string)=>{const user=(await query<RowDataPacket[]>('SELECT id,agency_id FROM users WHERE email=?',[email]))[0];return jwt.sign({sub:String(user.id),email,roles:[],agencyId:String(user.agency_id)},process.env.JWT_ACCESS_SECRET!)};
+  const agencyA=await agency('REP-A'),agencyB=await agency('REP-B'),agencyC=await agency('REP-C');
+  const customerA=await customer('REP-A'),customerB=await customer('REP-B'),customerC=await customer('REP-C');
+  const [method]=await query<RowDataPacket[]>('SELECT id FROM payment_methods LIMIT 1');
+  const createWorkshopInvoice=async(suffix:string,agencyId:string,customerId:string,total:number)=>{
+    const existing=(await query<RowDataPacket[]>('SELECT id FROM invoices WHERE invoice_number=?',[`REP-SAV-${suffix}`]))[0];
+    if(existing)return String(existing.id);
+    return insert("INSERT INTO invoices(invoice_number,customer_id,agency_id,invoice_type,status,issue_date,due_date,total,amount_paid,balance_due) VALUES(?,?,?,'workshop','paid','2026-09-30','2026-10-30',?,?,0)",[`REP-SAV-${suffix}`,customerId,agencyId,total,total]);
+  };
+  const invoiceA=await createWorkshopInvoice('A',agencyA,customerA,100_000);
+  const invoiceB=await createWorkshopInvoice('B',agencyB,customerB,20_000);
+  const invoiceC=await createWorkshopInvoice('C',agencyC,customerC,30_000);
+  const createPayment=async(number:string,invoiceId:string,customerId:string,amount:number,date:string,refundedAt?:string)=>{
+    if((await query<RowDataPacket[]>('SELECT id FROM payments WHERE payment_number=?',[number]))[0])return;
+    await pool.execute('INSERT INTO payments(payment_number,invoice_id,customer_id,payment_method_id,amount,payment_date,status,refunded_at) VALUES(?,?,?,?,?,?,?,?)',[number,invoiceId,customerId,method.id,amount,date,refundedAt?'refunded':'confirmed',refundedAt??null]);
+  };
+  await createPayment('REP-SAV-PAY-A1',invoiceA,customerA,40_000,'2026-10-05 12:00:00');
+  await createPayment('REP-SAV-PAY-A2',invoiceA,customerA,60_000,'2026-10-10 12:00:00','2026-11-02 12:00:00');
+  await createPayment('REP-SAV-PAY-B',invoiceB,customerB,20_000,'2026-10-06 12:00:00');
+  await createPayment('REP-SAV-PAY-C',invoiceC,customerC,30_000,'2026-10-07 12:00:00');
+  const api=supertest(createApp()),agencyToken=await actor('rep-agency@example.test'),concessionToken=await actor('rep-concession@example.test'),globalToken=await actor('rep-global@example.test');
+  const report=(from:string,to:string,token:string,agencyId?:string)=>api.get(`/api/reports/workshop?from=${from}&to=${to}${agencyId?`&reportAgencyId=${agencyId}`:''}`).set('Authorization',`Bearer ${token}`);
+  const september=await report('2026-09-01','2026-09-30',agencyToken);
+  assert.equal(september.status,200,JSON.stringify(september.body));assert.equal(september.body.workshop_revenue,100_000);assert.equal(september.body.workshop_collected,0);
+  assert.equal((await report('2026-10-01','2026-10-31',agencyToken)).body.workshop_collected,100_000);
+  assert.equal((await report('2026-11-01','2026-11-30',agencyToken)).body.workshop_collected,-60_000);
+  assert.equal((await report('2026-10-01','2026-10-31',concessionToken)).body.workshop_collected,120_000);
+  assert.equal((await report('2026-10-01','2026-10-31',globalToken)).body.workshop_collected,150_000);
+  assert.equal((await report('2026-10-01','2026-10-31',concessionToken,agencyB)).body.workshop_collected,20_000);
+  assert.equal((await report('2026-10-01','2026-10-31',concessionToken,agencyC)).status,403);
+  const list=(token:string,agencyId:string)=>api.get(`/api/invoices?billingAgencyId=${agencyId}`).set('Authorization',`Bearer ${token}`);
+  assert.deepEqual((await list(agencyToken,agencyB)).body,[]);
+  assert.ok((await list(concessionToken,agencyB)).body.some((row:{invoice_number:string})=>row.invoice_number==='REP-SAV-B'));
+  assert.ok((await list(globalToken,agencyC)).body.some((row:{invoice_number:string})=>row.invoice_number==='REP-SAV-C'));
 });
 
 test('Reporting MySQL 8.4 : ventes, marges, annulations et bornes de période',{skip:!enabled},async()=>{

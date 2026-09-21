@@ -26,6 +26,7 @@ import { canNavigateWithPermissions } from '../../navigation/permissions';
 export const Header: React.FC = () => {
   const { currentUser, currentAgency, allAgencies, setCurrentAgency, logout, can } = useAuthStore();
   const notificationsQuery = useNotificationsQuery({page:1,pageSize:5},can('notifications.view'));
+  const canUpdateNotifications = can('notifications.update');
   const notifications = notificationsQuery.data?.items ?? [];
   const { markAsRead } = useNotificationActions();
   const {
@@ -210,7 +211,8 @@ export const Header: React.FC = () => {
                     <div
                       key={notif.id}
                       onClick={() => {
-                        void markAsRead.mutateAsync(notif.id).then(()=>{if(canNavigateWithPermissions(currentUser.permissions,notif.linkRoute))navigate(notif.linkRoute);setNotifDropdownOpen(false)}).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}));
+                        const go=()=>{if(canNavigateWithPermissions(currentUser.permissions,notif.linkRoute))navigate(notif.linkRoute);setNotifDropdownOpen(false)};
+                        if(notif.isRead||!canUpdateNotifications)go();else void markAsRead.mutateAsync(notif.id).then(go).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}));
                       }}
                       className={`p-3 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${
                         !notif.isRead ? 'bg-blue-50/40' : ''

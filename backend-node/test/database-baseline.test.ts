@@ -36,13 +36,14 @@ test('BASELINE-03 le seed est système, idempotent et sans secret ni donnée mé
   assert.match(seed,/r.is_system=TRUE AND r.is_active=TRUE AND p.is_active=TRUE/);
 });
 
-test('BASELINE-04 toutes les permissions runtime littérales sont initialisées',()=>{
+test('BASELINE-04 toutes les permissions runtime littérales sont initialisées par seed ou migration future',()=>{
   const runtime=new Set<string>();
   for(const file of [...sourceFiles(resolve(root,'backend-node/src')),...sourceFiles(resolve(root,'frontend/src'))]){
     const text=readFileSync(file,'utf8');
     for(const match of text.matchAll(/(?:requirePermission|assertPermission|can|hasPermission|permissionScope)\(\s*['"]([a-z][a-z0-9_.-]+)['"]/g))runtime.add(match[1]!);
   }
-  const initialized=codes(seed);const missing=[...runtime].filter(code=>!initialized.has(code)).sort();assert.deepEqual(missing,[]);
+  const futureMigrations=futureMigrationNames(readdirSync(resolve(root,'backend-node/database/migrations'))).map(name=>read(`backend-node/database/migrations/${name}`)).join('\n');
+  const initialized=codes(seed+futureMigrations);const missing=[...runtime].filter(code=>!initialized.has(code)).sort();assert.deepEqual(missing,[]);
 });
 
 test('BASELINE-05 détection fail-safe base neuve, versionnée et ambiguë',()=>{

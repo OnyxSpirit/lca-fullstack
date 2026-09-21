@@ -9,8 +9,12 @@ const socket=source('src/realtime/socket.ts');
 const showroom=source('src/modules/showroom/showroom.routes.ts');
 const crm=source('src/modules/crm/crm.notifications.ts');
 
-test('NOTIF-01 tous les endpoints personnels exigent notifications.view',()=>{
-  assert.match(routes,/use\('\/notifications',requirePermission\('notifications\.view'\)\)/);
+test('NOTIF-01 les endpoints séparent consultation, lecture, archivage et suppression',()=>{
+  assert.match(routes,/get\('\/notifications',requirePermission\('notifications\.view'\)/);
+  assert.match(routes,/patch\('\/notifications\/read-all',requirePermission\('notifications\.update'\)/);
+  assert.match(routes,/patch\('\/notifications\/:id\/read',requirePermission\('notifications\.update'\)/);
+  assert.match(routes,/patch\('\/notifications\/:id\/archive',requirePermission\('notifications\.archive'\)/);
+  assert.match(routes,/delete\('\/notifications\/:id',requirePermission\('notifications\.delete'\)/);
 });
 
 test('NOTIF-02 liste, compteur, lecture, read-all et suppression restent liés au user authentifié',()=>{
@@ -18,6 +22,14 @@ test('NOTIF-02 liste, compteur, lecture, read-all et suppression restent liés a
   assert.match(routes,/WHERE user_id=\? AND channel='notification' AND read_at IS NULL/);
   assert.match(routes,/WHERE id=\? AND user_id=\? AND channel='notification'/);
   assert.match(routes,/COALESCE\(read_at,NOW\(\)\)/);
+});
+
+test('NOTIF-02B les opérations normales excluent archives et suppressions logiques',()=>{
+  assert.match(routes,/baseWhere=\[`user_id=\?`,`channel='notification'`,`archived_at IS NULL`,`deleted_at IS NULL`\]/);
+  assert.match(routes,/read_at IS NULL AND archived_at IS NULL AND deleted_at IS NULL/);
+  assert.doesNotMatch(routes,/DELETE FROM notifications/);
+  assert.match(routes,/notification\.archived/);
+  assert.match(routes,/notification\.deleted/);
 });
 
 test('NOTIF-03 filtres SQL paramétrés, pagination bornée et ordre newest-first',()=>{

@@ -51,3 +51,22 @@ test('NOTIF-FE-08 date invalide et état vide restent explicites',()=>{
   assert.match(hooks,/Number\.isNaN\(date\.getTime\(\)\).*Date indisponible/);
   assert.match(source('src/modules/notifications/NotificationsPage.tsx'),/Aucune notification/);
 });
+
+test('NOTIF-FE-09 archive remplace la suppression et dépend de la permission dynamique',()=>{
+  const page=source('src/modules/notifications/NotificationsPage.tsx');
+  assert.match(page,/can\('notifications\.archive'\)/);
+  assert.match(page,/canArchive&&<Button/);
+  assert.match(page,/archiveNotification\.mutateAsync/);
+  assert.match(page,/>Archiver<\/Button>/);
+  assert.doesNotMatch(page,/>Supprimer<\/Button>|deleteNotification|Trash2/);
+  assert.match(hooks,/\/notifications\/\$\{id\}\/archive`,'PATCH'/);
+  assert.doesNotMatch(hooks,/DELETE/);
+});
+
+test('NOTIF-FE-10 le marquage comme lu dépend de notifications.update',()=>{
+  const page=source('src/modules/notifications/NotificationsPage.tsx');
+  assert.match(page,/can\('notifications\.update'\)/);
+  assert.match(page,/n\.isRead\|\|!canUpdate/);
+  assert.match(source('src/components/layout/Header.tsx'),/notif\.isRead\|\|!canUpdateNotifications/);
+  assert.match(source('src/modules/dashboard/DashboardPage.tsx'),/notification\.isRead\|\|!canUpdateNotifications/);
+});

@@ -903,11 +903,17 @@ CREATE TABLE repair_orders (
     status ENUM(
         'planned','received','diagnosis','waiting_approval',
         'in_progress','quality_control','ready','invoiced',
-        'delivered','closed','cancelled'
+        'delivered','closed','cancelled','abandonment_pending','abandoned'
     ) NOT NULL DEFAULT 'planned',
     estimated_total DECIMAL(18,2) NOT NULL DEFAULT 0,
     actual_total DECIMAL(18,2) NOT NULL DEFAULT 0,
     cancellation_reason VARCHAR(500) NULL,
+    abandonment_reason_code VARCHAR(50) NULL,
+    abandonment_reason VARCHAR(500) NULL,
+    abandonment_requested_at DATETIME NULL,
+    abandonment_requested_by BIGINT UNSIGNED NULL,
+    abandoned_at DATETIME NULL,
+    abandoned_by BIGINT UNSIGNED NULL,
     created_by BIGINT UNSIGNED NULL,
     received_at DATETIME NULL,
     promised_completion_at DATETIME NULL,
@@ -921,6 +927,8 @@ CREATE TABLE repair_orders (
     CONSTRAINT fk_ro_advisor FOREIGN KEY (advisor_id) REFERENCES users(id) ON DELETE SET NULL
     ,CONSTRAINT fk_ro_courtesy_vehicle FOREIGN KEY (courtesy_vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL
     ,CONSTRAINT fk_ro_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    ,CONSTRAINT fk_ro_abandonment_requested_by FOREIGN KEY (abandonment_requested_by) REFERENCES users(id) ON DELETE SET NULL
+    ,CONSTRAINT fk_ro_abandoned_by FOREIGN KEY (abandoned_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE repair_order_status_history (
@@ -1237,6 +1245,7 @@ CREATE TABLE repair_order_handovers (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, repair_order_id BIGINT UNSIGNED NOT NULL UNIQUE,
     customer_name VARCHAR(200) NOT NULL, mileage_out INT UNSIGNED NULL, observations TEXT NULL,
     signature_data LONGTEXT NULL, handed_over_by BIGINT UNSIGNED NULL,
+    handover_type ENUM('repair','abandonment') NOT NULL DEFAULT 'repair',
     handed_over_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,
     FOREIGN KEY(handed_over_by) REFERENCES users(id) ON DELETE SET NULL
@@ -1587,6 +1596,28 @@ CREATE TABLE credit_notes (
     CONSTRAINT fk_credit_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE RESTRICT,
     CONSTRAINT fk_credit_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
     CONSTRAINT fk_credit_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE payment_refunds (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    payment_id BIGINT UNSIGNED NOT NULL,
+    invoice_id BIGINT UNSIGNED NOT NULL,
+    credit_note_id BIGINT UNSIGNED NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    reason VARCHAR(500) NOT NULL,
+    refunded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    refunded_by BIGINT UNSIGNED NULL,
+    idempotency_key VARCHAR(120) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_payment_refund_idempotency (idempotency_key),
+    INDEX idx_payment_refund_payment (payment_id,refunded_at),
+    INDEX idx_payment_refund_invoice (invoice_id,refunded_at),
+    INDEX idx_payment_refund_credit_note (credit_note_id,refunded_at),
+    CONSTRAINT fk_payment_refund_payment FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_payment_refund_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_payment_refund_credit_note FOREIGN KEY (credit_note_id) REFERENCES credit_notes(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_payment_refund_user FOREIGN KEY (refunded_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT chk_payment_refund_amount CHECK (amount > 0)
 ) ENGINE=InnoDB;
 
 -- ============================================================

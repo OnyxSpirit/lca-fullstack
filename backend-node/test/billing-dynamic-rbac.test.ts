@@ -10,6 +10,7 @@ const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{su
 const source=readFileSync(new URL('../src/modules/billing/billing.routes.ts',import.meta.url),'utf8');
 const sales=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
 const customers=readFileSync(new URL('../src/modules/customers/customer.routes.ts',import.meta.url),'utf8');
+const invoiceCancellation=readFileSync(new URL('../src/modules/billing/invoice-cancellation.service.ts',import.meta.url),'utf8');
 
 test('BILL-01/06/08/10/12/14/15/22/23/24/25 : permissions dynamiques sans bypass',async()=>{
  for(const permission of['billing.invoice.view','billing.invoice.create','billing.invoice.update','billing.invoice.issue','billing.invoice.cancel','billing.payment.view','billing.payment.collect','billing.payment.refund'])await assert.rejects(()=>assertPermission(request(),permission),(error:any)=>error.status===403);
@@ -27,7 +28,7 @@ test('BILL-09/11/33/34 : brouillon, émission distincte et fiscalité imposée p
  assert.match(source,/status[^\n]*'draft'/);assert.match(source,/requirePermission\('billing\.invoice\.issue'\)/);assert.match(source,/Seule une facture brouillon est modifiable/);
  assert.match(source,/getEffectiveBusinessSettings\(String\(invoice\.agency_id\)\)/);assert.match(source,/lines\(r\.body\.items,invoice\.tax_mode,invoice\.price_input_mode,Number\(invoice\.tax_rate_snapshot\)\)/);assert.match(source,/sales\.tax\.override/);assert.doesNotMatch(source,/x\.taxRate\?\?/);
 });
-test('BILL-13 : annulation verrouille et refuse tout paiement confirmé',()=>{assert.match(source,/status='confirmed' FOR UPDATE/);assert.match(source,/facture encaissée doit faire l’objet/)});
+test('BILL-13 : annulation verrouille et refuse tout paiement confirmé',()=>{assert.match(source,/cancelUnpaidInvoice/);assert.match(invoiceCancellation,/status='confirmed' FOR UPDATE/);assert.match(invoiceCancellation,/facture encaissée doit faire l’objet/)});
 test('BILL-16/17/18/21 : paiements partiels cumulés et surpaiement refusé',()=>{assert.deepEqual(applyPayment(0,100,40),{paid:40,balance:60,status:'partially_paid'});assert.deepEqual(applyPayment(40,60,30),{paid:70,balance:30,status:'partially_paid'});assert.throws(()=>applyPayment(70,30,31));assert.deepEqual(applyPayment(70,30,30),{paid:100,balance:0,status:'paid'})});
 test('BILL-19/20 : idempotence et concurrence sont protégées par clé unique et verrou facture',()=>{assert.match(source,/idempotency_key=\? FOR UPDATE/);assert.match(source,/access\(invoiceId,r,'billing\.payment\.collect',c,true\)/);assert.match(source,/Facture déjà soldée ou non encaissable/);assert.match(source,/applyPayment/)});
 test('BILL-29/30/31 : lecture paiements indépendante dans Billing, Ventes et Client 360',()=>{assert.match(source,/grant\(r,'billing\.payment\.view'\)/);assert.match(sales,/permissions\.has\('billing\.payment\.view'\)/);assert.match(customers,/sections\.payments/)});

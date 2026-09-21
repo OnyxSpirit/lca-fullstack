@@ -379,8 +379,8 @@ const mapInvoice = (r: any): Invoice => ({
     "BROUILLON",
   agencyId:s(r.agency_id),agencyName:r.agency_name??'',currencyCode:r.currency_code??undefined,notes:r.notes??'',
   items:(r.items??[]).map((x:any)=>({id:s(x.id),description:x.description,quantity:n(x.quantity),unitPrice:n(x.unit_price),discount:n(x.discount),taxRate:n(x.tax_rate),taxAmount:n(x.tax_amount),lineTotal:n(x.line_total)})),
-  payments:(r.payments??[]).map((x:any)=>({id:s(x.id),paymentNumber:x.payment_number,amount:n(x.amount),paymentMethodId:s(x.payment_method_id),paymentMethod:x.payment_method,reference:x.reference??'',status:x.status,paymentDate:x.payment_date,receivedByName:x.received_by_name??''})),
-  creditNotes:(r.creditNotes??[]).map((x:any)=>({id:s(x.id),creditNoteNumber:x.credit_note_number,amount:n(x.amount),reason:x.reason,status:x.status,issueDate:x.issue_date,createdByName:x.created_by_name??''})),
+  payments:(r.payments??[]).map((x:any)=>({id:s(x.id),paymentNumber:x.payment_number,amount:n(x.amount),refundedAmount:n(x.refunded_amount),refundableRemaining:Math.max(0,n(x.amount)-n(x.refunded_amount)),paymentMethodId:s(x.payment_method_id),paymentMethod:x.payment_method,reference:x.reference??'',status:x.effective_status??x.status,paymentDate:x.payment_date,receivedByName:x.received_by_name??''})),
+  creditNotes:(r.creditNotes??[]).map((x:any)=>({id:s(x.id),creditNoteNumber:x.credit_note_number,amount:n(x.amount),refundedAmount:n(x.refunded_amount),refundableRemaining:Math.max(0,n(x.amount)-n(x.refunded_amount)),reason:x.reason,status:x.status,issueDate:x.issue_date,createdByName:x.created_by_name??''})),
 });
 
 function resource<T>(key: readonly string[], path: string, map: (r: any) => T) {
@@ -548,7 +548,7 @@ export const useDeliveriesQuery = (
   });
 export const useInvoicesQuery = (filters:Record<string,string>={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k==='agencyId'?'billingAgencyId':k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()&&requestEnabled});
 export const useInvoiceQuery=(id?:string,agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?billingAgencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&requestEnabled&&Boolean(id)&&Boolean(agencyId)});
-export const useInvoicePaymentsQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,'payments'],queryFn:async()=>(await apiRequest<any[]>(`/invoices/${id}/payments`)).map(x=>({id:s(x.id),paymentNumber:x.payment_number,amount:n(x.amount),paymentMethodId:s(x.payment_method_id),paymentMethod:x.payment_method,reference:x.reference??'',status:x.status,paymentDate:x.payment_date,receivedByName:x.received_by_name??''})),enabled:enabled()&&requestEnabled&&Boolean(id)});
+export const useInvoicePaymentsQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,'payments'],queryFn:async()=>(await apiRequest<any[]>(`/invoices/${id}/payments`)).map(x=>({id:s(x.id),paymentNumber:x.payment_number,amount:n(x.amount),refundedAmount:n(x.refunded_amount),refundableRemaining:Math.max(0,n(x.amount)-n(x.refunded_amount)),paymentMethodId:s(x.payment_method_id),paymentMethod:x.payment_method,reference:x.reference??'',status:x.effective_status??x.status,paymentDate:x.payment_date,receivedByName:x.received_by_name??''})),enabled:enabled()&&requestEnabled&&Boolean(id)});
 export const useBillingConfigQuery=(agencyId?:string)=>useQuery({queryKey:['billing-config',agencyId],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string}>(`/billing/config?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
 export const useCustomerDetailQuery = (id?: string) =>
   useQuery({
@@ -712,7 +712,7 @@ export function useSaleStatusMutation() {
         method: "PATCH",
         body: JSON.stringify({ status,reason }),
       }),
-    onSuccess: () => {void qc.invalidateQueries({ queryKey: erpKeys.sales });void qc.invalidateQueries({queryKey:erpKeys.vehicles});},
+    onSuccess: () => {void qc.invalidateQueries({ queryKey: erpKeys.sales });void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.invoices});},
   });
 }
 export function useUpdateSale() {
@@ -733,6 +733,9 @@ export function useRepairStatusMutation() {
     },
   });
 }
+export type RepairAbandonmentImpact={repairOrderId:string;status:string;activeSessions:number;completedInterventions:number;openInterventions:number;actualHours:number;consumedParts:number;reservedParts:number;activeSchedules:number;actualItemsTotal:number;invoice:null|{id:string;invoiceNumber:string;status:string;total:number;netInvoiced:number;netCollected:number;balanceDue:number}};
+export const useRepairAbandonmentImpactQuery=(id?:string,requestEnabled=false)=>useQuery({queryKey:['repair-orders',id,'abandonment-impact'],queryFn:()=>apiRequest<RepairAbandonmentImpact>(`/repair-orders/${id}/abandonment-impact`),enabled:enabled()&&requestEnabled&&Boolean(id)});
+export function useRepairAbandonmentActions(){const qc=useQueryClient(),done=(_:unknown,v:any)=>{void qc.invalidateQueries({queryKey:erpKeys.repairOrders});void qc.invalidateQueries({queryKey:['repair-orders',v.repairOrderId]});void qc.invalidateQueries({queryKey:['repair-orders',v.repairOrderId,'abandonment-impact']});void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:erpKeys.parts})};return{request:useMutation({mutationFn:({repairOrderId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/abandonment`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),finalize:useMutation({mutationFn:({repairOrderId}:any)=>apiRequest(`/repair-orders/${repairOrderId}/abandonment/finalize`,{method:'POST',body:'{}'}),onSuccess:done}),handover:useMutation({mutationFn:({repairOrderId,...body}:any)=>apiRequest(`/repair-orders/${repairOrderId}/abandonment/handover`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done})}}
 export function usePartMovement() {
   const qc = useQueryClient();
   return useMutation({

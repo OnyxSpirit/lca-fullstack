@@ -177,7 +177,8 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ('service','approve','service.order.approve','Enregistrer la décision client','SAV & Atelier','Tracer l’approbation ou le refus du client',TRUE),
 ('service','update','service.order.ready','Déclarer un OR prêt','SAV & Atelier','Valider la disponibilité pour restitution',TRUE),
 ('service','invoice','service.order.invoice','Transmettre un OR à la facturation','SAV & Atelier','Déclencher la facturation sous réserve des permissions Billing',TRUE),
-('service','cancel','service.order.cancel','Annuler un ordre de réparation','SAV & Atelier','Annuler un OR non terminal avec motif',TRUE)
+('service','cancel','service.order.cancel','Annuler un ordre de réparation','SAV & Atelier','Annuler un OR non terminal avec motif',TRUE),
+('service','abandon','service.order.abandon','Abandonner un ordre de réparation','SAV & Atelier','Suspendre, régulariser et finaliser un abandon client',TRUE)
 ON DUPLICATE KEY UPDATE module=VALUES(module),action=VALUES(action),name=VALUES(name),group_name=VALUES(group_name),description=VALUES(description),is_active=TRUE;
 
 INSERT INTO permissions(module,action,code,name,group_name,description,is_active) VALUES

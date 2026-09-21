@@ -279,7 +279,9 @@ export type RepairOrderStatus =
   | 'FACTURE'
   | 'LIVRE'
   | 'CLOTURE'
-  | 'ANNULE';
+  | 'ANNULE'
+  | 'ABANDON_EN_COURS'
+  | 'ABANDONNE';
 
 export interface ServiceOperation {
   id: string;
@@ -582,8 +584,8 @@ export interface Invoice {
   creditNotes?: CreditNote[];
 }
 export interface InvoiceLine{id:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;taxAmount:number;lineTotal:number}
-export interface InvoicePayment{id:string;paymentNumber:string;amount:number;paymentMethodId:string;paymentMethod:string;reference:string;status:string;paymentDate:string;receivedByName:string}
-export interface CreditNote{id:string;creditNoteNumber:string;amount:number;reason:string;status:string;issueDate:string;createdByName:string}
+export interface InvoicePayment{id:string;paymentNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;paymentMethodId:string;paymentMethod:string;reference:string;status:string;paymentDate:string;receivedByName:string}
+export interface CreditNote{id:string;creditNoteNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;reason:string;status:string;issueDate:string;createdByName:string}
 
 // Showroom Visitors
 export interface ShowroomVisitor {

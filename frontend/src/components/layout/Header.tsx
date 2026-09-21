@@ -69,7 +69,7 @@ export const Header: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => setAgencyDropdownOpen(!agencyDropdownOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[#242426] bg-[#f5f4f2] hover:bg-[#ece9e5] border border-[#dedbd7] rounded-md transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[#242426] bg-[#ffffff] hover:bg-[#ece9e5] border border-[#dedbd7] rounded-md transition-colors cursor-pointer"
           >
             <Building2 className="w-4 h-4 text-[#8f1722] shrink-0" />
             <span className="max-w-[140px] sm:max-w-[200px] truncate">{currentAgency.name}</span>

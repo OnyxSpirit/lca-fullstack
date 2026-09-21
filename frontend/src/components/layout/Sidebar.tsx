@@ -193,7 +193,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#0b0b0c] text-zinc-400 select-none">
+    <div className="flex flex-col h-full bg-[#fffffff] text-zinc-400 select-none">
       {/* Brand Header */}
       <div className="h-20 px-5 flex items-center justify-between border-b border-white/10">
         <NavLink
@@ -203,13 +203,13 @@ export const Sidebar: React.FC = () => {
         >
          
          
-          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='/images/logo-lca.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='/images/logo-lca.png'/></div>}
+          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='/images/logo-lca2.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='/images/logo-lca2.png'/></div>}
         </NavLink>
 
         {/* Mobile close button */}
         <button
           onClick={() => setMobileMenuOpen(false)}
-          className="p-1.5 text-slate-400 hover:text-white rounded-lg lg:hidden"
+          className="p-1.5 text-slate-400 hover:text-red rounded-lg lg:hidden"
         >
           <X className="w-5 h-5" />
         </button>
@@ -225,7 +225,7 @@ export const Sidebar: React.FC = () => {
           return (
             <div key={sIdx} className={sIdx > 0 ? 'pt-4 border-t border-white/8' : ''}>
               {!sidebarCollapsed && (
-                <div className="px-3 mb-2 text-[9px] uppercase tracking-[0.18em] font-bold text-zinc-600">
+                <div className="px-3 mb-2 text-[9px] uppercase tracking-[0.18em] font-bold text-gray-600">
                   {section.title}
                 </div>
               )}
@@ -239,8 +239,8 @@ export const Sidebar: React.FC = () => {
                       cn(
                         'relative flex items-center gap-3 px-3 py-2 rounded-sm transition-colors cursor-pointer',
                         isActive
-                          ? 'bg-[#8f1722] text-white font-semibold before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[3px] before:bg-white'
-                          : 'text-zinc-400 hover:bg-white/7 hover:text-white',
+                          ? 'bg-[#8f1722] text-white font-semibold before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[3px] before:bg-grey-800'
+                          : ' text-gray-950 hover:bg-white/7 hover:text-red-800',
                         sidebarCollapsed && 'justify-center px-2'
                       )
                     }
@@ -301,7 +301,7 @@ export const Sidebar: React.FC = () => {
       {/* Desktop Persistent Sidebar */}
       <aside
         className={cn(
-          'hidden lg:block shrink-0 transition-all duration-200 ease-in-out border-r border-slate-800 z-20',
+          'hidden lg:block bg-white shrink-0 transition-all duration-200 ease-in-out border-r border-slate-800 z-20',
           sidebarCollapsed ? 'w-18' : 'w-64'
         )}
       >
@@ -314,7 +314,7 @@ export const Sidebar: React.FC = () => {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-white-900/60 backdrop-blur-xl transition-opacity"
             onClick={() => setMobileMenuOpen(false)}
           />
           <div className="fixed inset-y-0 left-0 w-72 max-w-full z-10 shadow-2xl animate-in slide-in-from-left duration-200">

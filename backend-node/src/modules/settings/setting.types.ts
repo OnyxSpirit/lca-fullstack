@@ -1,5 +1,5 @@
 export interface WorkshopRates{T1:number;T2:number;T3:number;T4:number}
-export interface UpdateSettingsPayload{billing:{defaultVatRate:number};workshop:{rates:WorkshopRates}}
+export interface UpdateSettingsPayload{billing:{defaultVatRate:number};workshop?:{rates:WorkshopRates}}
 export interface ConcessionIdentityPayload{name:string;legalName?:string|null;taxIdentifier?:string|null;address?:string|null;city?:string|null;country?:string|null;currencyCode:string;timezone:string}
 export interface AgencyPayload{name:string;code:string;address?:string|null;city?:string|null;phone?:string|null;email?:string|null;concessionId?:string}
 export const SETTING_KEYS={vat:'billing.default_vat_rate',T1:'workshop.rate_t1',T2:'workshop.rate_t2',T3:'workshop.rate_t3',T4:'workshop.rate_t4'} as const;

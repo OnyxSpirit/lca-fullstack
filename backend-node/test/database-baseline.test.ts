@@ -2,27 +2,30 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { BASELINE_VERSION, classifyDatabase, databasePath, futureMigrationNames } from '../src/scripts/database-bootstrap.js';
+import { FRESH_BASELINE_VERSION, MINIMUM_MIGRATION_VERSION, classifyDatabase, databasePath, futureMigrationNames, shouldApplyMigration } from '../src/scripts/database-bootstrap.js';
 
 const root=resolve(import.meta.dirname,'../..');
 const read=(path:string)=>readFileSync(resolve(root,path),'utf8');
 const baseline=read('backend-node/database/baseline/001_initial_schema.sql');
 const seed=read('backend-node/database/seeds/001_system_seed.sql');
+const seedAdmin=read('backend-node/src/scripts/seed-admin.ts');
+const laborRateProvisioning=read('backend-node/src/scripts/workshop-labor-rate-provisioning.ts');
 const docker=read('docker-compose.yml');
 
 function sourceFiles(directory:string):string[]{return readdirSync(directory).flatMap(name=>{const path=resolve(directory,name);return statSync(path).isDirectory()?sourceFiles(path):/\.tsx?$/.test(name)?[path]:[];});}
 function codes(text:string){return new Set([...text.matchAll(/['"]([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+)['"]/g)].map(match=>match[1]));}
 
-test('BASELINE-01 est unique, versionné 033 et non destructif',()=>{
-  assert.equal(BASELINE_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(33,'baseline_001_033'/);
+test('BASELINE-01 est unique, versionné 040 et non destructif',()=>{
+  assert.equal(FRESH_BASELINE_VERSION,40);assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(40,'baseline_001_040'/);
   assert.doesNotMatch(baseline,/^\s*(DROP|DELETE|UPDATE|TRUNCATE)\b/im);
   const tables=[...baseline.matchAll(/CREATE TABLE\s+`?([a-z0-9_]+)`?/gi)].map(match=>match[1]);
-  assert.equal(tables.length,new Set(tables).size);assert.ok(tables.length>=80);
+  assert.equal(tables.length,new Set(tables).size);assert.ok(tables.length>=92);
 });
 
 test('BASELINE-02 représente les structures finales critiques',()=>{
   for(const token of ['refresh_tokens','customer_contacts','showroom_test_drives','delivery_status_history','workshop_session_history','part_stocks','purchase_order_receipts','document_sequences','uq_sales_quotation_id','uk_delivery_signature_final','uk_documents_source_key','event_key','parent_document_id','accumulated_pause_seconds'])assert.match(baseline,new RegExp(token));
   assert.match(baseline,/scope ENUM\('OWN','AGENCY','CONCESSION','GLOBAL'\)/);assert.match(baseline,/currency_code CHAR\(3\) NOT NULL DEFAULT 'XAF'/);
+  for(const token of ['uk_intervention_request','uk_reservation_request','uk_repair_item_request','repair_order_estimate_items','uk_intervention_estimate_item','uk_reservation_estimate_item','uk_repair_item_estimate','consumed_quantity','payment_refunds','abandonment_reason_code','handover_type','workshop_labor_rates','rate_code_snapshot','rate_label_snapshot'])assert.match(baseline,new RegExp(token));
 });
 
 test('BASELINE-03 le seed est système, idempotent et sans secret ni donnée métier',()=>{
@@ -50,6 +53,22 @@ test('BASELINE-06 seules les migrations futures strictement supérieures à 033 
   assert.deepEqual(futureMigrationNames(['033_ged.sql','034_next.sql','README.md','035_more.sql']),['034_next.sql','035_more.sql']);
   assert.match(read('backend-node/src/scripts/database-bootstrap.ts'),/DATABASE_VERSION_UNSUPPORTED/);
   assert.match(read('backend-node/src/scripts/database-bootstrap.ts'),/DUPLICATE_MIGRATION_VERSION/);
+});
+
+test('BASELINE-06B fresh saute 034–040 mais une base versionnée conserve ses upgrades',()=>{
+  assert.equal(shouldApplyMigration(34,new Set([40]),true),false);
+  assert.equal(shouldApplyMigration(40,new Set([40]),true),false);
+  assert.equal(shouldApplyMigration(41,new Set([40]),true),true);
+  assert.equal(shouldApplyMigration(40,new Set([39]),false),true);
+  assert.equal(shouldApplyMigration(39,new Set([38]),false),true);
+  assert.equal(shouldApplyMigration(34,new Set([33]),false),true);
+});
+
+test('BASELINE-06C le provisioning T1–T4 est central, idempotent et raccordé à seed:admin',()=>{
+  assert.match(seedAdmin,/provisionDefaultWorkshopLaborRates\(connection, concession\.insertId\)/);
+  for(const code of ['T1','T2','T3','T4'])assert.match(laborRateProvisioning,new RegExp(`code: '${code}'`));
+  assert.match(laborRateProvisioning,/ON DUPLICATE KEY UPDATE id=id/);
+  assert.doesNotMatch(laborRateProvisioning,/ON DUPLICATE KEY UPDATE[^\n]*(hourly_rate|label|is_active)/);
 });
 
 test('BASELINE-07 Docker initialise un volume vide avec baseline puis seed uniquement',()=>{

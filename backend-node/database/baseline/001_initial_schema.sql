@@ -1,4 +1,4 @@
--- LCA ERP — baseline MySQL 8, état fonctionnel après migration 033.
+-- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 040.
 -- À exécuter exclusivement sur une base vide. Le runner refuse toute base ambiguë.
 SET NAMES utf8mb4;
 
@@ -908,18 +908,18 @@ CREATE TABLE repair_orders (
     estimated_total DECIMAL(18,2) NOT NULL DEFAULT 0,
     actual_total DECIMAL(18,2) NOT NULL DEFAULT 0,
     cancellation_reason VARCHAR(500) NULL,
-    abandonment_reason_code VARCHAR(50) NULL,
-    abandonment_reason VARCHAR(500) NULL,
-    abandonment_requested_at DATETIME NULL,
-    abandonment_requested_by BIGINT UNSIGNED NULL,
-    abandoned_at DATETIME NULL,
-    abandoned_by BIGINT UNSIGNED NULL,
     created_by BIGINT UNSIGNED NULL,
     received_at DATETIME NULL,
     promised_completion_at DATETIME NULL,
     closed_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    abandonment_reason_code VARCHAR(50) NULL,
+    abandonment_reason VARCHAR(500) NULL,
+    abandonment_requested_at DATETIME NULL,
+    abandonment_requested_by BIGINT UNSIGNED NULL,
+    abandoned_at DATETIME NULL,
+    abandoned_by BIGINT UNSIGNED NULL,
     CONSTRAINT fk_ro_appointment FOREIGN KEY (appointment_id) REFERENCES service_appointments(id) ON DELETE SET NULL,
     CONSTRAINT fk_ro_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
     CONSTRAINT fk_ro_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE RESTRICT,
@@ -996,6 +996,11 @@ CREATE TABLE interventions (
     unit_price DECIMAL(18,2) NOT NULL DEFAULT 0,
     line_total DECIMAL(18,2) NOT NULL DEFAULT 0,
     status ENUM('planned','assigned','in_progress','completed','cancelled') NOT NULL DEFAULT 'planned',
+    request_key VARCHAR(64) NULL,
+    estimate_item_id BIGINT UNSIGNED NULL,
+    INDEX fk_intervention_ro (repair_order_id),
+    UNIQUE KEY uk_intervention_request (repair_order_id,request_key),
+    UNIQUE KEY uk_intervention_estimate_item (estimate_item_id),
     CONSTRAINT fk_intervention_ro FOREIGN KEY (repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -1206,11 +1211,44 @@ CREATE TABLE part_stocks (
     FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
+CREATE TABLE workshop_labor_rates (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    concession_id BIGINT UNSIGNED NOT NULL,
+    agency_id BIGINT UNSIGNED NULL,
+    parent_rate_id BIGINT UNSIGNED NULL,
+    code VARCHAR(50) NOT NULL,
+    label VARCHAR(150) NOT NULL,
+    hourly_rate DECIMAL(18,2) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_configured BOOLEAN NOT NULL DEFAULT TRUE,
+    display_order INT UNSIGNED NOT NULL DEFAULT 0,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    base_code_key VARCHAR(50) GENERATED ALWAYS AS (CASE WHEN agency_id IS NULL THEN code ELSE NULL END) STORED,
+    CONSTRAINT chk_workshop_labor_rate_amount CHECK (hourly_rate >= 0),
+    CONSTRAINT chk_workshop_labor_rate_scope CHECK (
+        (agency_id IS NULL AND parent_rate_id IS NULL) OR
+        (agency_id IS NOT NULL AND parent_rate_id IS NOT NULL)
+    ),
+    UNIQUE KEY uk_workshop_labor_rate_base_code (concession_id,base_code_key),
+    UNIQUE KEY uk_workshop_labor_rate_agency_override (agency_id,parent_rate_id),
+    INDEX idx_workshop_labor_rate_effective (concession_id,agency_id,is_active,is_configured,display_order),
+    INDEX idx_workshop_labor_rate_parent (parent_rate_id),
+    CONSTRAINT fk_workshop_labor_rate_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_workshop_labor_rate_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_workshop_labor_rate_parent FOREIGN KEY (parent_rate_id) REFERENCES workshop_labor_rates(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_workshop_labor_rate_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 CREATE TABLE repair_order_items (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     repair_order_id BIGINT UNSIGNED NOT NULL,
     part_id BIGINT UNSIGNED NULL,
     part_stock_id BIGINT UNSIGNED NULL,
+    labor_rate_id BIGINT UNSIGNED NULL,
+    rate_code_snapshot VARCHAR(50) NULL,
+    rate_label_snapshot VARCHAR(150) NULL,
     intervention_id BIGINT UNSIGNED NULL,
     item_type ENUM('part','labor','accessory','other') NOT NULL,
     description VARCHAR(255) NOT NULL,
@@ -1222,11 +1260,18 @@ CREATE TABLE repair_order_items (
     status ENUM('active','cancelled') NOT NULL DEFAULT 'active',
     cancelled_by BIGINT UNSIGNED NULL,
     cancelled_at DATETIME NULL,
+    request_key VARCHAR(64) NULL,
+    estimate_item_id BIGINT UNSIGNED NULL,
+    INDEX fk_roi_ro (repair_order_id),
+    UNIQUE KEY uk_repair_item_request (repair_order_id,request_key),
+    UNIQUE KEY uk_repair_item_estimate (estimate_item_id),
+    INDEX idx_repair_item_labor_rate (labor_rate_id),
     CONSTRAINT fk_roi_ro FOREIGN KEY (repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,
     CONSTRAINT fk_roi_part FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL,
     CONSTRAINT fk_roi_stock FOREIGN KEY (part_stock_id) REFERENCES part_stocks(id) ON DELETE RESTRICT,
     CONSTRAINT fk_roi_cancelled_by FOREIGN KEY (cancelled_by) REFERENCES users(id) ON DELETE SET NULL,
-    CONSTRAINT fk_roi_intervention FOREIGN KEY (intervention_id) REFERENCES interventions(id) ON DELETE SET NULL
+    CONSTRAINT fk_roi_intervention FOREIGN KEY (intervention_id) REFERENCES interventions(id) ON DELETE SET NULL,
+    CONSTRAINT fk_repair_item_labor_rate FOREIGN KEY (labor_rate_id) REFERENCES workshop_labor_rates(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE repair_quality_controls (
@@ -1245,8 +1290,8 @@ CREATE TABLE repair_order_handovers (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, repair_order_id BIGINT UNSIGNED NOT NULL UNIQUE,
     customer_name VARCHAR(200) NOT NULL, mileage_out INT UNSIGNED NULL, observations TEXT NULL,
     signature_data LONGTEXT NULL, handed_over_by BIGINT UNSIGNED NULL,
-    handover_type ENUM('repair','abandonment') NOT NULL DEFAULT 'repair',
     handed_over_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    handover_type ENUM('repair','abandonment') NOT NULL DEFAULT 'repair',
     FOREIGN KEY(repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,
     FOREIGN KEY(handed_over_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -1262,6 +1307,12 @@ CREATE TABLE part_reservations (
     status ENUM('reserved','consumed','released') NOT NULL DEFAULT 'reserved',
     created_by BIGINT UNSIGNED NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    request_key VARCHAR(64) NULL,
+    estimate_item_id BIGINT UNSIGNED NULL,
+    consumed_quantity DECIMAL(12,2) NOT NULL DEFAULT 0,
+    INDEX repair_order_id (repair_order_id),
+    UNIQUE KEY uk_reservation_request (repair_order_id,request_key),
+    UNIQUE KEY uk_reservation_estimate_item (estimate_item_id),
     FOREIGN KEY (repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,
     FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE RESTRICT,
     FOREIGN KEY (agency_id) REFERENCES agencies(id),
@@ -1269,6 +1320,41 @@ CREATE TABLE part_reservations (
     FOREIGN KEY (part_stock_id) REFERENCES part_stocks(id),
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+CREATE TABLE repair_order_estimate_items (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    repair_order_id BIGINT UNSIGNED NOT NULL,
+    part_id BIGINT UNSIGNED NULL,
+    labor_rate_id BIGINT UNSIGNED NULL,
+    rate_code_snapshot VARCHAR(50) NULL,
+    rate_label_snapshot VARCHAR(150) NULL,
+    item_type ENUM('part','labor') NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    quantity DECIMAL(12,2) NOT NULL,
+    unit_price DECIMAL(18,2) NOT NULL,
+    discount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    tax_rate DECIMAL(8,4) NOT NULL DEFAULT 0,
+    line_total DECIMAL(18,2) NOT NULL,
+    request_key VARCHAR(64) NULL,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_repair_estimate_request (repair_order_id,request_key),
+    INDEX idx_repair_estimate_order (repair_order_id),
+    INDEX idx_repair_estimate_labor_rate (labor_rate_id),
+    CONSTRAINT fk_repair_estimate_order FOREIGN KEY (repair_order_id) REFERENCES repair_orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_repair_estimate_part FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_repair_estimate_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_repair_estimate_labor_rate FOREIGN KEY (labor_rate_id) REFERENCES workshop_labor_rates(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+ALTER TABLE interventions
+    ADD CONSTRAINT fk_intervention_estimate_item FOREIGN KEY (estimate_item_id) REFERENCES repair_order_estimate_items(id) ON DELETE RESTRICT;
+
+ALTER TABLE part_reservations
+    ADD CONSTRAINT fk_reservation_estimate_item FOREIGN KEY (estimate_item_id) REFERENCES repair_order_estimate_items(id) ON DELETE RESTRICT;
+
+ALTER TABLE repair_order_items
+    ADD CONSTRAINT fk_repair_item_estimate FOREIGN KEY (estimate_item_id) REFERENCES repair_order_estimate_items(id) ON DELETE RESTRICT;
 
 CREATE TABLE purchase_orders (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1757,6 +1843,6 @@ CREATE INDEX idx_part_stock ON parts(current_stock, min_stock);
 CREATE INDEX idx_invoice_status_due ON invoices(status, due_date);
 CREATE INDEX idx_payment_date ON payments(payment_date);
 
--- Le baseline représente directement l'état atteint après 033.
+-- Le baseline représente directement l'état consolidé au niveau 040.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (33,'baseline_001_033',REPEAT('0',64));
+VALUES (40,'baseline_001_040',REPEAT('0',64));

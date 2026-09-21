@@ -5,8 +5,9 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useUiStore } from '../../stores/uiStore';
-import { type AgencyInput, type ConcessionIdentity, type SettingsAgency, type WorkshopRates, useAgencyActions, useCurrentConcessionQuery, useDocumentLogo, useSettingsAgenciesQuery, useSettingsQuery, useUpdateConcession, useUpdateSettings } from '../../api/settingHooks';
+import { type AgencyInput, type ConcessionIdentity, type SettingsAgency, useAgencyActions, useCurrentConcessionQuery, useDocumentLogo, useSettingsAgenciesQuery, useSettingsQuery, useUpdateConcession, useUpdateSettings } from '../../api/settingHooks';
 import { BaysSettings, SuppliersSettings } from './OperationalResourcesSettings';
+import { WorkshopLaborRatesSettings } from './WorkshopLaborRatesSettings';
 import { useAuthStore } from '../../stores/authStore';
 
 type Tab = 'general' | 'workshop' | 'suppliers' | 'agencies' | 'integrations';
@@ -19,7 +20,6 @@ export const SettingsPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('general');
   const [identity, setIdentity] = useState(emptyIdentity);
   const [vat, setVat] = useState(18.9);
-  const [rates, setRates] = useState<WorkshopRates>({ T1: 35000, T2: 45000, T3: 55000, T4: 45000 });
   const [agencyForm, setAgencyForm] = useState<AgencyInput>(emptyAgency);
   const [editedAgency, setEditedAgency] = useState<SettingsAgency | null>(null);
   const settings = useSettingsQuery(canView), concession = useCurrentConcessionQuery(canView), agencies = useSettingsAgenciesQuery(canView);
@@ -27,11 +27,11 @@ export const SettingsPage: React.FC = () => {
   const addToast = useUiStore(s => s.addToast);
 
   useEffect(() => { if (concession.data) setIdentity({ name: concession.data.tradeName??concession.data.name??'', legalName: concession.data.legalName, taxIdentifier: concession.data.taxIdentifier, address: concession.data.concessionAddress??concession.data.address, city: concession.data.concessionCity??concession.data.city, country: concession.data.country, currencyCode: concession.data.currencyCode, timezone: concession.data.timezone }) }, [concession.data]);
-  useEffect(() => { if (settings.data) { setVat(settings.data.billing.defaultVatRate); setRates(settings.data.workshop.rates); } }, [settings.data]);
+  useEffect(() => { if (settings.data) setVat(settings.data.billing.defaultVatRate); }, [settings.data]);
   const notify = (title: string) => addToast({ type: 'success', title });
   const fail = (error: unknown) => addToast({ type: 'error', title: 'Opération impossible', description: error instanceof Error ? error.message : 'Erreur API' });
   const saveIdentity = async (e: React.FormEvent) => { e.preventDefault(); try { await updateConcession.mutateAsync(identity); notify('Identité de la concession enregistrée'); } catch (error) { fail(error); } };
-  const saveBusiness = async (e: React.FormEvent) => { e.preventDefault(); try { await updateSettings.mutateAsync({ billing: { defaultVatRate: vat }, workshop: { rates } }); notify('Paramètres métier enregistrés'); } catch (error) { fail(error); } };
+  const saveBusiness = async (e: React.FormEvent) => { e.preventDefault(); try { await updateSettings.mutateAsync({ billing: { defaultVatRate: vat } }); notify('TVA enregistrée'); } catch (error) { fail(error); } };
   const createAgency = async (e: React.FormEvent) => { e.preventDefault(); try { await agencyActions.create.mutateAsync(agencyForm); setAgencyForm(emptyAgency); notify('Agence créée'); } catch (error) { fail(error); } };
   const saveAgency = async (e: React.FormEvent) => { e.preventDefault(); if (!editedAgency) return; try { await agencyActions.update.mutateAsync(editedAgency); setEditedAgency(null); notify('Agence mise à jour'); } catch (error) { fail(error); } };
   const toggleAgency = async (agency: SettingsAgency) => { try { await agencyActions.status.mutateAsync({ id: agency.id, isActive: !agency.isActive }); notify(agency.isActive ? 'Agence désactivée' : 'Agence réactivée'); } catch (error) { fail(error); } };
@@ -48,7 +48,7 @@ export const SettingsPage: React.FC = () => {
       {admin&&<div className="flex items-end gap-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateConcession.isPending}>Enregistrer l’identité</Button><Button type="button" variant="outline" onClick={saveBusiness} loading={updateSettings.isPending}>Enregistrer la TVA</Button></div>}
     </form></Card>}
 
-    {tab === 'workshop' && <div className="space-y-4">{canWorkshop&&<Card><CardHeader><div><CardTitle>Ressources atelier</CardTitle><CardDescription>Ponts, postes et ressources opérationnelles disponibles pour le planning.</CardDescription></div></CardHeader><BaysSettings/></Card>}<Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Tarifs HT appliqués aux nouvelles lignes de main-d’œuvre.</CardDescription></div></CardHeader><form onSubmit={saveBusiness} className="grid gap-4 md:grid-cols-2">{([['T1','T1 · Entretien rapide'],['T2','T2 · Mécanique'],['T3','T3 · Diagnostic et électronique'],['T4','T4 · Carrosserie et peinture']] as const).map(([key,label]) => <label key={key} className="text-xs font-semibold text-slate-700">{label}<div className="mt-1 flex items-center gap-2"><input disabled={!admin} className={`${field} disabled:bg-slate-100`} type="number" min="0" step="1" value={rates[key]} onChange={e => setRates(current => ({ ...current, [key]: Number(e.target.value) }))} /><span className="whitespace-nowrap text-slate-500">{settings.data?.concession.currencyCode??'—'} HT/h</span></div></label>)}{admin&&<div className="md:col-span-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateSettings.isPending}>Enregistrer les barèmes</Button></div>}</form></Card></div>}
+    {tab === 'workshop' && <div className="space-y-4">{canWorkshop&&<Card><CardHeader><div><CardTitle>Ressources atelier</CardTitle><CardDescription>Ponts, postes et ressources opérationnelles disponibles pour le planning.</CardDescription></div></CardHeader><BaysSettings/></Card>}<Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Référentiel concession, surcharges agence et tarifs effectifs des nouveaux chiffrages.</CardDescription></div></CardHeader><WorkshopLaborRatesSettings currencyCode={settings.data?.concession.currencyCode??'XAF'}/></Card></div>}
 
     {tab === 'suppliers' && <SuppliersSettings/>}
 

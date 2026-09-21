@@ -152,17 +152,16 @@ export function validateSettings(body: unknown): UpdateSettingsPayload {
   const b = body as Partial<UpdateSettingsPayload>,
     vat = number(b.billing?.defaultVatRate, "TVA", 100),
     rates = b.workshop?.rates;
-  if (!rates) throw new HttpError(400, "Tarifs atelier obligatoires");
   return {
     billing: { defaultVatRate: vat },
-    workshop: {
+    ...(rates?{workshop: {
       rates: {
         T1: number(rates.T1, "Tarif T1"),
         T2: number(rates.T2, "Tarif T2"),
         T3: number(rates.T3, "Tarif T3"),
         T4: number(rates.T4, "Tarif T4"),
       },
-    },
+    }}:{}),
   };
 }
 export async function update(body: unknown, r: Request) {
@@ -171,14 +170,16 @@ export async function update(body: unknown, r: Request) {
     concessionId = await currentConcessionId(r),
     entries = [
       [SETTING_KEYS.vat, value.billing.defaultVatRate],
-      [SETTING_KEYS.T1, value.workshop.rates.T1],
-      [SETTING_KEYS.T2, value.workshop.rates.T2],
-      [SETTING_KEYS.T3, value.workshop.rates.T3],
-      [SETTING_KEYS.T4, value.workshop.rates.T4],
+      ...(value.workshop?[
+        [SETTING_KEYS.T1, value.workshop.rates.T1],
+        [SETTING_KEYS.T2, value.workshop.rates.T2],
+        [SETTING_KEYS.T3, value.workshop.rates.T3],
+        [SETTING_KEYS.T4, value.workshop.rates.T4],
+      ] as const:[]),
     ] as const;
   await transaction(async (c) => {
     const [old] = await c.execute<RowDataPacket[]>(
-      `SELECT setting_key,setting_value FROM settings WHERE scope_type='concession' AND scope_id=? AND setting_key IN (?,?,?,?,?)`,
+      `SELECT setting_key,setting_value FROM settings WHERE scope_type='concession' AND scope_id=? AND setting_key IN (${entries.map(()=>'?').join(',')})`,
       [concessionId, ...entries.map((x) => x[0])],
     );
     for (const [key, v] of entries)

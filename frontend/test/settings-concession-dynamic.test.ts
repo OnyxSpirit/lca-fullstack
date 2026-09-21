@@ -6,6 +6,7 @@ const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'
 const page=source('src/modules/settings/SettingsPage.tsx');
 const hooks=source('src/api/settingHooks.ts');
 const resources=source('src/modules/settings/OperationalResourcesSettings.tsx');
+const laborRates=source('src/modules/settings/WorkshopLaborRatesSettings.tsx');
 
 test('SETTINGS-FE-01 accès et queries reposent sur settings.view',()=>{
   assert.match(page,/canView=can\('settings\.view'\)/);
@@ -40,8 +41,9 @@ test('SETTINGS-FE-05 cache Settings est isolé par utilisateur et agence',()=>{
 });
 
 test('SETTINGS-FE-06 devise affichée vient de Settings, pas d’un XAF décoratif',()=>{
-  assert.match(page,/settings\.data\?\.concession\.currencyCode\?\?'—'/);
-  assert.doesNotMatch(page,/XAF HT\/h/);
+  assert.match(page,/settings\.data\?\.concession\.currencyCode/);
+  assert.match(laborRates,/currencyCode/);
+  assert.doesNotMatch(laborRates,/XAF HT\/h/);
 });
 
 test('SETTINGS-FE-07 erreurs, loading et double clic utilisent les mutations',()=>{
@@ -56,4 +58,3 @@ test('SETTINGS-FE-08 aucune autorisation par rôle ni rendu HTML dangereux',()=>
   assert.doesNotMatch(page,/dangerouslySetInnerHTML/);
   assert.doesNotMatch(resources,/dangerouslySetInnerHTML/);
 });
-

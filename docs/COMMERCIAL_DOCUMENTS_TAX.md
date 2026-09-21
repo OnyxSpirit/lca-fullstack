@@ -10,4 +10,4 @@ L’identité est figée à l’émission du devis et de la facture dans `docume
 
 `commercial-document.ts` fournit le renderer PDFKit commun aux devis et factures : A4, en-tête, client, références, tableau paginé, totaux adaptés au régime fiscal, emplacements de signature/cachet et pied de page numéroté.
 
-La baseline locale reste au niveau logique 033. Une base vide reçoit directement ces colonnes. Une installation déjà marquée 033 n’est pas modifiée ; son passage en production exigera une migration additive 034+ reprenant ces ajouts sans suppression de données.
+La baseline fraîche consolidée est au niveau logique 040 et contient directement ces colonnes. Une installation historique n’exécute jamais la baseline : elle reçoit uniquement les migrations additives absentes selon son historique.

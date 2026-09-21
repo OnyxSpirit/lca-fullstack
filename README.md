@@ -69,14 +69,16 @@ consultez [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Base de données
 
-- nouvelle base vide : le bootstrap applique
+- nouvelle base vide : le bootstrap applique la baseline consolidée 040
   `backend-node/database/baseline/001_initial_schema.sql`, puis
-  `backend-node/database/seeds/001_system_seed.sql` ;
+  `backend-node/database/seeds/001_system_seed.sql`, sans rejouer 034–040 ;
 - base versionnée existante : seules les migrations absentes de
   `backend-node/database/migrations/`, à partir de `034`, sont appliquées ;
 - base non vide sans table `schema_migrations` : arrêt de sécurité, sans écriture.
 
-Ne rejouez jamais le baseline sur une installation existante. Les migrations
+Ne rejouez jamais le baseline sur une installation existante. La version de la
+baseline fraîche est indépendante du plan d'upgrade : une base 039 applique
+toujours 040. Les migrations
 `001` à `033` de `backend-node/database/legacy-migrations/` sont conservées uniquement pour la
 traçabilité. La procédure détaillée se trouve dans
 [`backend-node/database/README.md`](backend-node/database/README.md).

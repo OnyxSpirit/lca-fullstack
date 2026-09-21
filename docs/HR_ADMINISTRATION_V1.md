@@ -9,7 +9,7 @@ des permissions renvoyées par le backend.
 
 ## Données
 
-Le baseline logique 033 contient désormais 89 tables, dont six nouvelles :
+La baseline fraîche consolidée 040 contient 92 tables, dont les six tables RH :
 
 - `employee_profiles` lie au plus un profil RH à un utilisateur. L’identité et
   l’agence restent dans `users`. Un départ passe le profil à `departed` ; aucune

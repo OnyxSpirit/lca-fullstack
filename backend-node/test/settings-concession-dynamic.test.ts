@@ -69,7 +69,7 @@ test('SETTINGS-10 TVA, devise et barèmes sont consommés par Billing et Atelier
   assert.match(billing,/lines\(r\.body\.items,config\.vatRate\)/);
   assert.match(billing,/currency_code[\s\S]*config\.currencyCode/);
   assert.match(workshop,/getEffectiveBusinessSettings/);
-  assert.match(workshop,/businessConfig\.rates\[rateCode/);
+  assert.match(workshop,/resolveEffectiveLaborRateSelection/);
   assert.match(workshop,/businessConfig\.currencyCode/);
 });
 
@@ -84,4 +84,3 @@ test('SETTINGS-12 aucun rôle historique ni secret infrastructure ne gouverne Se
   for(const role of ['DIRECTOR','DIRECTION','MANAGER','ADMIN','ACCOUNTANT','RECEPTIONIST'])assert.doesNotMatch(service,new RegExp(role));
   assert.doesNotMatch(service,/JWT|DB_PASSWORD|SMTP|private.?key/i);
 });
-

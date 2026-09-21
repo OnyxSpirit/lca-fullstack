@@ -223,6 +223,11 @@ const mapSale = (r: any): Sale => ({
   actualDeliveryDate: r.sold_at ?? undefined,
   notes: r.notes ?? "",
 });
+export const mapRepairStatus=(status:unknown):RepairOrder['status']=>{
+  const mapped=repairOrderStatusFromDb[status as keyof typeof repairOrderStatusFromDb];
+  if(!mapped)throw new Error(`Statut OR backend inconnu : ${String(status)}`);
+  return mapped;
+};
 export const mapRepair = (r: any): RepairOrder => ({
   id: s(r.id),
   orNumber: r.order_number,
@@ -237,9 +242,7 @@ export const mapRepair = (r: any): RepairOrder => ({
   advisorId: s(r.advisor_id),
   advisorName: r.advisor_name ?? "",
   agencyId: s(r.agency_id),
-  status:
-    repairOrderStatusFromDb[r.status as keyof typeof repairOrderStatusFromDb] ??
-    "PLANIFIE",
+  status:mapRepairStatus(r.status),
   appointmentDate: r.received_at ?? r.created_at,
   promisedCompletionDate: r.promised_completion_at ?? "",
   receptionChecklist: {
@@ -515,7 +518,8 @@ export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
 export const useSalesQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.sales,queryFn:async()=>(await apiRequest<any[]>('/sales')).map(mapSale),enabled:enabled()&&requestEnabled});
 export const useQuotationsQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.quotations,queryFn:()=>apiRequest<Quotation[]>('/quotations'),enabled:enabled()&&requestEnabled});
 export const useRepairOrdersQuery = (search="",status="",requestEnabled=true) => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()&&requestEnabled});
-export const useRepairStatsQuery = () => useQuery({queryKey:["repair-orders","stats"],queryFn:()=>apiRequest<any>("/repair-orders/stats"),enabled:enabled()});
+export interface RepairOrderStats {total:number;inWorkshop:number;in_progress:number;warranty:number;revenue:number;baysTotal:number;baysOccupied:number}
+export const useRepairStatsQuery = () => useQuery({queryKey:["repair-orders","stats"],queryFn:()=>apiRequest<RepairOrderStats>("/repair-orders/stats"),enabled:enabled()});
 export const usePartsQuery = (agencyId?:string,filters:{search?:string;categoryId?:string}={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.parts,agencyId,filters],queryFn:async()=>{const p=new URLSearchParams();if(agencyId)p.set('agencyId',agencyId);if(filters.search)p.set('search',filters.search);if(filters.categoryId)p.set('categoryId',filters.categoryId);return(await apiRequest<any[]>(`/parts?${p}`)).map(mapPart);},enabled:enabled()&&Boolean(agencyId)&&requestEnabled});
 export interface PartCategory {id:string;parent_id:string|null;name:string;code:string;description:string|null;is_active:number|boolean}
 export const usePartCategoriesQuery=(requestEnabled=true)=>useQuery({queryKey:['part-categories'],queryFn:()=>apiRequest<PartCategory[]>('/part-categories'),enabled:enabled()&&requestEnabled});

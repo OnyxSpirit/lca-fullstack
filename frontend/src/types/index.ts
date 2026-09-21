@@ -278,7 +278,8 @@ export type RepairOrderStatus =
   | 'PRET'
   | 'FACTURE'
   | 'LIVRE'
-  | 'CLOTURE';
+  | 'CLOTURE'
+  | 'ANNULE';
 
 export interface ServiceOperation {
   id: string;

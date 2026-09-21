@@ -50,8 +50,6 @@ export const ServiceDashboardPage: React.FC = () => {
   });
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
-  const openORCount = repairOrders.filter((o) => o.status !== 'CLOTURE' && o.status !== 'FACTURE').length;
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -86,7 +84,7 @@ export const ServiceDashboardPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 font-medium">OR en cours à l'Atelier</span>
             <div className="text-xl font-bold text-blue-700 mt-0.5">
-              {openORCount} véhicules
+              {Number(stats.data?.inWorkshop??0)} véhicules
             </div>
           </div>
           <Badge variant="primary" size="md">En cours</Badge>
@@ -144,6 +142,7 @@ export const ServiceDashboardPage: React.FC = () => {
             <option value="FACTURE">Facturé</option>
             <option value="LIVRE">Véhicule remis</option>
             <option value="CLOTURE">Clôturé</option>
+            <option value="ANNULE">Annulé</option>
           </select>
         </div>
       </div>

@@ -15,6 +15,7 @@ import { nextDocumentNumber } from "../billing/document-sequence.js";
 import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {renderRepairOrderDocument} from '../documents/commercial-document.js';
 import {repairOrderFinancialSummary} from './repair-order-finance.js';
+import {REPAIR_ORDER_IN_WORKSHOP_STATUSES} from './repair-order-status.js';
 export const workshopRouter = Router();
 type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.documents.view'|'service.documents.manage';
 type WorkshopPermission='workshop.view'|'workshop.plan'|'workshop.assign_technician'|'workshop.assign_bay'|'workshop.bay.view'|'workshop.bay.manage'|'workshop.schedule.view'|'workshop.schedule.manage'|'workshop.intervention.view'|'workshop.intervention.assign'|'workshop.intervention.update'|'workshop.session.view'|'workshop.session.track'|'workshop.session.manage'|'workshop.time.view'|'workshop.time.adjust'|'workshop.technicians.view'|'workshop.technicians.manage'|'workshop.resources.view'|'workshop.resources.manage'|'workshop.productivity.view';
@@ -331,8 +332,8 @@ workshopRouter.get(
   asyncHandler(async (r, res) => {
     const s = scope(r);
     const [x] = await query<RowDataPacket[]>(
-      `SELECT COUNT(*) total,SUM(status NOT IN('closed','cancelled')) open,SUM(status='in_progress') in_progress,SUM(warranty_covered) warranty,COALESCE(SUM(actual_total),0) revenue FROM repair_orders ro WHERE ${s.sql}`,
-      s.p,
+      `SELECT COUNT(*) total,SUM(status IN(${REPAIR_ORDER_IN_WORKSHOP_STATUSES.map(()=>'?').join(',')})) in_workshop,SUM(status='in_progress') in_progress,SUM(warranty_covered) warranty,COALESCE(SUM(actual_total),0) revenue FROM repair_orders ro WHERE ${s.sql}`,
+      [...REPAIR_ORDER_IN_WORKSHOP_STATUSES,...s.p],
     );
     const [b] = await query<RowDataPacket[]>(
       `SELECT COUNT(*) total,SUM(status='occupied') occupied FROM workshop_bays WHERE ${unrestricted(r) ? "1=1" : "agency_id=?"}`,
@@ -340,6 +341,7 @@ workshopRouter.get(
     );
     res.json({
       ...x,
+      inWorkshop: Number(x?.in_workshop??0),
       baysTotal: b?.total ?? 0,
       baysOccupied: b?.occupied ?? 0,
     });

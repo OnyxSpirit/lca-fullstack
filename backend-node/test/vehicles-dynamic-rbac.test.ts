@@ -11,6 +11,7 @@ const request=(permissions:Record<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'>={
   rbac:{roleId:'900',roleCode:'VEHICLE_OPERATOR_DYNAMIC',isSuperAdmin:Boolean(options.superAdmin),permissions:new Map(Object.entries(permissions))},
 }) as unknown as Request;
 const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
+const imageStorage=readFileSync(new URL('../src/modules/vehicles/vehicle-image-storage.ts',import.meta.url),'utf8');
 const migration=readFileSync(new URL('../database/legacy-migrations/026_vehicles_dynamic_permissions.sql',import.meta.url),'utf8');
 const sales=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
 
@@ -51,8 +52,9 @@ test('VEH-14/16 : rôle inconnu autorisé par permission et SUPER_ADMIN système
 });
 
 test('VEH-22/23 : la chaîne upload persiste une URL /uploads exploitable',()=>{
-  assert.match(source,/writeFile\(path\.join\(uploadRoot,fileName\)/);
-  assert.match(source,/`\/uploads\/vehicles\/\$\{fileName\}`/);
+  assert.match(imageStorage,/writeFile\(item\.stagingPath,buffer,\{flag:'wx'\}\)/);
+  assert.match(imageStorage,/publicPath:`\/uploads\/vehicles\/\$\{fileName\}`/);
+  assert.match(imageStorage,/await fs\.link\(file\.stagingPath,file\.finalPath\)/);
   const app=readFileSync(new URL('../src/app.ts',import.meta.url),'utf8');
   const nginx=readFileSync(new URL('../../frontend/nginx/default.conf',import.meta.url),'utf8');
   const compose=readFileSync(new URL('../../docker-compose.yml',import.meta.url),'utf8');

@@ -20,14 +20,17 @@ async function userProfile(user) {
         permissions: rbac.isSuperAdmin ? [{ code: '*', scope: 'GLOBAL' }] : [...rbac.permissions.entries()].map(([code, scope]) => ({ code, scope })),
     };
 }
-async function issueTokens(user, roles) {
-    const payload = { sub: String(user.id), email: user.email, roles, agencyId: user.agency_id == null ? null : String(user.agency_id) };
-    const accessToken = jwt.sign(payload, env.jwt.accessSecret, { expiresIn: env.jwt.accessTtl });
-    const tokenId = randomUUID();
-    const refreshToken = jwt.sign({ ...payload, jti: tokenId, type: 'refresh' }, env.jwt.refreshSecret, { expiresIn: env.jwt.refreshTtl });
+function tokensFor(user, roles, sessionId) {
+    const payload = { sub: String(user.id), email: user.email, roles, agencyId: user.agency_id == null ? null : String(user.agency_id), sid: sessionId };
+    const accessToken = jwt.sign(payload, env.jwt.accessSecret, { algorithm: 'HS256', expiresIn: env.jwt.accessTtl });
+    const refreshToken = jwt.sign({ ...payload, jti: randomUUID(), type: 'refresh' }, env.jwt.refreshSecret, { algorithm: 'HS256', expiresIn: env.jwt.refreshTtl });
     const decoded = jwt.decode(refreshToken);
-    await execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,FROM_UNIXTIME(?))', [tokenId, user.id, hashToken(refreshToken), decoded.exp ?? 0]);
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, refreshHash: hashToken(refreshToken), refreshExpiresAt: decoded.exp ?? 0 };
+}
+async function issueTokens(user, roles) {
+    const sessionId = randomUUID(), tokens = tokensFor(user, roles, sessionId);
+    await execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,FROM_UNIXTIME(?))', [sessionId, user.id, tokens.refreshHash, tokens.refreshExpiresAt]);
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
 }
 export async function login(email, password) {
     const [user] = await query('SELECT u.id,u.agency_id,u.first_name,u.last_name,u.email,u.password_hash,u.is_active,u.avatar_path,a.name agency_name,a.code agency_code FROM users u JOIN agencies a ON a.id=u.agency_id WHERE u.email=? LIMIT 1', [email.trim().toLowerCase()]);
@@ -42,19 +45,21 @@ export async function login(email, password) {
 }
 export async function refresh(refreshToken) {
     try {
-        const payload = jwt.verify(refreshToken, env.jwt.refreshSecret);
-        if (payload.type !== 'refresh')
+        const payload = jwt.verify(refreshToken, env.jwt.refreshSecret, { algorithms: ['HS256'] });
+        if (payload.type !== 'refresh' || !payload.jti)
             throw new Error();
-        const revoked = await execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE id=? AND token_hash=? AND revoked_at IS NULL AND expires_at>NOW()', [payload.jti, hashToken(refreshToken)]);
-        if (!revoked.affectedRows)
-            throw new Error();
+        const sessionId = payload.sid ?? payload.jti;
         const [user] = await query('SELECT id,agency_id,first_name,last_name,email,password_hash,is_active FROM users WHERE id=? AND is_active=TRUE', [payload.sub]);
         if (!user)
             throw new Error();
         const roles = await rolesFor(String(user.id));
         if (!roles.length)
             throw new Error();
-        return { ...(await issueTokens(user, roles)), user: await userProfile(user) };
+        const tokens = tokensFor(user, roles, sessionId);
+        const rotated = await execute(`UPDATE refresh_tokens rt JOIN users u ON u.id=rt.user_id AND u.is_active=TRUE SET rt.token_hash=?,rt.expires_at=FROM_UNIXTIME(?) WHERE rt.id=? AND rt.user_id=? AND rt.token_hash=? AND rt.revoked_at IS NULL AND rt.expires_at>NOW()`, [tokens.refreshHash, tokens.refreshExpiresAt, sessionId, payload.sub, hashToken(refreshToken)]);
+        if (!rotated.affectedRows)
+            throw new Error();
+        return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, user: await userProfile(user) };
     }
     catch {
         throw new HttpError(401, 'Refresh token invalide');
@@ -66,6 +71,14 @@ export async function me(userId) {
         throw new HttpError(401, 'Utilisateur inactif ou introuvable');
     return { user: await userProfile(user) };
 }
-export async function logout(refreshToken) {
-    await execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=? AND revoked_at IS NULL', [hashToken(refreshToken)]);
+export async function logout(refreshToken, sessionId, userId) {
+    try {
+        const payload = jwt.verify(refreshToken, env.jwt.refreshSecret, { algorithms: ['HS256'], ignoreExpiration: true });
+        if (payload.type !== 'refresh' || !payload.jti || payload.sid !== sessionId || payload.sub !== userId)
+            throw new Error();
+        await execute('UPDATE refresh_tokens SET revoked_at=COALESCE(revoked_at,NOW()) WHERE id=? AND user_id=?', [sessionId, userId]);
+    }
+    catch {
+        throw new HttpError(401, 'Refresh token invalide');
+    }
 }

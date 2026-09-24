@@ -10,3 +10,10 @@ Les anciens remboursements portés
 par `payments.status='refunded'` restent lus séparément et ne sont pas recopiés.
 La numérotation continue sans doublon. Les migrations 001–033 de
 `../legacy-migrations/` ne sont jamais parcourues par le runner.
+
+La migration `045_customer_identity_per_agency.sql` définit l’identité client
+par agence. L’e-mail (`TRIM`, insensible à la casse) et le téléphone (caractères
+non numériques retirés, sans conversion national/international) disposent de
+colonnes générées et d’index uniques distincts avec `agency_id`. Chaque valeur
+reste nullable. Le préflight signale uniquement le type et le nombre de groupes
+incompatibles, sans afficher les coordonnées et sans fusion automatique.

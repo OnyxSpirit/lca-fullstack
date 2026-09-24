@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { User, Agency, PermissionAction, EffectivePermissionScope } from '../types';
-import { apiRequest } from '../services/apiClient';
+import { apiRequest, markAuthSessionBoundary } from '../services/apiClient';
 import { connectRealtime, disconnectRealtime } from '../services/realtime';
 import { hasDynamicPermission } from '../navigation/permissions';
+import { clearSessionClientState } from '../services/sessionIsolation';
 
 const AUTH_STORAGE_KEY = 'lca-auth-user';
 const ACCESS_TOKEN_KEY = 'lca-access-token';
@@ -48,23 +49,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const response = await apiRequest<{ accessToken: string; refreshToken: string; user: AuthProfile }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
       const user = toUser(response.user);
       const agency: Agency = { id: user.agencyId, name: response.user.agencyName, code: response.user.agencyCode, city: '', address: '', phone: '', email: '', isMain: true, isActive: true };
+      markAuthSessionBoundary();
+      clearSessionClientState();
       localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken); localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken); localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
       connectRealtime(response.accessToken); set({ currentUser: user, currentAgency: agency, allUsers: [user], allAgencies: [agency], isAuthenticated: true }); return { success: true };
     } catch (error) { return { success: false, message: error instanceof Error ? error.message : 'Connexion impossible' }; }
   },
 
   logout: () => {
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY); if (refreshToken) void apiRequest('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }).catch(() => undefined);
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY),hadStoredSession=Boolean(localStorage.getItem(AUTH_STORAGE_KEY)||localStorage.getItem(ACCESS_TOKEN_KEY)||refreshToken);
+    markAuthSessionBoundary();
+    if (refreshToken) void apiRequest('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }).catch(() => undefined);
+    if(hadStoredSession)clearSessionClientState();
     localStorage.removeItem(AUTH_STORAGE_KEY); localStorage.removeItem(ACCESS_TOKEN_KEY); localStorage.removeItem(REFRESH_TOKEN_KEY); disconnectRealtime();
-    set({ currentUser: null, currentAgency: null, isAuthenticated: false });
+    set({ currentUser: null, currentAgency: null, allUsers: [], allAgencies: [], isAuthenticated: false });
   },
 
   setCurrentUser: (user) => {
+    if (get().currentUser?.id && get().currentUser?.id !== user.id){markAuthSessionBoundary();clearSessionClientState();}
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     set({ currentUser: user, currentAgency: get().allAgencies.find((a) => a.id === user.agencyId) ?? get().currentAgency, isAuthenticated: true });
   },
 
-  setCurrentAgency: (agency) => set({ currentAgency: agency }),
+  setCurrentAgency: (agency) => {
+    if (get().currentAgency?.id !== agency.id){markAuthSessionBoundary();clearSessionClientState();}
+    set({ currentAgency: agency });
+  },
 
   setDirectory: (users, agencies) => set((state) => ({ allUsers: users, allAgencies: agencies, currentAgency: agencies.find((a) => a.id === state.currentUser?.agencyId) ?? state.currentAgency })),
 

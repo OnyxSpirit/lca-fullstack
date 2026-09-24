@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { Router, type Request } from "express";
 import PDFDocument from "pdfkit";
@@ -6,7 +6,7 @@ import {archiveDelivery,safelyArchive} from "../documents/business-document.serv
 import {renderDeliveryDocument} from "../documents/commercial-document.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { execute, query, transaction } from "../../config/database.js";
-import { requirePermission } from "../../middleware/require-permission.js";
+import { requireAnyPermission, requirePermission } from "../../middleware/require-permission.js";
 import { asyncHandler } from "../../middleware/error-handler.js";
 import { emitToAgency } from "../../realtime/socket.js";
 import { HttpError } from "../../shared/http-error.js";
@@ -14,6 +14,8 @@ import { notifyPermissions as createPermissionNotifications } from "../notificat
 import { assertFinanciallySettled } from "../billing/payment.domain.js";
 import {assertHandoverMileage,deliverySignatureHash} from './delivery.domain.js';
 import {operationalCandidateSql} from '../users/operational-candidate.js';
+import {requireDocumentFile,storeDocument} from '../documents/document-storage.js';
+import {decodeDeliveryDocument} from './delivery-document.js';
 
 export const deliveryRouter = Router();
 type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel';
@@ -34,6 +36,7 @@ const ALLOWED: Record<string, string[]> = {
   cancelled: [],
 };
 const PHASE_FOR_STATUS:Record<string,string|null>={planned:null,preparing:'preparation',quality_control:'quality',ready:'handover'};
+const DELIVERY_DOCUMENT_PERMISSIONS:DeliveryPermission[]=['delivery.documents.view','delivery.checklist.manage'];
 const idOf = (value: string | string[] | undefined) => {
   const id = Array.isArray(value) ? value[0] : value;
   if (!id || !/^[1-9]\d*$/.test(id))
@@ -517,33 +520,22 @@ deliveryRouter.post(
     let url: string | null = null,
       size: number | null = null;
     if (base64) {
-      if (
-        !mime ||
-        !["application/pdf", "image/png", "image/jpeg"].includes(mime)
-      )
-        throw new HttpError(400, "Format de document non autorisé");
-      const buffer = Buffer.from(
-        base64.replace(/^data:[^;]+;base64,/, ""),
-        "base64",
-      );
-      if (!buffer.length || buffer.length > 10_000_000)
-        throw new HttpError(400, "Fichier vide ou supérieur à 10 Mo");
-      const extension =
-        mime === "application/pdf"
-          ? ".pdf"
-          : mime === "image/png"
-            ? ".png"
-            : ".jpg";
-      const directory = path.resolve(
-        process.env.UPLOAD_DIR ?? "uploads",
-        "deliveries",
-        id,
-      );
-      await mkdir(directory, { recursive: true });
-      const stored = `${Date.now()}-${Math.random().toString(36).slice(2)}${extension}`;
-      await writeFile(path.join(directory, stored), buffer);
-      url = `/uploads/deliveries/${id}/${stored}`;
+      const uploaded=decodeDeliveryDocument(base64,fileName,mime),buffer=uploaded.buffer;
+      const stored=await storeDocument(uploaded,String(row.agency_id));
+      url=`ged:${stored.storageKey}`;
       size = buffer.length;
+      let result:ResultSetHeader;
+      try {
+        result = await execute(
+          `INSERT INTO delivery_documents(delivery_id,document_name,document_type,document_url,file_name,mime_type,file_size,is_required,received,received_by,received_at) VALUES(?,?,?,?,?,?,?,?,?,?,IF(?,NOW(),NULL))`,
+          [id,name,type,url,fileName,mime,size,required,received,received?request.user!.sub:null,received],
+        );
+      } catch(error) {
+        await unlink(stored.absolute).catch(()=>undefined);
+        throw error;
+      }
+      emitToAgency(String(row.agency_id), "deliveries:document", {deliveryId:id,documentId:String(result.insertId)});
+      return response.status(201).json(await detail(id, request,'delivery.checklist.manage'));
     }
     const result = await execute(
       `INSERT INTO delivery_documents(delivery_id,document_name,document_type,document_url,file_name,mime_type,file_size,is_required,received,received_by,received_at) VALUES(?,?,?,?,?,?,?,?,?,?,IF(?,NOW(),NULL))`,
@@ -573,6 +565,24 @@ deliveryRouter.patch(
       await audit(connection,request,id,'delivery.document_received',{documentId,received:Boolean(docs[0].received)},{documentId,received});
     });
     response.json(await detail(id, request,'delivery.checklist.manage'));
+  }),
+);
+
+deliveryRouter.get(
+  '/deliveries/:id/documents/:documentId/download',
+  requireAnyPermission(DELIVERY_DOCUMENT_PERMISSIONS),
+  asyncHandler(async(request,response)=>{
+    const id=idOf(request.params.id),documentId=idOf(request.params.documentId);
+    const[document]=await query<RowDataPacket[]>('SELECT id,delivery_id,document_name,document_url,file_name,mime_type FROM delivery_documents WHERE id=? AND delivery_id=? LIMIT 1',[documentId,id]);
+    if(!document?.document_url)throw new HttpError(404,'Document de livraison introuvable');
+    if(!await canAccessNested(id,request,DELIVERY_DOCUMENT_PERMISSIONS))throw new HttpError(404,'Document de livraison introuvable');
+    const file=await requireDocumentFile(String(document.document_url));
+    const fileName=String(document.file_name??document.document_name??`document-livraison-${document.id}`).replace(/[\r\n]/g,' ').slice(0,180);
+    response.setHeader('Content-Type',String(document.mime_type??'application/octet-stream'));
+    response.setHeader('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+    response.setHeader('X-Content-Type-Options','nosniff');
+    response.setHeader('Cache-Control','private, no-store');
+    response.sendFile(path.resolve(file));
   }),
 );
 

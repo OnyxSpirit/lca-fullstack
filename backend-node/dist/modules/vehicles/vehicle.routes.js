@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { Router } from 'express';
 import { execute, query, transaction } from '../../config/database.js';
 import { requirePermission } from '../../middleware/require-permission.js';
@@ -9,11 +6,11 @@ import { emitToAgency } from '../../realtime/socket.js';
 import { HttpError } from '../../shared/http-error.js';
 import { notifyPermissions } from '../notifications/notification.service.js';
 import { can } from '../rbac/rbac.service.js';
+import { deleteVehicleImageFile, finalizeVehicleImages, withStagedVehicleImages } from './vehicle-image-storage.js';
 export const vehicleRouter = Router();
 const DB_STATUSES = ['ordered', 'in_transit', 'received', 'preparation', 'available', 'reserved', 'sold', 'delivered'];
 export const COMMERCIAL_PARK_STATUSES = ['received', 'preparation', 'available', 'reserved'];
 const TYPES = ['new', 'used', 'demo', 'courtesy'];
-const uploadRoot = path.resolve(process.env.UPLOAD_DIR ?? 'uploads', 'vehicles');
 const idOf = (value) => { const id = Array.isArray(value) ? value[0] : value; if (!id || !/^[1-9]\d*$/.test(id))
     throw new HttpError(400, 'Identifiant véhicule invalide'); return id; };
 const txt = (value, max = 255) => String(value ?? '').trim().slice(0, max);
@@ -175,30 +172,63 @@ vehicleRouter.get('/vehicles/:id/360', requirePermission('vehicles.view'), async
     const priceHistory = sections.financials ? await query('SELECT * FROM vehicle_price_history WHERE vehicle_id=? ORDER BY changed_at DESC', [id]) : [];
     response.json({ vehicle: mapVehicle(vehicle, sections.financials), sections, images, features, statusHistory, movements, sales, reservations, repairOrders, deliveries, documents, priceHistory });
 }));
-vehicleRouter.post('/vehicles', requirePermission('vehicles.create'), asyncHandler(async (request, response) => { const vin = txt(request.body.vin, 17).toUpperCase(); if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))
-    throw new HttpError(400, 'Le VIN doit contenir 17 caractères valides'); const brandName = txt(request.body.brand, 120), modelName = txt(request.body.model, 120), versionName = txt(request.body.version, 150) || 'Standard'; if (!brandName || !modelName)
-    throw new HttpError(400, 'La marque et le modèle sont obligatoires'); const vehicleType = txt(request.body.vehicleType) || 'new'; if (!TYPES.includes(vehicleType))
-    throw new HttpError(400, 'Type de véhicule invalide'); const initialStatus = txt(request.body.status) || 'received'; if (!DB_STATUSES.includes(initialStatus))
-    throw new HttpError(400, 'Statut initial invalide'); const agencyId = await agency(request, 'vehicles.create', request.body.agencyId); if (!agencyId)
-    throw new HttpError(400, 'Agence obligatoire'); const featureNames = jsonField(request.body.features, []).map(value => txt(value, 150)).filter(Boolean); const images = jsonField(request.body.images, []); if (!images.length)
-    throw new HttpError(400, "Au moins une photo catalogue est obligatoire"); validatedImages(images); const result = await transaction(async (connection) => { let [brands] = await connection.execute('SELECT id FROM brands WHERE name=? LIMIT 1', [brandName]); let brandId = brands[0]?.id; if (!brandId) {
-    const [insert] = await connection.execute('INSERT INTO brands(name,code) VALUES(?,?)', [brandName, `${brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 35)}-${Date.now().toString().slice(-6)}`]);
-    brandId = insert.insertId;
-} let [models] = await connection.execute('SELECT id FROM models WHERE brand_id=? AND name=? LIMIT 1', [brandId, modelName]); let modelId = models[0]?.id; if (!modelId) {
-    const [insert] = await connection.execute('INSERT INTO models(brand_id,name) VALUES(?,?)', [brandId, modelName]);
-    modelId = insert.insertId;
-} let [versions] = await connection.execute('SELECT id FROM versions WHERE model_id=? AND name=? LIMIT 1', [modelId, versionName]); let versionId = versions[0]?.id; if (!versionId) {
-    const [insert] = await connection.execute('INSERT INTO versions(model_id,name,engine,fuel_type,transmission) VALUES(?,?,?,?,?)', [modelId, versionName, optional(request.body.engine, 120), optional(request.body.fuelType, 50), optional(request.body.transmission, 50)]);
-    versionId = insert.insertId;
-} const [insert] = await connection.execute(`INSERT INTO vehicles(version_id,agency_id,location_id,supplier_id,vehicle_type,vin,registration_number,body_type,year,first_registration_date,color,interior_color,fuel_type,engine,transmission,fiscal_power,real_power,co2_emissions,mileage,purchase_price,refurbishment_cost,transport_cost,administrative_cost,additional_costs,catalog_price,sale_price,minimum_price,status,entry_date,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURDATE(),?,?)`, [versionId, agencyId, integer(request.body.locationId, 'Emplacement'), integer(request.body.supplierId, 'Fournisseur'), vehicleType, vin, optional(request.body.registrationNumber, 50)?.toUpperCase() ?? null, optional(request.body.bodyType, 60), integer(request.body.year, 'Année'), optional(request.body.firstRegistrationDate, 10), optional(request.body.color, 80), optional(request.body.interiorColor, 80), optional(request.body.fuelType, 50), optional(request.body.engine, 120), optional(request.body.transmission, 50), integer(request.body.fiscalPower, 'Puissance fiscale'), integer(request.body.realPower, 'Puissance réelle'), integer(request.body.co2Emissions, 'Émissions CO2'), integer(request.body.mileage, 'Kilométrage') ?? 0, amount(request.body.purchasePrice, 'Prix achat'), amount(request.body.refurbishmentCost, 'Remise en état'), amount(request.body.transportCost, 'Transport'), amount(request.body.administrativeCost, 'Frais administratifs'), amount(request.body.additionalCosts, 'Autres frais'), amount(request.body.catalogPrice, 'Prix catalogue'), amount(request.body.salePrice, 'Prix vente'), amount(request.body.minimumPrice, 'Prix minimum'), initialStatus, optional(request.body.notes, 5000), request.user.sub]); const id = String(insert.insertId); await connection.execute('UPDATE vehicles SET stock_number=? WHERE id=?', [`STK-${String(insert.insertId).padStart(6, '0')}`, id]); await connection.execute(`INSERT INTO vehicle_status_history(vehicle_id,old_status,new_status,changed_by,reason) VALUES(?,NULL,?,?,'Entrée initiale en stock')`, [id, initialStatus, request.user.sub]); await connection.execute(`INSERT INTO vehicle_movements(vehicle_id,to_location_id,to_agency_id,movement_type,reason,performed_by) VALUES(?,?,?,'entry','Entrée initiale en stock',?)`, [id, integer(request.body.locationId, 'Emplacement'), agencyId, request.user.sub]); for (const name of featureNames) {
-    let [rows] = await connection.execute('SELECT id FROM vehicle_features WHERE name=?', [name]);
-    let featureId = rows[0]?.id;
-    if (!featureId) {
-        const [created] = await connection.execute('INSERT INTO vehicle_features(name) VALUES(?)', [name]);
-        featureId = created.insertId;
-    }
-    await connection.execute('INSERT IGNORE INTO vehicle_feature_assignments(vehicle_id,feature_id) VALUES(?,?)', [id, featureId]);
-} return { id, agencyId: String(agencyId) }; }); await saveImages(result.id, request.user.sub, images); await notify(request, result.id, result.agencyId, 'vehicles:created', 'Nouveau véhicule en stock', `${brandName} ${modelName} (${vin}) a été enregistré`); response.status(201).json(mapVehicle(await accessible(result.id, request, 'vehicles.create'), hasFinance(request))); }));
+vehicleRouter.post('/vehicles', requirePermission('vehicles.create'), asyncHandler(async (request, response) => {
+    const vin = txt(request.body.vin, 17).toUpperCase();
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))
+        throw new HttpError(400, 'Le VIN doit contenir 17 caractères valides');
+    const brandName = txt(request.body.brand, 120), modelName = txt(request.body.model, 120), versionName = txt(request.body.version, 150) || 'Standard';
+    if (!brandName || !modelName)
+        throw new HttpError(400, 'La marque et le modèle sont obligatoires');
+    const vehicleType = txt(request.body.vehicleType) || 'new';
+    if (!TYPES.includes(vehicleType))
+        throw new HttpError(400, 'Type de véhicule invalide');
+    const initialStatus = txt(request.body.status) || 'received';
+    if (!DB_STATUSES.includes(initialStatus))
+        throw new HttpError(400, 'Statut initial invalide');
+    const agencyId = await agency(request, 'vehicles.create', request.body.agencyId);
+    if (!agencyId)
+        throw new HttpError(400, 'Agence obligatoire');
+    const featureNames = jsonField(request.body.features, []).map(value => txt(value, 150)).filter(Boolean);
+    const result = await withStagedVehicleImages(jsonField(request.body.images, []), staged => transaction(async (connection) => {
+        let [brands] = await connection.execute('SELECT id FROM brands WHERE name=? LIMIT 1', [brandName]);
+        let brandId = brands[0]?.id;
+        if (!brandId) {
+            const [insert] = await connection.execute('INSERT INTO brands(name,code) VALUES(?,?)', [brandName, `${brandName.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 35)}-${Date.now().toString().slice(-6)}`]);
+            brandId = insert.insertId;
+        }
+        let [models] = await connection.execute('SELECT id FROM models WHERE brand_id=? AND name=? LIMIT 1', [brandId, modelName]);
+        let modelId = models[0]?.id;
+        if (!modelId) {
+            const [insert] = await connection.execute('INSERT INTO models(brand_id,name) VALUES(?,?)', [brandId, modelName]);
+            modelId = insert.insertId;
+        }
+        let [versions] = await connection.execute('SELECT id FROM versions WHERE model_id=? AND name=? LIMIT 1', [modelId, versionName]);
+        let versionId = versions[0]?.id;
+        if (!versionId) {
+            const [insert] = await connection.execute('INSERT INTO versions(model_id,name,engine,fuel_type,transmission) VALUES(?,?,?,?,?)', [modelId, versionName, optional(request.body.engine, 120), optional(request.body.fuelType, 50), optional(request.body.transmission, 50)]);
+            versionId = insert.insertId;
+        }
+        const [insert] = await connection.execute(`INSERT INTO vehicles(version_id,agency_id,location_id,supplier_id,vehicle_type,vin,registration_number,body_type,year,first_registration_date,color,interior_color,fuel_type,engine,transmission,fiscal_power,real_power,co2_emissions,mileage,purchase_price,refurbishment_cost,transport_cost,administrative_cost,additional_costs,catalog_price,sale_price,minimum_price,status,entry_date,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURDATE(),?,?)`, [versionId, agencyId, integer(request.body.locationId, 'Emplacement'), integer(request.body.supplierId, 'Fournisseur'), vehicleType, vin, optional(request.body.registrationNumber, 50)?.toUpperCase() ?? null, optional(request.body.bodyType, 60), integer(request.body.year, 'Année'), optional(request.body.firstRegistrationDate, 10), optional(request.body.color, 80), optional(request.body.interiorColor, 80), optional(request.body.fuelType, 50), optional(request.body.engine, 120), optional(request.body.transmission, 50), integer(request.body.fiscalPower, 'Puissance fiscale'), integer(request.body.realPower, 'Puissance réelle'), integer(request.body.co2Emissions, 'Émissions CO2'), integer(request.body.mileage, 'Kilométrage') ?? 0, amount(request.body.purchasePrice, 'Prix achat'), amount(request.body.refurbishmentCost, 'Remise en état'), amount(request.body.transportCost, 'Transport'), amount(request.body.administrativeCost, 'Frais administratifs'), amount(request.body.additionalCosts, 'Autres frais'), amount(request.body.catalogPrice, 'Prix catalogue'), amount(request.body.salePrice, 'Prix vente'), amount(request.body.minimumPrice, 'Prix minimum'), initialStatus, optional(request.body.notes, 5000), request.user.sub]);
+        const id = String(insert.insertId);
+        await connection.execute('UPDATE vehicles SET stock_number=? WHERE id=?', [`STK-${String(insert.insertId).padStart(6, '0')}`, id]);
+        await connection.execute(`INSERT INTO vehicle_status_history(vehicle_id,old_status,new_status,changed_by,reason) VALUES(?,NULL,?,?,'Entrée initiale en stock')`, [id, initialStatus, request.user.sub]);
+        await connection.execute(`INSERT INTO vehicle_movements(vehicle_id,to_location_id,to_agency_id,movement_type,reason,performed_by) VALUES(?,?,?,'entry','Entrée initiale en stock',?)`, [id, integer(request.body.locationId, 'Emplacement'), agencyId, request.user.sub]);
+        for (const name of featureNames) {
+            let [rows] = await connection.execute('SELECT id FROM vehicle_features WHERE name=?', [name]);
+            let featureId = rows[0]?.id;
+            if (!featureId) {
+                const [created] = await connection.execute('INSERT INTO vehicle_features(name) VALUES(?)', [name]);
+                featureId = created.insertId;
+            }
+            await connection.execute('INSERT IGNORE INTO vehicle_feature_assignments(vehicle_id,feature_id) VALUES(?,?)', [id, featureId]);
+        }
+        await insertVehicleImages(connection, id, request.user.sub, staged, 0, true);
+        await finalizeVehicleImages(staged);
+        return { id, agencyId: String(agencyId) };
+    }), { isPersisted: files => vehicleImageFilesPersisted(files, undefined, vin) });
+    await notify(request, result.id, result.agencyId, 'vehicles:created', 'Nouveau véhicule en stock', `${brandName} ${modelName} (${vin}) a été enregistré`);
+    response.status(201).json(mapVehicle(await accessible(result.id, request, 'vehicles.create'), hasFinance(request)));
+}));
 vehicleRouter.patch('/vehicles/:id', requirePermission('vehicles.update'), asyncHandler(async (request, response) => {
     const id = idOf(request.params.id), before = await accessible(id, request, 'vehicles.update');
     const allowed = { registrationNumber: 'registration_number', bodyType: 'body_type', year: 'year', firstRegistrationDate: 'first_registration_date', color: 'color', interiorColor: 'interior_color', fuelType: 'fuel_type', engine: 'engine', transmission: 'transmission', fiscalPower: 'fiscal_power', realPower: 'real_power', co2Emissions: 'co2_emissions', mileage: 'mileage', locationId: 'location_id', supplierId: 'supplier_id', notes: 'notes' };
@@ -252,27 +282,25 @@ vehicleRouter.post('/vehicles/:id/transfer', requirePermission('vehicles.assign_
 } await connection.execute('UPDATE vehicles SET agency_id=?,location_id=? WHERE id=?', [toAgencyId, toLocationId, id]); await connection.execute(`INSERT INTO vehicle_movements(vehicle_id,from_location_id,to_location_id,from_agency_id,to_agency_id,movement_type,reason,performed_by) VALUES(?,?,?,?,?,'transfer',?,?)`, [id, row.location_id, toLocationId, row.agency_id, toAgencyId, reason, request.user.sub]); }); emitToAgency(String(row.agency_id), 'vehicles:transferred', { vehicleId: id, toAgencyId }); emitToAgency(toAgencyId, 'vehicles:transferred', { vehicleId: id, toAgencyId }); response.json({ success: true }); }));
 vehicleRouter.delete('/vehicles/:id', requirePermission('vehicles.archive'), asyncHandler(async (request, response) => { const id = idOf(request.params.id); const row = await accessible(id, request, 'vehicles.archive'); if (['reserved', 'sold', 'delivered'].includes(row.status))
     throw new HttpError(409, 'Un véhicule réservé, vendu ou livré ne peut pas être archivé'); await execute('UPDATE vehicles SET archived_at=NOW() WHERE id=?', [id]); await notify(request, id, String(row.agency_id), 'vehicles:archived', 'Véhicule archivé', `${row.stock_number} a été retiré du catalogue`); response.json({ success: true }); }));
-function validatedImages(images) { if (images.length > 8)
-    throw new HttpError(400, 'Maximum 8 images par véhicule'); return images.map(image => { const match = image.dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/); if (!match)
-    throw new HttpError(400, 'Format d’image invalide'); const mime = match[1], buffer = Buffer.from(match[2], 'base64'); if (!buffer.length || buffer.length > 5 * 1024 * 1024)
-    throw new HttpError(400, 'Chaque image doit peser moins de 5 Mo'); const valid = mime === 'image/jpeg' && buffer[0] === 0xff && buffer[1] === 0xd8 || mime === 'image/png' && buffer.subarray(1, 4).toString() === 'PNG' || mime === 'image/webp' && buffer.subarray(8, 12).toString() === 'WEBP'; if (!valid)
-    throw new HttpError(400, 'Signature de fichier image invalide'); return { mime, buffer }; }); }
-async function saveImages(vehicleId, userId, images) { const files = validatedImages(images); await mkdir(uploadRoot, { recursive: true }); for (let index = 0; index < files.length; index++) {
-    const { mime, buffer } = files[index];
-    const extension = mime === 'image/jpeg' ? 'jpg' : mime.split('/')[1], fileName = `${randomUUID()}.${extension}`;
-    await writeFile(path.join(uploadRoot, fileName), buffer, { flag: 'wx' });
-    await execute('INSERT INTO vehicle_images(vehicle_id,file_path,thumbnail_path,mime_type,file_size,sort_order,is_primary,uploaded_by) VALUES(?,?,?,?,?,?,?,?)', [vehicleId, `/uploads/vehicles/${fileName}`, `/uploads/vehicles/${fileName}`, mime, buffer.length, index, index === 0, userId]);
+async function insertVehicleImages(connection, vehicleId, userId, files, firstSort, makePrimary) { for (let index = 0; index < files.length; index++) {
+    const file = files[index];
+    await connection.execute('INSERT INTO vehicle_images(vehicle_id,file_path,thumbnail_path,mime_type,file_size,sort_order,is_primary,uploaded_by) VALUES(?,?,?,?,?,?,?,?)', [vehicleId, file.publicPath, file.publicPath, file.mime, file.size, firstSort + index, makePrimary && index === 0, userId]);
 } }
-vehicleRouter.post('/vehicles/:id/images', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id); const row = await accessible(id, request, 'vehicles.images.manage'); const images = jsonField(request.body.images, []); if (!images.length)
-    throw new HttpError(400, 'Sélectionnez au moins une image'); const [count] = await query('SELECT COUNT(*) total FROM vehicle_images WHERE vehicle_id=?', [id]); if (Number(count?.total ?? 0) + images.length > 8)
-    throw new HttpError(400, 'Maximum 8 images par véhicule'); await saveImages(id, request.user.sub, images); await notify(request, id, String(row.agency_id), 'vehicles:image-added', 'Photos véhicule ajoutées', `${images.length} photo(s) ajoutée(s) à ${row.stock_number}`); response.status(201).json({ success: true }); }));
-vehicleRouter.patch('/vehicles/:id/images/:imageId/primary', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId), vehicle = await accessible(id, request, 'vehicles.images.manage'); await transaction(async (connection) => { const [found] = await connection.execute('SELECT id FROM vehicle_images WHERE id=? AND vehicle_id=?', [imageId, id]); if (!found[0])
+async function vehicleImageFilesPersisted(files, vehicleId, vin) { const placeholders = files.map(() => '?').join(','), params = [...files.map(file => file.publicPath)]; let owner = ''; if (vehicleId) {
+    owner = ' AND vi.vehicle_id=?';
+    params.push(vehicleId);
+}
+else if (vin) {
+    owner = ' AND v.vin=?';
+    params.push(vin);
+} const [row] = await query(`SELECT COUNT(DISTINCT vi.file_path) total FROM vehicle_images vi JOIN vehicles v ON v.id=vi.vehicle_id WHERE vi.file_path IN (${placeholders})${owner}`, params); return Number(row?.total) === files.length; }
+vehicleRouter.post('/vehicles/:id/images', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id), row = await accessible(id, request, 'vehicles.images.manage'); const count = await withStagedVehicleImages(jsonField(request.body.images, []), staged => transaction(async (connection) => { await connection.execute('SELECT id FROM vehicles WHERE id=? FOR UPDATE', [id]); const [images] = await connection.execute('SELECT COUNT(*) total,COALESCE(MAX(sort_order),-1) max_sort FROM vehicle_images WHERE vehicle_id=?', [id]); if (Number(images[0]?.total ?? 0) + staged.length > 8)
+    throw new HttpError(400, 'Maximum 8 images par véhicule'); await insertVehicleImages(connection, id, request.user.sub, staged, Number(images[0]?.max_sort ?? -1) + 1, Number(images[0]?.total ?? 0) === 0); await finalizeVehicleImages(staged); return staged.length; }), { isPersisted: files => vehicleImageFilesPersisted(files, id) }); await notify(request, id, String(row.agency_id), 'vehicles:image-added', 'Photos véhicule ajoutées', `${count} photo(s) ajoutée(s) à ${row.stock_number}`); response.status(201).json({ success: true }); }));
+vehicleRouter.patch('/vehicles/:id/images/:imageId/primary', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId), vehicle = await accessible(id, request, 'vehicles.images.manage'); await transaction(async (connection) => { await connection.execute('SELECT id FROM vehicles WHERE id=? FOR UPDATE', [id]); const [found] = await connection.execute('SELECT id FROM vehicle_images WHERE id=? AND vehicle_id=?', [imageId, id]); if (!found[0])
     throw new HttpError(404, 'Image introuvable'); await connection.execute('UPDATE vehicle_images SET is_primary=FALSE WHERE vehicle_id=?', [id]); await connection.execute('UPDATE vehicle_images SET is_primary=TRUE WHERE id=?', [imageId]); }); emitToAgency(String(vehicle.agency_id), 'vehicles:image-added', { vehicleId: id }); response.json({ success: true }); }));
-vehicleRouter.patch('/vehicles/:id/images/order', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id); await accessible(id, request, 'vehicles.images.manage'); const imageIds = jsonField(request.body.imageIds, []); await transaction(async (connection) => { for (let index = 0; index < imageIds.length; index++)
+vehicleRouter.patch('/vehicles/:id/images/order', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id); await accessible(id, request, 'vehicles.images.manage'); const imageIds = jsonField(request.body.imageIds, []); await transaction(async (connection) => { await connection.execute('SELECT id FROM vehicles WHERE id=? FOR UPDATE', [id]); for (let index = 0; index < imageIds.length; index++)
     await connection.execute('UPDATE vehicle_images SET sort_order=? WHERE id=? AND vehicle_id=?', [index, idOf(imageIds[index]), id]); }); response.json({ success: true }); }));
-vehicleRouter.delete('/vehicles/:id/images/:imageId', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId), vehicle = await accessible(id, request, 'vehicles.images.manage'); const [image] = await query('SELECT * FROM vehicle_images WHERE id=? AND vehicle_id=?', [imageId, id]); if (!image)
-    throw new HttpError(404, 'Image introuvable'); await transaction(async (connection) => { await connection.execute('DELETE FROM vehicle_images WHERE id=?', [imageId]); if (image.is_primary)
-    await connection.execute('UPDATE vehicle_images SET is_primary=TRUE WHERE vehicle_id=? ORDER BY sort_order,id LIMIT 1', [id]); }); const stored = new Set([image.file_path, image.thumbnail_path].filter(Boolean)); for (const file of stored) {
-    const relative = String(file).replace(/^\/uploads\//, '');
-    await unlink(path.resolve(path.dirname(uploadRoot), relative)).catch(() => undefined);
-} emitToAgency(String(vehicle.agency_id), 'vehicles:image-added', { vehicleId: id }); response.json({ success: true }); }));
+vehicleRouter.delete('/vehicles/:id/images/:imageId', requirePermission('vehicles.images.manage'), asyncHandler(async (request, response) => { const id = idOf(request.params.id), imageId = idOf(request.params.imageId), vehicle = await accessible(id, request, 'vehicles.images.manage'); const image = await transaction(async (connection) => { await connection.execute('SELECT id FROM vehicles WHERE id=? FOR UPDATE', [id]); const [images] = await connection.execute('SELECT * FROM vehicle_images WHERE id=? AND vehicle_id=? FOR UPDATE', [imageId, id]); const current = images[0]; if (!current)
+    throw new HttpError(404, 'Image introuvable'); await connection.execute('DELETE FROM vehicle_images WHERE id=?', [imageId]); if (current.is_primary)
+    await connection.execute('UPDATE vehicle_images SET is_primary=TRUE WHERE vehicle_id=? ORDER BY sort_order,id LIMIT 1', [id]); return current; }); for (const file of new Set([image.file_path, image.thumbnail_path].filter(Boolean)))
+    await deleteVehicleImageFile(file, { vehicleId: id, imageId }); emitToAgency(String(vehicle.agency_id), 'vehicles:image-added', { vehicleId: id }); response.json({ success: true }); }));

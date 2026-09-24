@@ -19,8 +19,10 @@ export function createRealtimeServer(server) {
     realtimeNamespace = namespace;
     namespace.use(async (socket, next) => { try {
         const token = socket.handshake.auth?.token ?? socket.handshake.headers.authorization?.replace(/^Bearer /, '');
-        const claims = jwt.verify(token, env.jwt.accessSecret);
-        const [active] = await query(`SELECT u.id,u.agency_id,EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE) is_system_super_admin FROM users u WHERE u.id=? AND u.is_active=TRUE`, [claims.sub]);
+        const claims = jwt.verify(token, env.jwt.accessSecret, { algorithms: ['HS256'] });
+        if (!claims.sid)
+            throw new Error();
+        const [active] = await query(`SELECT u.id,u.agency_id,EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE) is_system_super_admin FROM users u JOIN refresh_tokens rt ON rt.id=? AND rt.user_id=u.id AND rt.revoked_at IS NULL AND rt.expires_at>NOW() WHERE u.id=? AND u.is_active=TRUE`, [claims.sid, claims.sub]);
         if (!active)
             throw new Error();
         socket.data.user = { ...claims, agencyId: String(active.agency_id) };

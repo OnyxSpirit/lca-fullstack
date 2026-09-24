@@ -26,14 +26,18 @@ async function userProfile(user: UserRow) {
   };
 }
 
-async function issueTokens(user: UserRow, roles: string[]) {
-  const payload = { sub: String(user.id), email: user.email, roles, agencyId: user.agency_id == null ? null : String(user.agency_id) };
-  const accessToken = jwt.sign(payload, env.jwt.accessSecret, { expiresIn: env.jwt.accessTtl as SignOptions['expiresIn'] });
-  const tokenId = randomUUID();
-  const refreshToken = jwt.sign({ ...payload, jti: tokenId, type: 'refresh' }, env.jwt.refreshSecret, { expiresIn: env.jwt.refreshTtl as SignOptions['expiresIn'] });
+function tokensFor(user: UserRow, roles: string[], sessionId: string) {
+  const payload = { sub: String(user.id), email: user.email, roles, agencyId: user.agency_id == null ? null : String(user.agency_id), sid: sessionId };
+  const accessToken = jwt.sign(payload, env.jwt.accessSecret, { algorithm: 'HS256', expiresIn: env.jwt.accessTtl as SignOptions['expiresIn'] });
+  const refreshToken = jwt.sign({ ...payload, jti: randomUUID(), type: 'refresh' }, env.jwt.refreshSecret, { algorithm: 'HS256', expiresIn: env.jwt.refreshTtl as SignOptions['expiresIn'] });
   const decoded = jwt.decode(refreshToken) as { exp?: number };
-  await execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,FROM_UNIXTIME(?))', [tokenId, user.id, hashToken(refreshToken), decoded.exp ?? 0]);
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, refreshHash: hashToken(refreshToken), refreshExpiresAt: decoded.exp ?? 0 };
+}
+
+async function issueTokens(user: UserRow, roles: string[]) {
+  const sessionId = randomUUID(), tokens = tokensFor(user, roles, sessionId);
+  await execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,FROM_UNIXTIME(?))', [sessionId, user.id, tokens.refreshHash, tokens.refreshExpiresAt]);
+  return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
 }
 
 export async function login(email: string, password: string) {
@@ -48,15 +52,17 @@ export async function login(email: string, password: string) {
 
 export async function refresh(refreshToken: string) {
   try {
-    const payload = jwt.verify(refreshToken, env.jwt.refreshSecret) as { sub: string; jti: string; type: string };
-    if (payload.type !== 'refresh') throw new Error();
-    const revoked = await execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE id=? AND token_hash=? AND revoked_at IS NULL AND expires_at>NOW()', [payload.jti, hashToken(refreshToken)]);
-    if (!revoked.affectedRows) throw new Error();
+    const payload = jwt.verify(refreshToken, env.jwt.refreshSecret, { algorithms: ['HS256'] }) as { sub: string; jti: string; sid?: string; type: string };
+    if (payload.type !== 'refresh' || !payload.jti) throw new Error();
+    const sessionId=payload.sid??payload.jti;
     const [user] = await query<UserRow[]>('SELECT id,agency_id,first_name,last_name,email,password_hash,is_active FROM users WHERE id=? AND is_active=TRUE', [payload.sub]);
     if (!user) throw new Error();
     const roles = await rolesFor(String(user.id));
     if (!roles.length) throw new Error();
-    return { ...(await issueTokens(user, roles)), user: await userProfile(user) };
+    const tokens = tokensFor(user, roles, sessionId);
+    const rotated = await execute(`UPDATE refresh_tokens rt JOIN users u ON u.id=rt.user_id AND u.is_active=TRUE SET rt.token_hash=?,rt.expires_at=FROM_UNIXTIME(?) WHERE rt.id=? AND rt.user_id=? AND rt.token_hash=? AND rt.revoked_at IS NULL AND rt.expires_at>NOW()`, [tokens.refreshHash, tokens.refreshExpiresAt, sessionId, payload.sub, hashToken(refreshToken)]);
+    if (!rotated.affectedRows) throw new Error();
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, user: await userProfile(user) };
   } catch { throw new HttpError(401, 'Refresh token invalide'); }
 }
 
@@ -66,6 +72,10 @@ export async function me(userId: string) {
   return { user: await userProfile(user) };
 }
 
-export async function logout(refreshToken: string) {
-  await execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=? AND revoked_at IS NULL', [hashToken(refreshToken)]);
+export async function logout(refreshToken: string, sessionId: string, userId: string) {
+  try {
+    const payload=jwt.verify(refreshToken,env.jwt.refreshSecret,{algorithms:['HS256'],ignoreExpiration:true}) as {sub:string;jti:string;sid:string;type:string};
+    if(payload.type!=='refresh'||!payload.jti||payload.sid!==sessionId||payload.sub!==userId)throw new Error();
+    await execute('UPDATE refresh_tokens SET revoked_at=COALESCE(revoked_at,NOW()) WHERE id=? AND user_id=?',[sessionId,userId]);
+  } catch { throw new HttpError(401,'Refresh token invalide'); }
 }

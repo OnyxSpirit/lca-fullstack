@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
-import { execute, query, transaction } from '../../config/database.js';
+import { execute, pool, query, transaction } from '../../config/database.js';
 import { requirePermission } from '../../middleware/require-permission.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { HttpError } from '../../shared/http-error.js';
 import { can } from '../rbac/rbac.service.js';
 import { operationalCandidateSql } from '../users/operational-candidate.js';
+import { customerIdentityConflict, findCustomerIdentityMatches, normalizeCustomerPhone } from './customer-identity.js';
 export const customerRouter = Router();
 const classifications = ['occasional', 'regular', 'vip', 'at_risk'];
 const customerTypes = ['individual', 'company'];
@@ -34,7 +35,6 @@ const text = (value, name, max = 255, required = false) => {
 const numeric = (value, name) => { if (value == null || value === '')
     return null; const result = Number(value); if (!Number.isFinite(result) || result < 0 || result > 100)
     throw new HttpError(400, `${name} est invalide`); return result; };
-const normalizePhone = (value) => value?.replace(/\D/g, '') ?? '';
 const validEmail = (value) => { if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
     throw new HttpError(400, "L’adresse e-mail n’est pas valide."); return value; };
 const validPhone = (value) => { if (value) {
@@ -42,6 +42,7 @@ const validPhone = (value) => { if (value) {
     if (!/^[+\d\s().-]+$/.test(value) || digits.length < 6 || digits.length > 15)
         throw new HttpError(400, "Le numéro de téléphone n’est pas valide.");
 } return value; };
+const normalizePhone = (value) => normalizeCustomerPhone(value) ?? '';
 const customer360Query = async (name, customerId, sql, params) => { try {
     return await query(sql, params);
 }
@@ -90,43 +91,85 @@ async function validateAssignee(userId, agencyId, request) { if (!userId)
     throw new HttpError(403, 'Affectation hors périmètre OWN'); const [user] = await query(`SELECT u.id,u.agency_id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id AND r.is_active=TRUE WHERE u.id=? AND u.is_active=TRUE AND ${operationalCandidateSql('u')} AND EXISTS(SELECT 1 FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id AND p.is_active=TRUE WHERE rp.role_id=r.id AND p.code IN('sales.create','crm.prospect.update')) LIMIT 1`, [userId]); if (!user)
     throw new HttpError(400, 'Conseiller introuvable, inactif ou non habilité'); if (String(user.agency_id) !== agencyId)
     throw new HttpError(403, 'Le conseiller appartient à une autre agence'); }
-async function duplicates(email, phone, request, excludeId = null, permission = 'customers.view') { const normalized = normalizePhone(phone), scoped = customerScope(request, permission); return query(`SELECT c.id,c.customer_code,c.first_name,c.last_name,c.company_name,c.email,c.phone FROM customers c WHERE ${scoped.sql} AND (? IS NULL OR c.id<>?) AND ((?<>'' AND LOWER(c.email)=LOWER(?)) OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) LIMIT 20`, [...scoped.params, excludeId, excludeId, email ?? '', email ?? '', normalized, `%${normalized}%`]); }
-customerRouter.get('/customers/duplicates', requirePermission('customers.view'), asyncHandler(async (request, response) => { const email = typeof request.query.email === 'string' ? request.query.email.trim() : null; const phone = typeof request.query.phone === 'string' ? request.query.phone.trim() : null; response.json(await duplicates(email, phone, request)); }));
+async function scopedDuplicateSearch(email, phone, request) { const normalized = normalizeCustomerPhone(phone) ?? '', scoped = customerScope(request, 'customers.view'); return query(`SELECT c.id,c.customer_code,c.first_name,c.last_name,c.company_name,c.email,c.phone FROM customers c WHERE ${scoped.sql} AND ((?<>'' AND c.normalized_email=LOWER(TRIM(?))) OR (?<>'' AND c.normalized_phone=?)) LIMIT 20`, [...scoped.params, email ?? '', email ?? '', normalized, normalized]); }
+customerRouter.get('/customers/duplicates', requirePermission('customers.view'), asyncHandler(async (request, response) => { const email = typeof request.query.email === 'string' ? request.query.email.trim() : null; const phone = typeof request.query.phone === 'string' ? request.query.phone.trim() : null; response.json(await scopedDuplicateSearch(email, phone, request)); }));
 customerRouter.get('/customers', requirePermission('customers.view'), asyncHandler(async (request, response) => { const scoped = customerScope(request, 'customers.view', 'c', true); const search = typeof request.query.search === 'string' ? request.query.search.trim() : ''; const term = `%${search}%`; const normalizedPhone = normalizePhone(search); const phoneTerm = `%${normalizedPhone}%`; const type = typeof request.query.type === 'string' ? request.query.type : null; if (type && !customerTypes.includes(type))
     throw new HttpError(400, 'Type de client invalide'); const classification = typeof request.query.classification === 'string' ? request.query.classification : null; if (classification && !classifications.includes(classification))
     throw new HttpError(400, 'Classification invalide'); const rows = await query(`${customerSelect} WHERE ${scoped.sql} AND (?='' OR c.customer_code LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR c.company_name LIKE ? OR c.email LIKE ? OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) AND (? IS NULL OR c.customer_type=?) AND (? IS NULL OR c.classification=?) ORDER BY c.updated_at DESC LIMIT 200`, [...scoped.params, search, term, term, term, term, term, normalizedPhone, phoneTerm, type, type, classification, classification]); response.json(rows.map(mapCustomer)); }));
 customerRouter.get('/customers/:id', requirePermission('customers.view'), asyncHandler(async (request, response) => response.json(mapCustomer(await accessibleCustomer(routeId(request.params.id), request)))));
-customerRouter.post('/customers', requirePermission('customers.create'), asyncHandler(async (request, response) => { const body = request.body; const customerType = text(body.customerType, 'customerType', 20) ?? 'individual'; if (!customerTypes.includes(customerType))
-    throw new HttpError(400, 'Type de client invalide'); const firstName = text(body.firstName, 'firstName', 100), lastName = text(body.lastName, 'lastName', 100), companyName = text(body.companyName, 'companyName', 200); if (customerType === 'individual' && !lastName)
-    throw new HttpError(400, 'Le nom est requis pour un particulier'); if (customerType === 'company' && !companyName)
-    throw new HttpError(400, 'La raison sociale est requise pour une entreprise'); const email = text(body.email, 'email', 190), phone = text(body.phone, 'phone', 50); if (!email && !phone)
-    throw new HttpError(400, 'Un téléphone ou un e-mail est requis'); const found = await duplicates(email, phone, request, null, 'customers.create'); if (found.length)
-    throw new HttpError(409, 'Un client avec le même téléphone ou e-mail existe déjà', { duplicates: found }); const agencyId = await resolveAgency(request, body); const requestedAssignee = text(body.assignedUserId, 'assignedUserId', 30), assignedUserId = requestedAssignee ?? (request.rbac?.isSuperAdmin ? null : request.user.sub); if (requestedAssignee && (requestedAssignee !== request.user.sub || request.rbac?.isSuperAdmin))
-    await validateAssignee(assignedUserId, agencyId, request); const civility = text(body.civility, 'civility', 20) ?? (customerType === 'company' ? 'Société' : null); if (civility && !civilities.includes(civility))
-    throw new HttpError(400, 'Civilité invalide'); const classification = text(body.classification, 'classification', 30) ?? 'occasional'; if (!classifications.includes(classification))
-    throw new HttpError(400, 'Classification invalide'); const score = numeric(body.score, 'score'); const created = await transaction(async (connection) => { const temporary = `TMP-${randomUUID()}`; const [result] = await connection.execute(`INSERT INTO customers(customer_code,customer_type,civility,agency_id,first_name,last_name,company_name,email,phone,secondary_phone,address,postal_code,city,country,tax_identifier,source,segment,score,classification,notes,assigned_user_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [temporary, customerType, civility, agencyId, firstName, lastName, companyName, email, phone, text(body.secondaryPhone, 'secondaryPhone', 50), text(body.address, 'address', 1000), text(body.postalCode, 'postalCode', 30), text(body.city, 'city', 100), text(body.country, 'country', 100) ?? 'Congo', text(body.taxIdentifier, 'taxIdentifier', 100), text(body.source, 'source', 100), text(body.segment, 'segment', 100), score, classification, text(body.notes, 'notes', 10000), assignedUserId, request.user.sub]); const customerCode = `CLI-${String(result.insertId).padStart(6, '0')}`; await connection.execute('UPDATE customers SET customer_code=? WHERE id=?', [customerCode, result.insertId]); return String(result.insertId); }); response.status(201).json(mapCustomer(await customerById(created))); }));
-customerRouter.patch('/customers/:id', requirePermission('customers.update'), asyncHandler(async (request, response) => { const id = routeId(request.params.id); const current = await accessibleCustomer(id, request, 'customers.update'); const body = request.body; const columns = { customerType: 'customer_type', civility: 'civility', firstName: 'first_name', lastName: 'last_name', companyName: 'company_name', email: 'email', phone: 'phone', secondaryPhone: 'secondary_phone', address: 'address', postalCode: 'postal_code', city: 'city', country: 'country', taxIdentifier: 'tax_identifier', source: 'source', segment: 'segment', classification: 'classification', notes: 'notes' }; const sets = [], values = []; for (const [key, column] of Object.entries(columns))
-    if (Object.hasOwn(body, key)) {
-        const value = text(body[key], key, key === 'notes' || key === 'address' ? 10000 : key === 'companyName' ? 200 : key === 'email' ? 190 : 100);
-        if (key === 'customerType' && !customerTypes.includes(value))
-            throw new HttpError(400, 'Type de client invalide');
-        if (key === 'civility' && value && !civilities.includes(value))
-            throw new HttpError(400, 'Civilité invalide');
-        if (key === 'classification' && !classifications.includes(value))
-            throw new HttpError(400, 'Classification invalide');
-        sets.push(`${column}=?`);
-        values.push(value);
-    } if (Object.hasOwn(body, 'score')) {
-    sets.push('score=?');
-    values.push(numeric(body.score, 'score'));
-} if (Object.hasOwn(body, 'assignedUserId')) {
-    const assigned = text(body.assignedUserId, 'assignedUserId', 30);
-    await validateAssignee(assigned, String(current.agency_id), request);
-    sets.push('assigned_user_id=?');
-    values.push(assigned);
-} if (!sets.length)
-    throw new HttpError(400, 'Aucun champ modifiable fourni'); const email = Object.hasOwn(body, 'email') ? text(body.email, 'email', 190) : current.email; const phone = Object.hasOwn(body, 'phone') ? text(body.phone, 'phone', 50) : current.phone; const found = await duplicates(email, phone, request, id, 'customers.update'); if (found.length)
-    throw new HttpError(409, 'Un client avec le même téléphone ou e-mail existe déjà', { duplicates: found }); await execute(`UPDATE customers SET ${sets.join(',')} WHERE id=?`, [...values, id]); response.json(mapCustomer(await customerById(id))); }));
+customerRouter.post('/customers', requirePermission('customers.create'), asyncHandler(async (request, response) => {
+    const body = request.body;
+    const customerType = text(body.customerType, 'customerType', 20) ?? 'individual';
+    if (!customerTypes.includes(customerType))
+        throw new HttpError(400, 'Type de client invalide');
+    const firstName = text(body.firstName, 'firstName', 100), lastName = text(body.lastName, 'lastName', 100), companyName = text(body.companyName, 'companyName', 200);
+    if (customerType === 'individual' && !lastName)
+        throw new HttpError(400, 'Le nom est requis pour un particulier');
+    if (customerType === 'company' && !companyName)
+        throw new HttpError(400, 'La raison sociale est requise pour une entreprise');
+    const email = text(body.email, 'email', 190), phone = text(body.phone, 'phone', 50);
+    if (!email && !phone)
+        throw new HttpError(400, 'Un téléphone ou un e-mail est requis');
+    const agencyId = await resolveAgency(request, body);
+    if ((await findCustomerIdentityMatches(pool, agencyId, email, phone)).length)
+        throw customerIdentityConflict();
+    const requestedAssignee = text(body.assignedUserId, 'assignedUserId', 30), assignedUserId = requestedAssignee ?? (request.rbac?.isSuperAdmin ? null : request.user.sub);
+    if (requestedAssignee && (requestedAssignee !== request.user.sub || request.rbac?.isSuperAdmin))
+        await validateAssignee(assignedUserId, agencyId, request);
+    const civility = text(body.civility, 'civility', 20) ?? (customerType === 'company' ? 'Société' : null);
+    if (civility && !civilities.includes(civility))
+        throw new HttpError(400, 'Civilité invalide');
+    const classification = text(body.classification, 'classification', 30) ?? 'occasional';
+    if (!classifications.includes(classification))
+        throw new HttpError(400, 'Classification invalide');
+    const score = numeric(body.score, 'score');
+    const created = await transaction(async (connection) => {
+        const temporary = `TMP-${randomUUID()}`;
+        const [result] = await connection.execute(`INSERT INTO customers(customer_code,customer_type,civility,agency_id,first_name,last_name,company_name,email,phone,secondary_phone,address,postal_code,city,country,tax_identifier,source,segment,score,classification,notes,assigned_user_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [temporary, customerType, civility, agencyId, firstName, lastName, companyName, email, phone, text(body.secondaryPhone, 'secondaryPhone', 50), text(body.address, 'address', 1000), text(body.postalCode, 'postalCode', 30), text(body.city, 'city', 100), text(body.country, 'country', 100) ?? 'Congo', text(body.taxIdentifier, 'taxIdentifier', 100), text(body.source, 'source', 100), text(body.segment, 'segment', 100), score, classification, text(body.notes, 'notes', 10000), assignedUserId, request.user.sub]);
+        const customerCode = `CLI-${String(result.insertId).padStart(6, '0')}`;
+        await connection.execute('UPDATE customers SET customer_code=? WHERE id=?', [customerCode, result.insertId]);
+        return String(result.insertId);
+    });
+    response.status(201).json(mapCustomer(await customerById(created)));
+}));
+customerRouter.patch('/customers/:id', requirePermission('customers.update'), asyncHandler(async (request, response) => {
+    const id = routeId(request.params.id), current = await accessibleCustomer(id, request, 'customers.update');
+    const body = request.body;
+    const columns = { customerType: 'customer_type', civility: 'civility', firstName: 'first_name', lastName: 'last_name', companyName: 'company_name', email: 'email', phone: 'phone', secondaryPhone: 'secondary_phone', address: 'address', postalCode: 'postal_code', city: 'city', country: 'country', taxIdentifier: 'tax_identifier', source: 'source', segment: 'segment', classification: 'classification', notes: 'notes' };
+    const sets = [], values = [];
+    for (const [key, column] of Object.entries(columns))
+        if (Object.hasOwn(body, key)) {
+            const value = text(body[key], key, key === 'notes' || key === 'address' ? 10000 : key === 'companyName' ? 200 : key === 'email' ? 190 : 100);
+            if (key === 'customerType' && !customerTypes.includes(value))
+                throw new HttpError(400, 'Type de client invalide');
+            if (key === 'civility' && value && !civilities.includes(value))
+                throw new HttpError(400, 'Civilité invalide');
+            if (key === 'classification' && !classifications.includes(value))
+                throw new HttpError(400, 'Classification invalide');
+            sets.push(`${column}=?`);
+            values.push(value);
+        }
+    if (Object.hasOwn(body, 'score')) {
+        sets.push('score=?');
+        values.push(numeric(body.score, 'score'));
+    }
+    if (Object.hasOwn(body, 'assignedUserId')) {
+        const assigned = text(body.assignedUserId, 'assignedUserId', 30);
+        await validateAssignee(assigned, String(current.agency_id), request);
+        sets.push('assigned_user_id=?');
+        values.push(assigned);
+    }
+    if (!sets.length)
+        throw new HttpError(400, 'Aucun champ modifiable fourni');
+    const email = Object.hasOwn(body, 'email') ? text(body.email, 'email', 190) : current.email;
+    const phone = Object.hasOwn(body, 'phone') ? text(body.phone, 'phone', 50) : current.phone;
+    if (!email && !phone)
+        throw new HttpError(400, 'Un téléphone ou un e-mail est requis');
+    if ((await findCustomerIdentityMatches(pool, String(current.agency_id), email, phone, id)).length)
+        throw customerIdentityConflict();
+    await execute(`UPDATE customers SET ${sets.join(',')} WHERE id=?`, [...values, id]);
+    response.json(mapCustomer(await customerById(id)));
+}));
 customerRouter.get('/customers/:id/contacts', requirePermission('customers.view'), asyncHandler(async (request, response) => { const id = routeId(request.params.id); await accessibleCustomer(id, request); response.json(await query('SELECT id,customer_id,first_name,last_name,role_title,email,phone,is_primary,created_at FROM customer_contacts WHERE customer_id=? ORDER BY is_primary DESC,last_name,first_name', [id])); }));
 customerRouter.post('/customers/:id/contacts', requirePermission('customers.update'), asyncHandler(async (request, response) => { const id = routeId(request.params.id); await accessibleCustomer(id, request, 'customers.update'); const body = request.body; const result = await execute('INSERT INTO customer_contacts(customer_id,first_name,last_name,role_title,email,phone,is_primary) VALUES(?,?,?,?,?,?,?)', [id, text(body.firstName, 'firstName', 100, true), text(body.lastName, 'lastName', 100, true), text(body.roleTitle, 'roleTitle', 120), text(body.email, 'email', 190), text(body.phone, 'phone', 50), Boolean(body.isPrimary)]); response.status(201).json({ id: String(result.insertId) }); }));
 customerRouter.patch('/customers/:id/contacts/:contactId', requirePermission('customers.update'), asyncHandler(async (request, response) => { const id = routeId(request.params.id), contactId = routeId(request.params.contactId); await accessibleCustomer(id, request, 'customers.update'); const body = request.body; const fields = { firstName: 'first_name', lastName: 'last_name', roleTitle: 'role_title', email: 'email', phone: 'phone' }; const sets = [], values = []; for (const [key, column] of Object.entries(fields))

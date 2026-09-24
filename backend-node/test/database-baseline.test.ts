@@ -8,7 +8,7 @@ const root=resolve(import.meta.dirname,'../..');
 const read=(path:string)=>readFileSync(resolve(root,path),'utf8');
 const baseline=read('backend-node/database/baseline/001_initial_schema.sql');
 const seed=read('backend-node/database/seeds/001_system_seed.sql');
-const seedAdmin=read('backend-node/src/scripts/seed-admin.ts');
+const seedAdmin=read('backend-node/src/scripts/seed-admin.ts')+read('backend-node/src/scripts/admin-provisioning.ts');
 const laborRateProvisioning=read('backend-node/src/scripts/workshop-labor-rate-provisioning.ts');
 const docker=read('docker-compose.yml');
 
@@ -66,7 +66,7 @@ test('BASELINE-06B fresh saute 034–040 mais une base versionnée conserve ses 
 });
 
 test('BASELINE-06C le provisioning T1–T4 est central, idempotent et raccordé à seed:admin',()=>{
-  assert.match(seedAdmin,/provisionDefaultWorkshopLaborRates\(connection, concession\.insertId\)/);
+  assert.match(seedAdmin,/provisionDefaultWorkshopLaborRates\(connection,\s*concession\.insertId\)/);
   for(const code of ['T1','T2','T3','T4'])assert.match(laborRateProvisioning,new RegExp(`code: '${code}'`));
   assert.match(laborRateProvisioning,/ON DUPLICATE KEY UPDATE id=id/);
   assert.doesNotMatch(laborRateProvisioning,/ON DUPLICATE KEY UPDATE[^\n]*(hourly_rate|label|is_active)/);

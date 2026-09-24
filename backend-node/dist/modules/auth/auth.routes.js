@@ -3,7 +3,8 @@ import { asyncHandler } from '../../middleware/error-handler.js';
 import { HttpError } from '../../shared/http-error.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import * as service from './auth.service.js';
-export const authRouter = Router();
+import { env } from '../../config/env.js';
+import { createAuthRateLimiters } from './auth-rate-limit.js';
 const credentials = (body) => {
     const value = body;
     if (typeof value?.email !== 'string' || !/^\S+@\S+\.\S+$/.test(value.email) || typeof value.password !== 'string' || value.password.length < 8)
@@ -16,7 +17,12 @@ const token = (body) => {
         throw new HttpError(400, 'Refresh token requis');
     return value;
 };
-authRouter.post('/login', asyncHandler(async (request, response) => { const input = credentials(request.body); response.json(await service.login(input.email, input.password)); }));
-authRouter.post('/refresh', asyncHandler(async (request, response) => response.json(await service.refresh(token(request.body)))));
-authRouter.get('/me', authenticate, asyncHandler(async (request, response) => response.json(await service.me(request.user.sub))));
-authRouter.post('/logout', authenticate, asyncHandler(async (request, response) => { await service.logout(token(request.body)); response.json({ success: true }); }));
+export function createAuthRouter(rateLimitConfig = env.authRateLimit) {
+    const router = Router();
+    const limits = createAuthRateLimiters(rateLimitConfig);
+    router.post('/login', ...limits.login, asyncHandler(async (request, response) => { const input = credentials(request.body); response.json(await service.login(input.email, input.password)); }));
+    router.post('/refresh', limits.refresh, asyncHandler(async (request, response) => response.json(await service.refresh(token(request.body)))));
+    router.get('/me', authenticate, asyncHandler(async (request, response) => response.json(await service.me(request.user.sub))));
+    router.post('/logout', authenticate, asyncHandler(async (request, response) => { await service.logout(token(request.body), request.user.sid, request.user.sub); response.json({ success: true }); }));
+    return router;
+}

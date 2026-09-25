@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { erpKeys, useAgenciesQuery, useUsersQuery } from '../api/erpHooks';
 import { connectRealtime, disconnectRealtime } from '../services/realtime';
+import { createCrmRefreshScheduler } from '../services/crmRealtime';
 import { useAuthStore } from '../stores/authStore';
 import { dashboardOverviewKey } from '../api/dashboardHooks';
 
@@ -36,12 +37,15 @@ export function AppBootstrap() {
   useEffect(() => {
     const token = localStorage.getItem('lca-access-token'); if (!authenticated || !token) return;
     const socket = connectRealtime(token);
+    const crmRefresh=createCrmRefreshScheduler(customerChanged=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:dashboardOverviewKey});if(customerChanged)void qc.invalidateQueries({queryKey:erpKeys.customers})});
+    const crmLeadUpdated=crmRefresh.receive;
+    socket.on('crm:lead-updated',crmLeadUpdated);
     const eventHandlers=new Map<string,()=>void>();
     Object.entries(eventKeys).forEach(([event,key]) => {const handler=()=>{void qc.invalidateQueries({ queryKey: key });void qc.invalidateQueries({queryKey:dashboardOverviewKey}); if(event==='showroom:test-drive-completed'||event==='sales:created'||event==='sales:status'){void qc.invalidateQueries({queryKey:erpKeys.vehicles});} if(event==='showroom:test-drive-completed'){void qc.invalidateQueries({queryKey:erpKeys.leads});} if(event==='parts:stock-changed'){void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:['parts']});} if(event==='settings:updated'){void qc.invalidateQueries({queryKey:['concession-current']});void qc.invalidateQueries({queryKey:['billing-config']});void qc.invalidateQueries({queryKey:['workshop-config']});}};eventHandlers.set(event,handler);socket.on(event,handler)});
     const planningHandlers=new Map<string,()=>void>();planningEvents.forEach(event=>{const handler=()=>{void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:['workshop-bays']});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['workshop-unavailabilities']});void qc.invalidateQueries({queryKey:dashboardOverviewKey});};planningHandlers.set(event,handler);socket.on(event,handler)});
     const rbacUpdated=()=>{void refreshPermissions().then(()=>{void qc.invalidateQueries();}).catch(()=>logout());};
     socket.on('rbac:updated',rbacUpdated);
-    return () => { eventHandlers.forEach((handler,event)=>socket.off(event,handler));planningHandlers.forEach((handler,event)=>socket.off(event,handler));socket.off('rbac:updated',rbacUpdated);qc.removeQueries({queryKey:['notifications']});disconnectRealtime(); };
+    return () => { crmRefresh.dispose();socket.off('crm:lead-updated',crmLeadUpdated);eventHandlers.forEach((handler,event)=>socket.off(event,handler));planningHandlers.forEach((handler,event)=>socket.off(event,handler));socket.off('rbac:updated',rbacUpdated);qc.removeQueries({queryKey:['notifications']});disconnectRealtime(); };
   }, [authenticated, qc, refreshPermissions, logout]);
   useEffect(()=>{const expired=()=>logout();window.addEventListener('lca:session-expired',expired);return()=>window.removeEventListener('lca:session-expired',expired)},[logout]);
   return null;

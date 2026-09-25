@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, assetUrl } from "../services/apiClient";
+import {leadQueryKey} from './crmQueryKeys';
+export {leadQueryKey} from './crmQueryKeys';
 import {
   deliveryStatusFromDb,
   invoiceStatusFromDb,
@@ -435,7 +437,7 @@ export const useCustomersQuery = (search = "", type = "", requestEnabled = true)
   });
 export const useLeadsQuery = (search = "", priority = "", requestEnabled = true, stage = "", commercialId = "") =>
   useQuery({
-    queryKey: [...erpKeys.leads, search, priority],
+    queryKey: leadQueryKey(search,priority,stage,commercialId),
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
@@ -450,7 +452,7 @@ export const useLeadsQuery = (search = "", priority = "", requestEnabled = true,
 export const useLeadActivitiesQuery=(leadId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.leads,leadId,'activities'],queryFn:()=>apiRequest<CrmActivity[]>(`/leads/${leadId}/activities`),enabled:enabled()&&requestEnabled&&Boolean(leadId)});
 export const useLeadQuotationsQuery=(opportunityId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.quotations,'opportunity',opportunityId],queryFn:()=>apiRequest<Quotation[]>(`/quotations/opportunity/${opportunityId}`),enabled:enabled()&&requestEnabled&&Boolean(opportunityId)});
 export const useQuotationConfig=()=>useQuery({queryKey:[...erpKeys.quotations,'config'],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string;defaultTaxMode:'TAXABLE';defaultPriceInputMode:'HT'}>('/quotations/config'),enabled:enabled()});
-export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(body:{opportunityId:string;vehicleId:string;discount:number;validUntil?:string;notes?:string;taxMode:'TAXABLE'|'TAX_EXEMPT';priceInputMode:'HT'|'TTC';taxRate:number})=>apiRequest<Quotation>('/quotations',{method:'POST',body:JSON.stringify(body)}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
+export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(body:{opportunityId:string;vehicleId:string;discount:number;validUntil?:string;notes?:string;taxMode:'TAXABLE'|'TAX_EXEMPT';priceInputMode:'HT'|'TTC';taxRate:number})=>apiRequest<Quotation>('/quotations',{method:'POST',body:JSON.stringify(body)}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.customers})}})};
 export const useUpdateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;discount?:number;validUntil?:string;notes?:string})=>apiRequest<Quotation>(`/quotations/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/validate`,{method:'POST'}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
 export const useCancelQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,status='cancelled',reason}:{id:string;status?:'cancelled'|'rejected';reason:string})=>apiRequest<Quotation>(`/quotations/${id}/cancel`,{method:'POST',body:JSON.stringify({status,reason})}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
@@ -671,7 +673,7 @@ export const useCreateCustomer = () =>
 export const useCreateLead = () =>
   mutation<any>(() => "/leads", "POST", erpKeys.leads);
 export interface CreateSalePayload { customerId:string;vehicleId:string;agencyId:string;salespersonId?:string;discount:number;depositAmount:number;notes:string;idempotencyKey:string;opportunityId?:string;quotationId?:string }
-export const useCreateSale = () => { const qc=useQueryClient();return useMutation({mutationFn:(body:CreateSalePayload)=>apiRequest('/sales',{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.customers})}}); };
+export const useCreateSale = () => { const qc=useQueryClient();return useMutation({mutationFn:(body:CreateSalePayload)=>apiRequest('/sales',{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.customers});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.quotations})}}); };
 export interface ServiceVehicleOption {id:string;vin:string;registrationNumber:string;label:string}
 export interface AdvisorCandidate {id:string;name:string}
 export interface RepairOrderCustomerOption {id:string;code:string;civility:string;firstName:string;lastName:string;companyName:string;phone:string;agencyId:string}

@@ -25,6 +25,7 @@ import { SaleWizardModal } from './SaleWizardModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
 import { openBusinessPdf } from '../../services/businessPdf';
+import { salePaymentLabel } from './salePaymentLabel';
 
 export const SalesListPage: React.FC = () => {
   const salesQuery = useSalesQuery();
@@ -169,7 +170,9 @@ export const SalesListPage: React.FC = () => {
                   message={hasActiveFilters ? 'Aucune vente ne correspond à vos critères' : 'Aucune vente'}
                 />
               )}
-              {filteredSales.map((sale) => (
+              {filteredSales.map((sale) => {
+                const paymentLabel=salePaymentLabel(sale.depositPaidTTC,sale.remainingBalanceTTC);
+                return (
                 <tr
                   key={sale.id}
                   onClick={() => navigate(`/sales/${sale.id}`)}
@@ -183,8 +186,8 @@ export const SalesListPage: React.FC = () => {
                   <td className="py-3 px-4 text-slate-700 font-medium">{sale.vehicleLabel}</td>
                   <td className="py-3 px-4">
                     <div className="font-bold text-blue-700">{formatCurrency(sale.totalSaleTTC)}</div>
-                    {sale.depositPaidTTC > 0 && (
-                      <div className="text-[10px] text-emerald-600">Acompte: {formatCurrency(sale.depositPaidTTC)}</div>
+                    {paymentLabel && (
+                      <div className="text-[10px] text-emerald-600">{paymentLabel}: {formatCurrency(sale.depositPaidTTC)}</div>
                     )}
                   </td>
                   <td className="py-3 px-4">
@@ -203,7 +206,8 @@ export const SalesListPage: React.FC = () => {
                     </Button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

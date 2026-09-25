@@ -29,7 +29,7 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#f5f4f2] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden before:absolute before:inset-y-0 before:left-0 before:w-2 before:bg-[#8f1722]">
       <div className="w-full max-w-5xl bg-white rounded-md shadow-[0_24px_70px_rgba(15,15,16,.16)] border border-[#d5d1cc] overflow-hidden grid lg:grid-cols-[1.05fr_.95fr] relative">
-        <div className="hidden lg:flex bg-[#960303] text-white p-12 flex-col justify-between min-h-[620px] relative overflow-hidden after:absolute after:-right-32 after:-bottom-32 after:w-80 after:h-80 after:border-[70px] after:border-[#8f1722]/15 after:rounded-full">
+        <div className="hidden lg:flex bg-[#680000] text-white p-12 flex-col justify-between min-h-[620px] relative overflow-hidden after:absolute after:-right-32 after:-bottom-32 after:w-80 after:h-80 after:border-[70px] after:border-[#8f1722]/15 after:rounded-full">
           <div>
             <div className="flex items-center gap-2"><div className="w-[60%] p-5"><img alt='LCA Logo' src='/images/logo-lca.png'/></div><div></div></div>
             <div className="mt-10 max-w-md">

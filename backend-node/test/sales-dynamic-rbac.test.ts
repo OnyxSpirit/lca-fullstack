@@ -32,7 +32,7 @@ test('SALE-11/20/22/27 : chaque opération emploie son scope et un rôle dynamiq
 
 test('SALE-09/13/14/15 : confirmation verrouille vente et véhicule, SOLD vient de confirmed',()=>{
   assert.match(service,/WHERE s\.id=\? AND \$\{scoped\.sql\} FOR UPDATE/);
-  assert.match(service,/SELECT id,agency_id,status,vin,stock_number,catalog_price,sale_price FROM vehicles WHERE id=\? FOR UPDATE/);
+  assert.match(service,/SELECT id,agency_id,status,vin,stock_number,catalog_price,sale_price[^']* FROM vehicles WHERE id=\? FOR UPDATE/);
   assert.match(service,/status==='confirmed'/);assert.match(service,/nextVehicleStatus='sold'/);
   assert.match(service,/UPDATE vehicles SET status=\? WHERE id=\? AND status=\?/);
   assert.doesNotThrow(()=>assertSaleTransition('ordered','confirmed'));

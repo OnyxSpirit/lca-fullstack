@@ -61,9 +61,10 @@ export const SaleDetailPage: React.FC = () => {
   const nextStatus: Partial<Record<typeof sale.status, keyof typeof saleStatusToDb>> = {
     RESERVATION: 'COMMANDE', COMMANDE: 'FINANCEMENT_VALIDE', FINANCEMENT_VALIDE: 'PREPARATION', PREPARATION: 'PRET_LIVRAISON',
   };
-  const nextLabel: Record<string, string> = { COMMANDE: 'Confirmer la commande', FINANCEMENT_VALIDE: 'Valider le financement', PREPARATION: 'Lancer la préparation', PRET_LIVRAISON: 'Déclarer prêt à livrer' };
-  const next=nextStatus[sale.status],isReadyTransition=next==='PRET_LIVRAISON';
-  const readyBlocked=!invoice||invoice.remainingAmountTTC>.001;
+  const nextLabel: Record<string, string> = { COMMANDE: 'Confirmer la commande', FINANCEMENT_VALIDE: 'Confirmer la vente', PREPARATION: 'Lancer la préparation', PRET_LIVRAISON: 'Déclarer prêt à livrer' };
+  const next=nextStatus[sale.status],isFinancialTransition=next==='PREPARATION'||next==='PRET_LIVRAISON';
+  const financialBlocked=isFinancialTransition&&!sale.financiallyCleared;
+  const financialBlockReason=invoice?`Préparation impossible — solde restant : ${formatCurrency(invoice.remainingAmountTTC)}`:'Une facture émise et intégralement réglée est requise.';
   const cancellationBlocked=Number(invoice?.paidAmountTTC??0)>0||['PRET_LIVRAISON','LIVRE'].includes(sale.status);
 
   return (
@@ -89,7 +90,7 @@ export const SaleDetailPage: React.FC = () => {
               Imprimer Bon de Commande
             </Button>
 
-            {next&&canConfirm&&<div title={isReadyTransition&&readyBlocked?'Une facture active et entièrement réglée est requise.':undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={isReadyTransition&&readyBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
+            {next&&canConfirm&&<div title={financialBlocked?financialBlockReason:undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={financialBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
             {sale.status === 'PRET_LIVRAISON'&&canPlanDelivery&&<Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
             {canCancelSale&&!['LIVRE','ANNULE'].includes(sale.status)&&<div title={cancellationBlocked?'Une vente encaissée ou engagée en livraison ne peut plus être annulée.':undefined}><Button variant="danger" size="sm" loading={saleStatus.isPending} disabled={cancellationBlocked} onClick={()=>{const reason=window.prompt("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button></div>}
           </div>

@@ -11,11 +11,11 @@ import { asyncHandler } from "../../middleware/error-handler.js";
 import { emitToAgency } from "../../realtime/socket.js";
 import { HttpError } from "../../shared/http-error.js";
 import { notifyPermissions as createPermissionNotifications } from "../notifications/notification.service.js";
-import { assertFinanciallySettled } from "../billing/payment.domain.js";
 import {assertChecklistTemplateAgencyAccess,assertHandoverMileage,deliverySignatureHash} from './delivery.domain.js';
 import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {requireDocumentFile,storeDocument} from '../documents/document-storage.js';
 import {decodeDeliveryDocument} from './delivery-document.js';
+import{lockActiveSaleInvoice}from'../billing/sale-financial-gate.js';
 
 export const deliveryRouter = Router();
 type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel';
@@ -317,6 +317,7 @@ deliveryRouter.post(
       if(!lockedSale)throw new HttpError(404,'Vente ou véhicule introuvable');
       if(String(lockedSale.agency_id)!==agencyId)throw new HttpError(403,'Vente rattachée à une autre agence');
       if(lockedSale.status!=='ready_for_delivery')throw new HttpError(409,'La vente doit être prête à livrer');
+      await lockActiveSaleInvoice(connection,saleId,'delivery');
       const[lockedUsers]=await connection.execute<RowDataPacket[]>(`SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')} FOR UPDATE`,[specialist,agencyId]);
       if(!lockedUsers[0])throw new HttpError(400,'Responsable livraison invalide pour cette agence');
       const [existing] = await connection.execute<RowDataPacket[]>(
@@ -395,9 +396,15 @@ deliveryRouter.patch(
       status === "cancelled",
     );
     await transaction(async (connection) => {
-      const[currentRows]=await connection.execute<RowDataPacket[]>('SELECT status FROM deliveries WHERE id=? FOR UPDATE',[id]),current=currentRows[0];
+      const[currentRows]=await connection.execute<RowDataPacket[]>('SELECT status,sale_id FROM deliveries WHERE id=? FOR UPDATE',[id]),current=currentRows[0];
       if(!current)throw new HttpError(404,'Livraison introuvable');
       if(String(current.status)!==String(row.status))throw new HttpError(409,'Le statut de la livraison a changé, rechargez le dossier');
+      const isForwardProgression=current.status==='planned'&&status==='preparing'||current.status==='preparing'&&status==='quality_control'||current.status==='quality_control'&&status==='ready';
+      if(isForwardProgression){
+        const[sales]=await connection.execute<RowDataPacket[]>('SELECT id FROM sales WHERE id=? FOR UPDATE',[current.sale_id]);
+        if(!sales[0])throw new HttpError(409,'La vente associée est introuvable');
+        await lockActiveSaleInvoice(connection,String(current.sale_id),'delivery');
+      }
       const requiredPhase=status==='quality_control'?'preparation':status==='ready'?'quality':null;
       if(requiredPhase){
         const[pendingRows]=await connection.execute<RowDataPacket[]>('SELECT COUNT(*) count FROM delivery_checklists WHERE delivery_id=? AND category=? AND is_required=TRUE AND is_completed=FALSE',[id,requiredPhase]);
@@ -633,9 +640,7 @@ deliveryRouter.post(
       if(delivery.status==='delivered')return{duplicate:true,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
       if(delivery.status!=='ready')throw new HttpError(409,'La livraison doit être prête avant signature');
       if(delivery.sale_status!=='ready_for_delivery')throw new HttpError(409,`Le statut de la vente (${delivery.sale_status}) est incompatible avec la remise`);
-      const[invoices]=await connection.execute<RowDataPacket[]>("SELECT id,balance_due,status FROM invoices WHERE sale_id=? AND status<>'cancelled' ORDER BY id DESC LIMIT 1 FOR UPDATE",[delivery.sale_id]);
-      if(!invoices[0])throw new HttpError(409,'La facture de vente est absente');
-      assertFinanciallySettled(invoices[0].balance_due,'livraison');
+      await lockActiveSaleInvoice(connection,String(delivery.sale_id),'delivery');
       const[pendingChecklist]=await connection.execute<RowDataPacket[]>("SELECT COUNT(*) count FROM delivery_checklists WHERE delivery_id=? AND category IN('preparation','quality','handover') AND is_required=TRUE AND is_completed=FALSE",[id]);
       if(Number(pendingChecklist[0]?.count??0)>0)throw new HttpError(409,'Checklist de remise client incomplète.');
       const[pendingDocs]=await connection.execute<RowDataPacket[]>('SELECT COUNT(*) count FROM delivery_documents WHERE delivery_id=? AND is_required=TRUE AND received=FALSE',[id]);

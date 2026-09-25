@@ -215,6 +215,7 @@ const mapSale = (r: any): Sale => ({
   remainingBalanceTTC: r.invoice_id ? n(r.invoice_balance_due) : n(r.balance_due),
   invoiceId: r.invoice_id == null ? undefined : s(r.invoice_id),
   financialStatus: r.invoice_status ?? undefined,
+  financiallyCleared: Boolean(r.financially_cleared),
   financingType: ({ cash: "Comptant", credit: "Crédit Classique", loa: "LOA", lld: "LLD", Comptant: "Comptant", "Crédit Classique": "Crédit Classique", LOA: "LOA", LLD: "LLD" } as Record<string, Sale['financingType']>)[r.financing_type] ?? "Comptant",
   financingPartner: r.financier_name ?? undefined,
   financingAmount: r.financed_amount == null ? undefined : n(r.financed_amount),

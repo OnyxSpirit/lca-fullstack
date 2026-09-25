@@ -256,6 +256,7 @@ export interface Sale {
   remainingBalanceTTC: number;
   invoiceId?: string;
   financialStatus?: string;
+  financiallyCleared: boolean;
   financingType: 'Comptant' | 'Crédit Classique' | 'LOA' | 'LLD';
   financingPartner?: string;
   financingAmount?: number;

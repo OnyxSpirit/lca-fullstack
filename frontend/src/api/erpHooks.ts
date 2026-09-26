@@ -849,6 +849,10 @@ export const useShowroomBoardQuery = (requestEnabled=true) =>
     },
     enabled: enabled() && requestEnabled,
   });
+export interface ShowroomAgencyOption {id:string;name:string;code:string}
+export interface ShowroomSalesCandidate {id:string;name:string;agencyId:string}
+export const useShowroomCreateAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:['showroom','create-agencies'],queryFn:()=>apiRequest<ShowroomAgencyOption[]>('/showroom/agencies/visitor-create'),enabled:enabled()&&requestEnabled});
+export const useShowroomSalesCandidatesQuery=(agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['showroom','sales-candidates',agencyId],queryFn:()=>apiRequest<ShowroomSalesCandidate[]>(`/showroom/agencies/${agencyId}/sales-candidates`),enabled:enabled()&&requestEnabled&&Boolean(agencyId)});
 export const useShowroomQuery = () =>
   useQuery({
     queryKey: ["showroom"],

@@ -65,5 +65,6 @@ test('l’éligibilité à l’affectation CRM repose sur des permissions active
 test('l’essai lancé depuis le CRM exige aussi crm.test_drive.create',()=>{
   const source=readFileSync(new URL('../src/modules/showroom/showroom.routes.ts',import.meta.url),'utf8');
   assert.match(source,/assertPermission\(request,'crm\.test_drive\.create'\)/);
-  assert.match(source,/crmScope==='OWN'/);
+  assert.match(source,/assertAgencyScope\(request,String\(lead\.agency_id\),'showroom\.visitor\.update',lead\.assigned_user_id\)/);
+  assert.match(source,/assertAgencyScope\(request,String\(lead\.agency_id\),'crm\.test_drive\.create',lead\.assigned_user_id\)/);
 });

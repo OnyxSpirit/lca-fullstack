@@ -3,6 +3,8 @@ type ClassifiedVisit={status:string;assignedUserId?:string|null};
 
 export const eligibleShowroomSalesUsers=<T extends ShowroomUser>(users:T[],agencyId?:string)=>users.filter(user=>{const permissions=Array.isArray(user.permissions)?user.permissions:Object.keys(user.permissions??{});return !user.isSystemSuperAdmin&&user.status==='active'&&Boolean(agencyId)&&user.agencyId===agencyId&&(permissions.includes('sales.create')||permissions.includes('crm.prospect.update'))});
 
+export const showroomAgencyOptions=<T extends {id:string}>(agencies:T[],currentAgencyId:string|undefined)=>agencies.length?agencies:currentAgencyId?[{id:currentAgencyId} as T]:[];
+
 export const showroomVisitorErrors=(visitorName:string,phone:string)=>{
   const errors:{visitorName?:string;phone?:string}={};
   if(!visitorName.trim())errors.visitorName='Le nom est obligatoire.';

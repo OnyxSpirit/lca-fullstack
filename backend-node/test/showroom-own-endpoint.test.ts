@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
-import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
-import { env } from '../src/config/env.js';
 import { pool } from '../src/config/database.js';
+import { RbacTestSessionFixture } from './support/rbac-test-session.js';
 
 type Visit = { id:string; agency_id:string; greeted_by:string; assigned_user_id:string|null; status:string; visitor_name:string; arrival_at:string; lead_id:null; customer_id:null; vehicle_id:null; queue_number:number };
 const originalExecute=pool.execute.bind(pool);
 const originalGetConnection=pool.getConnection.bind(pool);
 const app=createApp();
+const authFixture=new RbacTestSessionFixture();
 const visits:Visit[]=[];
 let nextId=1;
 let driveWrites=0;
 let permissions:Record<string,{code:string;scope:string}[]>={};
-const token=(user:string,agency='1')=>jwt.sign({sub:user,email:`${user}@test.local`,roles:['DYNAMIC_SHOWROOM'],agencyId:agency},env.jwt.accessSecret,{expiresIn:'5m'});
+const token=(user:string,agency='1')=>authFixture.createRbacTestSession({user:{id:user,agencyId:agency},roleCode:'DYNAMIC_SHOWROOM'}).accessToken;
 const own=[{code:'showroom.view',scope:'OWN'},{code:'showroom.visitor.create',scope:'OWN'},{code:'showroom.assign',scope:'OWN'},{code:'showroom.status.update',scope:'OWN'},{code:'showroom.visitor.update',scope:'OWN'}];
 const call=(user:string,agency='1')=>({auth:`Bearer ${token(user,agency)}`});
 const visible=(sql:string,params:unknown[],visit:Visit)=>{
@@ -29,7 +29,7 @@ const visible=(sql:string,params:unknown[],visit:Visit)=>{
 
 before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
-    if(sql.includes('SELECT id,agency_id FROM users WHERE id='))return [[{id:params[0],agency_id:String(params[0])==='203'?'2':'1'}],[]];
+    if(sql.includes('JOIN refresh_tokens rt'))return [authFixture.authRows(params),[]];
     if(sql.includes('SELECT r.id,r.code,r.is_system'))return [[{id:`role-${params[0]}`,code:'DYNAMIC_SHOWROOM',is_system:0}],[]];
     if(sql.includes('SELECT p.code,rp.scope'))return [permissions[String(params[0]).replace('role-','')]??[],[]];
     if(sql.includes('FROM agencies target'))return [[{id:params[1],is_active:1,concession_id:params[1],actor_concession_id:params[0]}],[]];

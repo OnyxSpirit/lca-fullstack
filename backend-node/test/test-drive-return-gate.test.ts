@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {test} from 'node:test';
-import jwt from 'jsonwebtoken';
+import {after,before,test} from 'node:test';
 import request from 'supertest';
 import {createApp} from '../src/app.js';
-import {env} from '../src/config/env.js';
+import {pool} from '../src/config/database.js';
 import {assertTestDriveReturned} from '../src/modules/quotations/quotation.service.js';
+import {RbacTestSessionFixture} from './support/rbac-test-session.js';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const row=(status:string|null,returnedAt:string|null)=>({test_drive_status:status,test_drive_returned_at:returnedAt}) as any;
+const authFixture=new RbacTestSessionFixture();
+let restorePool:()=>void;
+before(()=>{restorePool=authFixture.installPoolMock(pool)});
+after(()=>restorePool());
 
 test('TEST-DRIVE-01/02 un essai démarré reste en cours et bloque le devis avec une erreur métier',()=>{
   const showroom=read('../src/modules/showroom/showroom.routes.ts');
@@ -38,7 +42,7 @@ test('TEST-DRIVE-07 un véhicule vendu reste refusé au lancement',()=>{
 });
 
 test('TEST-DRIVE-08 le commercial simple ne peut pas confirmer lui-même le retour physique',async()=>{
-  const token=jwt.sign({sub:'10',email:'commercial@test.local',roles:['SALES_AGENT'],agencyId:'1'},env.jwt.accessSecret,{expiresIn:'5m'});
+  const token=authFixture.createRbacTestSession({user:{id:'10',agencyId:'1'},roleCode:'ROLE_SALES_WITHOUT_SHOWROOM_RETURN'}).accessToken;
   const response=await request(createApp()).patch('/api/showroom/test-drives/1/complete').set('Authorization',`Bearer ${token}`).send({mileageIn:10});
   assert.equal(response.status,403);
 });

@@ -21,7 +21,7 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
   const canAssignAdvisor=can('service.order.assign_advisor');
   const [advisorId,setAdvisorId]=useState('');
   const { addToast } = useUiStore();
-  const freshForm=()=>({customerId:'',customerName:'',customerPhone:'',vehicleId:'',mileage:0,promisedCompletionDate:new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '),symptomsReported:'',diagnosticNotes:'',warrantyCovered:false,warrantyReference:''});
+  const freshForm=()=>({customerId:'',customerName:'',customerPhone:'',vehicleId:'',mileage:'',promisedCompletionDate:new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '),symptomsReported:'',diagnosticNotes:'',warrantyCovered:false,warrantyReference:''});
   const [formData,setFormData]=useState(freshForm);
   const selectedCustomer=customers.find(customer=>customer.id===formData.customerId);
   const advisorsQuery=useAdvisorCandidatesQuery(selectedCustomer?.agencyId??currentAgency?.id,isOpen);
@@ -35,13 +35,13 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!Number.isFinite(formData.mileage)||!Number.isInteger(formData.mileage)||formData.mileage<0){addToast({type:'error',title:'Kilométrage invalide',description:'Le kilométrage doit être un nombre entier positif ou nul.'});return;}
+    const mileage=Number(formData.mileage);if(formData.mileage===''||!Number.isFinite(mileage)||!Number.isInteger(mileage)||mileage<0){addToast({type:'error',title:'Kilométrage invalide',description:'Le kilométrage doit être un nombre entier positif ou nul.'});return;}
     const vehicle=vehicles.find(v=>v.id===formData.vehicleId); if(!vehicle){addToast({type:'error',title:'Véhicule requis',description:'Sélectionnez explicitement un véhicule existant.'});return;}
     if(!advisors.some(user=>user.id===advisorId)){addToast({type:'error',title:'Conseiller SAV requis',description:'Aucun conseiller opérationnel éligible n’est disponible dans cette agence.'});return;}
     try{await createRepairOrder.mutateAsync({
       customerId: formData.customerId,
       vehicleId: vehicle.id,
-      mileage: formData.mileage,
+      mileage,
       advisorId,
       complaint: formData.symptomsReported,
       diagnosisSummary: formData.diagnosticNotes,
@@ -102,7 +102,8 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
               min="0"
               step="1"
               value={formData.mileage}
-              onChange={(e) => setFormData({ ...formData, mileage: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, mileage: e.target.value })}
+              placeholder="Saisir le kilométrage"
               className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none"
             />
           </div>

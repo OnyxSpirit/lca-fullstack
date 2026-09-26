@@ -35,7 +35,7 @@ test('OPS-UX-01 conserve les indicateurs pending du planning',async()=>{
 test('OPS-UX-01 valide explicitement le kilométrage et les quantités OR',async()=>{
   const [create,detail]=await Promise.all([read('../src/modules/service/NewRepairOrderModal.tsx'),read('../src/modules/service/RepairOrderDetailPage.tsx')]);
   assert.match(create,/step="1"/);
-  assert.match(create,/Number\.isInteger\(formData\.mileage\)/);
+  assert.match(create,/formData\.mileage===''\|\|!Number\.isFinite\(mileage\)\|\|!Number\.isInteger\(mileage\)/);
   assert.match(detail,/\['mileage','mileageOut'\]/);
   assert.match(detail,/value\?\.itemType==='part'\|\|value\?\.status==='consumed'/);
 });

@@ -13,6 +13,7 @@ export const vehicleRouter=Router();
 const DB_STATUSES=['ordered','in_transit','received','preparation','available','reserved','sold','delivered'];
 export const COMMERCIAL_PARK_STATUSES=['received','preparation','available','reserved'] as const;
 const TYPES=['new','used','demo','courtesy'];
+export const VEHICLE_FINANCIAL_FIELDS=['purchasePrice','refurbishmentCost','transportCost','administrativeCost','additionalCosts','catalogPrice','salePrice','minimumPrice'] as const;
 const idOf=(value:string|string[]|undefined)=>{const id=Array.isArray(value)?value[0]:value;if(!id||!/^[1-9]\d*$/.test(id))throw new HttpError(400,'Identifiant véhicule invalide');return id;};
 const txt=(value:unknown,max=255)=>String(value??'').trim().slice(0,max);
 const optional=(value:unknown,max=255)=>{const valueText=txt(value,max);return valueText||null;};
@@ -21,7 +22,9 @@ const integer=(value:unknown,name:string,required=false)=>{if((value==null||valu
 const hasFinance=(request:Request)=>Boolean(request.rbac&&can(request.rbac,'vehicles.financials.view'));
 const grant=(request:Request,permission:string):PermissionScope|undefined=>request.rbac?.isSuperAdmin?'GLOBAL':request.rbac?.permissions.get(permission)??undefined;
 export function vehicleScope(request:Request,permission:string,alias='v',requested:unknown=request.query.agencyId){const value=grant(request,permission),agencyId=request.user?.agencyId;if(value==='GLOBAL')return requested?{sql:`${alias}.agency_id=?`,params:[String(requested)]}:{sql:'1=1',params:[] as unknown[]};if(!agencyId)throw new HttpError(403,'Aucune agence associée');if(value==='CONCESSION')return requested?{sql:`${alias}.agency_id=? AND ${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[String(requested),agencyId]}:{sql:`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[agencyId]};if(value==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[agencyId]};if(value==='OWN')throw new HttpError(403,'Le scope OWN ne s’applique pas au stock véhicules');throw new HttpError(403,`Scope manquant pour ${permission}`);}
-const agency=async(request:Request,permission:string,requested?:unknown)=>{const scoped=grant(request,permission),current=request.user?.agencyId;if(scoped==='GLOBAL')return requested?String(requested):current;if(scoped==='CONCESSION'&&requested){const[row]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE id=? AND concession_id=(SELECT concession_id FROM agencies WHERE id=?) AND is_active=TRUE',[String(requested),current]);if(!row)throw new HttpError(403,'Agence hors concession');return String(requested)}if(requested&&String(requested)!==String(current))throw new HttpError(403,'Agence hors périmètre');return current;};
+const assertAgencyPermissionScope=async(request:Request,permission:string,targetAgencyId:string)=>{const scoped=grant(request,permission),current=String(request.user?.agencyId??'');if(scoped==='OWN')throw new HttpError(403,'Le scope OWN ne s’applique pas au stock véhicules');if(scoped==='GLOBAL')return;if(scoped==='AGENCY'&&targetAgencyId===current)return;if(scoped==='CONCESSION'){const[row]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE id=? AND concession_id=(SELECT concession_id FROM agencies WHERE id=?) AND is_active=TRUE',[targetAgencyId,current]);if(row)return}throw new HttpError(403,`Agence hors périmètre pour ${permission}`)};
+const agency=async(request:Request,permission:string,requested?:unknown)=>{const current=request.user?.agencyId,target=String(requested??current??'');if(!target)throw new HttpError(403,'Aucune agence associée');await assertAgencyPermissionScope(request,permission,target);const[row]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE id=? AND is_active=TRUE',[target]);if(!row)throw new HttpError(400,'Agence invalide ou inactive');return target;};
+const hasFinancialPayload=(body:Record<string,unknown>)=>VEHICLE_FINANCIAL_FIELDS.some(field=>Object.hasOwn(body,field));
 const jsonField=<T>(value:unknown,fallback:T):T=>{if(value==null||value==='')return fallback;if(typeof value!=='string')return value as T;try{return JSON.parse(value) as T}catch{throw new HttpError(400,'Champ JSON invalide')}};
 
 vehicleRouter.use('/vehicles',(request,_response,next)=>{
@@ -51,6 +54,17 @@ vehicleRouter.get('/vehicles/stats',requirePermission('vehicles.view'),asyncHand
   const [row]=await query<RowDataPacket[]>(statsQuery.sql,statsQuery.params);
   const availableForSale=Number(row?.available??0);
   response.json({total:Number(row?.total??0),ordered:Number(row?.ordered??0),inTransit:Number(row?.in_transit??0),received:Number(row?.received??0),preparation:Number(row?.preparation??0),available:availableForSale,availableForSale,reserved:Number(row?.reserved??0),sold:Number(row?.sold??0),delivered:Number(row?.delivered??0),dormant:Number(row?.dormant??0),...(statsQuery.finance?{stockValue:Number(row?.stock_value??0)}:{})});
+}));
+
+vehicleRouter.get('/vehicles/agencies/create',requirePermission('vehicles.create'),asyncHandler(async(request,response)=>{
+  const scoped=grant(request,'vehicles.create'),current=request.user?.agencyId;
+  if(scoped==='OWN')throw new HttpError(403,'Le scope OWN ne s’applique pas au stock véhicules');
+  if(!current)throw new HttpError(403,'Aucune agence associée');
+  const predicate=scoped==='GLOBAL'?{sql:'1=1',params:[] as unknown[]}:scoped==='CONCESSION'?{sql:'a.concession_id=(SELECT concession_id FROM agencies WHERE id=?)',params:[current]}:scoped==='AGENCY'?{sql:'a.id=?',params:[current]}:null;
+  if(!predicate)throw new HttpError(403,'Scope manquant pour vehicles.create');
+  const rows=await query<RowDataPacket[]>(`SELECT a.id,a.name,a.code,a.concession_id,(SELECT concession_id FROM agencies WHERE id=?) actor_concession_id FROM agencies a WHERE a.is_active=TRUE AND ${predicate.sql} ORDER BY a.name`,[current,...predicate.params]);
+  const financialScope=grant(request,'vehicles.financials.view');
+  response.json(rows.map(row=>({id:String(row.id),name:String(row.name),code:String(row.code),financialAllowed:financialScope==='GLOBAL'||financialScope==='CONCESSION'&&String(row.concession_id)===String(row.actor_concession_id)||financialScope==='AGENCY'&&String(row.id)===String(current)})));
 }));
 
 const baseSelect=`SELECT v.*,ve.name version,m.id model_id,m.name model,b.id brand_id,b.name brand,a.name agency_name,l.name location_name,s.name supplier_name,CONCAT_WS(' ',u.first_name,u.last_name) created_by_name,(SELECT vi.file_path FROM vehicle_images vi WHERE vi.vehicle_id=v.id ORDER BY vi.is_primary DESC,vi.sort_order,vi.id LIMIT 1) primary_image FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id JOIN agencies a ON a.id=v.agency_id LEFT JOIN locations l ON l.id=v.location_id LEFT JOIN suppliers s ON s.id=v.supplier_id LEFT JOIN users u ON u.id=v.created_by`;
@@ -115,7 +129,7 @@ vehicleRouter.post('/vehicles',requirePermission('vehicles.create'),asyncHandler
   const vin=txt(request.body.vin,17).toUpperCase();if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))throw new HttpError(400,'Le VIN doit contenir 17 caractères valides');
   const brandName=txt(request.body.brand,120),modelName=txt(request.body.model,120),versionName=txt(request.body.version,150)||'Standard';if(!brandName||!modelName)throw new HttpError(400,'La marque et le modèle sont obligatoires');
   const vehicleType=txt(request.body.vehicleType)||'new';if(!TYPES.includes(vehicleType))throw new HttpError(400,'Type de véhicule invalide');const initialStatus=txt(request.body.status)||'received';if(!DB_STATUSES.includes(initialStatus))throw new HttpError(400,'Statut initial invalide');
-  const agencyId=await agency(request,'vehicles.create',request.body.agencyId);if(!agencyId)throw new HttpError(400,'Agence obligatoire');const featureNames=jsonField<string[]>(request.body.features,[]).map(value=>txt(value,150)).filter(Boolean);
+  const agencyId=await agency(request,'vehicles.create',request.body.agencyId);if(hasFinancialPayload(request.body))await assertAgencyPermissionScope(request,'vehicles.financials.view',agencyId);const featureNames=jsonField<string[]>(request.body.features,[]).map(value=>txt(value,150)).filter(Boolean);
   const result=await withStagedVehicleImages(jsonField<VehicleImageInput[]>(request.body.images,[]),staged=>transaction(async connection=>{
     let [brands]=await connection.execute<RowDataPacket[]>('SELECT id FROM brands WHERE name=? LIMIT 1',[brandName]);let brandId=brands[0]?.id;if(!brandId){const [insert]=await connection.execute<ResultSetHeader>('INSERT INTO brands(name,code) VALUES(?,?)',[brandName,`${brandName.replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,35)}-${Date.now().toString().slice(-6)}`]);brandId=insert.insertId}
     let [models]=await connection.execute<RowDataPacket[]>('SELECT id FROM models WHERE brand_id=? AND name=? LIMIT 1',[brandId,modelName]);let modelId=models[0]?.id;if(!modelId){const [insert]=await connection.execute<ResultSetHeader>('INSERT INTO models(brand_id,name) VALUES(?,?)',[brandId,modelName]);modelId=insert.insertId}
@@ -132,8 +146,8 @@ vehicleRouter.patch('/vehicles/:id',requirePermission('vehicles.update'),asyncHa
   const id=idOf(request.params.id),before=await accessible(id,request,'vehicles.update');
   const allowed:Record<string,string>={registrationNumber:'registration_number',bodyType:'body_type',year:'year',firstRegistrationDate:'first_registration_date',color:'color',interiorColor:'interior_color',fuelType:'fuel_type',engine:'engine',transmission:'transmission',fiscalPower:'fiscal_power',realPower:'real_power',co2Emissions:'co2_emissions',mileage:'mileage',locationId:'location_id',supplierId:'supplier_id',notes:'notes'};
   const numericFields=new Set(['year','fiscalPower','realPower','co2Emissions','mileage','locationId','supplierId']);
-  const amountFields=new Set(['purchasePrice','refurbishmentCost','transportCost','administrativeCost','additionalCosts','catalogPrice','salePrice','minimumPrice']);
-  if(hasFinance(request))Object.assign(allowed,{purchasePrice:'purchase_price',refurbishmentCost:'refurbishment_cost',transportCost:'transport_cost',administrativeCost:'administrative_cost',additionalCosts:'additional_costs',catalogPrice:'catalog_price',salePrice:'sale_price',minimumPrice:'minimum_price'});
+  const amountFields=new Set<string>(VEHICLE_FINANCIAL_FIELDS);
+  if(hasFinancialPayload(request.body)){await assertAgencyPermissionScope(request,'vehicles.financials.view',String(before.agency_id));Object.assign(allowed,{purchasePrice:'purchase_price',refurbishmentCost:'refurbishment_cost',transportCost:'transport_cost',administrativeCost:'administrative_cost',additionalCosts:'additional_costs',catalogPrice:'catalog_price',salePrice:'sale_price',minimumPrice:'minimum_price'})}
   const sets:string[]=[],params:Array<string|number|null>=[];
   for(const [field,column] of Object.entries(allowed))if(Object.hasOwn(request.body,field)){
     const raw=request.body[field];

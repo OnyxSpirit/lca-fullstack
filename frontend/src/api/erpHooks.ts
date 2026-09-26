@@ -519,6 +519,8 @@ export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   queryFn:()=>apiRequest<VehicleStats>(`/vehicles/stats${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),
   enabled:enabled(),
 });
+export interface VehicleCreateAgency {id:string;name:string;code:string;financialAllowed:boolean}
+export const useVehicleCreateAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'create-agencies'],queryFn:()=>apiRequest<VehicleCreateAgency[]>('/vehicles/agencies/create'),enabled:enabled()&&requestEnabled});
 export const useSalesQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.sales,queryFn:async()=>(await apiRequest<any[]>('/sales')).map(mapSale),enabled:enabled()&&requestEnabled});
 export const useQuotationsQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.quotations,queryFn:()=>apiRequest<Quotation[]>('/quotations'),enabled:enabled()&&requestEnabled});
 export const useRepairOrdersQuery = (search="",status="",requestEnabled=true) => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()&&requestEnabled});
@@ -637,10 +639,10 @@ export const useVehicle360Query = (id?: string) =>
     },
     enabled: enabled() && Boolean(id),
   });
-export const useVehicleReferencesQuery = () =>
+export const useVehicleReferencesQuery = (agencyId?:string) =>
   useQuery({
-    queryKey: ["vehicle-references"],
-    queryFn: () => apiRequest<any>("/vehicle-references"),
+    queryKey: ["vehicle-references",agencyId],
+    queryFn: () => apiRequest<any>(`/vehicle-references${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),
     enabled: enabled(),
     staleTime: 300_000,
   });

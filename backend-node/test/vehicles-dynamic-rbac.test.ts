@@ -36,7 +36,8 @@ test('VEH-05 : OWN est explicitement refusé car un véhicule appartient au stoc
 test('VEH-07/09 : création et modification calculent leur propre scope et non vehicles.view',()=>{
   assert.match(source,/agency\(request,'vehicles\.create',request\.body\.agencyId\)/);
   assert.match(source,/accessible\(id,request,'vehicles\.update'\)/);
-  assert.match(source,/requested&&String\(requested\)!==String\(current\)/);
+  assert.match(source,/assertAgencyPermissionScope\(request,permission,target\)/);
+  assert.match(source,/scoped==='OWN'.*scope OWN ne s’applique pas au stock véhicules/);
 });
 
 test('VEH-11/12 : seules les transitions manuelles autorisées passent',()=>{

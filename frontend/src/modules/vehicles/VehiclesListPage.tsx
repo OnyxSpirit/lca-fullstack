@@ -24,10 +24,11 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { VehicleStatus, FuelType } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { NewVehicleModal } from './NewVehicleModal';
+import { implicitVehicleAgencyFilter } from './vehicleScopePolicy';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
-  const currentAgency=useAuthStore(state=>state.currentAgency),can=useAuthStore(state=>state.can),canCreate=can('vehicles.create'),canViewFinancials=can('vehicles.financials.view');
+  const currentAgency=useAuthStore(state=>state.currentAgency),can=useAuthStore(state=>state.can),permissionScope=useAuthStore(state=>state.permissionScope),canCreate=can('vehicles.create'),canViewFinancials=can('vehicles.financials.view');
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,10 +42,11 @@ export const VehiclesListPage: React.FC = () => {
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
   const deferredSearch=useDeferredValue(searchQuery);
   const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
-  const vehicleFilters={agencyId:currentAgency?.id,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant};
+  const implicitAgencyId=implicitVehicleAgencyFilter(permissionScope('vehicles.view'),currentAgency?.id);
+  const vehicleFilters={agencyId:implicitAgencyId,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant};
   const vehiclesQuery=useVehicleListQuery(vehicleFilters);
-  const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:currentAgency?.id,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand});
-  const statsQuery=useVehicleStatsQuery(currentAgency?.id),stats=statsQuery.data;
+  const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:implicitAgencyId,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand});
+  const statsQuery=useVehicleStatsQuery(implicitAgencyId),stats=statsQuery.data;
   const vehicles = vehiclesQuery.data?.items ?? [];
   const filteredTotal=vehiclesQuery.data?.total??0;
   const brands=filterOptionsQuery.data?.brands??[],models=filterOptionsQuery.data?.models??[];

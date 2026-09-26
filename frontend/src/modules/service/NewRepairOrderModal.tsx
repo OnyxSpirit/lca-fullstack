@@ -21,7 +21,7 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
   const canAssignAdvisor=can('service.order.assign_advisor');
   const [advisorId,setAdvisorId]=useState('');
   const { addToast } = useUiStore();
-  const freshForm=()=>({customerId:'',customerName:'',customerPhone:'',vehicleId:'',mileage:'',promisedCompletionDate:new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '),symptomsReported:'',diagnosticNotes:'',warrantyCovered:false,warrantyReference:''});
+  const freshForm=()=>({customerId:'',customerName:'',customerPhone:'',vehicleId:'',mileage:'',promisedCompletionDate:new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '),symptomsReported:'',diagnosticNotes:'',warrantyIntent:'NONE' as 'NONE'|'STUDY',warrantyReference:'',warrantyComment:''});
   const [formData,setFormData]=useState(freshForm);
   const selectedCustomer=customers.find(customer=>customer.id===formData.customerId);
   const advisorsQuery=useAdvisorCandidatesQuery(selectedCustomer?.agencyId??currentAgency?.id,isOpen);
@@ -45,8 +45,9 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
       advisorId,
       complaint: formData.symptomsReported,
       diagnosisSummary: formData.diagnosticNotes,
-      warrantyCovered: formData.warrantyCovered,
-      warrantyReference: formData.warrantyCovered?formData.warrantyReference:undefined,
+      warrantyIntent: formData.warrantyIntent,
+      warrantyReference: formData.warrantyIntent==='STUDY'?formData.warrantyReference:undefined,
+      warrantyComment: formData.warrantyIntent==='STUDY'?formData.warrantyComment:undefined,
       promisedCompletionAt: formData.promisedCompletionDate,
     });
 
@@ -128,19 +129,8 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
           />
         </div>
 
-        {/* Options */}
-        <div className="flex flex-wrap gap-4 pt-1">
-          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.warrantyCovered}
-              onChange={(e) => setFormData({ ...formData, warrantyCovered: e.target.checked })}
-              className="rounded text-blue-600 focus:ring-blue-500"
-            />
-            Prise en charge sous Garantie Constructeur
-          </label>
-        </div>
-        {formData.warrantyCovered&&<div><label className="block text-xs font-semibold text-slate-700 mb-1">Référence de garantie *</label><input required value={formData.warrantyReference} onChange={e=>setFormData({...formData,warrantyReference:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300" /></div>}
+        <div><label className="block text-xs font-semibold text-slate-700 mb-1">Prise en charge constructeur</label><select value={formData.warrantyIntent} onChange={e=>setFormData({...formData,warrantyIntent:e.target.value as 'NONE'|'STUDY'})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300"><option value="NONE">Aucune garantie</option><option value="STUDY">Garantie à étudier</option></select></div>
+        {formData.warrantyIntent==='STUDY'&&<div className="grid gap-3 md:grid-cols-2"><div><label className="block text-xs font-semibold text-slate-700 mb-1">Référence initiale</label><input value={formData.warrantyReference} onChange={e=>setFormData({...formData,warrantyReference:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300" /></div><div><label className="block text-xs font-semibold text-slate-700 mb-1">Commentaire</label><input value={formData.warrantyComment} onChange={e=>setFormData({...formData,warrantyComment:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300" /></div></div>}
 
         <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
           <Button variant="outline" type="button" onClick={onClose}>

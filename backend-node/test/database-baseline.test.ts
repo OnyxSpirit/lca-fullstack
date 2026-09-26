@@ -15,8 +15,8 @@ const docker=read('docker-compose.yml');
 function sourceFiles(directory:string):string[]{return readdirSync(directory).flatMap(name=>{const path=resolve(directory,name);return statSync(path).isDirectory()?sourceFiles(path):/\.tsx?$/.test(name)?[path]:[];});}
 function codes(text:string){return new Set([...text.matchAll(/['"]([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+)['"]/g)].map(match=>match[1]));}
 
-test('BASELINE-01 est unique, versionné 040 et non destructif',()=>{
-  assert.equal(FRESH_BASELINE_VERSION,40);assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(40,'baseline_001_040'/);
+test('BASELINE-01 est unique, versionné 046 et non destructif',()=>{
+  assert.equal(FRESH_BASELINE_VERSION,46);assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(46,'baseline_001_046'/);
   assert.doesNotMatch(baseline,/^\s*(DROP|DELETE|UPDATE|TRUNCATE)\b/im);
   const tables=[...baseline.matchAll(/CREATE TABLE\s+`?([a-z0-9_]+)`?/gi)].map(match=>match[1]);
   assert.equal(tables.length,new Set(tables).size);assert.ok(tables.length>=92);
@@ -56,10 +56,10 @@ test('BASELINE-06 seules les migrations futures strictement supérieures à 033 
   assert.match(read('backend-node/src/scripts/database-bootstrap.ts'),/DUPLICATE_MIGRATION_VERSION/);
 });
 
-test('BASELINE-06B fresh saute 034–040 mais une base versionnée conserve ses upgrades',()=>{
-  assert.equal(shouldApplyMigration(34,new Set([40]),true),false);
-  assert.equal(shouldApplyMigration(40,new Set([40]),true),false);
-  assert.equal(shouldApplyMigration(41,new Set([40]),true),true);
+test('BASELINE-06B fresh saute 034–046 mais une base versionnée conserve ses upgrades',()=>{
+  assert.equal(shouldApplyMigration(34,new Set([46]),true),false);
+  assert.equal(shouldApplyMigration(46,new Set([46]),true),false);
+  assert.equal(shouldApplyMigration(47,new Set([46]),true),true);
   assert.equal(shouldApplyMigration(40,new Set([39]),false),true);
   assert.equal(shouldApplyMigration(39,new Set([38]),false),true);
   assert.equal(shouldApplyMigration(34,new Set([33]),false),true);

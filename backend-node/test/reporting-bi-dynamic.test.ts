@@ -4,7 +4,7 @@ import {test} from 'node:test';
 
 const source=readFileSync(new URL('../src/modules/reports/report.routes.ts',import.meta.url),'utf8');
 
-test('REPORTING-01 tous les endpoints exigent reporting.view',()=>assert.equal((source.match(/requirePermission\('reporting\.view'\)/g)??[]).length,10));
+test('REPORTING-01 tous les endpoints exigent reporting.view',()=>assert.equal((source.match(/requirePermission\('reporting\.view'\)/g)??[]).length,11));
 test('REPORTING-02 export exige aussi reporting.export',()=>assert.match(source,/use\('\/reports\/export',requirePermission\('reporting\.export'\)\)/));
 test('REPORTING-03 les sections sensibles exigent leur permission source',()=>{for(const code of ['billing.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view'])assert.ok(source.includes(code),code)});
 test('REPORTING-04 OWN collectif est explicitement refusé',()=>assert.match(source,/scope OWN ne s’applique pas aux agrégats Reporting collectifs/));

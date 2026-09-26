@@ -1,0 +1,8 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFileSync}from'node:fs';
+const modal=readFileSync(new URL('../src/modules/service/NewRepairOrderModal.tsx',import.meta.url),'utf8'),detail=readFileSync(new URL('../src/modules/service/RepairOrderDetailPage.tsx',import.meta.url),'utf8'),card=readFileSync(new URL('../src/modules/service/WarrantyCard.tsx',import.meta.url),'utf8'),reports=readFileSync(new URL('../src/modules/reports/ReportsPage.tsx',import.meta.url),'utf8');
+test('création propose aucune garantie ou garantie à étudier',()=>{assert.match(modal,/Aucune garantie/);assert.match(modal,/Garantie à étudier/);assert.doesNotMatch(modal,/Prise en charge sous Garantie Constructeur/)});
+test('réel affiche total, constructeur et reste client',()=>{assert.match(card,/Montant total des travaux/);assert.match(card,/Prise en charge constructeur/);assert.match(card,/Reste à charge du client/)});
+test('permissions manage et approve pilotent les actions',()=>{assert.match(card,/service\.warranty\.manage/);assert.match(card,/service\.warranty\.approve/)});
+test('SAV-OR-22 frontend inclut la ventilation garantie',()=>assert.match(detail,/allocationStatus!=='CONFIRMED'/));
+test('reporting garantie affiche KPI et tableau',()=>{assert.match(reports,/Garanties constructeur/);assert.match(reports,/Créances restantes/);assert.match(reports,/decision_status/)});
+test('règlement constructeur et filtres reporting sont exposés sous permissions',()=>{assert.match(card,/billing\.payment\.collect/);assert.match(card,/crypto\.randomUUID/);for(const label of ['Filtrer par constructeur','Filtrer par décision garantie','Filtrer par statut de créance'])assert.match(reports,new RegExp(label))});

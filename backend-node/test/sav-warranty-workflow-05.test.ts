@@ -1,0 +1,10 @@
+import assert from'node:assert/strict';import{readFileSync}from'node:fs';import test from'node:test';
+const routes=readFileSync(new URL('../src/modules/workshop/workshop.routes.ts',import.meta.url),'utf8'),service=readFileSync(new URL('../src/modules/workshop/warranty.service.ts',import.meta.url),'utf8'),warranty=readFileSync(new URL('../src/modules/workshop/warranty.routes.ts',import.meta.url),'utf8');
+test('WW05-01 OR sans garantie conserve la réception normale',()=>assert.doesNotMatch(service,/warranty_covered.*throw/));
+test('WW05-02 PENDING bloque réception et inspection sous verrou',()=>{assert.match(service,/SELECT decision_status.*FOR UPDATE/);assert.match(service,/avant la réception du véhicule/);assert.ok((routes.match(/assertWarrantyDecisionMade\(c,id\)/g)??[]).length>=3)});
+test('WW05-03 APPROVED et REJECTED sortent de l’attente',()=>assert.match(service,/decision_status==='PENDING'/));
+test('WW05-04 GLOBAL et Super Admin ne contournent pas la précondition métier',()=>{const helper=service.slice(service.indexOf('export async function assertWarrantyDecisionMade'),service.indexOf('export async function assertWarrantyReadyForQuality'));assert.doesNotMatch(helper,/isSuperAdmin|GLOBAL/)});
+test('WW05-05 PENDING bloque toujours les travaux',()=>assert.match(service,/assertWarrantyMayStart[\s\S]*decision_status==='PENDING'/));
+test('WW05-06 REJECTED supprime les allocations mais conserve le dossier et le constructeur fourni',()=>{assert.match(warranty,/DELETE FROM repair_order_warranty_allocations/);assert.match(warranty,/\[providerId,decision==='APPROVED'/)});
+test('WW05-07 APPROVED ne demande aucun montant réel',()=>{assert.doesNotMatch(warranty,/decision==='APPROVED'[^;]*(line_total|manufacturerShareHT)/);assert.match(warranty,/Constructeur, type et autorisation obligatoires/)});
+test('WW05-08 validation client PENDING est bloquée transactionnellement',()=>assert.match(routes,/status!=='waiting_approval'[\s\S]{0,200}assertWarrantyDecisionMade\(c,id\)/));

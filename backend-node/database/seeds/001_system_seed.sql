@@ -55,6 +55,8 @@ INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,i
 ('service','view','service.order.view','Voir les ordres de réparation','SAV & Atelier','Consulter les OR',TRUE),
 ('service','create','service.order.create','Créer un ordre de réparation','SAV & Atelier','Créer un OR',TRUE),
 ('service','update','service.order.update','Modifier un ordre de réparation','SAV & Atelier','Modifier un OR',TRUE),
+('service','update','service.warranty.manage','Gérer les garanties constructeur','SAV & Atelier','Créer et ventiler les dossiers de garantie',TRUE),
+('service','approve','service.warranty.approve','Approuver les garanties constructeur','SAV & Atelier','Enregistrer la décision et confirmer la ventilation',TRUE),
 ('service','assign','service.order.assign_advisor','Affecter un conseiller SAV','SAV & Atelier','Affecter un conseiller SAV',TRUE),
 ('service','assign','service.order.assign_technician','Affecter un technicien','SAV & Atelier','Affecter un technicien',TRUE),
 ('service','update','service.order.diagnose','Diagnostiquer un OR','SAV & Atelier','Enregistrer un diagnostic',TRUE),

@@ -347,6 +347,7 @@ export interface RepairOrder {
   inspection?: RepairOrderInspection|null;
   diagnostics?: RepairOrderDiagnostic[];
   approvals?: RepairApproval[];
+  customerApproval:{required:boolean;decided:boolean;decision:'APPROVED'|'REJECTED'|null;canDecide:boolean;submittedAmount:number};
   estimateItems: RepairEstimateItem[];
   estimateSummary:{gross:number;discount:number;subtotal:number;tax:number;total:number;currencyCode:string;byType?:Record<string,{gross:number;discount:number;subtotal:number;tax:number;total:number}>};
   interventions?: RepairIntervention[];
@@ -357,6 +358,8 @@ export interface RepairOrder {
   handover?: {customerName:string;mileageOut:number|null;observations:string;signatureData:string;handedOverAt:string}|null;
   invoice?: {id:string;invoiceNumber:string;subtotal:number;taxTotal:number;total:number;amountPaid:number;balanceDue:number;status:string}|null;
   financiallyCleared:boolean;
+  workStarted:boolean;
+  actualBillable:{expectedItems:number;confirmedItems:number;confirmed:boolean};
   symptomsReported: string;
   diagnosticNotes: string;
   operations: ServiceOperation[];
@@ -367,6 +370,7 @@ export interface RepairOrder {
   finalTotalTTC: number;
   warrantyCovered: boolean;
   warrantyReference?: string;
+  warranty?: {id:string;version:number;coverageMode:'FULL'|'PARTIAL'|null;decisionStatus:'PENDING'|'APPROVED'|'REJECTED';allocationStatus:'UNALLOCATED'|'DRAFT'|'CONFIRMED'|'LEGACY_UNALLOCATED';providerId?:string|null;providerName?:string|null;authorizationReference?:string|null;decisionComment?:string|null;allocations:Array<{repairOrderItemId:string;manufacturerShareHT:number;manufacturerTotal:number;customerTotal:number;description:string;itemType:string;lineTotal:number;taxRate:number;itemStatus:string}>;summary:{realTotal:number;manufacturerTotal:number;customerTotal:number};claim?:{id:string;claimNumber:string;status:string;total:number;amountReceived:number;balanceDue:number}|null}|null;
   courtesyCarAssigned?: string;
   createdAt: string;
 }

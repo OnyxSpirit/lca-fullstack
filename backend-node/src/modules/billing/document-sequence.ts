@@ -1,7 +1,7 @@
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { HttpError } from '../../shared/http-error.js';
 
-export type DocumentType = 'FAC' | 'REG' | 'AVO';
+export type DocumentType = 'FAC' | 'REG' | 'AVO' | 'GAR';
 
 export async function nextDocumentNumber(connection: PoolConnection, documentType: DocumentType, agencyId: string) {
   const year = new Date().getFullYear();

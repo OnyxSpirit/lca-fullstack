@@ -7,15 +7,14 @@ import {env} from '../src/config/env.js';
 import {pool} from '../src/config/database.js';
 
 const originalExecute=pool.execute.bind(pool);
-const token=jwt.sign({sub:'200',email:'manager@test.local',roles:['SALES_MANAGER'],agencyId:'1'},env.jwt.accessSecret,{expiresIn:'5m'});
+const token=jwt.sign({sub:'200',email:'manager@test.local',roles:['SALES_MANAGER'],agencyId:'1',sid:'notification-test-session'},env.jwt.accessSecret,{expiresIn:'5m'});
 before(()=>{(pool as any).execute=async(sql:string,params:unknown[]=[])=>{
-  if(sql.includes('SELECT id,agency_id FROM users'))return[[{id:'200',agency_id:'1'}],[]];
+  if(sql.includes('JOIN refresh_tokens rt'))return[[{id:'200',agency_id:'1'}],[]];
   if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:'1',code:'CONSEILLER_PREMIUM_TEST_9381',is_system:0}],[]];
   if(sql.includes('SELECT p.code,rp.scope'))return[[{code:'notifications.view',scope:'OWN'}],[]];
   assert.equal(String(params[0]),'200');
-  if(sql.includes('COUNT(*)')&&sql.includes('read_at IS NULL'))return[[{total:2}],[]];
-  if(sql.includes('COUNT(*)'))return[[{total:2}],[]];
-  return[[{id:'1',subject:'Prospect',message:'Affectation',delivery_status:'sent',event_type:'crm.lead_assigned',priority:'normal',read_at:null,reference_type:'lead',reference_id:'10',created_at:'2026-09-09'},{id:'2',subject:'Devis',message:'Validation',delivery_status:'sent',event_type:'quotation.created',priority:'normal',read_at:null,reference_type:'lead',reference_id:'10',created_at:'2026-09-09'}],[]];
+  if(sql.includes('COUNT(DISTINCT'))return[[{total:2}],[]];
+  return[[{id:'1',user_id:'200',subject:'Prospect',message:'Affectation',delivery_status:'sent',event_type:'crm.lead_assigned',priority:'normal',read_at:null,reference_type:'lead',reference_id:'10',created_at:'2026-09-09'},{id:'2',user_id:'200',subject:'Devis',message:'Validation',delivery_status:'sent',event_type:'quotation.created',priority:'normal',read_at:null,reference_type:'lead',reference_id:'10',created_at:'2026-09-09'}],[]];
 }});
 after(()=>{(pool as any).execute=originalExecute});
 

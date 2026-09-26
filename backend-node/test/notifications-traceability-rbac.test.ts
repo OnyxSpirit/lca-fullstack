@@ -6,7 +6,7 @@ import {createApp} from '../src/app.js';
 import {env} from '../src/config/env.js';
 import {pool} from '../src/config/database.js';
 
-const authToken=jwt.sign({sub:'200',email:'user@test.local',roles:['DYNAMIC_ROLE'],agencyId:'1'},env.jwt.accessSecret,{expiresIn:'5m'});
+const authToken=jwt.sign({sub:'200',email:'user@test.local',roles:['DYNAMIC_ROLE'],agencyId:'1',sid:'notification-rbac-test-session'},env.jwt.accessSecret,{expiresIn:'5m'});
 
 test('NOTIF-RBAC-02 sépare view, update, archive et delete avec ownership et audit',async()=>{
   const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConnection.bind(pool);
@@ -24,12 +24,12 @@ test('NOTIF-RBAC-02 sépare view, update, archive et delete avec ownership et au
   try{
     (pool as any).getConnection=async()=>connection;
     (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
-      if(sql.includes('SELECT id,agency_id FROM users'))return[[{id:'200',agency_id:'1'}],[]];
+      if(sql.includes('JOIN refresh_tokens rt'))return[[{id:'200',agency_id:'1'}],[]];
       if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:'10',code:systemSuperAdmin?'SUPER_ADMIN':'DYNAMIC_ROLE',is_system:systemSuperAdmin?1:0}],[]];
       if(sql.includes('SELECT p.code,rp.scope'))return[permissions,[]];
-      if(sql.includes('COUNT(*)'))return[[{total:0}],[]];
+      if(sql.includes('COUNT(DISTINCT'))return[[{total:0}],[]];
       if(sql.includes('UPDATE notifications SET read_at'))return[{affectedRows:1},[]];
-      if(sql.includes('SELECT id,subject,message'))return[[],[]];
+      if(sql.includes('WITH visible AS'))return[[],[]];
       return[[],[]];
     };
     const call=(method:'get'|'patch'|'delete',path:string)=>request(createApp())[method](path).set('Authorization',`Bearer ${authToken}`);

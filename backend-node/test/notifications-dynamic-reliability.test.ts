@@ -17,15 +17,17 @@ test('NOTIF-01 les endpoints séparent consultation, lecture, archivage et suppr
   assert.match(routes,/delete\('\/notifications\/:id',requirePermission\('notifications\.delete'\)/);
 });
 
-test('NOTIF-02 liste, compteur, lecture, read-all et suppression restent liés au user authentifié',()=>{
-  assert.match(routes,/baseWhere=\[`user_id=\?`/);
+test('NOTIF-02 la liste dérive sa visibilité du RBAC et les mutations restent liées au user authentifié',()=>{
+  assert.match(routes,/notificationVisibility\(request,request\.query\.scope\)/);
+  assert.match(routes,/requestedRank\[requested\]>scopeRank\[granted/);
+  assert.match(routes,/requested==='mine'.*recipient\.id=\?/);
   assert.match(routes,/WHERE user_id=\? AND channel='notification' AND read_at IS NULL/);
   assert.match(routes,/WHERE id=\? AND user_id=\? AND channel='notification'/);
   assert.match(routes,/COALESCE\(read_at,NOW\(\)\)/);
 });
 
 test('NOTIF-02B les opérations normales excluent archives et suppressions logiques',()=>{
-  assert.match(routes,/baseWhere=\[`user_id=\?`,`channel='notification'`,`archived_at IS NULL`,`deleted_at IS NULL`\]/);
+  assert.match(routes,/baseWhere=\[visibility\.sql,`n\.channel='notification'`,`n\.archived_at IS NULL`,`n\.deleted_at IS NULL`\]/);
   assert.match(routes,/read_at IS NULL AND archived_at IS NULL AND deleted_at IS NULL/);
   assert.doesNotMatch(routes,/DELETE FROM notifications/);
   assert.match(routes,/notification\.archived/);

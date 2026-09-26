@@ -13,18 +13,20 @@ test('NOTIF-FE-01 les queries exigent session, utilisateur et permission appelan
 });
 
 test('NOTIF-FE-02 le cache est isolé par utilisateur et nettoyé au logout',()=>{
-  assert.match(hooks,/\['notifications',userId,'list',filters\]/);
+  assert.match(hooks,/list:notificationListKey/);
   assert.match(bootstrap,/removeQueries\(\{queryKey:\['notifications'\]\}\)/);
 });
 
 test('NOTIF-FE-03 un seul événement invalide le cache sans insertion locale dupliquée',()=>{
-  assert.match(bootstrap,/'notifications:created': \['notifications'\]/);
+  assert.match(bootstrap,/socket\.on\('notifications:created',notificationCreated\)/);
+  assert.match(bootstrap,/notificationCreated=.*invalidateQueries\(\{queryKey:\['notifications'\]\}\)/);
   assert.doesNotMatch(bootstrap,/setQueryData|push\(/);
 });
 
 test('NOTIF-FE-04 les listeners sont retirés avec leur référence exacte',()=>{
   assert.match(bootstrap,/eventHandlers\.set\(event,handler\)/);
   assert.match(bootstrap,/socket\.off\(event,handler\)/);
+  assert.match(bootstrap,/socket\.off\('notifications:created',notificationCreated\)/);
   assert.match(bootstrap,/socket\.off\('rbac:updated',rbacUpdated\)/);
 });
 

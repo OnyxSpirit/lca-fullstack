@@ -5,11 +5,10 @@ import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { normalizeVin, normalizeVinInput, VIN_PATTERN } from './vehicleVin';
 
 interface Props { isOpen:boolean; onClose:()=>void }
 interface CatalogImage { dataUrl:string; name:string; primary:boolean }
-export const VIN_PATTERN=/^[A-HJ-NPR-Z0-9]{17}$/;
-export const normalizeVin=(value:string)=>value.trim().toUpperCase();
 const initial={vin:'',registrationNumber:'',brand:'',model:'',version:'',vehicleType:'used',bodyType:'SUV',year:new Date().getFullYear(),firstRegistrationDate:'',mileage:0,color:'',interiorColor:'',fuelType:'Essence',engine:'',transmission:'Automatique',fiscalPower:0,realPower:0,co2Emissions:0,status:'received',locationId:'',supplierId:'',purchasePrice:0,refurbishmentCost:0,transportCost:0,administrativeCost:0,additionalCosts:0,catalogPrice:0,salePrice:0,minimumPrice:0,features:'',notes:''};
 
 export async function optimizeImage(file:File):Promise<CatalogImage>{
@@ -24,7 +23,7 @@ export const NewVehicleModal:React.FC<Props>=({isOpen,onClose})=>{
   const [form,setForm]=useState(initial),[images,setImages]=useState<CatalogImage[]>([]),[isProcessingImages,setIsProcessingImages]=useState(false),[vinError,setVinError]=useState('');
   const vinRef=useRef<HTMLInputElement>(null),normalizedVin=normalizeVin(form.vin),vinValid=VIN_PATTERN.test(normalizedVin);
   useEffect(()=>{if(isOpen)setForm(current=>({...current,locationId:current.locationId||String(references.data?.locations?.[0]?.id??'')}))},[isOpen,references.data]);
-  const field=(name:keyof typeof initial)=>(event:React.ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>)=>{const value=event.target.type==='number'?Number(event.target.value):event.target.value;setForm(current=>({...current,[name]:name==='vin'?String(value).toUpperCase():value}));if(name==='vin')setVinError('')};
+  const field=(name:keyof typeof initial)=>(event:React.ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>)=>{const value=event.target.type==='number'?Number(event.target.value):event.target.value;setForm(current=>({...current,[name]:name==='vin'?normalizeVinInput(String(value)):value}));if(name==='vin')setVinError('')};
   const selectImages=async(event:React.ChangeEvent<HTMLInputElement>)=>{setIsProcessingImages(true);try{const files=Array.from(event.target.files??[]);if(images.length+files.length>8)throw new Error('Maximum 8 photos par véhicule');const next=await Promise.all(files.map(optimizeImage));setImages(current=>[...current,...next].map((image,index)=>({...image,primary:index===0})))}catch(error){addToast({type:'error',title:'Préparation de la photo impossible',description:error instanceof Error?error.message:'Image invalide'})}finally{setIsProcessingImages(false);event.target.value=''}};
   const submit=async(event:React.FormEvent)=>{event.preventDefault();if(!vinValid){setVinError('Le VIN doit comporter exactement 17 caractères valides.');vinRef.current?.focus();return}if(images.length===0){addToast({type:'error',title:'Photo principale requise',description:'Ajoutez au moins une photo pour publier le véhicule dans le catalogue.'});return}try{await createVehicle.mutateAsync({...form,agencyId:currentAgency?.id,vin:normalizedVin,registrationNumber:form.registrationNumber.trim().toUpperCase(),features:form.features.split(',').map(value=>value.trim()).filter(Boolean),images:images.map(({dataUrl,name})=>({dataUrl,name}))});addToast({type:'success',title:'Véhicule ajouté',description:`${form.brand} ${form.model} a été ajouté au stock avec le statut « Réceptionné ».`});setForm(initial);setImages([]);onClose()}catch(error){const message=error instanceof Error?error.message:'Erreur API';if(/VIN/i.test(message)){setVinError(message);vinRef.current?.focus()}addToast({type:'error',title:'Entrée en stock impossible',description:message})}};
   const disabled=isProcessingImages||createVehicle.isPending||!vinValid||!form.brand.trim()||!form.model.trim()||images.length===0;

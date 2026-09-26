@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Car,
@@ -52,8 +52,17 @@ export const VehicleDetailPage: React.FC = () => {
   const manualTransitions:Partial<Record<VehicleStatus,VehicleStatus[]>>={COMMANDE:['EN_TRANSIT','RECEPTIONNE'],EN_TRANSIT:['RECEPTIONNE'],RECEPTIONNE:['PREPARATION','DISPONIBLE'],PREPARATION:['DISPONIBLE'],DISPONIBLE:['PREPARATION'],RESERVE:['DISPONIBLE'],VENDU:[],LIVRE:[]};
   const manualStatusOptions=vehicle?manualTransitions[vehicle.status]??[]:[];
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [selectedImageId, setSelectedImageId] = useState<string|null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
   const [editOpen,setEditOpen]=useState(false);
+  const galleryImages=vehicleQuery.data?.images??[];
+  const selectedImage=galleryImages.find((image:any)=>String(image.id)===selectedImageId);
+  useEffect(()=>{
+    const selectedIndex=selectedImageId?galleryImages.findIndex((image:any)=>String(image.id)===selectedImageId):-1;
+    if(selectedImageId&&selectedIndex<0)setSelectedImageId(null);
+    else if(selectedIndex>=0&&selectedPhotoIndex!==selectedIndex)setSelectedPhotoIndex(selectedIndex);
+    else if(selectedPhotoIndex>=galleryImages.length)setSelectedPhotoIndex(Math.max(0,galleryImages.length-1));
+  },[galleryImages,selectedImageId,selectedPhotoIndex]);
   const downloadDocument=async(document:any)=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.file_name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
 
   if(vehicleQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement du véhicule…</div>;
@@ -81,6 +90,8 @@ export const VehicleDetailPage: React.FC = () => {
     openBusinessPdf('vehicle',vehicle.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}));
   };
   const addImages=async(event:React.ChangeEvent<HTMLInputElement>)=>{try{const images=await Promise.all(Array.from(event.target.files??[]).map(optimizeImage));await imageMutations.add.mutateAsync({id:vehicle.id,images:images.map(({dataUrl,name})=>({dataUrl,name}))});addToast({type:'success',title:'Galerie mise à jour',description:`${images.length} photo(s) ajoutée(s).`})}catch(error){addToast({type:'error',title:'Ajout impossible',description:error instanceof Error?error.message:'Erreur image'})}event.target.value=''};
+  const setPrimaryImage=async()=>{if(!selectedImage)return;try{await imageMutations.primary.mutateAsync({id:vehicle.id,imageId:String(selectedImage.id)});addToast({type:'success',title:'Image principale mise à jour',description:'La photo sélectionnée est maintenant l’image principale.'})}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur image'})}};
+  const removeSelectedImage=async()=>{if(!selectedImage||!window.confirm('Supprimer cette photo du catalogue ?'))return;try{await imageMutations.remove.mutateAsync({id:vehicle.id,imageId:String(selectedImage.id)});setSelectedImageId(null);setSelectedPhotoIndex(0);addToast({type:'success',title:'Photo supprimée',description:'La photo sélectionnée a été retirée du catalogue.'})}catch(error){addToast({type:'error',title:'Suppression impossible',description:error instanceof Error?error.message:'Erreur image'})}};
 
   return (
     <div className="space-y-6">
@@ -146,22 +157,26 @@ export const VehicleDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {vehicle.photos.length > 1 && (
+          {galleryImages.length > 0 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {vehicle.photos.map((img, idx) => (
+              {galleryImages.map((image:any, idx:number) => (
                 <button
-                  key={idx}
-                  onClick={() => setSelectedPhotoIndex(idx)}
-                  className={`w-20 h-14 rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
-                    selectedPhotoIndex === idx ? 'border-blue-600 ring-2 ring-blue-500/20' : 'border-transparent opacity-70 hover:opacity-100'
+                  key={image.id}
+                  type="button"
+                  aria-label={`Sélectionner la photo ${idx+1}${image.is_primary?' principale':''}`}
+                  aria-pressed={String(image.id)===selectedImageId}
+                  onClick={() => {setSelectedPhotoIndex(idx);setSelectedImageId(String(image.id))}}
+                  className={`relative w-20 h-14 rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8f1722] ${
+                    String(image.id)===selectedImageId ? 'border-[#8f1722] ring-2 ring-[#8f1722]/20' : 'border-transparent opacity-70 hover:opacity-100'
                   }`}
                 >
-                  <img src={img} alt="thumbnail" className="w-full h-full object-cover" />
+                  <img src={image.thumbnail_path||image.file_path} alt={`Photo ${idx+1} de ${vehicle.model}`} className="w-full h-full object-cover" />
+                  {Boolean(image.is_primary)&&<span className="absolute bottom-0 inset-x-0 bg-[#8f1722]/90 text-white text-[9px] font-bold py-0.5">Principale</span>}
                 </button>
               ))}
             </div>
           )}
-          {canManageImages&&<div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label>{vehicleQuery.data?.images?.map((image:any,index:number)=><div key={image.id} className="flex gap-1"><Button size="xs" variant="outline" disabled={Boolean(image.is_primary)} onClick={()=>imageMutations.primary.mutate({id:vehicle.id,imageId:String(image.id)})}>{index===0?'Principale':'Définir principale'}</Button><Button size="xs" variant="outline" onClick={()=>{if(window.confirm('Supprimer cette photo du catalogue ?'))imageMutations.remove.mutate({id:vehicle.id,imageId:String(image.id)})}}>Supprimer</Button></div>)}</div>}
+          {canManageImages&&<div className="flex flex-col sm:flex-row sm:items-center gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold text-center cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-slate-500">{selectedImage?`Photo ${galleryImages.indexOf(selectedImage)+1} sélectionnée`:'Sélectionnez une photo'}</span><Button size="xs" variant="outline" disabled={!selectedImage||Boolean(selectedImage.is_primary)} loading={imageMutations.primary.isPending} onClick={setPrimaryImage}>Définir comme principale</Button><Button size="xs" variant="outline" disabled={!selectedImage} loading={imageMutations.remove.isPending} onClick={removeSelectedImage}>Supprimer</Button></div></div>}
         </div>
 
         {/* Commercial Highlights Card */}
@@ -235,7 +250,7 @@ export const VehicleDetailPage: React.FC = () => {
             onClick={() => setActiveTab(tab.key as any)}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === tab.key
-                ? 'border-blue-600 text-blue-700'
+                ? 'border-red-800 text-red-900'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >

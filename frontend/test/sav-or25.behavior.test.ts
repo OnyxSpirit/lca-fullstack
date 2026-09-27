@@ -14,7 +14,7 @@ test('OR25-FE-05 refus reste terminal après reconstruction',()=>assert.match(pa
 test('OR25-FE-06 brouillon local ne pilote pas existence étape',()=>assert.doesNotMatch(page,/approvalActive=approval\./));
 test('OR25-FE-07 changement OR recharge une query indexée par id',()=>assert.match(hooks,/queryKey: \["repair-orders", id\]/));
 test('OR25-FE-08 montant est fourni par le contrat serveur',()=>assert.match(page,/money\(ro\.customerApproval\.submittedAmount\)/));
-test('OR25-FE-09 Garantie PENDING a une raison explicite après F5',()=>assert.match(page,/La décision Garantie est en attente/));
+test('OR25-FE-09 Garantie PENDING a une raison serveur explicite après F5',()=>assert.match(page,/ro\.customerApproval\.blockReason/));
 test('OR25-FE-10 Garantie APPROVED est reconstruite via le contrat serveur',()=>assert.match(page,/approvalActive=ro\.customerApproval\.canDecide/));
 test('OR25-FE-11 décision submit vient explicitement du bouton',()=>assert.match(page,/submitter\?\.getAttribute\('value'\)==='approved'/));
 test('OR25-FE-12 mutation invalide la query détail',()=>assert.match(hooks,/invalidateQueries\(\{queryKey:\['repair-orders',v\.repairOrderId\]\}\)/));

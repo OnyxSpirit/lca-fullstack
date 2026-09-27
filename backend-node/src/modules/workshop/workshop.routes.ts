@@ -15,10 +15,12 @@ import {effectiveLaborRates,resolveEffectiveLaborRateSelection} from "../setting
 import { nextDocumentNumber } from "../billing/document-sequence.js";
 import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {renderRepairOrderDocument} from '../documents/commercial-document.js';
+import{loadWarrantyDocumentContext}from'../documents/warranty-document-context.js';
 import {repairOrderFinancialSummary} from './repair-order-finance.js';
 import {REPAIR_ORDER_IN_WORKSHOP_STATUSES} from './repair-order-status.js';
 import {actualBillableState} from './actual-billable.js';
 import {assertWarrantyDecisionMade,assertWarrantyMayStart,assertWarrantyReadyForQuality,invalidateWarrantyAllocation,money,warrantyDetail} from './warranty.service.js';
+import{evaluateVehicleWarranty}from'./vehicle-warranty-eligibility.service.js';
 export const workshopRouter = Router();
 type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.order.abandon'|'service.documents.view'|'service.documents.manage';
 type WorkshopPermission='workshop.view'|'workshop.plan'|'workshop.assign_technician'|'workshop.assign_bay'|'workshop.bay.view'|'workshop.bay.manage'|'workshop.schedule.view'|'workshop.schedule.manage'|'workshop.intervention.view'|'workshop.intervention.assign'|'workshop.intervention.update'|'workshop.session.view'|'workshop.session.track'|'workshop.session.manage'|'workshop.time.view'|'workshop.time.adjust'|'workshop.technicians.view'|'workshop.technicians.manage'|'workshop.resources.view'|'workshop.resources.manage'|'workshop.productivity.view';
@@ -253,8 +255,19 @@ async function detail(id: string, r: Request): Promise<any> {
   const estimateSummary=repairOrderFinancialSummary(estimateRows as any,businessConfig.currencyCode);
   const confirmedActualItems=estimateItems.filter(item=>item.actual_item_id!=null).length,activeActualItems=items.filter(item=>item.status==='active').length;
   const actualBillable=actualBillableState(estimateItems.length,confirmedActualItems,activeActualItems);
-  const warranty=await warrantyDetail(id),latestApproval=approvals[0]??null,workStarted=Boolean(workStartedRows[0]?.work_started);
-  const customerApproval={required:ro.status==='waiting_approval',decided:Boolean(latestApproval),decision:latestApproval?(Number(latestApproval.approved)===1?'APPROVED':'REJECTED'):null,canDecide:ro.status==='waiting_approval'&&!latestApproval&&!workStarted&&(warranty as any)?.decision_status!=='PENDING'&&estimateSummary.total>0,submittedAmount:latestApproval?.approved_amount==null?estimateSummary.total:Number(latestApproval.approved_amount)};
+  const contractMileage=inspection[0]?.mileage==null?Number(ro.mileage_in):Number(inspection[0].mileage),[warranty,vehicleWarranty]=await Promise.all([warrantyDetail(id),evaluateVehicleWarranty(String(ro.vehicle_id),contractMileage)]),latestApproval=approvals[0]??null,workStarted=Boolean(workStartedRows[0]?.work_started);
+  const approvalBlockReason=latestApproval
+    ? 'La décision du client a déjà été enregistrée.'
+    : ro.status!=='waiting_approval'
+      ? 'La validation client sera disponible lorsque le diagnostic et le chiffrage auront été finalisés.'
+      : workStarted
+        ? 'La validation client n’est plus disponible car les travaux ont déjà commencé.'
+        : (warranty as any)?.decision_status==='PENDING'
+          ? 'La décision de prise en charge constructeur doit être enregistrée avant la validation client.'
+          : estimateSummary.total<=0
+            ? 'Un chiffrage positif est obligatoire avant la validation client.'
+            : null;
+  const customerApproval={required:ro.status==='waiting_approval',decided:Boolean(latestApproval),decision:latestApproval?(Number(latestApproval.approved)===1?'APPROVED':'REJECTED'):null,canDecide:approvalBlockReason===null,blockReason:approvalBlockReason,submittedAmount:latestApproval?.approved_amount==null?estimateSummary.total:Number(latestApproval.approved_amount)};
   return {
     ...ro,
     items,
@@ -275,6 +288,7 @@ async function detail(id: string, r: Request): Promise<any> {
     estimateSummary,
     financially_cleared:invoiceBalance[0]?Number(invoiceBalance[0].balance_due)<=0:false,
     warranty,
+    vehicleWarranty,
     workStarted,
     customerApproval,
   };
@@ -396,6 +410,7 @@ workshopRouter.get(
   serviceAccess('service.order.view'),
   asyncHandler(async (r, res) => res.json(await detail(idOf(r.params.id), r))),
 );
+workshopRouter.get('/repair-orders/vehicles/:vehicleId/warranty-eligibility',serviceAccess('service.order.create'),asyncHandler(async(r,res)=>{const vehicleId=idOf(r.params.vehicleId),mileage=r.query.mileage==null||r.query.mileage===''?null:Number(r.query.mileage);if(mileage!=null&&(!Number.isInteger(mileage)||mileage<0))throw new HttpError(400,'Kilométrage invalide');const[vehicle]=await query<RowDataPacket[]>('SELECT agency_id FROM vehicles WHERE id=?',[vehicleId]);if(!vehicle)throw new HttpError(404,'Véhicule introuvable');if(!await permissionCoversAgency(r,'service.order.create',String(vehicle.agency_id)))throw new HttpError(403,'Véhicule hors périmètre SAV');res.json(await evaluateVehicleWarranty(vehicleId,mileage))}));
 workshopRouter.get('/repair-orders/:id/abandonment-impact',serviceAccess('service.order.abandon'),asyncHandler(async(r,res)=>{const id=idOf(r.params.id),ro=await one(id,r),impact=await transaction(c=>abandonmentImpact(c,id));res.json({repairOrderId:id,status:ro.status,...impact});}));
 workshopRouter.post('/repair-orders/:id/abandonment',serviceAccess('service.order.abandon'),asyncHandler(async(r,res)=>{const id=idOf(r.params.id),ro=await one(id,r),reasonCode=txt(r.body.reasonCode,'Code motif',50,true)!,reason=txt(r.body.reason,'Motif',500,true)!;const impact=await transaction(async c=>{const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM repair_orders WHERE id=? FOR UPDATE',[id]),locked=rows[0];if(!locked)throw new HttpError(404,'Ordre de réparation introuvable');await assertWorkNotStarted(c,id);if(locked.status==='abandonment_pending')return abandonmentImpact(c,id);if(!['planned','received','diagnosis','waiting_approval','in_progress','quality_control','ready','invoiced'].includes(String(locked.status)))throw new HttpError(409,`Abandon interdit au statut ${locked.status}`);await c.execute("UPDATE repair_orders SET status='abandonment_pending',abandonment_reason_code=?,abandonment_reason=?,abandonment_requested_at=NOW(),abandonment_requested_by=? WHERE id=?",[reasonCode,reason,r.user!.sub,id]);await c.execute("INSERT INTO repair_order_status_history(repair_order_id,old_status,new_status,reason,changed_by)VALUES(?,?,'abandonment_pending',?,?)",[id,locked.status,`${reasonCode}: ${reason}`,r.user!.sub]);return abandonmentImpact(c,id)});emitToAgency(String(ro.agency_id),'workshop:status',{id,repairOrderId:id,agencyId:String(ro.agency_id),status:'abandonment_pending'});await notify(String(ro.agency_id),'Abandon client demandé',`${ro.order_number}: ${reason}`,id);res.status(201).json({repairOrderId:id,status:'abandonment_pending',...impact});}));
 workshopRouter.post('/repair-orders/:id/abandonment/finalize',serviceAccess('service.order.abandon'),asyncHandler(async(r,res)=>{const id=idOf(r.params.id),ro=await one(id,r);const scheduleIds=await transaction(async c=>{const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM repair_orders WHERE id=? FOR UPDATE',[id]),locked=rows[0];if(!locked)throw new HttpError(404,'Ordre de réparation introuvable');if(locked.status==='abandoned')return[];await assertWorkNotStarted(c,id);if(locked.status!=='abandonment_pending')throw new HttpError(409,"L'OR n'est pas en abandon en cours");const before=await abandonmentImpact(c,id);if(before.activeSessions)throw new HttpError(409,'Arrêtez toutes les sessions avant de finaliser');const ids=await cleanupAbandonment(c,id,String(locked.agency_id),r.user!.sub),after=await abandonmentImpact(c,id);if(after.activeSchedules||after.reservedParts)throw new HttpError(409,'Le nettoyage opérationnel est incomplet');if(after.invoice){if(after.invoice.balanceDue>.001||after.invoice.netCollected-after.invoice.netInvoiced>.001)throw new HttpError(409,'Régularisez la situation financière avant de finaliser');}else if(after.actualItemsTotal>.001)throw new HttpError(409,'Les travaux ou pièces réalisés doivent être régularisés financièrement');const[handovers]=await c.execute<RowDataPacket[]>('SELECT id FROM repair_order_handovers WHERE repair_order_id=? FOR UPDATE',[id]);if(handovers[0])throw new HttpError(409,'Le véhicule a déjà été remis');await c.execute("UPDATE repair_orders SET status='abandoned',abandoned_at=NOW(),abandoned_by=? WHERE id=?",[r.user!.sub,id]);await c.execute("INSERT INTO repair_order_status_history(repair_order_id,old_status,new_status,reason,changed_by)VALUES(?,'abandonment_pending','abandoned','Abandon client finalisé',?)",[id,r.user!.sub]);return ids});for(const scheduleId of scheduleIds)emitToAgency(String(ro.agency_id),'workshop:schedule-cancelled',{id:scheduleId});emitToAgency(String(ro.agency_id),'workshop:status',{id,repairOrderId:id,agencyId:String(ro.agency_id),status:'abandoned'});emitToAgency(String(ro.agency_id),'parts:stock-changed',{repairOrderId:id,agencyId:String(ro.agency_id)});await notify(String(ro.agency_id),'Abandon client finalisé',ro.order_number,id);res.json(await detail(id,r));}));
@@ -408,7 +423,6 @@ workshopRouter.post(
       vehicle = idOf(r.body.vehicleId);
     const agency=await serviceCustomerAgency(r,customer);
     const mileage=Number(r.body.mileage??0);if(!Number.isInteger(mileage)||mileage<0)throw new HttpError(400,"Kilométrage invalide");
-    if(Boolean(r.body.warrantyCovered)&&!txt(r.body.warrantyReference,"Référence garantie",100))throw new HttpError(400,"Référence garantie requise");
     const promised=r.body.promisedCompletionAt?dateTime(r.body.promisedCompletionAt,"Fin promise"):null;
     const [valid] = await query<RowDataPacket[]>(
       "SELECT c.id FROM customers c JOIN vehicles v ON v.agency_id=c.agency_id WHERE c.id=? AND v.id=? AND c.agency_id=? AND (EXISTS(SELECT 1 FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.vehicle_id=v.id AND s.customer_id=c.id) OR EXISTS(SELECT 1 FROM repair_orders ro WHERE ro.vehicle_id=v.id AND ro.customer_id=c.id))",
@@ -425,6 +439,7 @@ workshopRouter.post(
     const no = `OR-${Date.now()}`;
     const repairOrderId=await transaction(async c=>{
       await assertAdvisorCandidate(c,advisor,agency);
+      const contractWarranty=await evaluateVehicleWarranty(vehicle,mileage,c);
       if(appointment){const [appointments]=await c.execute<RowDataPacket[]>("SELECT id FROM service_appointments WHERE id=? AND customer_id=? AND vehicle_id=? AND agency_id=? FOR UPDATE",[appointment,customer,vehicle,agency]);if(!appointments[0])throw new HttpError(400,"Rendez-vous SAV incompatible");}
       const [x] = await c.execute<ResultSetHeader>(
         `INSERT INTO repair_orders(order_number,appointment_id,customer_id,vehicle_id,agency_id,advisor_id,mileage_in,complaint,diagnosis_summary,status,warranty_covered,warranty_reference,promised_completion_at,created_by)VALUES(?,?,?,?,?,?,?,?,?,'planned',?,?,?,?)`,
@@ -438,8 +453,8 @@ workshopRouter.post(
           mileage,
           txt(r.body.complaint, "Motif", 5000, true),
           txt(r.body.diagnosisSummary, "Diagnostic", 5000),
-          r.body.warrantyIntent==='STUDY'||Boolean(r.body.warrantyCovered),
-          txt(r.body.warrantyReference, "Garantie", 100),
+          contractWarranty.status==='ELIGIBLE_CONTRACTUALLY',
+          null,
           promised,
           r.user!.sub,
         ],
@@ -447,7 +462,7 @@ workshopRouter.post(
       await c.execute(
       `INSERT INTO repair_order_status_history(repair_order_id,new_status,reason,changed_by)VALUES(?,'planned','Ouverture OR',?)`,
       [x.insertId, r.user!.sub],
-      );if(r.body.warrantyIntent==='STUDY'||Boolean(r.body.warrantyCovered)){await c.execute("INSERT INTO repair_order_warranties(repair_order_id,decision_status,allocation_status,warranty_reference,decision_comment,created_by,updated_by)VALUES(?,'PENDING','UNALLOCATED',?,?,?,?)",[x.insertId,txt(r.body.warrantyReference,'Garantie',100),txt(r.body.warrantyComment,'Commentaire garantie',5000),r.user!.sub,r.user!.sub]);}if(appointment)await c.execute("UPDATE service_appointments SET status='completed' WHERE id=?",[appointment]);return String(x.insertId);
+      );if(contractWarranty.status==='ELIGIBLE_CONTRACTUALLY'){await c.execute("INSERT INTO repair_order_warranties(repair_order_id,provider_id,decision_status,allocation_status,decision_comment,created_by,updated_by)VALUES(?,?,'PENDING','UNALLOCATED','Demande initialisée automatiquement depuis la garantie contractuelle du véhicule',?,?)",[x.insertId,contractWarranty.contract!.providerId,r.user!.sub,r.user!.sub]);}if(appointment)await c.execute("UPDATE service_appointments SET status='completed' WHERE id=?",[appointment]);return String(x.insertId);
     });
     emitToAgency(agency, "workshop:repair-order-created", {
       id: repairOrderId,
@@ -1007,7 +1022,7 @@ workshopRouter.get(
   "/repair-orders/:id/pdf",
   serviceAccess('service.documents.view'),
   asyncHandler(async (r, res) => {
-    const ro = await detail(idOf(r.params.id), r),pdf=await renderRepairOrderDocument(ro);
+    const ro = await detail(idOf(r.params.id), r),warrantyDocumentContext=await loadWarrantyDocumentContext({vehicleId:String(ro.vehicle_id),repairOrderId:String(ro.id),currentMileage:ro.inspection?.mileage==null?Number(ro.mileage_in):Number(ro.inspection.mileage),asOf:ro.created_at?new Date(ro.created_at):undefined}),pdf=await renderRepairOrderDocument({...ro,warrantyDocumentContext});
     res
       .type("pdf")
       .setHeader(

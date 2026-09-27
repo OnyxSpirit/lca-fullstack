@@ -1,10 +1,10 @@
-import {unlink} from 'node:fs/promises';
+import {readFile,unlink} from 'node:fs/promises';
 import PDFDocument from 'pdfkit';
 import {renderDeliveryDocument,renderInvoiceDocument,renderPaymentReceiptData,renderQuotationDocument,renderSaleOrderDocument} from './commercial-document.js';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {execute,query} from '../../config/database.js';
 import {emitToAgency} from '../../realtime/socket.js';
-import {documentHash,storeDocument} from './document-storage.js';
+import {documentHash,requireDocumentFile,storeDocument} from './document-storage.js';
 
 type Field=[string,unknown];
 type ArchiveInput={sourceKey:string;documentType:string;entityType:'customer'|'sale'|'invoice'|'delivery';entityId:string;fileName:string;agencyId:string;createdBy:string|null;buffer:Buffer};
@@ -19,6 +19,7 @@ export async function archiveBusinessDocument(input:ArchiveInput){
   catch(error:any){await unlink(stored.absolute).catch(()=>undefined);if(error?.code==='ER_DUP_ENTRY'){const[row]=await query<RowDataPacket[]>('SELECT id FROM documents WHERE source_key=? LIMIT 1',[input.sourceKey]);if(row)return{id:String(row.id),created:false}}throw error}
 }
 export async function safelyArchive(label:string,job:()=>Promise<unknown>){try{return await job()}catch(error){console.error('[GED] archive échouée',{label,error:error instanceof Error?error.message:'Erreur inconnue'});return null}}
+export async function historicalBusinessPdf(sourcePrefix:string){const[row]=await query<RowDataPacket[]>("SELECT file_url FROM documents WHERE origin='generated' AND source_key LIKE ? ORDER BY created_at ASC,id ASC LIMIT 1",[`${sourcePrefix}%`]);if(!row)return null;return readFile(await requireDocumentFile(String(row.file_url)))}
 
 export async function archiveQuotation(id:string,createdBy:string|null){const[row]=await query<RowDataPacket[]>('SELECT id,customer_id,quotation_number,agency_id,status FROM quotations WHERE id=?',[id]);if(!row||row.status!=='sent')throw new Error('Devis émis introuvable');return archiveBusinessDocument({sourceKey:`quotation:${id}:issued:v2`,documentType:'Devis',entityType:'customer',entityId:String(row.customer_id),fileName:`devis-${row.quotation_number}.pdf`,agencyId:String(row.agency_id),createdBy,buffer:await renderQuotationDocument(id)})}
 export async function archiveSaleOrder(id:string,createdBy:string|null){const[row]=await query<RowDataPacket[]>('SELECT id,sale_number,agency_id,status FROM sales WHERE id=?',[id]);if(!row||row.status!=='confirmed')throw new Error('Vente confirmée introuvable');return archiveBusinessDocument({sourceKey:`sale:${id}:confirmed:v2`,documentType:'Bon de commande',entityType:'sale',entityId:id,fileName:`bon-commande-${row.sale_number}.pdf`,agencyId:String(row.agency_id),createdBy,buffer:await renderSaleOrderDocument(id)})}

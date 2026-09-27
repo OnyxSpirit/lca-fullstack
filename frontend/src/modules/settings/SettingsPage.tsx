@@ -8,9 +8,10 @@ import { useUiStore } from '../../stores/uiStore';
 import { type AgencyInput, type ConcessionIdentity, type SettingsAgency, useAgencyActions, useCurrentConcessionQuery, useDocumentLogo, useSettingsAgenciesQuery, useSettingsQuery, useUpdateConcession, useUpdateSettings } from '../../api/settingHooks';
 import { BaysSettings, SuppliersSettings } from './OperationalResourcesSettings';
 import { WorkshopLaborRatesSettings } from './WorkshopLaborRatesSettings';
+import { ManufacturersSettings } from './ManufacturersSettings';
 import { useAuthStore } from '../../stores/authStore';
 
-type Tab = 'general' | 'workshop' | 'suppliers' | 'agencies' | 'integrations';
+type Tab = 'general' | 'manufacturers' | 'workshop' | 'suppliers' | 'agencies' | 'integrations';
 const field = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
 const emptyIdentity: Omit<ConcessionIdentity, 'id'> = { name: '', legalName: null, taxIdentifier: null, address: null, city: null, country: 'République du Congo', currencyCode: 'XAF', timezone: 'Africa/Brazzaville' };
 const emptyAgency: AgencyInput = { name: '', code: '', address: '', city: '', phone: '', email: '' };
@@ -24,7 +25,7 @@ const agencyFields = [
 ] as const;
 
 export const SettingsPage: React.FC = () => {
-  const can=useAuthStore(s=>s.can),canView=can('settings.view'),admin=can('settings.update'),canWorkshop=can('workshop.resources.view')||can('workshop.resources.manage'),canSuppliers=can('parts.suppliers.view')||can('parts.suppliers.manage'),tabs:Tab[]=['general','workshop',...(canSuppliers?['suppliers' as const]:[]),'agencies','integrations'];
+  const can=useAuthStore(s=>s.can),canView=can('settings.view'),admin=can('settings.update'),canManufacturers=can('settings.manufacturers.view'),canWorkshop=can('workshop.resources.view')||can('workshop.resources.manage'),canSuppliers=can('parts.suppliers.view')||can('parts.suppliers.manage'),tabs:Tab[]=['general',...(canManufacturers?['manufacturers' as const]:[]),'workshop',...(canSuppliers?['suppliers' as const]:[]),'agencies','integrations'];
   const [tab, setTab] = useState<Tab>('general');
   const [identity, setIdentity] = useState(emptyIdentity);
   const [vat, setVat] = useState(18.9);
@@ -47,7 +48,7 @@ export const SettingsPage: React.FC = () => {
 
   return <div className="space-y-6">
     <PageHeader title="Paramètres concession" subtitle="Identité légale, fiscalité, barèmes atelier et agences." breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Paramètres' }]} />
-    <div className="flex gap-1 overflow-x-auto border-b border-slate-200">{tabs.map(key => <button key={key} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${tab === key ? 'border-[#8f1722] text-[#8f1722]' : 'border-transparent text-slate-500'}`} onClick={() => setTab(key)}>{({ general:'Identité & fiscalité', workshop:'Atelier & ponts', suppliers:'Fournisseurs', agencies:`Agences (${agencies.data?.length ?? 0})`, integrations:'Intégrations' })[key]}</button>)}</div>
+    <div className="flex gap-1 overflow-x-auto border-b border-slate-200">{tabs.map(key => <button key={key} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${tab === key ? 'border-[#8f1722] text-[#8f1722]' : 'border-transparent text-slate-500'}`} onClick={() => setTab(key)}>{({ general:'Identité & fiscalité',manufacturers:'Constructeurs', workshop:'Atelier & ponts', suppliers:'Fournisseurs', agencies:`Agences (${agencies.data?.length ?? 0})`, integrations:'Intégrations' })[key]}</button>)}</div>
 
     {tab === 'general' && <Card><CardHeader><div><CardTitle>Informations de la concession</CardTitle><CardDescription>Ces données alimentent notamment les documents commerciaux et comptables.</CardDescription></div></CardHeader><form onSubmit={saveIdentity} className="grid gap-4 md:grid-cols-2">
       <div className="md:col-span-2 rounded-md border border-slate-200 p-4"><p className="text-xs font-semibold text-slate-700">Logo des documents commerciaux</p><div className="mt-2 flex flex-wrap items-center gap-3">{concession.data?.logoBase64?<img className="h-16 w-32 object-contain" alt="Logo commercial" src={`data:${concession.data.logoMime};base64,${concession.data.logoBase64}`}/>:<span className="text-xs text-slate-500">Aucun logo configuré</span>}{admin&&<><input type="file" accept="image/png,image/jpeg" className="text-xs" onChange={event=>{const file=event.target.files?.[0];if(!file)return;if(file.size>2*1024*1024){fail(new Error('Logo supérieur à 2 Mo'));return}const reader=new FileReader();reader.onload=()=>void logo.upload.mutateAsync(String(reader.result)).then(()=>notify('Logo commercial enregistré')).catch(fail);reader.readAsDataURL(file)}}/>{concession.data?.logoBase64&&<Button type="button" size="xs" variant="outline" onClick={()=>void logo.remove.mutateAsync().then(()=>notify('Logo supprimé')).catch(fail)}>Supprimer</Button>}</>}</div><p className="mt-2 text-[11px] text-slate-500">PNG ou JPEG, 2 Mo maximum. Le logo de l’interface ERP n’est pas modifié.</p></div>
@@ -57,6 +58,8 @@ export const SettingsPage: React.FC = () => {
     </form></Card>}
 
     {tab === 'workshop' && <div className="space-y-4">{canWorkshop&&<Card><CardHeader><div><CardTitle>Ressources atelier</CardTitle><CardDescription>Ponts, postes et ressources opérationnelles disponibles pour le planning.</CardDescription></div></CardHeader><BaysSettings/></Card>}<Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Référentiel concession, surcharges agence et tarifs effectifs des nouveaux chiffrages.</CardDescription></div></CardHeader><WorkshopLaborRatesSettings currencyCode={settings.data?.concession.currencyCode??'XAF'}/></Card></div>}
+
+    {tab === 'manufacturers' && <ManufacturersSettings canView={canManufacturers} canCreate={can('settings.manufacturers.create')} canUpdate={can('settings.manufacturers.update')} canDisable={can('settings.manufacturers.disable')}/>}
 
     {tab === 'suppliers' && <SuppliersSettings/>}
 

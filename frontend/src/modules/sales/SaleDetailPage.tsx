@@ -13,7 +13,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import { useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation, useUpdateSale } from '../../api/erpHooks';
+import { useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation, useUpdateSale, useUpdateSaleWarranty } from '../../api/erpHooks';
 import { saleStatusToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -28,7 +28,7 @@ import { useAuthStore } from '../../stores/authStore';
 export const SaleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const salesQuery = useSaleDetailQuery(id); const saleStatus = useSaleStatusMutation(); const updateSale=useUpdateSale();
+  const salesQuery = useSaleDetailQuery(id); const saleStatus = useSaleStatusMutation(); const updateSale=useUpdateSale(); const updateWarranty=useUpdateSaleWarranty();
   const agencyId=useAuthStore(s=>s.currentAgency?.id),can=useAuthStore(s=>s.can),canViewInvoice=can('billing.invoice.view'),canViewPayments=can('billing.payment.view'),canPay=can('billing.payment.collect'),canCreateInvoice=can('billing.invoice.create'),canUpdateSale=can('sales.update'),canCancelSale=can('sales.cancel'),canViewDelivery=can('delivery.view'),canPlanDelivery=can('delivery.prepare'),canConfirm=can('sales.confirm');
   const { addToast } = useUiStore();
 
@@ -66,6 +66,8 @@ export const SaleDetailPage: React.FC = () => {
   const financialBlocked=isFinancialTransition&&!sale.financiallyCleared;
   const financialBlockReason=invoice?`Préparation impossible — solde restant : ${formatCurrency(invoice.remainingAmountTTC)}`:'Une facture émise et intégralement réglée est requise.';
   const cancellationBlocked=Number(invoice?.paidAmountTTC??0)>0||['PRET_LIVRAISON','LIVRE'].includes(sale.status);
+  const warrantyLabel={UNDETERMINED:'Décision à renseigner',NOT_APPLICABLE:'Garantie non applicable',APPLICABLE:'Garantie applicable'}[sale.warranty.decision];
+  const editWarranty=async()=>{const applicable=window.confirm('OK : garantie applicable. Annuler : garantie non applicable.');try{if(!applicable){await updateWarranty.mutateAsync({id:sale.id,decision:'NOT_APPLICABLE'});return}const months=Number(window.prompt('Durée contractuelle en mois',String(sale.warranty.durationMonths??24)));if(!Number.isInteger(months)||months<1||months>240)return;const mileageText=window.prompt('Plafond kilométrique (vide si aucun)',sale.warranty.mileageLimit==null?'':String(sale.warranty.mileageLimit));await updateWarranty.mutateAsync({id:sale.id,decision:'APPLICABLE',durationMonths:months,mileageLimit:mileageText?Number(mileageText):null})}catch(error){addToast({type:'error',title:'Garantie non modifiée',description:error instanceof Error?error.message:'Erreur API'})}};
 
   return (
     <div className="space-y-6">
@@ -204,6 +206,7 @@ export const SaleDetailPage: React.FC = () => {
 
         {/* Right Column: Financing & Payment Status */}
         <div className="space-y-6">
+          <Card><CardHeader><CardTitle>Garantie contractuelle</CardTitle>{canUpdateSale&&sale.warranty.status!=='ACTIVE'&&!['LIVRE','ANNULE'].includes(sale.status)&&<Button size="xs" variant="outline" loading={updateWarranty.isPending} onClick={()=>void editWarranty()}>Modifier</Button>}</CardHeader><div className="space-y-2 text-xs"><p className="font-bold">{warrantyLabel}</p>{sale.warranty.decision==='APPLICABLE'&&<><p>Constructeur : <b>{sale.warranty.providerName}</b></p><p>Durée : <b>{sale.warranty.durationMonths} mois</b></p><p>Plafond : <b>{sale.warranty.mileageLimit==null?'Sans plafond contractuel':`${sale.warranty.mileageLimit.toLocaleString('fr-FR')} km`}</b></p><p>État : <b>{sale.warranty.status==='ACTIVE'?'Active':'En attente de livraison'}</b></p>{sale.warranty.status==='ACTIVE'&&<p>Validité : <b>{formatDate(sale.warranty.startDate)} au {formatDate(sale.warranty.expiryDate)}</b></p>}</>}</div></Card>
           <Card>
             <CardHeader>
               <CardTitle>Financement & Encaissements</CardTitle>

@@ -1,7 +1,7 @@
 import test from'node:test';import assert from'node:assert/strict';import{readFileSync}from'node:fs';import{money}from'../src/modules/workshop/warranty.service.js';
 const route=readFileSync(new URL('../src/modules/workshop/workshop.routes.ts',import.meta.url),'utf8'),warranty=readFileSync(new URL('../src/modules/workshop/warranty.routes.ts',import.meta.url),'utf8'),service=readFileSync(new URL('../src/modules/workshop/warranty.service.ts',import.meta.url),'utf8'),migration=readFileSync(new URL('../database/migrations/046_sav_warranty_v1.sql',import.meta.url),'utf8'),report=readFileSync(new URL('../src/modules/reports/report.routes.ts',import.meta.url),'utf8');
 test('GAR-01 OR normal inchangé',()=>assert.match(route,/decision_status==='APPROVED'/));
-test('GAR-02 garantie déclarée',()=>assert.match(route,/warrantyIntent==='STUDY'/));
+test('GAR-02 garantie détectée depuis le contrat',()=>{assert.match(route,/evaluateVehicleWarranty\(vehicle,mileage,c\)/);assert.match(route,/contractWarranty\.status==='ELIGIBLE_CONTRACTUALLY'/)});
 test('GAR-03 PENDING bloque démarrage',()=>assert.match(service,/decision_status==='PENDING'.*encore en attente/s));
 test('GAR-04 APPROVED autorise selon workflow',()=>assert.match(service,/assertWarrantyMayStart/));
 test('GAR-05 REJECTED ne finance rien',()=>assert.match(warranty,/DELETE FROM repair_order_warranty_allocations/));

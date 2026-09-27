@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useAdvisorCandidatesQuery, useCreateRepairOrder, useCustomerServiceVehiclesQuery, useRepairOrderCustomersQuery } from '../../api/erpHooks';
+import { useAdvisorCandidatesQuery, useCreateRepairOrder, useCustomerServiceVehiclesQuery, useRepairOrderCustomersQuery, useVehicleWarrantyEligibilityQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { selectCustomerVehicle } from './repairOrderVehicleSelection';
+import{formatDate}from'../../lib/utils';
 
 interface NewRepairOrderModalProps {
   isOpen: boolean;
@@ -21,13 +22,14 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
   const canAssignAdvisor=can('service.order.assign_advisor');
   const [advisorId,setAdvisorId]=useState('');
   const { addToast } = useUiStore();
-  const freshForm=()=>({customerId:'',customerName:'',customerPhone:'',vehicleId:'',mileage:'',promisedCompletionDate:new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '),symptomsReported:'',diagnosticNotes:'',warrantyIntent:'NONE' as 'NONE'|'STUDY',warrantyReference:'',warrantyComment:''});
+  const freshForm=()=>({customerId:'',customerName:'',customerPhone:'',vehicleId:'',mileage:'',promisedCompletionDate:new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '),symptomsReported:'',diagnosticNotes:''});
   const [formData,setFormData]=useState(freshForm);
   const selectedCustomer=customers.find(customer=>customer.id===formData.customerId);
   const advisorsQuery=useAdvisorCandidatesQuery(selectedCustomer?.agencyId??currentAgency?.id,isOpen);
   const advisors=advisorsQuery.data??[];
   const customerVehiclesQuery=useCustomerServiceVehiclesQuery(formData.customerId,isOpen);
   const vehicles=customerVehiclesQuery.data??[];
+  const parsedMileage=formData.mileage!==''&&Number.isInteger(Number(formData.mileage))&&Number(formData.mileage)>=0?Number(formData.mileage):null,warrantyQuery=useVehicleWarrantyEligibilityQuery(formData.vehicleId,parsedMileage),vehicleWarranty=warrantyQuery.data;
   useEffect(()=>{if(!isOpen){setFormData(freshForm());setAdvisorId('');return}if(!customersQuery.isSuccess)return;const customer=customers.find(c=>c.id===initialCustomerId);setFormData(freshForm());if(customer)setFormData(current=>({...current,customerId:customer.id,customerName:`${customer.firstName} ${customer.lastName}`.trim(),customerPhone:customer.phone}));},[isOpen,initialCustomerId,customersQuery.isSuccess]);
   useEffect(()=>{if(!isOpen)return;setAdvisorId(advisors.some(user=>user.id===currentUser?.id)?currentUser!.id:advisors[0]?.id??'')},[isOpen,advisorsQuery.data,currentUser?.id]);
   useEffect(()=>{if(!isOpen||!customerVehiclesQuery.isSuccess)return;setFormData(current=>({...current,vehicleId:selectCustomerVehicle(vehicles.map(v=>v.id),initialVehicleId)}))},[isOpen,formData.customerId,customerVehiclesQuery.data,initialVehicleId]);
@@ -45,9 +47,6 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
       advisorId,
       complaint: formData.symptomsReported,
       diagnosisSummary: formData.diagnosticNotes,
-      warrantyIntent: formData.warrantyIntent,
-      warrantyReference: formData.warrantyIntent==='STUDY'?formData.warrantyReference:undefined,
-      warrantyComment: formData.warrantyIntent==='STUDY'?formData.warrantyComment:undefined,
       promisedCompletionAt: formData.promisedCompletionDate,
     });
 
@@ -129,8 +128,7 @@ export const NewRepairOrderModal: React.FC<NewRepairOrderModalProps> = ({ isOpen
           />
         </div>
 
-        <div><label className="block text-xs font-semibold text-slate-700 mb-1">Prise en charge constructeur</label><select value={formData.warrantyIntent} onChange={e=>setFormData({...formData,warrantyIntent:e.target.value as 'NONE'|'STUDY'})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300"><option value="NONE">Aucune garantie</option><option value="STUDY">Garantie à étudier</option></select></div>
-        {formData.warrantyIntent==='STUDY'&&<div className="grid gap-3 md:grid-cols-2"><div><label className="block text-xs font-semibold text-slate-700 mb-1">Référence initiale</label><input value={formData.warrantyReference} onChange={e=>setFormData({...formData,warrantyReference:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300" /></div><div><label className="block text-xs font-semibold text-slate-700 mb-1">Commentaire</label><input value={formData.warrantyComment} onChange={e=>setFormData({...formData,warrantyComment:e.target.value})} className="w-full text-xs p-2.5 rounded-lg border border-slate-300" /></div></div>}
+        {formData.vehicleId&&<div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1"><p className="font-bold text-slate-900">Garantie constructeur</p>{warrantyQuery.isLoading?<p>Vérification du contrat…</p>:!vehicleWarranty?<p className="text-red-700">Vérification indisponible.</p>:<><p className="font-semibold">{{NO_CONTRACT:'Aucun contrat historique',UNDETERMINED:'Situation de garantie à régulariser',NOT_COVERED:'Garantie non applicable',PENDING_ACTIVATION:'Garantie prévue — en attente d’activation à la livraison',EXPIRED_BY_DATE:'Garantie expirée par date',MILEAGE_REQUIRED:'Vérification kilométrique requise',EXPIRED_BY_MILEAGE:'Limite kilométrique dépassée',ELIGIBLE_CONTRACTUALLY:'Garantie active'}[vehicleWarranty.status]}</p>{vehicleWarranty.contract&&<><p>Constructeur : <b>{vehicleWarranty.contract.providerName??'Non renseigné'}</b></p>{vehicleWarranty.contract.startDate&&<p>Début : {formatDate(vehicleWarranty.contract.startDate)}</p>}{vehicleWarranty.contract.expiryDate&&<p>Échéance : {formatDate(vehicleWarranty.contract.expiryDate)}</p>}<p>Limite kilométrique : {vehicleWarranty.contract.mileageLimit==null?'Sans limite':`${vehicleWarranty.contract.mileageLimit.toLocaleString('fr-FR')} km`}</p>{vehicleWarranty.currentMileage!=null&&<p>Kilométrage de réception : {vehicleWarranty.currentMileage.toLocaleString('fr-FR')} km</p>}</>}{vehicleWarranty.status==='ELIGIBLE_CONTRACTUALLY'&&<p className="text-slate-600">Ce véhicule possède une garantie constructeur active. La prise en charge de cette intervention reste soumise à validation.</p>}</>}</div>}
 
         <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
           <Button variant="outline" type="button" onClick={onClose}>

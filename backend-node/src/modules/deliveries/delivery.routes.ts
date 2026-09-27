@@ -1,9 +1,8 @@
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { Router, type Request } from "express";
-import PDFDocument from "pdfkit";
-import {archiveDelivery,safelyArchive} from "../documents/business-document.service.js";
-import {renderDeliveryDocument} from "../documents/commercial-document.js";
+import {archiveDelivery,historicalBusinessPdf,safelyArchive} from "../documents/business-document.service.js";
+import {defaultDocumentIdentity,documentIdentityForAgency,renderDeliveryDocument,renderDeliveryPlanningDocumentData} from "../documents/commercial-document.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { execute, query, transaction } from "../../config/database.js";
 import { requireAnyPermission, requirePermission } from "../../middleware/require-permission.js";
@@ -16,6 +15,7 @@ import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {requireDocumentFile,storeDocument} from '../documents/document-storage.js';
 import {decodeDeliveryDocument} from './delivery-document.js';
 import{lockActiveSaleInvoice}from'../billing/sale-financial-gate.js';
+import{activateAtDelivery}from'../sales/vehicle-warranty.service.js';
 
 export const deliveryRouter = Router();
 type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel';
@@ -83,7 +83,7 @@ async function manageableChecklistTemplateAgency(request:Request,requested:unkno
   }
   assertChecklistTemplateAgencyAccess(permissionScopeValue,actorAgencyId,target);throw new HttpError(403,'Périmètre Livraison insuffisant.');
 }
-const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone,c.email,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.vin,v.registration_number,v.mileage vehicle_mileage,CONCAT_WS(' ',sp.first_name,sp.last_name) salesperson_name,CONCAT_WS(' ',du.first_name,du.last_name) delivery_specialist_name,a.name agency_name FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users sp ON sp.id=s.salesperson_id LEFT JOIN users du ON du.id=d.delivery_specialist_id JOIN agencies a ON a.id=d.agency_id`;
+const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone,c.email,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.vin,v.registration_number,v.mileage vehicle_mileage,vwc.decision warranty_decision,vwc.status warranty_status,vwc.provider_name_snapshot warranty_provider_name,vwc.duration_months warranty_duration_months,vwc.mileage_limit warranty_mileage_limit,vwc.start_date warranty_start_date,vwc.expiry_date warranty_expiry_date,vwc.initial_mileage warranty_initial_mileage,vwc.activated_at warranty_activated_at,CONCAT_WS(' ',sp.first_name,sp.last_name) salesperson_name,CONCAT_WS(' ',du.first_name,du.last_name) delivery_specialist_name,a.name agency_name FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN vehicle_warranty_contracts vwc ON vwc.sale_id=s.id AND vwc.vehicle_id=v.id LEFT JOIN users sp ON sp.id=s.salesperson_id LEFT JOIN users du ON du.id=d.delivery_specialist_id JOIN agencies a ON a.id=d.agency_id`;
 
 async function accessible(id: string, request: Request, permission:DeliveryPermission): Promise<any> {
   const scoped = scope(request,permission);
@@ -143,31 +143,6 @@ async function notifyRoles(
 async function audit(connection:PoolConnection,request:Request,deliveryId:string,action:string,oldValues:unknown,newValues:unknown){
   await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'deliveries','delivery',?,?,?,?,?,?)`,[request.user!.sub,deliveryId,action,oldValues==null?null:JSON.stringify(oldValues),newValues==null?null:JSON.stringify(newValues),request.ip??null,request.get('user-agent')??null]);
 }
-function pdfBuffer(render: (doc: PDFKit.PDFDocument) => void) {
-  return new Promise<Buffer>((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 45 });
-    const chunks: Buffer[] = [];
-    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-    render(doc);
-    doc.end();
-  });
-}
-function header(doc: PDFKit.PDFDocument, title: string) {
-  doc.fontSize(20).fillColor("#8f1722").text("LA CONGOLAISE DE L’AUTOMOBILE");
-  doc.moveDown(0.3).fontSize(15).fillColor("#111113").text(title);
-  doc.moveDown();
-}
-function line(doc: PDFKit.PDFDocument, label: string, value: unknown) {
-  doc
-    .fontSize(9)
-    .font("Helvetica-Bold")
-    .text(`${label} : `, { continued: true })
-    .font("Helvetica")
-    .text(String(value ?? "—"));
-}
-
 deliveryRouter.get(
   "/deliveries",
   requirePermission('delivery.view'),
@@ -649,6 +624,7 @@ deliveryRouter.post(
       if(!vehicle)throw new HttpError(409,'Le véhicule associé est introuvable');
       if(vehicle.status!=='sold')throw new HttpError(409,`Le statut actuel du véhicule (${vehicle.status}) est incompatible avec la livraison`);
       const mileage=assertHandoverMileage(vehicle.mileage,requestedMileage);
+      await activateAtDelivery(connection,{saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),mileage,signedAt:signedAtSql,userId:request.user!.sub});
       const hash=deliverySignatureHash({deliveryId:id,saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),signer,mileage,signedAt:signedAt.toISOString(),signature});
       await connection.execute('INSERT INTO delivery_signatures(delivery_id,signer_name,signed_by,signature_data,consent_text,document_hash,signed_at,ip_address) VALUES(?,?,?,?,?,?,?,?)',[id,signer,request.user!.sub,signature,consent,hash,signedAtSql,request.ip??null]);
       await connection.execute("UPDATE deliveries SET status='delivered',delivered_at=?,mileage_at_delivery=? WHERE id=?",[signedAtSql,mileage,id]);
@@ -679,7 +655,7 @@ deliveryRouter.get(
   requirePermission('delivery.documents.view'),
   asyncHandler(async (request, response) => {
     const row = await detail(idOf(request.params.id), request,'delivery.documents.view');
-    const buffer = await renderDeliveryDocument(String(row.id));
+    const buffer = await historicalBusinessPdf(`delivery:${row.id}:finalized:`)??await renderDeliveryDocument(String(row.id));
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader(
       "Content-Disposition",
@@ -704,25 +680,9 @@ deliveryRouter.get(
       `${selection} WHERE ${scoped.sql} AND DATE(d.scheduled_at)=? ORDER BY d.scheduled_at`,
       [...scoped.params, date],
     );
-    const buffer = await pdfBuffer((doc) => {
-      header(doc, `PLANNING DES LIVRAISONS — ${date}`);
-      for (const row of rows) {
-        doc
-          .fontSize(10)
-          .font("Helvetica-Bold")
-          .text(
-            `${String(row.scheduled_at).slice(11, 16)} · ${row.delivery_number} · ${row.customer_name}`,
-          );
-        doc
-          .fontSize(9)
-          .font("Helvetica")
-          .text(
-            `${row.vehicle_label} — ${row.delivery_location ?? "Concession"} — ${row.status}`,
-          );
-        doc.moveDown(0.5);
-      }
-      if (!rows.length) doc.fontSize(10).text("Aucune livraison planifiée.");
-    });
+    const identityAgency=rows[0]?.agency_id??request.user?.agencyId;
+    const identity=identityAgency?await documentIdentityForAgency(String(identityAgency)):await defaultDocumentIdentity();
+    const buffer = await renderDeliveryPlanningDocumentData(rows,date,identity);
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader(
       "Content-Disposition",

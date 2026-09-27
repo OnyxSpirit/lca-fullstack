@@ -34,12 +34,12 @@ export async function invalidateWarrantyAllocation(connection:PoolConnection,rep
 
 export async function assertWarrantyMayStart(connection:PoolConnection,repairOrderId:string){
  const[rows]=await connection.execute<RowDataPacket[]>('SELECT decision_status FROM repair_order_warranties WHERE repair_order_id=? FOR UPDATE',[repairOrderId]);
- if(rows[0]?.decision_status==='PENDING')throw new HttpError(409,'La décision de garantie constructeur est encore en attente');
+ if(rows[0]?.decision_status==='PENDING')throw new HttpError(409,'La décision de prise en charge constructeur est encore en attente');
 }
 
 export async function assertWarrantyDecisionMade(connection:PoolConnection,repairOrderId:string){
  const[rows]=await connection.execute<RowDataPacket[]>('SELECT decision_status FROM repair_order_warranties WHERE repair_order_id=? FOR UPDATE',[repairOrderId]);
- if(rows[0]?.decision_status==='PENDING')throw new HttpError(409,'La décision de garantie constructeur doit être enregistrée avant la réception du véhicule');
+ if(rows[0]?.decision_status==='PENDING')throw new HttpError(409,'La décision de prise en charge constructeur doit être enregistrée avant la réception du véhicule');
 }
 
 export async function assertWarrantyReadyForQuality(connection:PoolConnection,repairOrderId:string){

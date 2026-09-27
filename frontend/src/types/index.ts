@@ -266,6 +266,7 @@ export interface Sale {
   expectedDeliveryDate: string;
   actualDeliveryDate?: string;
   notes: string;
+  warranty: {decision:'UNDETERMINED'|'APPLICABLE'|'NOT_APPLICABLE';status:'PENDING_DECISION'|'NOT_APPLICABLE'|'PENDING_ACTIVATION'|'ACTIVE';providerId?:string;providerCode?:string;providerName?:string;durationMonths?:number;mileageLimit?:number;startDate?:string;expiryDate?:string;initialMileage?:number;activatedAt?:string};
 }
 
 // Service / SAV / Repair Order (OR)
@@ -347,7 +348,7 @@ export interface RepairOrder {
   inspection?: RepairOrderInspection|null;
   diagnostics?: RepairOrderDiagnostic[];
   approvals?: RepairApproval[];
-  customerApproval:{required:boolean;decided:boolean;decision:'APPROVED'|'REJECTED'|null;canDecide:boolean;submittedAmount:number};
+  customerApproval:{required:boolean;decided:boolean;decision:'APPROVED'|'REJECTED'|null;canDecide:boolean;blockReason:string|null;submittedAmount:number};
   estimateItems: RepairEstimateItem[];
   estimateSummary:{gross:number;discount:number;subtotal:number;tax:number;total:number;currencyCode:string;byType?:Record<string,{gross:number;discount:number;subtotal:number;tax:number;total:number}>};
   interventions?: RepairIntervention[];
@@ -370,7 +371,8 @@ export interface RepairOrder {
   finalTotalTTC: number;
   warrantyCovered: boolean;
   warrantyReference?: string;
-  warranty?: {id:string;version:number;coverageMode:'FULL'|'PARTIAL'|null;decisionStatus:'PENDING'|'APPROVED'|'REJECTED';allocationStatus:'UNALLOCATED'|'DRAFT'|'CONFIRMED'|'LEGACY_UNALLOCATED';providerId?:string|null;providerName?:string|null;authorizationReference?:string|null;decisionComment?:string|null;allocations:Array<{repairOrderItemId:string;manufacturerShareHT:number;manufacturerTotal:number;customerTotal:number;description:string;itemType:string;lineTotal:number;taxRate:number;itemStatus:string}>;summary:{realTotal:number;manufacturerTotal:number;customerTotal:number};claim?:{id:string;claimNumber:string;status:string;total:number;amountReceived:number;balanceDue:number}|null}|null;
+  warranty?: {id:string;version:number;coverageMode:'FULL'|'PARTIAL'|null;decisionStatus:'PENDING'|'APPROVED'|'REJECTED';allocationStatus:'UNALLOCATED'|'DRAFT'|'CONFIRMED'|'LEGACY_UNALLOCATED';providerId?:string|null;providerCode?:string|null;providerName?:string|null;authorizationReference?:string|null;decisionComment?:string|null;decidedAt?:string|null;decidedByName?:string|null;allocations:Array<{repairOrderItemId:string;manufacturerShareHT:number;manufacturerTotal:number;customerTotal:number;description:string;itemType:string;lineTotal:number;taxRate:number;itemStatus:string}>;summary:{realTotal:number;manufacturerTotal:number;customerTotal:number};claim?:{id:string;claimNumber:string;status:string;total:number;amountReceived:number;balanceDue:number}|null}|null;
+  vehicleWarranty?: {status:'NO_CONTRACT'|'UNDETERMINED'|'NOT_COVERED'|'PENDING_ACTIVATION'|'EXPIRED_BY_DATE'|'MILEAGE_REQUIRED'|'EXPIRED_BY_MILEAGE'|'ELIGIBLE_CONTRACTUALLY';currentMileage:number|null;mileageSource:string;contract:null|{id:string;decision:string;status:string;providerId:string|null;providerCode:string|null;providerName:string|null;durationMonths:number|null;mileageLimit:number|null;startDate:string|null;expiryDate:string|null;initialMileage:number|null;activatedAt:string|null}}|null;
   courtesyCarAssigned?: string;
   createdAt: string;
 }

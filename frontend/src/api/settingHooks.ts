@@ -7,6 +7,9 @@ export interface ConcessionSettings { concession: ConcessionIdentity; billing: {
 export interface SettingsAgency { id: string; concessionId: string; name: string; code: string; address: string | null; city: string | null; phone: string | null; email: string | null; isActive: boolean }
 export interface WorkshopLaborRate {id:string;code:string;label:string;concessionHourlyRate:number;isActive:boolean;displayOrder:number;agencyOverride:{id:string;hourlyRate:number;isActive:boolean}|null;effectiveHourlyRate:number;effectiveIsActive:boolean;source:'concession'|'agency'}
 export interface WorkshopLaborRatesResponse {agencyId:string;rates:WorkshopLaborRate[]}
+export interface WarrantyManufacturer {id:string;code:string;name:string;is_active:number|boolean;warranty_available:number|boolean;default_warranty_months:number|null;default_mileage_limit:number|null;brand_ids:string|null;brand_names:string|null}
+export interface ManufacturerBrand {id:string;name:string;code:string;warranty_provider_id:string|null}
+export interface WarrantyManufacturerInput {name:string;code:string;warrantyAvailable:boolean;defaultWarrantyMonths:number|null;defaultMileageLimit:number|null;brandIds:string[]}
 export type AgencyInput = Pick<SettingsAgency, 'name' | 'code'> & Partial<Pick<SettingsAgency, 'address' | 'city' | 'phone' | 'email' | 'concessionId'>>;
 
 const enabled = () => Boolean(localStorage.getItem('lca-access-token'));
@@ -38,3 +41,5 @@ export const useWorkshopLaborRateActions=()=>{const qc=useQueryClient(),done=()=
   clearOverride:useMutation({mutationFn:({id,agencyId}:{id:string;agencyId:string})=>apiRequest(`/workshop-labor-rates/${id}/agency-override?agencyId=${encodeURIComponent(agencyId)}`,{method:'DELETE'}),onSuccess:done}),
 }};
 export const useWorkshopConfigQuery = (agencyId?: string) => useQuery({ queryKey: [...settingKeys.workshop, agencyId ?? 'current'], queryFn: () => apiRequest<{ vatRate: number; currencyCode: string; rates: Array<{id:string;baseRateId:string;code:string;label:string;hourlyRate:number;source:'concession'|'agency'}> }>(`/workshop/config${agencyId ? `?agencyId=${encodeURIComponent(agencyId)}` : ''}`), enabled: enabled() });
+export const useManufacturersQuery=(allowed=true)=>useQuery({queryKey:['settings-manufacturers'],queryFn:()=>apiRequest<{providers:WarrantyManufacturer[];brands:ManufacturerBrand[]}>('/settings/manufacturers'),enabled:enabled()&&allowed});
+export const useManufacturerActions=()=>{const qc=useQueryClient(),done=()=>Promise.all([qc.invalidateQueries({queryKey:['settings-manufacturers']}),qc.invalidateQueries({queryKey:['warranty-providers']})]);return{create:useMutation({mutationFn:(body:WarrantyManufacturerInput)=>apiRequest('/settings/manufacturers',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),update:useMutation({mutationFn:({id,...body}:WarrantyManufacturerInput&{id:string})=>apiRequest(`/settings/manufacturers/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),status:useMutation({mutationFn:({id,isActive}:{id:string;isActive:boolean})=>apiRequest(`/settings/manufacturers/${id}/status`,{method:'PATCH',body:JSON.stringify({isActive})}),onSuccess:done})}};

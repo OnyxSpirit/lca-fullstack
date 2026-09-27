@@ -1,0 +1,7 @@
+import assert from'node:assert/strict';import{readFileSync}from'node:fs';import test from'node:test';
+const modal=readFileSync(new URL('../src/modules/service/NewRepairOrderModal.tsx',import.meta.url),'utf8'),hooks=readFileSync(new URL('../src/api/erpHooks.ts',import.meta.url),'utf8'),detail=readFileSync(new URL('../src/modules/service/VehicleWarrantyContractCard.tsx',import.meta.url),'utf8'),warranty=readFileSync(new URL('../src/modules/service/WarrantyCard.tsx',import.meta.url),'utf8');
+test('WL03-01 ancienne sélection manuelle absente',()=>{assert.doesNotMatch(modal,/warrantyIntent|warrantyReference|Garantie à étudier/);assert.match(modal,/useVehicleWarrantyEligibilityQuery/)});
+test('WL03-FE-02 tous les états ont un libellé français',()=>{for(const label of['Aucun contrat historique','Situation de garantie à régulariser','Garantie non applicable','en attente d’activation','Garantie expirée par date','Limite kilométrique dépassée','Garantie active'])assert.match(modal,new RegExp(label))});
+test('WL03-FE-03 snapshot et kilométrage sont affichés',()=>{assert.match(modal,/providerName/);assert.match(modal,/mileageLimit/);assert.match(modal,/Kilométrage de réception/)});
+test('WL03-FE-04 contrat et prise en charge sont distincts',()=>{assert.match(detail,/Garantie du véhicule/);assert.match(detail,/deux décisions distinctes/);assert.match(warranty,/Décision de principe/)});
+test('WL03-FE-05 refresh repose sur le détail serveur',()=>{assert.match(hooks,/vehicleWarranty:r\.vehicleWarranty/);assert.doesNotMatch(modal,/localStorage|sessionStorage/)});

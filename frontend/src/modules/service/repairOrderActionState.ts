@@ -20,3 +20,5 @@ export const repairActionCompletion=(repairOrder:RepairActionSource)=>{
     handover:Boolean(repairOrder.handover),
   };
 };
+
+export const canRenderCustomerApproval=(serverCanDecide:boolean,hasApprovePermission:boolean)=>serverCanDecide&&hasApprovePermission;

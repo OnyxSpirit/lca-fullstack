@@ -25,7 +25,7 @@ import{warrantyDecisionLabel,warrantyModeLabel}from'./warrantyLabels';
 
 const transitions:Partial<Record<RepairOrderStatus,RepairOrderStatus[]>>={PLANIFIE:['RECEPTIONNE'],RECEPTIONNE:['DIAGNOSTIC'],DIAGNOSTIC:['ATTENTE_VALIDATION'],ATTENTE_VALIDATION:['EN_COURS'],EN_COURS:['CONTROLE_QUALITE'],CONTROLE_QUALITE:['PRET'],LIVRE:['CLOTURE']};
 const transitionPermission:Partial<Record<RepairOrderStatus,string>>={RECEPTIONNE:'service.order.receive',DIAGNOSTIC:'service.order.diagnose',ATTENTE_VALIDATION:'service.order.diagnose',EN_COURS:'service.order.approve',CONTROLE_QUALITE:'service.order.quality_control',PRET:'service.order.ready',CLOTURE:'service.order.close'};
-const labels:Record<RepairOrderStatus,string>={PLANIFIE:'Réceptionner',RECEPTIONNE:'Passer au diagnostic',DIAGNOSTIC:'Demander la validation',ATTENTE_VALIDATION:'Démarrer les travaux',EN_COURS:'Passer au contrôle qualité',CONTROLE_QUALITE:'Marquer prêt',PRET:'Prêt',FACTURE:'Facturé',LIVRE:'Clôturer l’OR',CLOTURE:'Clôturé',ANNULE:'Annulé',ABANDON_EN_COURS:'Abandon en cours',ABANDONNE:'Abandonné'};
+const labels:Record<RepairOrderStatus,string>={PLANIFIE:'Réceptionner',RECEPTIONNE:'Passer au diagnostic',DIAGNOSTIC:'Demander la validation',ATTENTE_VALIDATION:'Préparer l’atelier',EN_COURS:'Passer au contrôle qualité',CONTROLE_QUALITE:'Marquer prêt',PRET:'Prêt',FACTURE:'Facturé',LIVRE:'Clôturer l’OR',CLOTURE:'Clôturé',ANNULE:'Annulé',ABANDON_EN_COURS:'Abandon en cours',ABANDONNE:'Abandonné'};
 const field='w-full rounded-md border border-slate-300 p-2 text-sm';
 const workflowNotice=(message:string)=><p className="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">{message}</p>;
 

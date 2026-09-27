@@ -21,6 +21,8 @@ import {REPAIR_ORDER_IN_WORKSHOP_STATUSES} from './repair-order-status.js';
 import {actualBillableState} from './actual-billable.js';
 import {assertWarrantyDecisionMade,assertWarrantyMayStart,assertWarrantyReadyForQuality,invalidateWarrantyAllocation,money,warrantyDetail} from './warranty.service.js';
 import{evaluateVehicleWarranty}from'./vehicle-warranty-eligibility.service.js';
+import{customerApprovalState}from'./customer-approval-state.js';
+import{WORK_STARTED_COUNT_SQL,workStartedFromEvidence}from'./work-start-state.js';
 export const workshopRouter = Router();
 type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.order.abandon'|'service.documents.view'|'service.documents.manage';
 type WorkshopPermission='workshop.view'|'workshop.plan'|'workshop.assign_technician'|'workshop.assign_bay'|'workshop.bay.view'|'workshop.bay.manage'|'workshop.schedule.view'|'workshop.schedule.manage'|'workshop.intervention.view'|'workshop.intervention.assign'|'workshop.intervention.update'|'workshop.session.view'|'workshop.session.track'|'workshop.session.manage'|'workshop.time.view'|'workshop.time.adjust'|'workshop.technicians.view'|'workshop.technicians.manage'|'workshop.resources.view'|'workshop.resources.manage'|'workshop.productivity.view';
@@ -106,8 +108,8 @@ async function completeInterventionSchedules(connection:PoolConnection,intervent
   return schedules.map(schedule=>String(schedule.id));
 }
 async function assertWorkNotStarted(connection:PoolConnection,repairOrderId:string){
-  const[started]=await connection.execute<RowDataPacket[]>('SELECT id FROM work_sessions WHERE repair_order_id=? AND started_at IS NOT NULL UNION ALL SELECT id FROM time_entries WHERE repair_order_id=? LIMIT 1',[repairOrderId,repairOrderId]);
-  if(started[0])throw new HttpError(409,"Cette action n'est plus disponible car les travaux ont déjà commencé.");
+  const[started]=await connection.execute<RowDataPacket[]>(WORK_STARTED_COUNT_SQL,[repairOrderId]);
+  if(workStartedFromEvidence({startedSessionCount:started[0]?.started_session_count}))throw new HttpError(409,"Cette action n'est plus disponible car les travaux ont déjà commencé.");
 }
 async function assertCustomerDidNotReject(connection:PoolConnection,repairOrderId:string){
   const[decisions]=await connection.execute<RowDataPacket[]>('SELECT approved FROM repair_approvals WHERE repair_order_id=? ORDER BY recorded_at DESC LIMIT 1 FOR UPDATE',[repairOrderId]);
@@ -245,7 +247,7 @@ async function detail(id: string, r: Request): Promise<any> {
     query<RowDataPacket[]>("SELECT item_type,COALESCE(SUM(quantity*unit_price),0) gross,COALESCE(SUM(discount),0) discount,COALESCE(SUM(line_total),0) subtotal,COALESCE(SUM(line_total*tax_rate/100),0) tax FROM repair_order_items WHERE repair_order_id=? AND status='active' GROUP BY item_type",[id]),
     query<RowDataPacket[]>("SELECT e.*,p.reference part_reference,i.id intervention_id,i.technician_id intervention_technician_id,i.status intervention_status,i.actual_hours,pr.id reservation_id,pr.quantity reserved_quantity,pr.consumed_quantity,pr.status reservation_status,roi.id actual_item_id,roi.quantity actual_quantity FROM repair_order_estimate_items e LEFT JOIN parts p ON p.id=e.part_id LEFT JOIN interventions i ON i.estimate_item_id=e.id LEFT JOIN part_reservations pr ON pr.estimate_item_id=e.id LEFT JOIN repair_order_items roi ON roi.estimate_item_id=e.id AND roi.status='active' WHERE e.repair_order_id=? ORDER BY e.id",[id]),
     query<RowDataPacket[]>("SELECT item_type,COALESCE(SUM(quantity*unit_price),0) gross,COALESCE(SUM(discount),0) discount,COALESCE(SUM(line_total),0) subtotal,COALESCE(SUM(line_total*tax_rate/100),0) tax FROM repair_order_estimate_items WHERE repair_order_id=? GROUP BY item_type",[id]),
-    query<RowDataPacket[]>('SELECT EXISTS(SELECT 1 FROM work_sessions WHERE repair_order_id=? AND started_at IS NOT NULL) OR EXISTS(SELECT 1 FROM time_entries WHERE repair_order_id=?) work_started',[id,id]),
+    query<RowDataPacket[]>(WORK_STARTED_COUNT_SQL,[id]),
   ]);
   const mayViewInvoice=await permissionCoversAgency(r,'billing.invoice.view',String(ro.agency_id)),mayViewPayments=await permissionCoversAgency(r,'billing.payment.view',String(ro.agency_id)),mayCollectPayment=await permissionCoversAgency(r,'billing.payment.collect',String(ro.agency_id)),mayAccessInvoice=mayViewInvoice||mayViewPayments||mayCollectPayment;
   const invoices=mayAccessInvoice?await query<RowDataPacket[]>("SELECT id,invoice_number,status,subtotal,tax_total,total,amount_paid,balance_due,issue_date FROM invoices WHERE repair_order_id=? AND status<>'cancelled' ORDER BY id DESC",[id]):[];
@@ -255,19 +257,8 @@ async function detail(id: string, r: Request): Promise<any> {
   const estimateSummary=repairOrderFinancialSummary(estimateRows as any,businessConfig.currencyCode);
   const confirmedActualItems=estimateItems.filter(item=>item.actual_item_id!=null).length,activeActualItems=items.filter(item=>item.status==='active').length;
   const actualBillable=actualBillableState(estimateItems.length,confirmedActualItems,activeActualItems);
-  const contractMileage=inspection[0]?.mileage==null?Number(ro.mileage_in):Number(inspection[0].mileage),[warranty,vehicleWarranty]=await Promise.all([warrantyDetail(id),evaluateVehicleWarranty(String(ro.vehicle_id),contractMileage)]),latestApproval=approvals[0]??null,workStarted=Boolean(workStartedRows[0]?.work_started);
-  const approvalBlockReason=latestApproval
-    ? 'La décision du client a déjà été enregistrée.'
-    : ro.status!=='waiting_approval'
-      ? 'La validation client sera disponible lorsque le diagnostic et le chiffrage auront été finalisés.'
-      : workStarted
-        ? 'La validation client n’est plus disponible car les travaux ont déjà commencé.'
-        : (warranty as any)?.decision_status==='PENDING'
-          ? 'La décision de prise en charge constructeur doit être enregistrée avant la validation client.'
-          : estimateSummary.total<=0
-            ? 'Un chiffrage positif est obligatoire avant la validation client.'
-            : null;
-  const customerApproval={required:ro.status==='waiting_approval',decided:Boolean(latestApproval),decision:latestApproval?(Number(latestApproval.approved)===1?'APPROVED':'REJECTED'):null,canDecide:approvalBlockReason===null,blockReason:approvalBlockReason,submittedAmount:latestApproval?.approved_amount==null?estimateSummary.total:Number(latestApproval.approved_amount)};
+  const contractMileage=inspection[0]?.mileage==null?Number(ro.mileage_in):Number(inspection[0].mileage),[warranty,vehicleWarranty]=await Promise.all([warrantyDetail(id),evaluateVehicleWarranty(String(ro.vehicle_id),contractMileage)]),latestApproval=approvals[0]??null,workStarted=workStartedFromEvidence({startedSessionCount:workStartedRows[0]?.started_session_count});
+  const customerApproval=customerApprovalState({status:String(ro.status),latestApproval:latestApproval?{approved:latestApproval.approved,approvedAmount:latestApproval.approved_amount==null?null:Number(latestApproval.approved_amount)}:null,workStarted,warrantyDecisionStatus:(warranty as any)?.decision_status??null,estimateTotal:estimateSummary.total});
   return {
     ...ro,
     items,
@@ -798,7 +789,7 @@ workshopRouter.patch(
   asyncHandler(async (r,res)=>{
     const id=idOf(r.params.id),intervention=idOf(r.params.interventionId),status=txt(r.body.status,"Statut",30,true)!;
     if(!["planned","assigned","in_progress","completed","cancelled"].includes(status)) throw new HttpError(400,"Statut d'intervention invalide");
-    const ro=await one(id,r);ensureWritable(ro);const completedSchedules=await transaction(async c=>{const[orders]=await c.execute<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=? FOR UPDATE',[id]);if(orders[0]?.status!=='in_progress')throw new HttpError(409,'Les travaux ne sont pas autorisés à ce statut');if(status==='in_progress')await assertCustomerDidNotReject(c,id);const[works]=await c.execute<RowDataPacket[]>("SELECT status FROM interventions WHERE id=? AND repair_order_id=? FOR UPDATE",[intervention,id]),work=works[0];if(!work)throw new HttpError(404,"Intervention introuvable");if(work.status===status&&status==='completed')return[];const allowed:Record<string,string[]>={planned:['assigned','cancelled'],assigned:['in_progress','cancelled'],in_progress:['completed','cancelled']};if(!(allowed[work.status]??[]).includes(status))throw new HttpError(409,`Transition intervention ${work.status} → ${status} interdite`);const schedules=status==='completed'?await completeInterventionSchedules(c,intervention,r.user!.sub):[];await c.execute("UPDATE interventions SET status=? WHERE id=? AND repair_order_id=?",[status,intervention,id]);return schedules;});
+    const ro=await one(id,r);ensureWritable(ro);if(status==='in_progress')throw new HttpError(409,'Utilisez le démarrage de session pour commencer réellement les travaux');const completedSchedules=await transaction(async c=>{const[orders]=await c.execute<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=? FOR UPDATE',[id]);if(orders[0]?.status!=='in_progress')throw new HttpError(409,'Les travaux ne sont pas autorisés à ce statut');const[works]=await c.execute<RowDataPacket[]>("SELECT status FROM interventions WHERE id=? AND repair_order_id=? FOR UPDATE",[intervention,id]),work=works[0];if(!work)throw new HttpError(404,"Intervention introuvable");if(work.status===status&&status==='completed')return[];const allowed:Record<string,string[]>={planned:['assigned','cancelled'],assigned:['cancelled'],in_progress:['completed','cancelled']};if(!(allowed[work.status]??[]).includes(status))throw new HttpError(409,`Transition intervention ${work.status} → ${status} interdite`);const schedules=status==='completed'?await completeInterventionSchedules(c,intervention,r.user!.sub):[];await c.execute("UPDATE interventions SET status=? WHERE id=? AND repair_order_id=?",[status,intervention,id]);return schedules;});
     for(const scheduleId of completedSchedules)emitToAgency(String(ro.agency_id),'workshop:schedule-updated',{id:scheduleId,status:'completed'});
     emitToAgency(String(ro.agency_id),'workshop:repair-order-updated',{repairOrderId:id,agencyId:String(ro.agency_id),section:'interventions'});res.json(await detail(id,r));
   }),

@@ -20,7 +20,7 @@ test('UI07-BE-10 RBAC de la décision client reste serveur', () => assert.match(
 test('UI07-BE-11 acceptation client est persistée', () => assert.match(approvalRoute, /INSERT INTO repair_approvals/));
 test('UI07-BE-12 refus client est persisté et terminalise l’OR', () => assert.match(approvalRoute, /status='cancelled'/));
 test('UI07-BE-13 refus client reste incompatible avec démarrage', () => assert.match(workshop, /assertCustomerDidNotReject/));
-test('UI07-BE-14 code constructeur vient de la relation provider', () => assert.match(warranty, /p\.code provider_code/));
+test('UI07-BE-14 code constructeur vient du snapshot avec relation provider en repli', () => assert.match(warranty, /COALESCE\(vwc\.provider_code_snapshot,p\.code\) provider_code/));
 test('UI07-BE-15 autorisation et code constructeur sont des champs distincts', () => { assert.match(warranty, /provider_code/); assert.match(warrantyRoutes, /authorization_reference/); });
 test('UI07-BE-16 aucune comparaison entre autorisation et code constructeur', () => assert.doesNotMatch(`${workshop}\n${warranty}`, /authorization_reference\s*[!=]==?\s*(provider_code|p\.code)/));
 test('UI07-BE-17 la raison PENDING est explicite et autoritaire', () => assert.match(approvalContract, /doit être enregistrée avant la validation client/));

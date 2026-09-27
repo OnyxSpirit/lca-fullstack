@@ -1,5 +1,6 @@
 import{Router}from'express';import{requirePermission}from'../../middleware/require-permission.js';import{asyncHandler}from'../../middleware/error-handler.js';import{HttpError}from'../../shared/http-error.js';import*as service from'./setting.service.js';import*as laborRates from'./labor-rate.service.js';
 import*as manufacturers from'./manufacturer.service.js';
+import*as documentReferences from'../documents/document-reference.service.js';
 export const settingRouter=Router();const rid=(v:unknown)=>{const x=String(v??'');if(!/^[1-9]\d*$/.test(x))throw new HttpError(400,'Identifiant invalide');return x};
 settingRouter.get('/settings',requirePermission('settings.view'),asyncHandler(async(r,res)=>res.json(await service.get(r))));
 settingRouter.put('/settings',requirePermission('settings.update'),asyncHandler(async(r,res)=>res.json(await service.update(r.body,r))));
@@ -20,3 +21,8 @@ settingRouter.get('/settings/manufacturers',requirePermission('settings.manufact
 settingRouter.post('/settings/manufacturers',requirePermission('settings.manufacturers.create'),asyncHandler(async(r,res)=>res.status(201).json(await manufacturers.create(r.body,r))));
 settingRouter.patch('/settings/manufacturers/:id',requirePermission('settings.manufacturers.update'),asyncHandler(async(r,res)=>res.json(await manufacturers.update(rid(r.params.id),r.body,r))));
 settingRouter.patch('/settings/manufacturers/:id/status',requirePermission('settings.manufacturers.disable'),asyncHandler(async(r,res)=>res.json(await manufacturers.status(rid(r.params.id),r.body.isActive,r))));
+settingRouter.get('/settings/document-references',requirePermission('settings.view'),asyncHandler(async(r,res)=>res.json(await documentReferences.list(r.query.includeInactive==='true'))));
+settingRouter.post('/settings/document-categories',requirePermission('settings.update'),asyncHandler(async(r,res)=>res.status(201).json(await documentReferences.createCategory(r.body,r))));
+settingRouter.patch('/settings/document-categories/:id',requirePermission('settings.update'),asyncHandler(async(r,res)=>res.json(await documentReferences.updateCategory(rid(r.params.id),r.body,r))));
+settingRouter.post('/settings/document-types',requirePermission('settings.update'),asyncHandler(async(r,res)=>res.status(201).json(await documentReferences.createType(r.body,r))));
+settingRouter.patch('/settings/document-types/:id',requirePermission('settings.update'),asyncHandler(async(r,res)=>res.json(await documentReferences.updateType(rid(r.params.id),r.body,r))));

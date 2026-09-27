@@ -1,0 +1,10 @@
+import assert from'node:assert/strict';import{readFileSync}from'node:fs';import test from'node:test';const source=(p:string)=>readFileSync(new URL(`../${p}`,import.meta.url),'utf8'),page=source('src/modules/documents/DocumentsGedPage.tsx'),settings=source('src/modules/settings/DocumentReferencesSettings.tsx'),hooks=source('src/api/documentHooks.ts');
+test('GED-FE-01 obligatoires et rattachement facultatif',()=>{for(const x of['!file','!title.trim()','!categoryId','!typeId'])assert.match(page,new RegExp(x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));assert.match(page,/attachment&&!selected/)});
+test('GED-FE-02 recherche seulement avec rattachement',()=>assert.match(page,/attachment&&<>/));
+test('GED-FE-03 rattachements dépense budget employé',()=>{for(const x of['expense','budget','employee'])assert.match(page,new RegExp(`${x}:`))});
+test('GED-FE-04 métadonnées facultatives',()=>{for(const x of['reference','documentDate','expiresAt','description'])assert.match(page,new RegExp(`if\\(${x}\\)body.append`))});
+test('GED-FE-05 référentiels issus API',()=>{assert.match(hooks,/documents\/references/);assert.match(page,/refs\.data\?\.categories/);assert.match(page,/refs\.data\?\.types/)});
+test('GED-FE-06 filtres',()=>assert.match(page,/categoryId,documentTypeId,entityType,attachment/));
+test('GED-FE-07 quatre états expiration',()=>{for(const x of['Sans expiration','Expire prochainement','Expiré','Valide'])assert.match(page,new RegExp(x))});
+test('GED-FE-08 administration Paramètres',()=>{assert.match(settings,/Nouvelle catégorie/);assert.match(settings,/Nouveau type/);assert.match(settings,/Désactiver/)});
+test('GED-FE-09 explication champs manquants',()=>{assert.match(page,/À renseigner/);assert.match(page,/missing\.join/)});

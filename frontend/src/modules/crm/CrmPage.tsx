@@ -18,7 +18,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsQuery, useUpdateLead, useUpdateQuotation, useUsersQuery, useValidateQuotation } from '../../api/erpHooks';
+import { useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCrmTeamMembersQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsQuery, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -36,7 +36,6 @@ import { QuotationModal } from './QuotationModal';
 import { CrmTestDriveModal } from './CrmTestDriveModal';
 import { SaleWizardModal } from '../sales/SaleWizardModal';
 import type { Quotation } from '../../types';
-import { eligibleShowroomSalesUsers } from '../showroom/showroomPolicy';
 import { appointmentDateError, appointmentIso } from './crmAppointmentPolicy';
 import { openBusinessPdf } from '../../services/businessPdf';
 
@@ -53,11 +52,10 @@ export const CrmPage: React.FC = () => {
   const [interactionType, setInteractionType] = useState<'Appel' | 'Email' | 'Visite' | 'Essai'>('Appel');
   const [lostLead,setLostLead]=useState<Lead|null>(null),[lostReason,setLostReason]=useState(''),[editLead,setEditLead]=useState<Lead|null>(null),[appointmentLead,setAppointmentLead]=useState<Lead|null>(null),[scheduledAt,setScheduledAt]=useState(''),[testDriveLead,setTestDriveLead]=useState<Lead|null>(null),[quotationLead,setQuotationLead]=useState<Lead|null>(null),[saleQuotation,setSaleQuotation]=useState<Quotation|null>(null);
   const priorityToDb: Record<string,string> = { Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent' };
-  const currentAgency = useAuthStore((state) => state.currentAgency);
   const can = useAuthStore((state) => state.can);
   const canCreateLead=can('crm.prospect.create'),canUpdateLead=can('crm.prospect.update'),canAssignLead=can('crm.prospect.assign');
   const canViewQuotations=can('quotations.view'),canCreateQuotation=can('quotations.create'),canUpdateQuotation=can('quotations.update'),canValidateQuotation=can('quotations.validate'),canCancelQuotation=can('quotations.cancel'),canConvertQuotation=can('quotations.convert')&&can('sales.create');
-  const salesUsers=eligibleShowroomSalesUsers(useUsersQuery().data??[],currentAgency?.id);
+  const salesUsers=useCrmTeamMembersQuery(canAssignLead).data??[];
   const leadsQuery = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority],true,selectedStage,selectedCommercial);
   const leads = leadsQuery.data ?? [];
   const stageMutation = useLeadStageMutation();

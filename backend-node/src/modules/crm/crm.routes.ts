@@ -6,7 +6,7 @@ import { assertPermission } from '../rbac/rbac.service.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { HttpError } from '../../shared/http-error.js';
 import { notifyCrm } from './crm.notifications.js';
-import { resolveLeadAssignee, validateLeadAssignee } from './crm-assignment.js';
+import { listCrmTeamMembers, resolveLeadAssignee, validateLeadAssignee } from './crm-assignment.js';
 import {publishCrmLeadUpdated} from './crm.realtime.js';
 import {CRM_LEAD_OWNER_SQL,crmLeadAgencySql} from './crm-visibility.js';
 
@@ -47,6 +47,8 @@ export function crmLeadScope(request:Request,permission:string,alias=leadAgencyS
 
 async function accessibleLead(id:string,request:Request,permission='crm.prospect.view'){const scoped=crmLeadScope(request,permission);const[row]=await query<LeadRow[]>(`${leadSelect} WHERE l.id=? AND ${scoped.sql}`,[id,...scoped.params]);if(!row)throw new HttpError(404,'Prospect introuvable');return row;}
 async function leadById(id:string){const[row]=await query<LeadRow[]>(`${leadSelect} WHERE l.id=?`,[id]);if(!row)throw new HttpError(404,'Prospect introuvable');return row;}
+
+crmRouter.get('/crm/team-members',requirePermission('crm.prospect.assign'),asyncHandler(async(request,response)=>response.json(await listCrmTeamMembers(request))));
 
 crmRouter.get('/leads',requirePermission('crm.prospect.view'),asyncHandler(async(request,response)=>{
   const scoped=crmLeadScope(request,'crm.prospect.view',leadAgencySql,true);const search=typeof request.query.search==='string'?request.query.search.trim():'';const term=`%${search}%`;const normalizedPhone=search.replace(/[^\d+]/g,'');const phoneTerm=`%${normalizedPhone}%`;const stage=typeof request.query.stage==='string'?request.query.stage:null;if(stage&&!stages.includes(stage as typeof stages[number]))throw new HttpError(400,'Étape CRM invalide');const priority=typeof request.query.priority==='string'?request.query.priority:null;if(priority&&!priorities.includes(priority as typeof priorities[number]))throw new HttpError(400,'Priorité CRM invalide');

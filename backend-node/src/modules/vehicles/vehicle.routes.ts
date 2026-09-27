@@ -125,7 +125,7 @@ vehicleRouter.get('/vehicles/:id/360',requirePermission('vehicles.view'),asyncHa
 
 
 vehicleRouter.post('/vehicles',requirePermission('vehicles.create'),asyncHandler(async(request,response)=>{
-  const vin=txt(request.body.vin,17).toUpperCase();if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))throw new HttpError(400,'Le VIN doit contenir 17 caractères valides');
+  const vin=String(request.body.vin??'').trim().toUpperCase();if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))throw new HttpError(400,'Le VIN doit contenir 17 caractères valides');
   const brandName=txt(request.body.brand,120),modelName=txt(request.body.model,120),versionName=txt(request.body.version,150)||'Standard';if(!brandName||!modelName)throw new HttpError(400,'La marque et le modèle sont obligatoires');
   const vehicleType=txt(request.body.vehicleType)||'new';if(!TYPES.includes(vehicleType))throw new HttpError(400,'Type de véhicule invalide');const initialStatus=txt(request.body.status)||'received';if(!DB_STATUSES.includes(initialStatus))throw new HttpError(400,'Statut initial invalide');
   const agencyId=await agency(request,'vehicles.create',request.body.agencyId);if(hasFinancialPayload(request.body))await assertAgencyPermissionScope(request,'vehicles.financials.view',agencyId);const featureNames=jsonField<string[]>(request.body.features,[]).map(value=>txt(value,150)).filter(Boolean);

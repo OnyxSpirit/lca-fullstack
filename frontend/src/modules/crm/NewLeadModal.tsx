@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useCreateLead, useUsersQuery } from '../../api/erpHooks';
+import { useCreateLead, useCrmTeamMembersQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import type { LeadStage } from '../../types';
-import { eligibleShowroomSalesUsers } from '../showroom/showroomPolicy';
 
 interface NewLeadModalProps { isOpen:boolean; onClose:()=>void }
 type Civility='M.'|'Mme'|'Société';
@@ -21,8 +20,7 @@ const emailValid=(value:string)=>!value||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value
 const phoneValid=(value:string)=>{const digits=value.replace(/\D/g,'');return /^[+\d\s().-]+$/.test(value)&&digits.length>=6&&digits.length<=15};
 
 export const NewLeadModal:React.FC<NewLeadModalProps>=({isOpen,onClose})=>{
-  const createLead=useCreateLead(),currentAgency=useAuthStore(state=>state.currentAgency),canAssignTeam=useAuthStore(state=>state.can('crm.prospect.assign')),users=useUsersQuery().data??[],{addToast}=useUiStore();
-  const salesUsers=eligibleShowroomSalesUsers(users,currentAgency?.id);
+  const createLead=useCreateLead(),canAssignTeam=useAuthStore(state=>state.can('crm.prospect.assign')),salesUsers=useCrmTeamMembersQuery(canAssignTeam).data??[],{addToast}=useUiStore();
   const [formData,setFormData]=useState<LeadForm>(INITIAL_LEAD_FORM),[errors,setErrors]=useState<LeadFormErrors>({});
   const resetForm=()=>{setFormData(INITIAL_LEAD_FORM);setErrors({})};
   useEffect(()=>{if(!isOpen)resetForm()},[isOpen]);

@@ -418,6 +418,7 @@ export const useUsersQuery = (requestEnabled=true) =>
         isSystemSuperAdmin: Boolean(r.isSystemSuperAdmin),
         permissions: Array.isArray(r.permissions)?r.permissions:Object.keys(r.permissions??{}),
       }) as User)});
+export const useCrmTeamMembersQuery=(requestEnabled=true)=>useQuery({queryKey:['crm','team-members'],enabled:enabled()&&requestEnabled,queryFn:()=>apiRequest<Array<{id:string;name:string;agencyId:string}>>('/crm/team-members')});
 export const useAgenciesQuery = () =>
   resource<Agency>(erpKeys.agencies, "/agencies", (r: any) => ({
     id: s(r.id),

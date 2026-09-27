@@ -17,7 +17,7 @@ globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
   if(url.includes('/appointments')&&init?.method==='POST'){appointmentPayload=JSON.parse(String(init.body));leadStage='appointment';return new Response(JSON.stringify({id:'501',leadId:'10',stage:'appointment',scheduledAt:appointmentPayload?.scheduledAt}),{status:201,headers:{'Content-Type':'application/json'}})}
   if(url.includes('/leads')&&!url.includes('/activities')&&!url.includes('/quotations'))leadReads++;
-  const body=url.includes('/quotations/opportunity/')||url.includes('/activities')||url.includes('/users/directory')?[]:[{...qualifiedLead,stage:leadStage}];
+  const body=url.includes('/quotations/opportunity/')||url.includes('/activities')||url.includes('/crm/team-members')?[]:[{...qualifiedLead,stage:leadStage}];
   return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
 }) as typeof fetch;
 after(()=>dom.window.close());

@@ -255,7 +255,7 @@ export const SaleDetailPage: React.FC = () => {
 
               {canViewPayments&&(invoice?.payments?.length?<div className="rounded-xl border border-slate-200 p-3"><p className="mb-2 font-bold text-slate-800">Historique des règlements</p><div className="space-y-2">{invoice.payments.map(payment=><div key={payment.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2"><div><p className="font-mono font-semibold">{payment.paymentNumber}</p><p className="text-[11px] text-slate-500">{formatDateTime(payment.paymentDate)} · {payment.paymentMethod}{payment.reference?` · ${payment.reference}`:''}</p></div><span className="font-bold text-emerald-700">{formatCurrency(payment.amount)}</span></div>)}</div></div>:sale.invoiceId&&!invoiceQuery.isLoading?<p className="text-[11px] text-slate-500">Aucun règlement validé sur cette facture.</p>:null)}
 
-              {canViewDelivery&&<Button
+              {canViewDelivery&&sale.status!=='ANNULE'&&<Button
                 variant="primary"
                 className="w-full"
                 onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}
@@ -264,7 +264,7 @@ export const SaleDetailPage: React.FC = () => {
               </Button>}
               {sale.invoiceId&&canViewInvoice&&<Button variant={canPay&&sale.remainingBalanceTTC>0?'primary':'outline'} className="w-full" onClick={()=>navigate(`/billing/${sale.invoiceId}`)}>{canPay&&sale.remainingBalanceTTC>0?'Enregistrer un règlement':'Voir la facture et les règlements'}</Button>}
               {sale.invoiceId&&canViewInvoice&&!canPay&&sale.remainingBalanceTTC>0&&<p className="text-[11px] text-slate-500">L’encaissement doit être effectué par la comptabilité.</p>}
-              {!sale.invoiceId&&canCreateInvoice&&<Button variant="outline" className="w-full" onClick={()=>navigate(`/billing?saleId=${encodeURIComponent(sale.id)}`)}>Créer la facture de vente</Button>}
+              {!sale.invoiceId&&canCreateInvoice&&sale.status!=='ANNULE'&&<Button variant="outline" className="w-full" onClick={()=>navigate(`/billing?saleId=${encodeURIComponent(sale.id)}`)}>Créer la facture de vente</Button>}
               {!sale.invoiceId&&<p className="text-[11px] text-amber-700">Aucune facture de vente n’est encore liée. L’encaissement est réservé à un rôle financier autorisé et commence après émission de la facture.</p>}
               {sale.invoiceId&&!canPay&&sale.remainingBalanceTTC>0&&<p className="text-[11px] text-slate-500">Un solde reste dû. Son encaissement doit être effectué par la comptabilité ou un rôle financier autorisé.</p>}
             </div>

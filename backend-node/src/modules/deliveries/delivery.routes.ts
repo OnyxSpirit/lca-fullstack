@@ -259,6 +259,13 @@ deliveryRouter.get(
   ),
 );
 
+deliveryRouter.use('/deliveries/:id',asyncHandler(async(request,_response,next)=>{
+  if(!['POST','PATCH','PUT','DELETE'].includes(request.method)||request.path.endsWith('/cancel'))return next();
+  const deliveryId=idOf(request.params.id),[sale]=await query<RowDataPacket[]>('SELECT s.status FROM deliveries d JOIN sales s ON s.id=d.sale_id WHERE d.id=?',[deliveryId]);
+  if(sale?.status==='cancelled')throw new HttpError(409,'Une vente annulée est terminale et sa livraison ne peut plus être poursuivie');
+  next();
+}));
+
 deliveryRouter.post(
   "/deliveries",
   requirePermission('delivery.schedule'),

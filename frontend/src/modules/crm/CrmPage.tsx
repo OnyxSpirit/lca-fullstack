@@ -18,7 +18,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCrmTeamMembersQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsQuery, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
+import { useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCrmTeamMembersQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useLeadsQuery, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -46,6 +46,7 @@ export const CrmPage: React.FC = () => {
   const [selectedPriority, setSelectedPriority] = useState<string>('ALL');
   const [selectedStage,setSelectedStage]=useState('');
   const [selectedCommercial,setSelectedCommercial]=useState('');
+  const [page,setPage]=useState(1);
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [newInteractionNote, setNewInteractionNote] = useState('');
@@ -56,8 +57,9 @@ export const CrmPage: React.FC = () => {
   const canCreateLead=can('crm.prospect.create'),canUpdateLead=can('crm.prospect.update'),canAssignLead=can('crm.prospect.assign');
   const canViewQuotations=can('quotations.view'),canCreateQuotation=can('quotations.create'),canUpdateQuotation=can('quotations.update'),canValidateQuotation=can('quotations.validate'),canCancelQuotation=can('quotations.cancel'),canConvertQuotation=can('quotations.convert')&&can('sales.create');
   const salesUsers=useCrmTeamMembersQuery(canAssignLead).data??[];
-  const leadsQuery = useLeadsQuery(debouncedSearch, selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority],true,selectedStage,selectedCommercial);
-  const leads = leadsQuery.data ?? [];
+  const priority=selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority];
+  const pipelineQuery=useLeadsQuery(debouncedSearch,priority,viewMode==='kanban',selectedStage,selectedCommercial),listQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,page,pageSize:7},viewMode==='list');
+  const leadsQuery=viewMode==='kanban'?pipelineQuery:listQuery,leads=viewMode==='kanban'?(pipelineQuery.data??[]):(listQuery.data?.items??[]),leadTotal=viewMode==='list'?(listQuery.data?.total??0):leads.length;
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
   const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment(),updateQuotation=useUpdateQuotation(),validateQuotation=useValidateQuotation(),cancelQuotation=useCancelQuotation();
@@ -72,6 +74,8 @@ export const CrmPage: React.FC = () => {
     const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);
     return()=>window.clearTimeout(timer);
   },[searchQuery]);
+  useEffect(()=>setPage(1),[debouncedSearch,selectedPriority,selectedStage,selectedCommercial]);
+  useEffect(()=>{if(listQuery.data&&page>Math.max(1,listQuery.data.totalPages))setPage(Math.max(1,listQuery.data.totalPages))},[listQuery.data,page]);
 
   const stages: { stage: LeadStage; label: string; color: string }[] = [
     { stage: 'NOUVEAU', label: 'Nouveaux', color: 'border-blue-400 bg-blue-50/50' },
@@ -175,7 +179,7 @@ export const CrmPage: React.FC = () => {
             onChange={(e) => setSelectedPriority(e.target.value)}
             className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium focus:outline-none"
           >
-            <option value="ALL">Toutes ({leads.length})</option>
+            <option value="ALL">Toutes ({leadTotal})</option>
             <option value="Urgente">Urgente 🔥</option>
             <option value="Haute">Haute</option>
             <option value="Moyenne">Moyenne</option>
@@ -382,6 +386,7 @@ export const CrmPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <div className="flex items-center justify-between border-t p-3 text-xs"><span>{listQuery.data?.total??0} prospect(s)</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button><span>Page {page} / {Math.max(1,listQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(listQuery.data?.totalPages??1)} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>
         </Card>
       )}
 

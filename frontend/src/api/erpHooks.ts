@@ -459,6 +459,7 @@ export const useLeadsQuery = (search = "", priority = "", requestEnabled = true,
     },
     enabled: enabled() && requestEnabled,
   });
+export const useLeadsPageQuery=(filters:{search?:string;priority?:string;stage?:string;commercialId?:string;page:number;pageSize:number},requestEnabled=true)=>useQuery({queryKey:[...leadQueryKey(filters.search,filters.priority,filters.stage,filters.commercialId),'page',filters.page,filters.pageSize],queryFn:async()=>{const data=await apiRequest<PagedResult<any>>(`/leads?${pageParams(filters)}`);return{...data,items:data.items.map(mapLead)}},enabled:enabled()&&requestEnabled});
 export const useLeadActivitiesQuery=(leadId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.leads,leadId,'activities'],queryFn:()=>apiRequest<CrmActivity[]>(`/leads/${leadId}/activities`),enabled:enabled()&&requestEnabled&&Boolean(leadId)});
 export const useLeadQuotationsQuery=(opportunityId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.quotations,'opportunity',opportunityId],queryFn:()=>apiRequest<Quotation[]>(`/quotations/opportunity/${opportunityId}`),enabled:enabled()&&requestEnabled&&Boolean(opportunityId)});
 export const useQuotationConfig=()=>useQuery({queryKey:[...erpKeys.quotations,'config'],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string;defaultTaxMode:'TAXABLE';defaultPriceInputMode:'HT'}>('/quotations/config'),enabled:enabled()});

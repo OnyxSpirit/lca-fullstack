@@ -9,6 +9,7 @@ import { notifyCrm } from './crm.notifications.js';
 import { listCrmTeamMembers, resolveLeadAssignee, validateLeadAssignee } from './crm-assignment.js';
 import {publishCrmLeadUpdated} from './crm.realtime.js';
 import {CRM_LEAD_OWNER_SQL,crmLeadAgencySql} from './crm-visibility.js';
+import {pageMeta,pageRequest,paged} from '../../shared/pagination.js';
 
 export const crmRouter=Router();
 
@@ -52,7 +53,10 @@ crmRouter.get('/crm/team-members',requirePermission('crm.prospect.assign'),async
 
 crmRouter.get('/leads',requirePermission('crm.prospect.view'),asyncHandler(async(request,response)=>{
   const scoped=crmLeadScope(request,'crm.prospect.view',leadAgencySql,true);const search=typeof request.query.search==='string'?request.query.search.trim():'';const term=`%${search}%`;const normalizedPhone=search.replace(/[^\d+]/g,'');const phoneTerm=`%${normalizedPhone}%`;const stage=typeof request.query.stage==='string'?request.query.stage:null;if(stage&&!stages.includes(stage as typeof stages[number]))throw new HttpError(400,'Étape CRM invalide');const priority=typeof request.query.priority==='string'?request.query.priority:null;if(priority&&!priorities.includes(priority as typeof priorities[number]))throw new HttpError(400,'Priorité CRM invalide');
-  const rows=await query<LeadRow[]>(`${leadSelect} WHERE ${scoped.sql} AND (?='' OR l.first_name LIKE ? OR l.last_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR o.title LIKE ? OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) AND (? IS NULL OR o.stage=?) AND (? IS NULL OR l.priority=?) ORDER BY l.updated_at DESC LIMIT 200`,[...scoped.params,search,term,term,term,term,term,normalizedPhone,phoneTerm,stage,stage,priority,priority]);response.json(rows.map(mapLead));
+  const where=`${scoped.sql} AND (?='' OR l.first_name LIKE ? OR l.last_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR o.title LIKE ? OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) AND (? IS NULL OR o.stage=?) AND (? IS NULL OR l.priority=?)`,params=[...scoped.params,search,term,term,term,term,term,normalizedPhone,phoneTerm,stage,stage,priority,priority],paginationRequested=request.query.page!=null||request.query.pageSize!=null;
+  if(!paginationRequested){const rows=await query<LeadRow[]>(`${leadSelect} WHERE ${where} ORDER BY l.updated_at DESC,l.id DESC LIMIT 200`,params);response.json(rows.map(mapLead));return}
+  const[count]=await query<RowDataPacket[]>(`SELECT COUNT(*) total FROM leads l JOIN opportunities o ON o.lead_id=l.id LEFT JOIN users u ON u.id=${CRM_LEAD_OWNER_SQL} LEFT JOIN users creator ON creator.id=l.created_by WHERE ${where}`,params),meta=pageMeta(count?.total,pageRequest(request.query));
+  const rows=await query<LeadRow[]>(`${leadSelect} WHERE ${where} ORDER BY l.updated_at DESC,l.id DESC LIMIT ? OFFSET ?`,[...params,meta.pageSize,meta.offset]);response.json(paged(rows.map(mapLead),count?.total,meta));
 }));
 
 crmRouter.get('/leads/:id',requirePermission('crm.prospect.view'),asyncHandler(async(request,response)=>{response.json(mapLead(await accessibleLead(routeId(request.params.id),request)));}));

@@ -7,6 +7,7 @@ import * as service from './sale.service.js';
 export const saleRouter=Router();
 
 saleRouter.get('/sales',requirePermission('sales.view'),asyncHandler(async(request,response)=>response.json(await service.list(request.query,request))));
+saleRouter.get('/sales/config/direct-tax',requirePermission('sales.create'),asyncHandler(async(request,response)=>response.json(await service.config(request))));
 saleRouter.get('/sales/:id',requirePermission('sales.view'),asyncHandler(async(request,response)=>response.json(await service.one(String(request.params.id),request,'sales.view'))));
 saleRouter.get('/vehicles/:id/warranty-proposal',requirePermission('sales.create'),asyncHandler(async(request,response)=>response.json(await service.vehicleWarrantyProposal(String(request.params.id)))));
 saleRouter.get('/sales/vehicles/:id/pricing-guard',requirePermission('sales.create'),asyncHandler(async(request,response)=>response.json(await service.vehiclePricingGuard(String(request.params.id),request))));

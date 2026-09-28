@@ -6,7 +6,7 @@ import {
   useRepairOrdersQuery,
   useTechniciansQuery,
   useWorkshopBaysQuery,
-  useWorkshopInterventionHistoryQuery,
+  useWorkshopInterventionHistoryPageQuery,
   useWorkshopPlanningQuery,
   useWorkshopScheduleMutation,
   useWorkshopStatsQuery,
@@ -60,13 +60,14 @@ export const WorkshopPlanningPage:React.FC=()=>{
   const [assignment,setAssignment]=useState<AssignmentForm>(emptyAssignment(date));
   const [absence,setAbsence]=useState({technicianId:'',reason:'',startsAt:`${date}T08:00`,endsAt:`${date}T09:00`});
   const [removingAbsenceId,setRemovingAbsenceId]=useState('');
+  const [historyPage,setHistoryPage]=useState(1);
   const monday=addDays(date,-((new Date(`${date}T12:00:00`).getDay()+6)%7));
   const from=mode==='day'?date:monday;
   const to=mode==='day'?date:addDays(monday,6);
   const techniciansQuery=useTechniciansQuery(agency?.id,canView&&canViewTechnicians);
   const baysQuery=useWorkshopBaysQuery(agency?.id,canView&&canViewBays);
   const planningQuery=useWorkshopPlanningQuery(agency?.id,from,to,{technicianId:technicianFilter,bayId:bayFilter},canViewPlanning);
-  const historyQuery=useWorkshopInterventionHistoryQuery(canViewHistory);
+  const historyQuery=useWorkshopInterventionHistoryPageQuery(historyPage,canViewHistory);
   const statsQuery=useWorkshopStatsQuery(agency?.id,from,to,canView&&canViewProductivity);
   const unavailabilityQuery=useWorkshopUnavailabilitiesQuery(agency?.id,from,to,technicianFilter,canViewPlanning);
   const repairOrdersQuery=useRepairOrdersQuery('','',canView&&canPlan&&canAssignTechnician);
@@ -121,7 +122,7 @@ export const WorkshopPlanningPage:React.FC=()=>{
       </div>)}
       {!resources.length&&!error&&<p className="p-10 text-center text-sm text-slate-500"><Wrench className="w-6 h-6 mx-auto mb-2"/>Aucune ressource atelier enregistrée dans cette agence.</p>}
     </div></div></Card>
-    {canViewHistory&&<Card padding="none"><div className="border-b border-slate-200 p-4"><CardTitle>Historique des interventions</CardTitle><p className="mt-1 text-xs text-slate-500">Toutes les interventions enregistrées sont conservées, indépendamment de la période du planning actif.</p></div><div className="overflow-x-auto"><table className="min-w-[1050px] w-full text-sm"><thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="p-3">OR</th><th className="p-3">Intervention</th><th className="p-3">Technicien</th><th className="p-3">Pont / poste</th><th className="p-3">Début</th><th className="p-3">Fin</th><th className="p-3">Durée réelle</th><th className="p-3">Statut</th></tr></thead><tbody>{(historyQuery.data??[]).map(item=><tr key={item.id} className="border-t border-slate-100"><td className="p-3"><button className="font-semibold text-[#8f1722] hover:underline" onClick={()=>navigate(`/service/repair-orders/${item.repairOrderId}`)}>{item.orderNumber}</button></td><td className="p-3">{item.description}</td><td className="p-3">{item.technicianName||'—'}</td><td className="p-3">{item.bayNames||'—'}</td><td className="p-3 whitespace-nowrap">{displayDate(item.startedAt)}</td><td className="p-3 whitespace-nowrap">{displayDate(item.endedAt)}</td><td className="p-3">{item.durationHours.toFixed(2)} h</td><td className="p-3"><Badge variant="primary">{statusLabel[item.status]??item.status}</Badge></td></tr>)}{!historyQuery.isLoading&&!historyQuery.data?.length&&<tr><td colSpan={8} className="p-8 text-center text-slate-500">Aucune intervention enregistrée.</td></tr>}</tbody></table></div></Card>}
+    {canViewHistory&&<Card padding="none"><div className="border-b border-slate-200 p-4"><CardTitle>Historique des interventions</CardTitle><p className="mt-1 text-xs text-slate-500">Toutes les interventions enregistrées sont conservées, indépendamment de la période du planning actif.</p></div><div className="overflow-x-auto"><table className="min-w-[1050px] w-full text-sm"><thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="p-3">OR</th><th className="p-3">Intervention</th><th className="p-3">Technicien</th><th className="p-3">Pont / poste</th><th className="p-3">Début</th><th className="p-3">Fin</th><th className="p-3">Durée réelle</th><th className="p-3">Statut</th></tr></thead><tbody>{(historyQuery.data?.items??[]).map(item=><tr key={item.id} className="border-t border-slate-100"><td className="p-3"><button className="font-semibold text-[#8f1722] hover:underline" onClick={()=>navigate(`/service/repair-orders/${item.repairOrderId}`)}>{item.orderNumber}</button></td><td className="p-3">{item.description}</td><td className="p-3">{item.technicianName||'—'}</td><td className="p-3">{item.bayNames||'—'}</td><td className="p-3 whitespace-nowrap">{displayDate(item.startedAt)}</td><td className="p-3 whitespace-nowrap">{displayDate(item.endedAt)}</td><td className="p-3">{item.durationHours.toFixed(2)} h</td><td className="p-3"><Badge variant="primary">{statusLabel[item.status]??item.status}</Badge></td></tr>)}{!historyQuery.isLoading&&!historyQuery.data?.items.length&&<tr><td colSpan={8} className="p-8 text-center text-slate-500">Aucune intervention enregistrée.</td></tr>}</tbody></table></div><div className="flex items-center justify-between border-t p-3 text-xs"><span>{historyQuery.data?.total??0} intervention(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={historyPage<=1} onClick={()=>setHistoryPage(p=>p-1)}>Précédent</Button><span>Page {historyPage}/{Math.max(1,historyQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={historyPage>=(historyQuery.data?.totalPages??1)} onClick={()=>setHistoryPage(p=>p+1)}>Suivant</Button></div></div></Card>}
     {canViewProductivity&&<div className="flex items-center gap-2 text-xs text-slate-500"><Gauge className="w-4 h-4"/>Capacité techniciens : {statsQuery.data?.capacityHours??0} h · capacité ponts : {statsQuery.data?.bayCapacityHours??0} h. L’occupation est calculée depuis le planning et les sessions.</div>}
 
     <Modal isOpen={Boolean(selected)} onClose={()=>{setSelected(null);setEditForm(null)}} title={`Affectation ${selected?.orderNumber??''}`} description={selected&&['completed','cancelled'].includes(selected.status)?'Affectation terminée — consultation uniquement':canPlan?'Modifier les ressources ou annuler uniquement cette réservation de planning.':'Consultation de l’affectation.'} maxWidth="xl">

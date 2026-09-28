@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Download, Plus, Search } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useBillingConfigQuery, useInvoicesQuery } from '../../api/erpHooks';
+import { useBillingConfigQuery, useInvoicesPageQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { Button } from '../../components/ui/Button';
@@ -18,14 +18,15 @@ export const BillingPage: React.FC = () => {
   const navigate = useNavigate(),[searchParams,setSearchParams]=useSearchParams(),initialSaleId=searchParams.get('saleId')??undefined, toast = useUiStore((state) => state.addToast), agency = useAuthStore((state) => state.currentAgency);
   const canView=useAuthStore(state=>state.can('billing.invoice.view')),canViewPayments=useAuthStore(state=>state.can('billing.payment.view')),canViewRepairOrders=useAuthStore(state=>state.can('service.order.view')),canCreate = useAuthStore((state) => state.can('billing.invoice.create')), canExport = useAuthStore((state) => state.can('billing.export'));
   const [open, setOpen] = useState(false), [search, setSearch] = useState(''), [debounced, setDebounced] = useState('');
-  const [status, setStatus] = useState(''), [type, setType] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState('');
+  const [status, setStatus] = useState(''), [type, setType] = useState(''), [from, setFrom] = useState(''), [to, setTo] = useState(''),[page,setPage]=useState(1);
   useEffect(() => { const timer = window.setTimeout(() => setDebounced(search.trim()), 300); return () => window.clearTimeout(timer); }, [search]);
   useEffect(()=>{if(initialSaleId&&canCreate)setOpen(true)},[initialSaleId,canCreate]);
-  const query = useInvoicesQuery({ agencyId: agency?.id ?? '', search: debounced, status, type, from, to },canView);
-  const config = useBillingConfigQuery(agency?.id), invoices = query.data ?? [], active = invoices.filter((x) => x.status !== 'ANNULEE');
+  useEffect(()=>setPage(1),[debounced,status,type,from,to,agency?.id]);
+  const query = useInvoicesPageQuery({ agencyId: agency?.id ?? '', search: debounced, status, type, from, to,page,pageSize:7 },canView);
+  useEffect(()=>{if(query.data&&query.data.page!==page)setPage(query.data.page)},[query.data,page]);
+  const config = useBillingConfigQuery(agency?.id), invoices = query.data?.items ?? [];
   const currency = config.data?.currencyCode ?? invoices[0]?.currencyCode, money = (amount: number) => currency ? formatCurrency(amount, currency) : '—';
-  const billed = active.reduce((sum, x) => sum + x.amountTTC, 0), paid = active.reduce((sum, x) => sum + x.paidAmountTTC, 0), due = active.reduce((sum, x) => sum + x.remainingAmountTTC, 0);
-  const overdue = active.filter((x) => x.status === 'EN_RETARD').reduce((sum, x) => sum + x.remainingAmountTTC, 0), hasFilters = Boolean(debounced || status || type || from || to);
+  const billed=query.data?.summary.billed??0,paid=query.data?.summary.paid??0,due=query.data?.summary.due??0,overdue=query.data?.summary.overdue??0,hasFilters = Boolean(debounced || status || type || from || to);
   async function exportCsv() { if (!agency?.id) return; try { const params = new URLSearchParams({ agencyId: agency.id }); if (from) params.set('from', from); if (to) params.set('to', to); const blob = await apiDownload(`/invoices/export/accounting?${params}`), url = URL.createObjectURL(blob), anchor = document.createElement('a'); anchor.href = url; anchor.download = 'journal-comptable.csv'; anchor.click(); URL.revokeObjectURL(url); } catch (error) { toast({ type: 'error', title: 'Export impossible', description: error instanceof Error ? error.message : 'Erreur API' }); } }
   return <div className="space-y-6">
     <PageHeader title="Facturation, Encaissements & Règlements" subtitle={`Factures, créances et règlements${config.data?.currencyCode ? ` en ${config.data.currencyCode}` : ''}.`} breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Facturation' }]} actions={<div className="flex gap-2">{canExport && <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />} onClick={exportCsv} disabled={!agency?.id}>Export journal comptable</Button>}{canCreate && <Button size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setOpen(true)} disabled={!agency?.id}>Créer facture</Button>}</div>} />
@@ -36,6 +37,6 @@ export const BillingPage: React.FC = () => {
       {query.isLoading && <TableEmptyState colSpan={9} message="Chargement des factures..." isLoading />}
       {!query.isLoading && !query.isError && invoices.length === 0 && <TableEmptyState colSpan={9} message={hasFilters ? 'Aucune facture ne correspond à vos critères' : 'Aucune facture'} />}
       {invoices.map((x) => <tr key={x.id} className="border-t hover:bg-red-50/30 cursor-pointer" onClick={() => navigate(`/billing/${x.id}`)}><td className="p-3 font-mono font-bold">{x.invoiceNumber}</td><td>{x.customerName}</td><td>{x.type==='FACTURE_ATELIER_SAV'?'Facture Atelier / SAV':x.type}{x.repairOrderId&&canViewRepairOrders?<button type="button" className="block text-left text-xs text-[#8f1722] hover:underline" onClick={(e)=>{e.stopPropagation();navigate(detailRoutes.repairOrder(x.repairOrderId!))}}>{x.relatedDocNumber}</button>:<small className="block text-slate-500">{x.relatedDocNumber || 'Manuelle'}</small>}</td><td>{formatDate(x.issueDate)}<small className="block text-slate-500">{x.dueDate ? formatDate(x.dueDate) : '—'}</small></td><td>{money(x.amountTTC)}</td><td>{canViewPayments?money(x.paidAmountTTC):'Masqué'}</td><td className="font-bold">{canViewPayments?money(x.remainingAmountTTC):'Masqué'}</td><td><StatusBadge status={x.status} type="invoice" /></td><td><Button size="xs" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/billing/${x.id}`); }}>Détails</Button></td></tr>)}
-    </tbody></table></div></Card>{canCreate && <NewInvoiceModal isOpen={open} initialSaleId={initialSaleId} onClose={() => {setOpen(false);if(initialSaleId)setSearchParams({})}} />}
+    </tbody></table></div><div className="flex items-center justify-between border-t p-4 text-xs"><span>{query.data?.total??0} facture(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Précédent</Button><span>Page {page}/{Math.max(1,query.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(query.data?.totalPages??1)} onClick={()=>setPage(p=>p+1)}>Suivant</Button></div></div></Card>{canCreate && <NewInvoiceModal isOpen={open} initialSaleId={initialSaleId} onClose={() => {setOpen(false);if(initialSaleId)setSearchParams({})}} />}
   </div>;
 };

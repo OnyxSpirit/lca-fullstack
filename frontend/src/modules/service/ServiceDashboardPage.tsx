@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Wrench,
@@ -14,7 +14,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
-import { useRepairOrdersQuery, useRepairStatsQuery } from '../../api/erpHooks';
+import { useRepairOrdersPageQuery, useRepairStatsQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -27,27 +27,17 @@ import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
 
 export const ServiceDashboardPage: React.FC = () => {
-  const repairQuery=useRepairOrdersQuery();
-  const repairOrders = repairQuery.data ?? [];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [page,setPage]=useState(1);
+  const repairQuery=useRepairOrdersPageQuery({page,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
+  const repairOrders = repairQuery.data?.items ?? [];
   const stats=useRepairStatsQuery();
   const navigate = useNavigate();
   const can=useAuthStore(state=>state.can),canCreate=can('service.order.create'),canViewWorkshop=can('workshop.view');
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [isNewOrOpen, setIsNewOrOpen] = useState(false);
-
-  const filteredORs = repairOrders.filter((or) => {
-    const matchesSearch =
-      or.orNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      or.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      or.vehiclePlate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      or.vehicleModel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (or.technicianName??'').toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = selectedStatus === 'ALL' || or.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(()=>{if(repairQuery.data&&repairQuery.data.page!==page)setPage(repairQuery.data.page)},[repairQuery.data,page]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
   return (
@@ -104,7 +94,7 @@ export const ServiceDashboardPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 font-medium">Garanties Constructeur</span>
             <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {repairOrders.filter((o) => o.warrantyCovered).length} dossiers
+              {Number(stats.data?.warranty??0)} dossiers
             </div>
           </div>
           <Badge variant="default" size="md">Prise en charge</Badge>
@@ -119,7 +109,7 @@ export const ServiceDashboardPage: React.FC = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {setSearchQuery(e.target.value);setPage(1)}}
             placeholder="Rechercher par n° OR, client, plaque, modèle, technicien..."
             className="w-full text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
           />
@@ -128,10 +118,10 @@ export const ServiceDashboardPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <select
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
+            onChange={(e) => {setSelectedStatus(e.target.value);setPage(1)}}
             className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium focus:outline-none"
           >
-            <option value="ALL">Tous les statuts ({repairOrders.length})</option>
+            <option value="ALL">Tous les statuts ({repairQuery.data?.total??0})</option>
             <option value="PLANIFIE">Planifié</option>
             <option value="RECEPTIONNE">Réceptionné</option>
             <option value="DIAGNOSTIC">En diagnostic</option>
@@ -167,7 +157,7 @@ export const ServiceDashboardPage: React.FC = () => {
               {repairQuery.isLoading && (
                 <TableEmptyState colSpan={8} message="Chargement des ordres de réparation..." isLoading />
               )}
-              {!repairQuery.isLoading && !repairQuery.isError && filteredORs.length === 0 && (
+              {!repairQuery.isLoading && !repairQuery.isError && repairOrders.length === 0 && (
                 <TableEmptyState
                   colSpan={8}
                   message={hasActiveFilters
@@ -175,7 +165,7 @@ export const ServiceDashboardPage: React.FC = () => {
                     : 'Aucun ordre de réparation'}
                 />
               )}
-              {filteredORs.map((orItem) => (
+              {repairOrders.map((orItem) => (
                 <tr
                   key={orItem.id}
                   onClick={() => navigate(`/service/repair-orders/${orItem.id}`)}
@@ -216,6 +206,7 @@ export const ServiceDashboardPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <div className="flex items-center justify-between border-t p-4 text-xs"><span>{repairQuery.data?.total??0} ordre(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Précédent</Button><span>Page {page}/{Math.max(1,repairQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(repairQuery.data?.totalPages??1)} onClick={()=>setPage(p=>p+1)}>Suivant</Button></div></div>
       </Card>
 
       {/* New Repair Order Modal */}

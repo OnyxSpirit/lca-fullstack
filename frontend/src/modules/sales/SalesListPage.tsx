@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BadgePercent,
@@ -12,7 +12,7 @@ import {
   ArrowRight,
   TrendingUp,
 } from 'lucide-react';
-import { useQuotationsQuery, useSalesQuery } from '../../api/erpHooks';
+import { useQuotationsPageQuery, useSalesPageQuery } from '../../api/erpHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -28,33 +28,25 @@ import { openBusinessPdf } from '../../services/businessPdf';
 import { salePaymentLabel } from './salePaymentLabel';
 
 export const SalesListPage: React.FC = () => {
-  const salesQuery = useSalesQuery();
-  const sales = salesQuery.data ?? [];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [salesPage,setSalesPage]=useState(1),[quotationPage,setQuotationPage]=useState(1);
+  const salesQuery = useSalesPageQuery({page:salesPage,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
+  const sales = salesQuery.data?.items ?? [];
   const canViewQuotations=useAuthStore(state=>state.can('quotations.view'));
-  const quotationsQuery=useQuotationsQuery(canViewQuotations),quotations=quotationsQuery.data??[];
+  const quotationsQuery=useQuotationsPageQuery({page:quotationPage,pageSize:7},canViewQuotations),quotations=quotationsQuery.data?.items??[];
   const { addToast } = useUiStore();
   const navigate = useNavigate();
   const canCreate=useAuthStore(state=>state.can('sales.create'));
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-
-  const filteredSales = sales.filter((s) => {
-    const matchesSearch =
-      s.saleNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.vehicleLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.salesRepName.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = selectedStatus === 'ALL' || s.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(()=>{if(salesQuery.data&&salesQuery.data.page!==salesPage)setSalesPage(salesQuery.data.page)},[salesQuery.data,salesPage]);
+  useEffect(()=>{if(quotationsQuery.data&&quotationsQuery.data.page!==quotationPage)setQuotationPage(quotationsQuery.data.page)},[quotationsQuery.data,quotationPage]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
-  const totalRevenue = sales.reduce((acc, s) => acc + s.totalSaleTTC, 0);
-  const financedCount = sales.filter((s) => s.financingType !== 'Comptant').length;
-  const financedRate = Math.round((financedCount / (sales.length || 1)) * 100);
+  const totalRevenue = salesQuery.data?.summary.totalRevenue??0;
+  const financedCount = salesQuery.data?.summary.financedCount??0,totalSales=salesQuery.data?.total??0;
+  const financedRate = Math.round((financedCount / (totalSales || 1)) * 100);
 
   return (
     <div className="space-y-6">
@@ -83,14 +75,14 @@ export const SalesListPage: React.FC = () => {
               {formatCurrency(totalRevenue)}
             </div>
           </div>
-          <Badge variant="primary" size="md">{sales.length} dossiers</Badge>
+          <Badge variant="primary" size="md">{totalSales} dossiers</Badge>
         </div>
 
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-xs text-slate-500 font-medium">Taux de Pénétration Financement</span>
             <div className="text-xl font-bold text-emerald-600 mt-0.5">
-              {financedRate}% <span className="text-xs text-slate-400 font-normal">({financedCount}/{sales.length} LOA/LLD)</span>
+              {financedRate}% <span className="text-xs text-slate-400 font-normal">({financedCount}/{totalSales} LOA/LLD)</span>
             </div>
           </div>
           <Badge variant="success" size="md">Performant</Badge>
@@ -100,7 +92,7 @@ export const SalesListPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 font-medium">Panier Moyen Véhicule</span>
             <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {formatCurrency(totalRevenue / (sales.length || 1))}
+              {formatCurrency(totalRevenue / (totalSales || 1))}
             </div>
           </div>
           <Badge variant="default" size="md">TTC</Badge>
@@ -114,7 +106,7 @@ export const SalesListPage: React.FC = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {setSearchQuery(e.target.value);setSalesPage(1)}}
             placeholder="Rechercher par client, n° vente, modèle..."
             className="w-full text-xs pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
           />
@@ -123,10 +115,10 @@ export const SalesListPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <select
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
+            onChange={(e) => {setSelectedStatus(e.target.value);setSalesPage(1)}}
             className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium focus:outline-none"
           >
-            <option value="ALL">Tous statuts ({sales.length})</option>
+            <option value="ALL">Tous statuts ({totalSales})</option>
             <option value="COMMANDE">Commande signée</option>
             <option value="FINANCEMENT_EN_ATTENTE">Financement en attente</option>
             <option value="FINANCEMENT_ACCEPTE">Financement accepté</option>
@@ -137,7 +129,7 @@ export const SalesListPage: React.FC = () => {
         </div>
       </div>
 
-      {canViewQuotations&&<Card padding="none"><div className="border-b p-4"><h2 className="font-bold text-slate-900">Propositions et devis</h2><p className="text-xs text-slate-500">Même source de vérité que les devis créés depuis le CRM.</p></div>{quotationsQuery.isError&&<div className="p-4 text-sm text-red-700">Chargement des devis impossible : {quotationsQuery.error.message}</div>}<div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50"><tr><th className="p-3">Référence</th><th>Client</th><th>Véhicule</th><th>Commercial</th><th>Montant</th><th>Statut</th><th></th></tr></thead><tbody>{quotations.map(quote=><tr key={quote.id} className="border-t"><td className="p-3 font-mono font-bold">{quote.quotationNumber}</td><td>{quote.customerName}</td><td>{quote.vehicleLabel}</td><td>{quote.salespersonName}</td><td>{formatCurrency(quote.total)}</td><td>{quote.status}</td><td><Button size="xs" variant="outline" onClick={()=>openBusinessPdf('quotation',quote.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button></td></tr>)}{!quotationsQuery.isLoading&&!quotations.length&&<TableEmptyState colSpan={7} message="Aucun devis"/>}</tbody></table></div></Card>}
+      {canViewQuotations&&<Card padding="none"><div className="border-b p-4"><h2 className="font-bold text-slate-900">Propositions et devis</h2><p className="text-xs text-slate-500">Même source de vérité que les devis créés depuis le CRM.</p></div>{quotationsQuery.isError&&<div className="p-4 text-sm text-red-700">Chargement des devis impossible : {quotationsQuery.error.message}</div>}<div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50"><tr><th className="p-3">Référence</th><th>Client</th><th>Véhicule</th><th>Commercial</th><th>Montant</th><th>Statut</th><th></th></tr></thead><tbody>{quotations.map(quote=><tr key={quote.id} className="border-t"><td className="p-3 font-mono font-bold">{quote.quotationNumber}</td><td>{quote.customerName}</td><td>{quote.vehicleLabel}</td><td>{quote.salespersonName}</td><td>{formatCurrency(quote.total)}</td><td>{quote.status}</td><td><Button size="xs" variant="outline" onClick={()=>openBusinessPdf('quotation',quote.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button></td></tr>)}{!quotationsQuery.isLoading&&!quotations.length&&<TableEmptyState colSpan={7} message="Aucun devis"/>}</tbody></table></div><div className="flex items-center justify-between border-t p-3 text-xs"><span>{quotationsQuery.data?.total??0} devis</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={quotationPage<=1} onClick={()=>setQuotationPage(p=>p-1)}>Précédent</Button><span>Page {quotationPage}/{Math.max(1,quotationsQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={quotationPage>=(quotationsQuery.data?.totalPages??1)} onClick={()=>setQuotationPage(p=>p+1)}>Suivant</Button></div></div></Card>}
 
       {/* Sales Table */}
       <Card padding="none">
@@ -164,13 +156,13 @@ export const SalesListPage: React.FC = () => {
               {salesQuery.isLoading && (
                 <TableEmptyState colSpan={8} message="Chargement des ventes..." isLoading />
               )}
-              {!salesQuery.isLoading && !salesQuery.isError && filteredSales.length === 0 && (
+              {!salesQuery.isLoading && !salesQuery.isError && sales.length === 0 && (
                 <TableEmptyState
                   colSpan={8}
                   message={hasActiveFilters ? 'Aucune vente ne correspond à vos critères' : 'Aucune vente'}
                 />
               )}
-              {filteredSales.map((sale) => {
+              {sales.map((sale) => {
                 const paymentLabel=salePaymentLabel(sale.depositPaidTTC,sale.remainingBalanceTTC);
                 return (
                 <tr
@@ -211,6 +203,7 @@ export const SalesListPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <div className="flex items-center justify-between border-t p-4 text-xs"><span>{totalSales} vente(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={salesPage<=1} onClick={()=>setSalesPage(p=>p-1)}>Précédent</Button><span>Page {salesPage}/{Math.max(1,salesQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={salesPage>=(salesQuery.data?.totalPages??1)} onClick={()=>setSalesPage(p=>p+1)}>Suivant</Button></div></div>
       </Card>
 
       {/* Sale Wizard Modal */}

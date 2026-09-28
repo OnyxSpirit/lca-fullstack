@@ -14,6 +14,7 @@ import {getBusinessIdentity,getEffectiveBusinessSettings} from '../settings/sett
 import {nextDocumentNumber} from './document-sequence.js';
 import {applyPayment} from './payment.domain.js';
 import{cancelUnpaidInvoice,cancellationActor}from'./invoice-cancellation.service.js';
+import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 
 export const billingRouter=Router();
 export type BillingPermission='billing.invoice.view'|'billing.invoice.create'|'billing.invoice.update'|'billing.invoice.issue'|'billing.invoice.cancel'|'billing.payment.view'|'billing.payment.collect'|'billing.payment.refund'|'billing.export';
@@ -64,8 +65,9 @@ billingRouter.get('/invoices',requirePermission('billing.invoice.view'),asyncHan
   if(r.query.payment==='paid')where+=' AND i.balance_due<=0';
   if(r.query.payment==='unpaid')where+=' AND i.balance_due>0';
   for(const[k,op]of[['from','>='],['to','<=']]as const)if(r.query[k]){where+=` AND i.issue_date${op}?`;params.push(date(r.query[k],k==='from'?'Date début':'Date fin',true))}
-  const rows=await query<RowDataPacket[]>(`${base} WHERE ${where} ORDER BY i.issue_date DESC,i.id DESC`,params),canViewPayments=Boolean(grant(r,'billing.payment.view'));
-  res.json(rows.map(row=>canViewPayments?row:{...row,amount_paid:null,balance_due:null}));
+  const canViewPayments=Boolean(grant(r,'billing.payment.view'));
+  if(r.query.page==null&&r.query.pageSize==null){const rows=await query<RowDataPacket[]>(`${base} WHERE ${where} ORDER BY i.issue_date DESC,i.id DESC`,params);res.json(rows.map(row=>canViewPayments?row:{...row,amount_paid:null,balance_due:null}));return;}
+  const requested=pageRequest(r.query),[summary]=await query<RowDataPacket[]>(`SELECT COUNT(*) total,COALESCE(SUM(i.total),0) billed,COALESCE(SUM(i.amount_paid),0) paid,COALESCE(SUM(i.balance_due),0) due,SUM(i.balance_due>0 AND i.due_date<CURDATE() AND i.status NOT IN('paid','cancelled')) overdue FROM invoices i JOIN customers c ON c.id=i.customer_id LEFT JOIN sales s ON s.id=i.sale_id LEFT JOIN repair_orders ro ON ro.id=i.repair_order_id WHERE ${where}`,params),meta=pageMeta(summary?.total,requested),rows=await query<RowDataPacket[]>(`${base} WHERE ${where} ORDER BY i.issue_date DESC,i.id DESC LIMIT ? OFFSET ?`,[...params,meta.pageSize,meta.offset]);res.json(paged(rows.map(row=>canViewPayments?row:{...row,amount_paid:null,balance_due:null}),summary?.total,meta,{summary:{billed:Number(summary?.billed??0),...(canViewPayments?{paid:Number(summary?.paid??0),due:Number(summary?.due??0)}:{}),overdue:Number(summary?.overdue??0)}}));
 }));
 billingRouter.get('/invoices/:id',requirePermission('billing.invoice.view'),asyncHandler(async(r,res)=>{
   const invoice=await access(id(r.params.id),r,'billing.invoice.view'),items=await query<RowDataPacket[]>('SELECT * FROM invoice_items WHERE invoice_id=? ORDER BY id',[invoice.id]);

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { FRESH_BASELINE_VERSION, MINIMUM_MIGRATION_VERSION, classifyDatabase, databasePath, futureMigrationNames, shouldApplyMigration } from '../src/scripts/database-bootstrap.js';
+import { FRESH_BASELINE_NAME, FRESH_BASELINE_VERSION, MINIMUM_MIGRATION_VERSION, classifyDatabase, databasePath, futureMigrationNames, isConsolidatedBaselineName, shouldApplyMigration } from '../src/scripts/database-bootstrap.js';
 
 const root=resolve(import.meta.dirname,'../..');
 const read=(path:string)=>readFileSync(resolve(root,path),'utf8');
@@ -15,8 +15,8 @@ const docker=read('docker-compose.yml');
 function sourceFiles(directory:string):string[]{return readdirSync(directory).flatMap(name=>{const path=resolve(directory,name);return statSync(path).isDirectory()?sourceFiles(path):/\.tsx?$/.test(name)?[path]:[];});}
 function codes(text:string){return new Set([...text.matchAll(/['"]([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+)['"]/g)].map(match=>match[1]));}
 
-test('BASELINE-01 est unique, versionné 046 et non destructif',()=>{
-  assert.equal(FRESH_BASELINE_VERSION,46);assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(46,'baseline_001_046'/);
+test('BASELINE-01 est unique, versionné 048 et non destructif',()=>{
+  assert.equal(FRESH_BASELINE_VERSION,48);assert.equal(FRESH_BASELINE_NAME,'baseline_001_048');assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(48,'baseline_001_048'/);
   assert.doesNotMatch(baseline,/^\s*(DROP|DELETE|UPDATE|TRUNCATE)\b/im);
   const tables=[...baseline.matchAll(/CREATE TABLE\s+`?([a-z0-9_]+)`?/gi)].map(match=>match[1]);
   assert.equal(tables.length,new Set(tables).size);assert.ok(tables.length>=92);
@@ -56,13 +56,48 @@ test('BASELINE-06 seules les migrations futures strictement supérieures à 033 
   assert.match(read('backend-node/src/scripts/database-bootstrap.ts'),/DUPLICATE_MIGRATION_VERSION/);
 });
 
-test('BASELINE-06B fresh saute 034–046 mais une base versionnée conserve ses upgrades',()=>{
-  assert.equal(shouldApplyMigration(34,new Set([46]),true),false);
-  assert.equal(shouldApplyMigration(46,new Set([46]),true),false);
-  assert.equal(shouldApplyMigration(47,new Set([46]),true),true);
+test('BASELINE-06B fresh saute 034–048 mais une base historique 046 conserve 047–049',()=>{
+  assert.equal(shouldApplyMigration(34,new Set([48]),true),false);
+  assert.equal(shouldApplyMigration(48,new Set([48]),true),false);
+  assert.equal(shouldApplyMigration(49,new Set([48]),true),true);
+  assert.equal(shouldApplyMigration(47,new Set([46]),false),true);
+  assert.equal(shouldApplyMigration(48,new Set([46]),false),true);
+  assert.equal(shouldApplyMigration(49,new Set([46]),false),true);
   assert.equal(shouldApplyMigration(40,new Set([39]),false),true);
   assert.equal(shouldApplyMigration(39,new Set([38]),false),true);
   assert.equal(shouldApplyMigration(34,new Set([33]),false),true);
+});
+
+test('BOOTSTRAP-10 la baseline 048 absorbe explicitement toutes les migrations 034–048',()=>{
+  for(const token of ['warranty_available','default_warranty_months','default_mileage_limit','warranty_provider_id','vehicle_warranty_contracts'])assert.match(baseline,new RegExp(token));
+  const migrationVersions=futureMigrationNames(readdirSync(resolve(root,'backend-node/database/migrations'))).map(name=>Number(name.slice(0,3)));
+  assert.deepEqual(migrationVersions,Array.from({length:16},(_,index)=>index+34));
+  assert.doesNotMatch(baseline,/CREATE TABLE document_categories/);
+});
+
+test('BOOTSTRAP-01/02/08/09 le marqueur consolidé saute uniquement son historique et reste idempotent',()=>{
+  const applied=new Set([FRESH_BASELINE_VERSION]);
+  for(let version=34;version<=48;version++)assert.equal(shouldApplyMigration(version,applied,true),false);
+  assert.equal(shouldApplyMigration(49,applied,true),true);
+  applied.add(49);assert.equal(shouldApplyMigration(49,applied,true),false);
+});
+
+test('BOOTSTRAP-03/04 une base historique distingue migrations appliquées et réellement pendantes',()=>{
+  const before47=new Set(Array.from({length:13},(_,index)=>index+34));
+  assert.equal(shouldApplyMigration(47,before47,false),true);
+  const through47=new Set([...before47,47]);
+  assert.equal(shouldApplyMigration(47,through47,false),false);
+  assert.equal(shouldApplyMigration(48,through47,false),true);
+});
+
+test('BOOTSTRAP-05/06/07 les protections checksum et DDL partielle restent actives',()=>{
+  const runner=read('backend-node/src/scripts/mysql-migration-runner.ts'),bootstrap=read('backend-node/src/scripts/database-bootstrap.ts');
+  assert.match(runner,/previous\.statement_checksum!==statementHash.*MIGRATION_CHECKSUM_MISMATCH/s);
+  assert.match(runner,/previous\?\.status==='FAILED_PARTIAL'.*MIGRATION_FAILED_PARTIAL/s);
+  assert.match(runner,/markFailed[\s\S]*MIGRATION_FAILED_PARTIAL/);
+  assert.match(bootstrap,/String\(row\.checksum\)!==migrationChecksum\(sql\).*MIGRATION_CHECKSUM_MISMATCH/s);
+  assert.equal(isConsolidatedBaselineName('baseline_001_046'),true);
+  assert.equal(isConsolidatedBaselineName('047_warranty_manufacturer_lifecycle_foundation.sql'),false);
 });
 
 test('BASELINE-06C le provisioning T1–T4 est central, idempotent et raccordé à seed:admin',()=>{

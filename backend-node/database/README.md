@@ -7,13 +7,13 @@
 3. Lancer `npm run seed:admin` avec `ADMIN_EMAIL` et `ADMIN_PASSWORD` définis
    dans l'environnement.
 
-Le bootstrap applique la baseline consolidée 040, le seed système, puis les
-migrations strictement postérieures à 040. Il exige les variables
+Le bootstrap applique la baseline consolidée 048, le seed système, puis les
+migrations strictement postérieures à 048. Il exige les variables
 `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` et `DB_NAME`.
 
-La baseline correspond au niveau logique 040 et contient 92 tables. Elle est
+La baseline correspond au niveau logique 048. Elle est
 une photographie structurelle consolidée : une installation fraîche enregistre
-uniquement `baseline_001_040`, sans fabriquer de lignes 034–039. Elle contient
+uniquement `baseline_001_048`, sans fabriquer de lignes 034–047. Elle contient
 le RBAC dynamique et les scopes `OWN`, `AGENCY`, `CONCESSION`, `GLOBAL`, sans
 donnée métier fictive. Le seed ajoute uniquement les référentiels et permissions
 système nécessaires.
@@ -26,7 +26,7 @@ un tarif existant ou personnalisé.
 
 Ne jamais exécuter le baseline. Le runner lit `schema_migrations` et applique
 uniquement les migrations historiques non enregistrées (`034` et suivantes).
-La version 040 de la baseline fraîche n'est pas utilisée comme filtre global :
+La version 048 de la baseline fraîche n'est pas utilisée comme filtre global :
 une base versionnée 033, 038 ou 039 continue donc son upgrade normal.
 Avant adoption sur une installation historique au niveau 033, effectuer une
 sauvegarde MySQL complète puis créer explicitement la ligne de marquage 033
@@ -44,17 +44,17 @@ jamais le baseline.
 
 - Source d'initialisation : `baseline/001_initial_schema.sql`.
 - Données système : `seeds/001_system_seed.sql`.
-- Historique d'upgrade immuable : `migrations/034_*.sql` à `040_*.sql`.
+- Historique d'upgrade immuable : `migrations/034_*.sql` à `049_*.sql`.
 - Les migrations `001`–`033` sont conservées dans `legacy-migrations/`
 uniquement pour traçabilité. `schema.sql` et `all_migrations.sql` ont été
 supprimés : le baseline est l’unique schéma consolidé.
 
 ## Règles pour une migration future
 
-- nommer le prochain fichier `041_description.sql`, puis incrémenter sans doublon ;
+- nommer le prochain fichier `050_description.sql`, puis incrémenter sans doublon ;
 - ne jamais modifier un fichier déjà enregistré en production ;
-- ne pas copier 041 dans la baseline 040 : fresh et upgrade doivent tous deux
-  exécuter 041 ; une nouvelle consolidation est une opération explicite,
+- ne pas copier 049 dans la baseline 048 : fresh et upgrade doivent tous deux
+  exécuter 049 ; une nouvelle consolidation est une opération explicite,
   versionnée et testée ;
 - sauvegarder MySQL, les uploads et la GED avant déploiement ;
 - valider la migration sur une copie isolée et vérifier un second bootstrap ;
@@ -83,7 +83,7 @@ Aucun nom de rôle métier ne confère de privilège. Le bypass exige le code
 
 Cette évolution du seed concerne les installations neuves uniquement. Le bootstrap
 ne rejoue pas le seed sur une base versionnée et ne supprime aucun rôle existant.
-Le module RH & Administration est inclus dans la photographie fraîche 040.
+Le module RH & Administration est inclus dans la photographie fraîche 048.
 Une installation déjà versionnée 033 ne reçoit donc volontairement ni ses six tables
 ni ses structures RH et fiscales ni leurs permissions : lors du passage réel en production, une migration additive
 034+ devra reprendre exactement ce delta, sans réexécuter le baseline ni le seed.

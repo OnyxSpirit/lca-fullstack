@@ -1,6 +1,8 @@
 # Futures migrations
 
-Ce dossier contient exclusivement les évolutions postérieures au baseline.
+Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
+baseline fraîche 048 absorbe désormais les migrations 034–048 ; le runner les
+applique encore aux bases historiques selon leur journal `schema_migrations`.
 Les migrations 034–037 prolongent le RBAC et le workflow SAV. La migration
 `038_payment_refunds.sql` ajoute le registre central immuable des remboursements
 partiels. Chaque remboursement est idempotent et relie explicitement un paiement,

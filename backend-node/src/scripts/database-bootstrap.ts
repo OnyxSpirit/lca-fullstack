@@ -4,11 +4,13 @@ import { resolve } from 'node:path';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
 import {ensureMigrationStepJournal,executeResilientMigration,migrationChecksum,migrationLockName,splitSqlStatements,type MigrationFaultHook} from './mysql-migration-runner.js';
 
-export const FRESH_BASELINE_VERSION=46;
+export const FRESH_BASELINE_VERSION=48;
+export const FRESH_BASELINE_NAME=`baseline_001_${String(FRESH_BASELINE_VERSION).padStart(3,'0')}`;
 export const MINIMUM_MIGRATION_VERSION=33;
 export const databaseRoot=()=>resolve(process.env.DATABASE_ROOT??'database');
 export const databasePath=(path:string)=>resolve(databaseRoot(),path);
 const versionOf=(name:string)=>Number(/^([0-9]{3})_/.exec(name)?.[1]??-1);
+export const isConsolidatedBaselineName=(name:string)=>/^baseline_001_\d{3}$/.test(name);
 export const futureMigrationNames=(names:string[])=>names.filter(name=>name.endsWith('.sql')&&versionOf(name)>MINIMUM_MIGRATION_VERSION).sort();
 
 export type DatabaseState='EMPTY'|'VERSIONED'|'AMBIGUOUS';
@@ -38,26 +40,26 @@ export async function bootstrapDatabase(options:{faultHook?:MigrationFaultHook}=
     if(state==='EMPTY'){
       await ensureMigrationStepJournal(connection);
       const baselineSql=`${await readFile(databasePath('baseline/001_initial_schema.sql'),'utf8')}\n${await readFile(databasePath('seeds/001_system_seed.sql'),'utf8')}`;
-      await executeResilientMigration(connection,{version:FRESH_BASELINE_VERSION,name:'baseline_001_046+system_seed',sql:baselineSql},options.faultHook,false);
+      await executeResilientMigration(connection,{version:FRESH_BASELINE_VERSION,name:`${FRESH_BASELINE_NAME}+system_seed`,sql:baselineSql},options.faultHook,false);
     }
     await ensureMigrationStepJournal(connection);
     if(state==='VERSIONED'&&tableNames.includes('schema_migration_steps')){
-      const[baselineSteps]=await connection.execute<RowDataPacket[]>(`SELECT COUNT(*) total,SUM(status='APPLIED') applied FROM schema_migration_steps WHERE version=? AND migration_name='baseline_001_046+system_seed'`,[FRESH_BASELINE_VERSION]);
+      const[baselineSteps]=await connection.execute<RowDataPacket[]>(`SELECT COUNT(*) total,SUM(status='APPLIED') applied FROM schema_migration_steps WHERE version=? AND migration_name=?`,[FRESH_BASELINE_VERSION,`${FRESH_BASELINE_NAME}+system_seed`]);
       if(Number(baselineSteps[0]?.total)>0){
         const baselineSql=`${await readFile(databasePath('baseline/001_initial_schema.sql'),'utf8')}\n${await readFile(databasePath('seeds/001_system_seed.sql'),'utf8')}`,expected=splitSqlStatements(baselineSql).length;
         if(Number(baselineSteps[0]?.total)<expected||Number(baselineSteps[0]?.applied)<expected)
-        await executeResilientMigration(connection,{version:FRESH_BASELINE_VERSION,name:'baseline_001_046+system_seed',sql:baselineSql},options.faultHook,false);
+        await executeResilientMigration(connection,{version:FRESH_BASELINE_VERSION,name:`${FRESH_BASELINE_NAME}+system_seed`,sql:baselineSql},options.faultHook,false);
       }
     }
     const[versions]=await connection.query<RowDataPacket[]>('SELECT version,name,checksum FROM schema_migrations');
     const applied=new Set(versions.map(row=>Number(row.version)));
-    const hasConsolidatedBaseline=versions.some(row=>Number(row.version)===FRESH_BASELINE_VERSION&&String(row.name)==='baseline_001_046');
+    const hasConsolidatedBaseline=versions.some(row=>Number(row.version)===FRESH_BASELINE_VERSION&&String(row.name)===FRESH_BASELINE_NAME);
     if(Math.max(0,...applied)<MINIMUM_MIGRATION_VERSION)throw new Error(`DATABASE_VERSION_UNSUPPORTED: version inférieure à ${MINIMUM_MIGRATION_VERSION}; mise à niveau historique manuelle requise.`);
     const names=futureMigrationNames(await readdir(databasePath('migrations')));
     const futureVersions=names.map(versionOf);
     if(new Set(futureVersions).size!==futureVersions.length)throw new Error('DUPLICATE_MIGRATION_VERSION: une seule migration est autorisée par numéro.');
     for(const row of versions){
-      const version=Number(row.version),name=String(row.name);if(name==='baseline_001_046')continue;
+      const version=Number(row.version),name=String(row.name);if(isConsolidatedBaselineName(name))continue;
       const filename=names.find(candidate=>versionOf(candidate)===version);if(!filename)continue;
       const sql=await readFile(databasePath(`migrations/${filename}`),'utf8');
       if(String(row.checksum)!==migrationChecksum(sql))throw new Error(`MIGRATION_CHECKSUM_MISMATCH: ${filename} diffère du fichier déjà appliqué`);

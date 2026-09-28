@@ -16,6 +16,7 @@ import {
   Edit,
   ShieldCheck,
   ArrowRight,
+  UploadCloud,
 } from 'lucide-react';
 import { useVehicle360Query, useVehicleImages, useVehicleStatusMutation } from '../../api/erpHooks';
 import { optimizeImage } from './NewVehicleModal';
@@ -32,6 +33,7 @@ import { VehicleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { apiDownload } from '../../services/apiClient';
 import { openBusinessPdf } from '../../services/businessPdf';
+import { UploadModal } from '../documents/DocumentsGedPage';
 
 export const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +46,7 @@ export const VehicleDetailPage: React.FC = () => {
   const canCreateSale=can('sales.create');
   const canCreateRepairOrder=can('service.order.create');
   const canViewDocuments=can('ged.view');
+  const canUploadDocuments=can('ged.upload');
   const canChangeStatus=can('vehicles.status.update');
   const canViewFinancials=can('vehicles.financials.view');
   const { setActiveQuickActionModal, addToast } = useUiStore();
@@ -55,6 +58,7 @@ export const VehicleDetailPage: React.FC = () => {
   const [selectedImageId, setSelectedImageId] = useState<string|null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
   const [editOpen,setEditOpen]=useState(false);
+  const [documentUploadOpen,setDocumentUploadOpen]=useState(false);
   const galleryImages=vehicleQuery.data?.images??[];
   const selectedImage=galleryImages.find((image:any)=>String(image.id)===selectedImageId);
   useEffect(()=>{
@@ -369,11 +373,17 @@ export const VehicleDetailPage: React.FC = () => {
       {activeTab === 'documents' && (
         <Card>
           <CardHeader>
-            <CardTitle>Documents Électroniques (GED Automobile)</CardTitle>
+            <div className="flex items-center justify-between gap-3"><CardTitle>Documents Électroniques (GED Automobile)</CardTitle>{canUploadDocuments&&<Button size="sm" icon={<UploadCloud className="h-4 w-4"/>} onClick={()=>setDocumentUploadOpen(true)}>Ajouter un document</Button>}</div>
           </CardHeader>
           <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
         </Card>
       )}
+      {canUploadDocuments&&<UploadModal
+        open={documentUploadOpen}
+        close={()=>setDocumentUploadOpen(false)}
+        initialEntity={{entityType:'vehicle',entityId:vehicle.id,agencyId:vehicle.agencyId,agencyName:vehicle.agencyName,label:`${vehicle.brand} ${vehicle.model} — ${vehicle.vin}`,businessId:vehicle.stockNumber}}
+        onSuccess={()=>void vehicleQuery.refetch()}
+      />}
       <EditVehicleModal isOpen={editOpen} onClose={()=>setEditOpen(false)} vehicle={vehicle}/>
     </div>
   );

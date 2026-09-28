@@ -13,3 +13,11 @@ export function assertVehicleMargin(vehicle:Record<string,unknown>,netSaleHt:num
   if(Math.round(netSaleHt*100)<Math.round(vehicleCostHt(vehicle)*100))
     throw new HttpError(409,"Le prix de vente net HT ne peut pas être inférieur au coût de revient du véhicule.");
 }
+
+/** A zero minimum means that no additional commercial floor is configured. */
+export function assertVehicleMinimumPrice(vehicle:Record<string,unknown>,netSalePrice:number):void {
+  const minimum=Number(vehicle.minimum_price??0);
+  if(!Number.isFinite(minimum)||minimum<0)throw new HttpError(409,'Prix minimum du véhicule invalide');
+  if(minimum>0&&Math.round(netSalePrice*100)<Math.round(minimum*100))
+    throw new HttpError(409,'Cette remise ferait passer le prix de vente sous le prix minimum autorisé.');
+}

@@ -12,6 +12,7 @@ import {
   FileText,
   Clock,
   ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation, useUpdateSale, useUpdateSaleWarranty } from '../../api/erpHooks';
 import { saleStatusToDb } from '../../services/mysqlStatusMap';
@@ -54,7 +55,8 @@ export const SaleDetailPage: React.FC = () => {
       await saleStatus.mutateAsync({ id: sale.id, status, reason });
       addToast({ type: 'success', title: 'Statut du dossier mis à jour', description: `Le dossier est maintenant : ${newStatus}.` });
     } catch (error) {
-      addToast({ type: 'error', title: 'Transition impossible', description: error instanceof Error ? error.message : 'Erreur API' });
+      const description=error instanceof Error?error.message:'Erreur API',regularizationRequired=status==='cancelled'&&/paiement|encaiss/i.test(description);
+      addToast({ type: 'error', title: regularizationRequired?'Régularisation financière requise':'Transition impossible', description });
     }
   };
 
@@ -65,7 +67,7 @@ export const SaleDetailPage: React.FC = () => {
   const next=nextStatus[sale.status],isFinancialTransition=next==='PREPARATION'||next==='PRET_LIVRAISON';
   const financialBlocked=isFinancialTransition&&!sale.financiallyCleared;
   const financialBlockReason=invoice?`Préparation impossible — solde restant : ${formatCurrency(invoice.remainingAmountTTC)}`:'Une facture émise et intégralement réglée est requise.';
-  const cancellationBlocked=Number(invoice?.paidAmountTTC??0)>0||['PRET_LIVRAISON','LIVRE'].includes(sale.status);
+  const netCollected=Number(invoice?.paidAmountTTC??0),financialRegularizationRequired=netCollected>0,refundedAmount=(invoice?.payments??[]).reduce((sum,payment)=>sum+payment.refundedAmount,0),cancellationBlocked=financialRegularizationRequired||['PRET_LIVRAISON','LIVRE'].includes(sale.status);
   const warrantyLabel={UNDETERMINED:'Décision à renseigner',NOT_APPLICABLE:'Garantie non applicable',APPLICABLE:'Garantie applicable'}[sale.warranty.decision];
   const editWarranty=async()=>{const applicable=window.confirm('OK : garantie applicable. Annuler : garantie non applicable.');try{if(!applicable){await updateWarranty.mutateAsync({id:sale.id,decision:'NOT_APPLICABLE'});return}const months=Number(window.prompt('Durée contractuelle en mois',String(sale.warranty.durationMonths??24)));if(!Number.isInteger(months)||months<1||months>240)return;const mileageText=window.prompt('Plafond kilométrique (vide si aucun)',sale.warranty.mileageLimit==null?'':String(sale.warranty.mileageLimit));await updateWarranty.mutateAsync({id:sale.id,decision:'APPLICABLE',durationMonths:months,mileageLimit:mileageText?Number(mileageText):null})}catch(error){addToast({type:'error',title:'Garantie non modifiée',description:error instanceof Error?error.message:'Erreur API'})}};
 
@@ -98,6 +100,8 @@ export const SaleDetailPage: React.FC = () => {
           </div>
         }
       />
+
+      {canCancelSale&&financialRegularizationRequired&&<Card><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"/><div><h2 className="font-bold text-amber-900">Régularisation financière requise</h2><p className="mt-1 text-sm text-slate-700">Cette vente a reçu des encaissements et ne peut pas être annulée tant que les sommes encaissées n’ont pas été remboursées.</p><dl className="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2"><div><dt className="text-slate-500">Total facture</dt><dd className="font-semibold">{formatCurrency(invoice?.amountTTC??sale.totalSaleTTC)}</dd></div><div><dt className="text-slate-500">Encaissement net</dt><dd className="font-semibold">{formatCurrency(netCollected)}</dd></div><div><dt className="text-slate-500">Reste dû</dt><dd className="font-semibold">{formatCurrency(invoice?.remainingAmountTTC??sale.remainingBalanceTTC)}</dd></div>{canViewPayments&&<div><dt className="text-slate-500">Déjà remboursé</dt><dd className="font-semibold">{formatCurrency(refundedAmount)}</dd></div>}<div><dt className="text-slate-500">Reste à régulariser</dt><dd className="font-semibold text-amber-800">{formatCurrency(netCollected)}</dd></div></dl><ol className="mt-3 list-decimal space-y-1 pl-4 text-xs text-slate-600"><li>Créer l’avoir nécessaire sur la facture.</li><li>Rembourser les sommes encaissées.</li><li>Revenir sur cette vente et relancer l’annulation.</li></ol></div></div>{canViewInvoice&&invoice&&<Button variant="outline" size="sm" onClick={()=>navigate(`/billing/${invoice.id}`)}>Accéder à la facture</Button>}</div></Card>}
 
       {/* Main 2 Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

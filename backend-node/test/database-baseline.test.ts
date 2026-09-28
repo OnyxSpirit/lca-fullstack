@@ -26,6 +26,7 @@ test('BASELINE-02 représente les structures finales critiques',()=>{
   for(const token of ['refresh_tokens','customer_contacts','showroom_test_drives','delivery_status_history','workshop_session_history','part_stocks','purchase_order_receipts','document_sequences','uq_sales_quotation_id','uk_delivery_signature_final','uk_documents_source_key','event_key','parent_document_id','accumulated_pause_seconds'])assert.match(baseline,new RegExp(token));
   assert.match(baseline,/scope ENUM\('OWN','AGENCY','CONCESSION','GLOBAL'\)/);assert.match(baseline,/currency_code CHAR\(3\) NOT NULL DEFAULT 'XAF'/);
   for(const token of ['uk_intervention_request','uk_reservation_request','uk_repair_item_request','repair_order_estimate_items','uk_intervention_estimate_item','uk_reservation_estimate_item','uk_repair_item_estimate','consumed_quantity','payment_refunds','abandonment_reason_code','handover_type','workshop_labor_rates','rate_code_snapshot','rate_label_snapshot'])assert.match(baseline,new RegExp(token));
+  for(const token of ['idx_notifications_user_visible','fk_notification_archived_by','fk_notification_deleted_by','internal_stock_categories','fk_internal_stock_item_category','budget_categories','fk_budget_category','fk_budget_expense_category','budget_fund_movements','chk_budget_fund_movement_positive','normalized_email','normalized_phone','uq_customer_agency_normalized_email','uq_customer_agency_normalized_phone'])assert.match(baseline,new RegExp(token));
 });
 
 test('BASELINE-03 le seed est système, idempotent et sans secret ni donnée métier',()=>{
@@ -42,8 +43,13 @@ test('BASELINE-04 toutes les permissions runtime littérales sont initialisées 
     const text=readFileSync(file,'utf8');
     for(const match of text.matchAll(/(?:requirePermission|assertPermission|can|hasPermission|permissionScope)\(\s*['"]([a-z][a-z0-9_.-]+)['"]/g))runtime.add(match[1]!);
   }
-  const futureMigrations=futureMigrationNames(readdirSync(resolve(root,'backend-node/database/migrations'))).map(name=>read(`backend-node/database/migrations/${name}`)).join('\n');
+  const futureMigrations=futureMigrationNames(readdirSync(resolve(root,'backend-node/database/migrations'))).filter(name=>Number(name.slice(0,3))>FRESH_BASELINE_VERSION).map(name=>read(`backend-node/database/migrations/${name}`)).join('\n');
   const initialized=codes(seed+futureMigrations);const missing=[...runtime].filter(code=>!initialized.has(code)).sort();assert.deepEqual(missing,[]);
+});
+
+test('BASELINE-04B le seed absorbe les permissions système 034–048 encore utilisées',()=>{
+  const expected=['roles.delete','service.order.abandon','notifications.update','notifications.archive','notifications.delete','hr.budget.category.view','hr.budget.category.manage','service.warranty.manage','service.warranty.approve','settings.manufacturers.view','settings.manufacturers.create','settings.manufacturers.update','settings.manufacturers.disable'];
+  for(const code of expected)assert.equal([...seed.matchAll(new RegExp(`['"]${code.replaceAll('.','\\.')}['"]`,'g'))].length,1,code);
 });
 
 test('BASELINE-05 détection fail-safe base neuve, versionnée et ambiguë',()=>{

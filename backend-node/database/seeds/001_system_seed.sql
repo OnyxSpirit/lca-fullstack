@@ -20,6 +20,9 @@ ON DUPLICATE KEY UPDATE item_name=VALUES(item_name),category=VALUES(category),is
 INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,is_active) VALUES
 ('dashboard','view','dashboard.view','Voir le tableau de bord','Général','Accéder au tableau de bord',TRUE),
 ('notifications','view','notifications.view','Voir les notifications','Général','Consulter ses notifications',TRUE),
+('notifications','update','notifications.update','Mettre à jour les notifications','Général','Marquer ses notifications comme lues',TRUE),
+('notifications','archive','notifications.archive','Archiver les notifications','Général','Retirer ses notifications de la liste active',TRUE),
+('notifications','delete','notifications.delete','Supprimer logiquement les notifications','Général','Supprimer logiquement ses notifications avec traçabilité',TRUE),
 ('users','view','users.view','Voir les utilisateurs','Utilisateurs','Consulter les utilisateurs',TRUE),
 ('users','create','users.create','Créer un utilisateur','Utilisateurs','Créer un compte utilisateur',TRUE),
 ('users','update','users.update','Modifier un utilisateur','Utilisateurs','Modifier les données d’un utilisateur',TRUE),
@@ -222,6 +225,8 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ('hr','create','hr.stock.exit','Enregistrer une sortie interne','RH & Administration','Retirer une quantité disponible du stock interne',TRUE),
 ('hr','view','hr.budget.view','Voir les budgets','RH & Administration','Consulter les budgets de son périmètre',TRUE),
 ('hr','manage','hr.budget.manage','Gérer les budgets','RH & Administration','Créer et modifier les budgets de son périmètre',TRUE),
+('hr','view','hr.budget.category.view','Voir les catégories budgétaires','RH & Administration','Consulter les catégories budgétaires de son périmètre',TRUE),
+('hr','manage','hr.budget.category.manage','Gérer les catégories budgétaires','RH & Administration','Créer, modifier, activer et désactiver les catégories budgétaires de son périmètre',TRUE),
 ('hr','view','hr.expense.view','Voir les dépenses','RH & Administration','Consulter les dépenses de son périmètre',TRUE),
 ('hr','create','hr.expense.create','Créer une dépense','RH & Administration','Enregistrer une dépense dans la limite disponible',TRUE),
 ('hr','manage','hr.expense.manage','Gérer les dépenses','RH & Administration','Administrer les dépenses de son périmètre',TRUE),

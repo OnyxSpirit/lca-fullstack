@@ -198,12 +198,27 @@ CREATE TABLE salary_history (
     CONSTRAINT fk_salary_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+CREATE TABLE internal_stock_categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    concession_id BIGINT UNSIGNED NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_internal_stock_category_concession_code (concession_id,code),
+    UNIQUE KEY uk_internal_stock_category_concession_name (concession_id,name),
+    INDEX idx_internal_stock_category_active (concession_id,is_active,name),
+    CONSTRAINT fk_internal_stock_category_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE internal_stock_items (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     agency_id BIGINT UNSIGNED NOT NULL,
     designation VARCHAR(190) NOT NULL,
     reference VARCHAR(100) NULL,
     category VARCHAR(100) NULL,
+    category_id BIGINT UNSIGNED NULL,
     unit VARCHAR(40) NOT NULL,
     current_quantity DECIMAL(14,3) NOT NULL DEFAULT 0,
     minimum_quantity DECIMAL(14,3) NOT NULL DEFAULT 0,
@@ -214,8 +229,10 @@ CREATE TABLE internal_stock_items (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_internal_stock_agency_reference (agency_id,reference),
     INDEX idx_internal_stock_threshold (agency_id,is_active,current_quantity,minimum_quantity),
+    INDEX idx_internal_stock_category (category_id),
     CONSTRAINT chk_internal_stock_quantities CHECK (current_quantity >= 0 AND minimum_quantity >= 0),
     CONSTRAINT fk_internal_stock_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_internal_stock_item_category FOREIGN KEY (category_id) REFERENCES internal_stock_categories(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_internal_stock_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_internal_stock_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -241,6 +258,24 @@ CREATE TABLE internal_stock_movements (
     CONSTRAINT fk_internal_movement_user FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+CREATE TABLE budget_categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    concession_id BIGINT UNSIGNED NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by BIGINT UNSIGNED NULL,
+    updated_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_budget_category_concession_code (concession_id,code),
+    UNIQUE KEY uk_budget_category_concession_name (concession_id,name),
+    INDEX idx_budget_category_active (concession_id,is_active,name),
+    CONSTRAINT fk_budget_category_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_budget_category_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_budget_category_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 CREATE TABLE budgets (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     scope_type ENUM('agency','concession') NOT NULL,
@@ -251,6 +286,7 @@ CREATE TABLE budgets (
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     category VARCHAR(100) NULL,
+    category_id BIGINT UNSIGNED NULL,
     status ENUM('draft','active','closed','cancelled') NOT NULL DEFAULT 'active',
     created_by BIGINT UNSIGNED NULL,
     updated_by BIGINT UNSIGNED NULL,
@@ -258,10 +294,12 @@ CREATE TABLE budgets (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_budget_agency_period (agency_id,start_date,end_date,status),
     INDEX idx_budget_concession_period (concession_id,start_date,end_date,status),
+    INDEX idx_budget_category (category_id),
     CONSTRAINT chk_budget_amount_dates CHECK (initial_amount > 0 AND start_date <= end_date),
     CONSTRAINT chk_budget_scope CHECK ((scope_type='agency' AND agency_id IS NOT NULL AND concession_id IS NULL) OR (scope_type='concession' AND concession_id IS NOT NULL AND agency_id IS NULL)),
     CONSTRAINT fk_budget_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,
     CONSTRAINT fk_budget_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_budget_category FOREIGN KEY (category_id) REFERENCES budget_categories(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_budget_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_budget_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -273,14 +311,32 @@ CREATE TABLE budget_expenses (
     amount DECIMAL(18,2) NOT NULL,
     expense_date DATE NOT NULL,
     category VARCHAR(100) NULL,
+    category_id BIGINT UNSIGNED NULL,
     reference VARCHAR(100) NULL,
     created_by BIGINT UNSIGNED NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_expense_budget_date (budget_id,expense_date),
     INDEX idx_expense_category_date (category,expense_date),
+    INDEX idx_budget_expense_category (category_id,expense_date),
     CONSTRAINT chk_expense_positive CHECK (amount > 0),
     CONSTRAINT fk_expense_budget FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_budget_expense_category FOREIGN KEY (category_id) REFERENCES budget_categories(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_expense_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE budget_fund_movements (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    budget_id BIGINT UNSIGNED NOT NULL,
+    movement_type ENUM('additional_allocation') NOT NULL DEFAULT 'additional_allocation',
+    amount DECIMAL(18,2) NOT NULL,
+    reason VARCHAR(500) NULL,
+    reference VARCHAR(100) NULL,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_budget_fund_movement_budget_date (budget_id,created_at,id),
+    CONSTRAINT chk_budget_fund_movement_positive CHECK (amount > 0),
+    CONSTRAINT fk_budget_fund_movement_budget FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_budget_fund_movement_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 -- ============================================================
@@ -313,11 +369,19 @@ CREATE TABLE customers (
     created_by BIGINT UNSIGNED NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    normalized_email VARCHAR(190)
+        CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci
+        GENERATED ALWAYS AS (NULLIF(LOWER(TRIM(email)),'')) STORED,
+    normalized_phone VARCHAR(50)
+        CHARACTER SET ascii COLLATE ascii_bin
+        GENERATED ALWAYS AS (NULLIF(REGEXP_REPLACE(phone,'[^0-9]',''),'')) STORED,
     INDEX idx_customer_email (email),
     INDEX idx_customer_phone (phone),
     INDEX idx_customer_agency (agency_id),
     INDEX idx_customer_assigned (assigned_user_id),
     INDEX idx_customer_classification (classification),
+    UNIQUE KEY uq_customer_agency_normalized_email (agency_id,normalized_email),
+    UNIQUE KEY uq_customer_agency_normalized_phone (agency_id,normalized_phone),
     CONSTRAINT fk_customer_agency
         FOREIGN KEY (agency_id) REFERENCES agencies(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -1736,6 +1800,10 @@ CREATE TABLE notifications (
     scheduled_at DATETIME NULL,
     sent_at DATETIME NULL,
     read_at DATETIME NULL,
+    archived_at DATETIME NULL,
+    archived_by BIGINT UNSIGNED NULL,
+    deleted_at DATETIME NULL,
+    deleted_by BIGINT UNSIGNED NULL,
     error_message TEXT NULL,
     reference_type VARCHAR(80) NULL,
     reference_id BIGINT UNSIGNED NULL,
@@ -1746,9 +1814,14 @@ CREATE TABLE notifications (
     INDEX idx_notifications_user_read_date (user_id,read_at,created_at),
     INDEX idx_notifications_event_type (event_type),
     UNIQUE INDEX uk_notifications_event_key (event_key),
+    INDEX idx_notifications_user_visible (user_id,channel,deleted_at,archived_at,read_at,created_at),
+    INDEX idx_notifications_archived_by (archived_by),
+    INDEX idx_notifications_deleted_by (deleted_by),
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_notification_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
     CONSTRAINT fk_notification_template FOREIGN KEY (template_id) REFERENCES notification_templates(id) ON DELETE SET NULL
+    ,CONSTRAINT fk_notification_archived_by FOREIGN KEY (archived_by) REFERENCES users(id) ON DELETE SET NULL
+    ,CONSTRAINT fk_notification_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE documents (

@@ -32,8 +32,10 @@ import { useAuthStore } from '../../stores/authStore';
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const customerQuery=useCustomer360Query(id);const data=customerQuery.data;
-  const timeline=data?.timeline??[],customerVehicles=data?.vehicles??[],customerSales=data?.sales??[],customerQuotations=data?.quotations??[],customerORs=data?.repairOrders??[],customerInvoices=data?.invoices??[],contacts=data?.contacts??[],opportunities=data?.opportunities??[];
+  const [pages,setPages]=useState({timelinePage:1,opportunitiesPage:1,vehiclesPage:1,salesPage:1,quotationsPage:1,repairOrdersPage:1,invoicesPage:1});
+  const customerQuery=useCustomer360Query(id,pages);const data=customerQuery.data;
+  const items=(value:any)=>Array.isArray(value)?value:value?.items??[],total=(value:any)=>Array.isArray(value)?value.length:value?.total??0;
+  const timeline=items(data?.timeline),customerVehicles=items(data?.vehicles),customerSales=items(data?.sales),customerQuotations=items(data?.quotations),customerORs=items(data?.repairOrders),customerInvoices=items(data?.invoices),contacts=data?.contacts??[],opportunities=items(data?.opportunities);
   const { setActiveQuickActionModal,addToast } = useUiStore();
   const can=useAuthStore(state=>state.can);
   const canViewSales=can('sales.view');
@@ -53,13 +55,13 @@ export const CustomerDetailPage: React.FC = () => {
   const customerName=customer?(customer.type==='Professionnel'?(customer.company||[customer.firstName,customer.lastName].filter(Boolean).join(' ')||customer.code):[customer.civility,customer.firstName,customer.lastName].filter(Boolean).join(' ')):'';
   const [activeTab, setActiveTab] = useState<'timeline' | 'contacts' | 'opportunities' | 'vehicles' | 'sales' | 'sav' | 'billing' | 'documents'>('contacts');
   const tabs=[
-    ...(canViewHistory?[{key:'timeline',label:'Timeline Événements'}]:[]),
+    ...(canViewHistory?[{key:'timeline',label:`Timeline Événements (${total(data?.timeline)})`}]:[]),
     {key:'contacts',label:`Contacts (${contacts.length})`},
-    ...(canViewCrm?[{key:'opportunities',label:`Opportunités (${opportunities.length})`}]:[]),
-    ...(canViewVehicles?[{key:'vehicles',label:`Véhicules Rattachés (${customerVehicles.length})`}]:[]),
-    ...(canViewSales||canViewQuotations?[{key:'sales',label:`Ventes & Devis (${customerSales.length+customerQuotations.length})`}]:[]),
-    ...(canViewService?[{key:'sav',label:`Atelier SAV & OR (${customerORs.length})`}]:[]),
-    ...(canViewBilling?[{key:'billing',label:`Facturation (${customerInvoices.length})`}]:[]),
+    ...(canViewCrm?[{key:'opportunities',label:`Opportunités (${total(data?.opportunities)})`}]:[]),
+    ...(canViewVehicles?[{key:'vehicles',label:`Véhicules Rattachés (${total(data?.vehicles)})`}]:[]),
+    ...(canViewSales||canViewQuotations?[{key:'sales',label:`Ventes & Devis (${total(data?.sales)+total(data?.quotations)})`}]:[]),
+    ...(canViewService?[{key:'sav',label:`Atelier SAV & OR (${total(data?.repairOrders)})`}]:[]),
+    ...(canViewBilling?[{key:'billing',label:`Facturation (${total(data?.invoices)})`}]:[]),
     ...(canViewDocuments?[{key:'documents',label:`Documents (${documents.length})`}]:[]),
   ] as const;
   useEffect(()=>{if(!tabs.some(tab=>tab.key===activeTab))setActiveTab('contacts')},[activeTab,canViewHistory,canViewCrm,canViewVehicles,canViewSales,canViewQuotations,canViewService,canViewBilling,canViewDocuments]);
@@ -154,19 +156,19 @@ export const CustomerDetailPage: React.FC = () => {
         <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {canViewVehicles&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Véhicules Rattachés</span>
-            <div className="text-xl font-bold text-slate-900 mt-1">{customerVehicles.length}</div>
+            <div className="text-xl font-bold text-slate-900 mt-1">{total(data?.vehicles)}</div>
           </div>}
           {canViewSales&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Commandes Ventes</span>
-            <div className="text-xl font-bold text-blue-700 mt-1">{customerSales.length}</div>
+            <div className="text-xl font-bold text-blue-700 mt-1">{total(data?.sales)}</div>
           </div>}
           {canViewService&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Passages Atelier SAV</span>
-            <div className="text-xl font-bold text-amber-700 mt-1">{customerORs.length}</div>
+            <div className="text-xl font-bold text-amber-700 mt-1">{total(data?.repairOrders)}</div>
           </div>}
           {canViewBilling&&<div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[11px] text-slate-500 font-medium">Factures Émises</span>
-            <div className="text-xl font-bold text-emerald-700 mt-1">{customerInvoices.length}</div>
+            <div className="text-xl font-bold text-emerald-700 mt-1">{total(data?.invoices)}</div>
           </div>}
         </div>
       </div>
@@ -195,12 +197,13 @@ export const CustomerDetailPage: React.FC = () => {
             <CardTitle>Journal d'Activité & Historique Relation Client 360°</CardTitle>
           </CardHeader>
           <div className="space-y-4 text-xs">{timeline.map((event:any)=><div key={`${event.event_type}-${event.reference_id}-${event.event_at}`} className="flex gap-3 items-start"><div className="w-8 h-8 rounded-full bg-slate-100 text-[#8f1722] flex items-center justify-center shrink-0"><Clock className="w-4 h-4"/></div><div><div className="font-bold text-slate-900">{event.title}</div><p className="text-slate-500 mt-0.5">{event.description||'—'}</p><span className="text-[10px] text-slate-400">{formatDate(event.event_at)}</span></div></div>)}{!timeline.length&&<p className="text-slate-500">Aucun événement enregistré pour ce client.</p>}</div>
+          <CustomerPager data={data?.timeline} page={pages.timelinePage} onPage={page=>setPages({...pages,timelinePage:page})} label="événement(s)"/>
         </Card>
       )}
 
       {activeTab === 'contacts' && <Card><CardHeader><div className="flex items-center justify-between"><CardTitle>Contacts du client</CardTitle>{canUpdateCustomer&&<Button size="xs" variant="primary" onClick={()=>setContactOpen(true)}>Ajouter un contact</Button>}</div></CardHeader><div className="space-y-2">{contacts.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs"><div className="font-bold">{item.first_name} {item.last_name}{item.is_primary?' • Principal':''}</div><div className="text-slate-500">{item.role_title||'—'} • {item.phone||'—'} • {item.email||'—'}</div></div>)}{!contacts.length&&<p className="text-xs text-slate-500">Aucun contact enregistré.</p>}</div></Card>}
 
-      {activeTab === 'opportunities' && <Card><CardHeader><CardTitle>Opportunités liées</CardTitle></CardHeader><div className="space-y-2">{opportunities.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs flex justify-between"><div><div className="font-bold">{item.title}</div><div className="text-slate-500">Probabilité : {item.probability}%</div></div><div className="font-semibold">{item.stage}</div></div>)}{!opportunities.length&&<p className="text-xs text-slate-500">Aucune opportunité rattachée.</p>}</div></Card>}
+      {activeTab === 'opportunities' && <Card><CardHeader><CardTitle>Opportunités liées</CardTitle></CardHeader><div className="space-y-2">{opportunities.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs flex justify-between"><div><div className="font-bold">{item.title}</div><div className="text-slate-500">Probabilité : {item.probability}%</div></div><div className="font-semibold">{item.stage}</div></div>)}{!opportunities.length&&<p className="text-xs text-slate-500">Aucune opportunité rattachée.</p>}</div><CustomerPager data={data?.opportunities} page={pages.opportunitiesPage} onPage={page=>setPages({...pages,opportunitiesPage:page})} label="opportunité(s)"/></Card>}
 
       {activeTab === 'documents' && <Card><CardHeader><CardTitle>Documents client actifs</CardTitle></CardHeader><div className="divide-y text-xs">{documents.map(document=><div key={document.id} className="flex items-center justify-between py-3"><div><b>{document.fileName}</b><div className="text-slate-500">{document.documentType} · {Math.ceil(document.fileSize/1024)} Ko · {formatDate(document.createdAt)}</div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!documents.length&&<p className="py-5 text-slate-500">Aucun document client actif.</p>}</div></Card>}
 
@@ -233,6 +236,7 @@ export const CustomerDetailPage: React.FC = () => {
               Aucun véhicule rattaché pour le moment.
             </div>
           )}
+          <CustomerPager data={data?.vehicles} page={pages.vehiclesPage} onPage={page=>setPages({...pages,vehiclesPage:page})} label="véhicule(s)"/>
         </div>
       )}
 
@@ -263,9 +267,12 @@ export const CustomerDetailPage: React.FC = () => {
                     <td className="py-2.5 px-4"><StatusBadge status={s.status} type="sale" /></td>
                   </tr>
                 ))}
+                {!customerSales.length&&<tr><td colSpan={6} className="p-8 text-center text-slate-500">Aucune vente enregistrée.</td></tr>}
               </tbody>
             </table>
           </div>
+          <CustomerPager data={data?.sales} page={pages.salesPage} onPage={page=>setPages({...pages,salesPage:page})} label="vente(s)"/>
+          {customerQuotations.length>0&&<CustomerPager data={data?.quotations} page={pages.quotationsPage} onPage={page=>setPages({...pages,quotationsPage:page})} label="devis"/>}
         </Card>
       )}
 
@@ -293,9 +300,11 @@ export const CustomerDetailPage: React.FC = () => {
                     <td className="py-2.5 px-4"><StatusBadge status={orItem.status} type="or" /></td>
                   </tr>
                 ))}
+                {!customerORs.length&&<tr><td colSpan={5} className="p-8 text-center text-slate-500">Aucun ordre de réparation enregistré.</td></tr>}
               </tbody>
             </table>
           </div>
+          <CustomerPager data={data?.repairOrders} page={pages.repairOrdersPage} onPage={page=>setPages({...pages,repairOrdersPage:page})} label="ordre(s) de réparation"/>
         </Card>
       )}
 
@@ -323,9 +332,11 @@ export const CustomerDetailPage: React.FC = () => {
                     <td className="py-2.5 px-4"><StatusBadge status={inv.status} type="invoice" /></td>
                   </tr>
                 ))}
+                {!customerInvoices.length&&<tr><td colSpan={5} className="p-8 text-center text-slate-500">Aucune facture enregistrée.</td></tr>}
               </tbody>
             </table>
           </div>
+          <CustomerPager data={data?.invoices} page={pages.invoicesPage} onPage={page=>setPages({...pages,invoicesPage:page})} label="facture(s)"/>
         </Card>
       )}
       <Modal isOpen={contactOpen} onClose={()=>{setContactOpen(false);setContactError('')}} title="Ajouter un contact" maxWidth="lg">
@@ -338,3 +349,5 @@ export const CustomerDetailPage: React.FC = () => {
     </div>
   );
 };
+
+const CustomerPager=({data,page,onPage,label}:{data:any;page:number;onPage:(page:number)=>void;label:string})=>{if(Array.isArray(data)||!data)return null;return <div className="mt-4 flex items-center justify-between border-t pt-3 text-xs"><span>{data.total??0} {label}</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>onPage(page-1)}>Précédent</Button><span>Page {page} / {Math.max(1,data.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(data.totalPages??1)} onClick={()=>onPage(page+1)}>Suivant</Button></div></div>};

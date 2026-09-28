@@ -16,6 +16,7 @@ import {requireDocumentFile,storeDocument} from '../documents/document-storage.j
 import {decodeDeliveryDocument} from './delivery-document.js';
 import{lockActiveSaleInvoice}from'../billing/sale-financial-gate.js';
 import{activateAtDelivery}from'../sales/vehicle-warranty.service.js';
+import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 
 export const deliveryRouter = Router();
 type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel';
@@ -181,10 +182,10 @@ deliveryRouter.get(
       );
       params.push(term, term, term, term, term, term, term);
     }
-    const rows = await query<RowDataPacket[]>(
-      `${selection} WHERE ${conditions.join(" AND ")} ORDER BY d.scheduled_at IS NULL,d.scheduled_at,d.id`,
-      params,
-    );
+    const paginationRequested=request.query.page!=null||request.query.pageSize!=null;
+    const [count]=paginationRequested?await query<RowDataPacket[]>(`SELECT COUNT(*) total FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id WHERE ${conditions.join(" AND ")}`,params):[undefined];
+    const meta=paginationRequested?pageMeta(count?.total,pageRequest(request.query)):null;
+    const rows = await query<RowDataPacket[]>(`${selection} WHERE ${conditions.join(" AND ")} ORDER BY d.scheduled_at IS NULL,d.scheduled_at,d.id${meta?' LIMIT ? OFFSET ?':''}`,meta?[...params,meta.pageSize,meta.offset]:params);
     const ids = rows.map((row) => row.id);
     let progress = new Map<string, { total: number; completed: number }>();
     if (ids.length) {
@@ -200,8 +201,7 @@ deliveryRouter.get(
         ]),
       );
     }
-    response.json(
-      await Promise.all(rows.map(async(row) => ({
+    const items=await Promise.all(rows.map(async(row) => ({
         ...row,
         financially_cleared:Number(row.balance_due)<=.001,
         balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null,
@@ -209,8 +209,8 @@ deliveryRouter.get(
           total: 0,
           completed: 0,
         },
-      }))),
-    );
+      })));
+    response.json(meta?paged(items,count?.total,meta):items);
   }),
 );
 

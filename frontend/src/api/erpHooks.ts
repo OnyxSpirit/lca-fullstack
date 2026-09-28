@@ -566,6 +566,7 @@ export const useDeliveriesQuery = (
     },
     enabled: enabled() && requestEnabled,
   });
+export const useDeliveriesPageQuery=(filters:Record<string,string|number|undefined>,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'page',filters],queryFn:async()=>{const data=await apiRequest<PagedResult<any>>(`/deliveries?${pageParams(filters)}`);return{...data,items:data.items.map(mapDelivery)}},enabled:enabled()&&requestEnabled});
 export const useInvoicesQuery = (filters:Record<string,string>={},requestEnabled=true) => useQuery({queryKey:[...erpKeys.invoices,filters],queryFn:async()=>{const p=new URLSearchParams();Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k==='agencyId'?'billingAgencyId':k,v)});return(await apiRequest<any[]>(`/invoices?${p}`)).map(mapInvoice)},enabled:enabled()&&requestEnabled});
 export const useInvoicesPageQuery=(filters:Record<string,string|number|undefined>,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.invoices,'page',filters],queryFn:async()=>{const normalized:Record<string,string|number|undefined>={...filters,billingAgencyId:filters.agencyId};delete normalized.agencyId;const data=await apiRequest<PagedResult<any>&{summary:{billed:number;paid?:number;due?:number;overdue:number}}>(`/invoices?${pageParams(normalized)}`);return{...data,items:data.items.map(mapInvoice)}},enabled:enabled()&&requestEnabled});
 export const useInvoiceQuery=(id?:string,agencyId?:string,requestEnabled=true)=>useQuery({queryKey:['invoices',id,agencyId],queryFn:async()=>mapInvoice(await apiRequest<any>(`/invoices/${id}?billingAgencyId=${encodeURIComponent(agencyId!)}`)),enabled:enabled()&&requestEnabled&&Boolean(id)&&Boolean(agencyId)});
@@ -577,34 +578,35 @@ export const useCustomerDetailQuery = (id?: string) =>
     queryFn: async () => mapCustomer(await apiRequest<any>(`/customers/${id}`)),
     enabled: enabled() && Boolean(id),
   });
-export const useCustomer360Query = (id?: string) =>
+export const useCustomer360Query = (id?: string,pages:Record<string,number>={}) =>
   useQuery({
-    queryKey: ["customers", id, "360"],
+    queryKey: ["customers", id, "360",pages],
     queryFn: async () => {
-      const data = await apiRequest<any>(`/customers/${id}/360`);
+      const data = await apiRequest<any>(`/customers/${id}/360?${pageParams({...pages,pageSize:7})}`);
+      const mapPage=(value:any,mapper:(item:any)=>any)=>Array.isArray(value)?value.map(mapper):{...value,items:(value?.items??[]).map(mapper)};
       return {
         ...data,
         customer: mapCustomer(data.customer),
-        vehicles: (data.vehicles ?? []).map((v: any) => ({
+        vehicles: mapPage(data.vehicles,(v: any) => ({
           ...v,
           status:
             vehicleStatusFromDb[v.status as keyof typeof vehicleStatusFromDb] ??
             v.status,
         })),
-        sales: (data.sales ?? []).map((sale: any) => ({
+        sales: mapPage(data.sales,(sale: any) => ({
           ...sale,
           status:
             saleStatusFromDb[sale.status as keyof typeof saleStatusFromDb] ??
             sale.status,
         })),
-        repairOrders: (data.repairOrders ?? []).map((order: any) => ({
+        repairOrders: mapPage(data.repairOrders,(order: any) => ({
           ...order,
           status:
             repairOrderStatusFromDb[
               order.status as keyof typeof repairOrderStatusFromDb
             ] ?? order.status,
         })),
-        invoices: (data.invoices ?? []).map((invoice: any) => ({
+        invoices: mapPage(data.invoices,(invoice: any) => ({
           ...invoice,
           status:
             invoiceStatusFromDb[
@@ -869,11 +871,11 @@ const mapShowroom = (r: any) => ({
             : "Annulé",
   waitTimeMinutes: n(r.waitMinutes),
 });
-export const useShowroomBoardQuery = (requestEnabled=true) =>
+export const useShowroomBoardQuery = (filters:{from?:string;to?:string;all?:boolean}={},requestEnabled=true) =>
   useQuery({
-    queryKey: ["showroom"],
+    queryKey: ["showroom","board",filters],
     queryFn: async () => {
-      const data = await apiRequest<any>("/showroom");
+      const data = await apiRequest<any>(`/showroom?${pageParams(filters)}`);
       return { visits: data.visits.map(mapShowroom), metrics: data.metrics };
     },
     enabled: enabled() && requestEnabled,

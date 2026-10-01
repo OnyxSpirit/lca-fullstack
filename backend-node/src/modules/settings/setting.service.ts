@@ -72,7 +72,7 @@ function settingsScope(
   r: Request,
   permission: "settings.view" | "settings.update",
 ) {
-  return r.rbac?.isSuperAdmin ? "GLOBAL" : r.rbac?.permissions.get(permission);
+  return r.rbac?.permissions.get(permission);
 }
 function assertCollectiveRead(r: Request) {
   const scope = settingsScope(r, "settings.view");
@@ -109,9 +109,7 @@ async function manageableAgency(agencyId: string, r: Request) {
     [agencyId],
   );
   if (!row) throw new HttpError(404, "Agence introuvable");
-  const scope = r.rbac?.isSuperAdmin
-    ? "GLOBAL"
-    : r.rbac?.permissions.get("settings.update");
+  const scope = r.rbac?.permissions.get("settings.update");
   if (scope === "GLOBAL") return row;
   if (
     scope === "CONCESSION" &&
@@ -278,9 +276,7 @@ export async function updateDocumentLogo(body:unknown,r:Request){
 }
 export async function deleteDocumentLogo(r:Request){assertConcessionWrite(r);const concessionId=await currentConcessionId(r);await transaction(async c=>{await c.execute('UPDATE concessions SET document_logo=NULL,document_logo_mime=NULL WHERE id=?',[concessionId]);await audit(c,r,'concession',concessionId,'document_logo.deleted',null,{})});return currentConcession(r,false)}
 export async function agencies(r: Request) {
-  const scope = r.rbac?.isSuperAdmin
-      ? "GLOBAL"
-      : r.rbac?.permissions.get("settings.view"),
+  const scope = r.rbac?.permissions.get("settings.view"),
     concessionId = await currentConcessionId(r),
     rows = await query<RowDataPacket[]>(
       `SELECT a.id,a.concession_id,a.name,a.code,a.address,a.city,a.phone,a.email,a.is_active FROM agencies a WHERE (?='GLOBAL' OR (?='CONCESSION' AND a.concession_id=?) OR a.id=?) ORDER BY a.name`,
@@ -316,9 +312,7 @@ export function validateAgency(body: unknown, creating = false): AgencyPayload {
 export async function createAgency(body: unknown, r: Request) {
   const v = validateAgency(body, true),
     ownConcessionId = await currentConcessionId(r),
-    scope = r.rbac?.isSuperAdmin
-      ? "GLOBAL"
-      : r.rbac?.permissions.get("settings.update");
+    scope = r.rbac?.permissions.get("settings.update");
   if (scope !== "GLOBAL" && scope !== "CONCESSION")
     throw new HttpError(
       403,

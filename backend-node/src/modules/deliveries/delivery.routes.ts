@@ -55,9 +55,8 @@ const mysqlDateTime = (value: unknown, label: string) => {
   if (Number.isNaN(parsed.getTime())) throw new HttpError(400, `${label} invalide`);
   return parsed.toISOString().slice(0, 19).replace("T", " ");
 };
-const permissionScope=(request:Request,permission:DeliveryPermission)=>request.rbac?.isSuperAdmin?'GLOBAL':request.rbac?.permissions.get(permission);
+const permissionScope=(request:Request,permission:DeliveryPermission)=>request.rbac?.permissions.get(permission);
 async function canViewFinancials(request:Request,agencyId:unknown){
-  if(request.rbac?.isSuperAdmin)return true;
   const value=request.rbac?.permissions.get('billing.payment.view');
   if(value==='GLOBAL')return true;
   if(!request.user?.agencyId)return false;
@@ -96,7 +95,6 @@ async function accessible(id: string, request: Request, permission:DeliveryPermi
   return {...row,financially_cleared:Number(row.balance_due)<=.001,balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null};
 }
 async function canAccessNested(id:string,request:Request,permissions:DeliveryPermission[]){
-  if(request.rbac?.isSuperAdmin)return true;
   for(const permission of permissions){
     if(!request.rbac?.permissions.has(permission))continue;
     const scoped=scope(request,permission);

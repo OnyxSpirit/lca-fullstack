@@ -24,11 +24,11 @@ test('une permission absente ne peut pas être déléguée',()=>{
   assert.throws(()=>assertDelegablePermissions(context({}),[{code:'billing.payment.refund',scope:'OWN'}]),(error:unknown)=>error instanceof HttpError&&error.status===403);
 });
 
-test('SUPER_ADMIN système conserve le bypass global, DIRECTOR non',()=>{
+test('SUPER_ADMIN système ne contourne ni le catalogue ni la délégation',()=>{
   const superAdmin=context({}, {roleCode:'SUPER_ADMIN',isSuperAdmin:true});
   const director=context({}, {roleCode:'DIRECTOR'});
-  assert.doesNotThrow(()=>assertDelegablePermissions(superAdmin,[{code:'billing.payment.refund',scope:'GLOBAL'}]));
-  assert.equal(can(superAdmin,'permission.inconnue'),true);
+  assert.throws(()=>assertDelegablePermissions(superAdmin,[{code:'billing.payment.refund',scope:'GLOBAL'}]),(error:unknown)=>error instanceof HttpError&&error.status===403);
+  assert.equal(can(superAdmin,'permission.inconnue'),false);
   assert.equal(can(director,'permission.inconnue'),false);
 });
 

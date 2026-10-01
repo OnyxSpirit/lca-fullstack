@@ -18,8 +18,6 @@ export async function assertAgencyInActorScope(request: Request, agencyId: strin
   const [agency] = await query<RowDataPacket[]>('SELECT id,concession_id,is_active FROM agencies WHERE id=?', [agencyId]);
   if (!agency) throw new HttpError(400, 'INVALID_AGENCY');
   if (!agency.is_active) throw new HttpError(409, 'AGENCY_INACTIVE');
-  const context=await rbac(request);
-  if(context.isSuperAdmin)return agency;
   const scope=await assertPermission(request,permission) as PermissionScope|null;
   const allowed=scope==='GLOBAL'||scope==='CONCESSION'&&String(agency.concession_id)===await actorConcessionId(request)||scope==='AGENCY'&&String(agency.id)===String(request.user!.agencyId)||scope==='OWN'&&targetUserId===request.user!.sub;
   if(!allowed)throw new HttpError(403,`Hors portée de la permission ${permission}`);

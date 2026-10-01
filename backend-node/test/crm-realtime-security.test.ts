@@ -6,7 +6,7 @@ import {canReadCrmLead,selectCrmLeadRealtimeRecipients,type CrmLeadVisibilityCan
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 const resource={assignedUserId:'USER_A',agencyId:'AGENCY_A',concessionId:'CONCESSION_A'};
-const candidate=(userId:string,scope:CrmLeadVisibilityCandidate['scope'],agencyId:string|null,concessionId:string|null,permissionCode:string|null='crm.prospect.view',roleCode:string|null='SALES',roleIsSystem=false):CrmLeadVisibilityCandidate=>({userId,scope,agencyId,concessionId,permissionCode,roleCode,roleIsSystem});
+const candidate=(userId:string,scope:CrmLeadVisibilityCandidate['scope'],agencyId:string|null,concessionId:string|null,permissionCode:string|null='crm.prospect.view'):CrmLeadVisibilityCandidate=>({userId,scope,agencyId,concessionId,permissionCode});
 
 test('PARITY-01..10 et SEC-01..11 sélectionnent réellement les destinataires selon crm.prospect.view',()=>{
   const candidates=[
@@ -19,10 +19,10 @@ test('PARITY-01..10 et SEC-01..11 sélectionnent réellement les destinataires s
     candidate('CONCESSION_B_READER','CONCESSION','AGENCY_B','CONCESSION_B'),
     candidate('GLOBAL_CRM','GLOBAL',null,null),
     candidate('GLOBAL_SALES','GLOBAL',null,null,'sales.view'),
-    candidate('FAKE_SUPER','OWN','AGENCY_B','CONCESSION_B',null,'SUPER_ADMIN',false),
-    candidate('SYSTEM_SUPER','OWN',null,null,null,'SUPER_ADMIN',true),
+    candidate('FAKE_SUPER','OWN','AGENCY_B','CONCESSION_B',null),
+    candidate('SYSTEM_SUPER','OWN',null,null,null),
   ];
-  assert.deepEqual(selectCrmLeadRealtimeRecipients(resource,candidates),['USER_A','AGENCY_A_READER','CONCESSION_A_READER','GLOBAL_CRM','SYSTEM_SUPER']);
+  assert.deepEqual(selectCrmLeadRealtimeRecipients(resource,candidates),['USER_A','AGENCY_A_READER','CONCESSION_A_READER','GLOBAL_CRM']);
 });
 
 test('REALTIME VISIBILITY ⊆ HTTP READ VISIBILITY avec Lead A et Opportunity B divergent',()=>{
@@ -36,9 +36,9 @@ test('REALTIME VISIBILITY ⊆ HTTP READ VISIBILITY avec Lead A et Opportunity B 
   assert.doesNotMatch(realtime,/owner\.id=o\.assigned_user_id|SELECT[^\n]*o\.assigned_user_id/);
 });
 
-test('le routage utilise uniquement les rooms utilisateur et le vrai Super Admin',()=>{
+test('le routage utilise uniquement les rooms utilisateur et la permission persistée',()=>{
   const source=read('../src/modules/crm/crm.realtime.ts');
-  assert.match(source,/r\.code='SUPER_ADMIN' AND r\.is_system=TRUE/);
+  assert.doesNotMatch(source,/SUPER_ADMIN|is_system/);
   assert.match(source,/p\.code='crm\.prospect\.view'/);
   assert.match(source,/emitToUser/);
   assert.doesNotMatch(source,/emitToAgency|emitToAgencyAndGlobals|broadcast/);

@@ -30,7 +30,7 @@ services:
       JWT_ACCESS_SECRET: disposable-access-secret-1234567890123456
       JWT_REFRESH_SECRET: disposable-refresh-secret-123456789012345
       ADMIN_EMAIL: admin@rbac.test
-      ADMIN_PASSWORD: disposable-admin-password
+      ADMIN_PASSWORD: Disposable-Rbac-Admin-2026!
     volumes: ['../database:/app/database:ro']
     command: ['sh','-c','node dist/scripts/database-bootstrap.js && node dist/server.js']
     depends_on:

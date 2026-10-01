@@ -23,7 +23,7 @@ const oid=(v:unknown)=>v==null||v===''?null:id(v);
 const txt=(v:unknown,n=2000)=>String(v??'').trim().slice(0,n);
 const money=(v:unknown,label:string,min=0)=>{const x=Number(v);if(!Number.isFinite(x)||x<min)throw new HttpError(400,`${label} invalide`);return Math.round(x*100)/100};
 const date=(v:unknown,label:string,required=false)=>{const x=txt(v,10);if(!x&&!required)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(x))throw new HttpError(400,`${label} invalide`);const d=new Date(`${x}T00:00:00Z`);if(Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==x)throw new HttpError(400,`${label} invalide`);return x};
-const grant=(r:Request,p:BillingPermission)=>r.rbac?.isSuperAdmin?'GLOBAL':r.rbac?.permissions.get(p);
+const grant=(r:Request,p:BillingPermission)=>r.rbac?.permissions.get(p);
 export function billingScopeSql(r:Request,p:BillingPermission,column='i.agency_id'){
   const scope=grant(r,p),agencyId=r.user?.agencyId;
   if(scope==='GLOBAL')return{sql:'1=1',params:[] as unknown[]};

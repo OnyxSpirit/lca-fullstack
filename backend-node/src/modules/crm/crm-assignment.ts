@@ -36,6 +36,6 @@ export async function validateLeadAssignee(userId:string,request:Request):Promis
 export async function resolveLeadAssignee(requestedAssignedUserId:unknown,request:Request):Promise<ResolvedLeadAssignee>{
   const requested=typeof requestedAssignedUserId==='string'||typeof requestedAssignedUserId==='number'?String(requestedAssignedUserId).trim():'';
   if(requested){if(!/^\d+$/.test(requested))throw new HttpError(400,'Le commercial sélectionné est invalide.');return validateLeadAssignee(requested,request)}
-  if(request.rbac&&can(request.rbac,'crm.prospect.update')&&!request.rbac.isSuperAdmin)return{assignedUserId:request.user!.sub,agencyId:request.user?.agencyId??null};
+  if(request.rbac&&can(request.rbac,'crm.prospect.update')&&request.rbac.permissions.get('crm.prospect.update')!=='GLOBAL')return{assignedUserId:request.user!.sub,agencyId:request.user?.agencyId??null};
   return{assignedUserId:null,agencyId:request.user?.agencyId??null};
 }

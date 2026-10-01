@@ -40,11 +40,11 @@ test('CRM-02/03/04/05/10/17 les scopes sont évalués permission par permission 
   dynamic.rbac!.permissions.set('crm.pipeline.advance','OWN');assert.equal(await assertPermission(dynamic,'crm.pipeline.advance'),'OWN');
 });
 
-test('CRM-11/12 DIRECTOR n’a aucun bypass, seul SUPER_ADMIN système est global',async()=>{
+test('CRM-11/12 ni DIRECTOR ni SUPER_ADMIN système ne contournent une permission absente',async()=>{
   const director=request('OWN');director.rbac!.roleCode='DIRECTOR';director.rbac!.permissions.clear();
   await assert.rejects(()=>assertPermission(director,'crm.prospect.view'),(error:unknown)=>error instanceof HttpError&&error.status===403);
   const superAdmin=request('OWN');superAdmin.rbac!.roleCode='SUPER_ADMIN';superAdmin.rbac!.isSuperAdmin=true;superAdmin.rbac!.permissions.clear();
-  assert.equal(await assertPermission(superAdmin,'crm.prospect.view'),'GLOBAL');
+  await assert.rejects(()=>assertPermission(superAdmin,'crm.prospect.view'),(error:unknown)=>error instanceof HttpError&&error.status===403);
 });
 
 test('les routes CRM utilisent uniquement les permissions dynamiques',()=>{

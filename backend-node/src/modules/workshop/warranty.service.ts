@@ -7,7 +7,7 @@ import{assertPermission,type PermissionScope}from'../rbac/rbac.service.js';
 export const money=(value:number)=>Math.round((value+Number.EPSILON)*100)/100;
 
 export async function assertWarrantyScope(request:Request,permission:string,order:{agency_id:unknown;advisor_id?:unknown}){
- const granted=(request.rbac?.isSuperAdmin?'GLOBAL':await assertPermission(request,permission))as PermissionScope;
+ const granted=await assertPermission(request,permission)as PermissionScope;
  const agency=String(order.agency_id),actorAgency=String(request.user?.agencyId??'');
  if(granted==='GLOBAL')return;
  if(granted==='OWN'){if(String(order.advisor_id)!==String(request.user!.sub))throw new HttpError(403,'Garantie hors périmètre OWN');return}

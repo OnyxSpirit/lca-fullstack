@@ -23,23 +23,20 @@ export async function rbac(request:Request){
 
 export async function assertPermission(request:Request,permission:string){
   const context=await rbac(request);
-  if(context.isSuperAdmin)return 'GLOBAL' as PermissionScope;
   if(!context.permissions.has(permission))throw new HttpError(403,'Permission insuffisante : '+permission);
   return context.permissions.get(permission)??null;
 }
 
 export async function assertAnyPermission(request:Request,permissions:string[]){
   const context=await rbac(request);
-  if(context.isSuperAdmin)return 'GLOBAL' as PermissionScope;
   for(const permission of permissions)if(context.permissions.has(permission))return context.permissions.get(permission)??null;
   throw new HttpError(403,'Aucune permission requise n’est attribuée.');
 }
 
-export function can(context:RbacContext,permission:string){return context.isSuperAdmin||context.permissions.has(permission)}
+export function can(context:RbacContext,permission:string){return context.permissions.has(permission)}
 
 const scopeRank:Record<PermissionScope,number>={OWN:1,AGENCY:2,CONCESSION:3,GLOBAL:4};
 export function assertDelegablePermissions(context:RbacContext,assignments:{code:string;scope:PermissionScope|null}[]){
-  if(context.isSuperAdmin)return;
   for(const assignment of assignments){
     if(!context.permissions.has(assignment.code))throw new HttpError(403,`Permission non délégable : ${assignment.code}`);
     const own=context.permissions.get(assignment.code)??null;

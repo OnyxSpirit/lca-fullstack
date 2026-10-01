@@ -34,7 +34,7 @@ const routeId=(value:string|string[]|undefined)=>{const id=Array.isArray(value)?
 export function crmLeadScope(request:Request,permission:string,alias=leadAgencySql,applyFilters=false){
   const requestedAgency=typeof request.query.agencyId==='string'?request.query.agencyId:null;
   const requestedCommercial=typeof request.query.commercialId==='string'?request.query.commercialId:null;
-  const permissionScope=request.rbac?.isSuperAdmin?'GLOBAL':request.rbac?.permissions.get(permission);
+  const permissionScope=request.rbac?.permissions.get(permission);
   if(permissionScope==='GLOBAL')return applyFilters?{sql:`(? IS NULL OR ${alias}=?) AND (? IS NULL OR l.assigned_user_id=?)`,params:[requestedAgency,requestedAgency,requestedCommercial,requestedCommercial]}:{sql:'1=1',params:[]};
   const agencyId=request.user?.agencyId;
   if(!agencyId)throw new HttpError(403,'Aucune agence associée à cet utilisateur');

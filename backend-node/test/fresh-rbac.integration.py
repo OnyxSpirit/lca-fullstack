@@ -8,10 +8,10 @@ def call(path, token=None, body=None, method=None, status=200):
  except urllib.error.HTTPError as e: code=e.code; data=e.read()
  assert code==status,(path,code,data.decode())
  return json.loads(data) if data else None
-admin=call('/auth/login',body={'email':'admin@rbac.test','password':'disposable-admin-password'})
+admin=call('/auth/login',body={'email':'admin@rbac.test','password':'Disposable-Rbac-Admin-2026!'})
 a=admin['accessToken']; agency=admin['user']['agencyId']
 roles=call('/roles',a); assert len(roles)==1 and roles[0]['code']=='SUPER_ADMIN'
-perms=call('/permissions',a); assert len(perms)==142
+perms=call('/permissions',a); assert len(perms)==171
 assign=[{'permissionId':str(p['id']),'scope':'OWN'} for p in perms if p['code'] in ['dashboard.view','crm.prospect.view','crm.prospect.create']]
 r=call('/roles',a,{'name':'Test Commercial Dynamic','code':'TEST_COMMERCIAL_DYNAMIC','permissions':assign},status=201)
 rid=str(r['id'])

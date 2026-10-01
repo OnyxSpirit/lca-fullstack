@@ -36,9 +36,9 @@ test('CLIENT-21 les sous-données 360 sont conditionnées par leurs permissions 
   const source=await readFile(new URL('../src/modules/customers/customer.routes.ts',import.meta.url),'utf8');
   for(const permission of ['crm.prospect.view','vehicles.view','sales.view','quotations.view','service.order.view','billing.invoice.view','billing.payment.view'])assert.match(source,new RegExp(`can\\(context,'${permission.replaceAll('.','\\.')}'\\)`));
 });
-test('CLIENT-13 seul le SUPER_ADMIN système bénéficie du bypass',async()=>{
+test('CLIENT-13 le SUPER_ADMIN système ne contourne pas une permission absente',async()=>{
   const superRequest=request('OWN');superRequest.rbac={roleId:'1',roleCode:'SUPER_ADMIN',isSuperAdmin:true,permissions:new Map()};
-  assert.equal(await assertPermission(superRequest,'customers.view'),'GLOBAL');
+  await assert.rejects(()=>assertPermission(superRequest,'customers.view'),/Permission insuffisante/);
   const director=request('OWN');director.rbac={roleId:'2',roleCode:'DIRECTOR',isSuperAdmin:false,permissions:new Map()};
   await assert.rejects(()=>assertPermission(director,'customers.view'),/Permission insuffisante/);
 });

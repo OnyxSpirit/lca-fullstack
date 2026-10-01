@@ -5,10 +5,9 @@ export const CRM_LEAD_OWNER_SQL='l.assigned_user_id';
 export const crmLeadAgencySql=(ownerAlias='u',creatorAlias='creator')=>`COALESCE(${ownerAlias}.agency_id,${creatorAlias}.agency_id)`;
 
 export interface CrmLeadVisibilityResource{assignedUserId:string|null;agencyId:string|null;concessionId:string|null}
-export interface CrmLeadVisibilityCandidate{userId:string;agencyId:string|null;concessionId:string|null;permissionCode:string|null;scope:PermissionScope|null;roleCode:string|null;roleIsSystem:boolean}
+export interface CrmLeadVisibilityCandidate{userId:string;agencyId:string|null;concessionId:string|null;permissionCode:string|null;scope:PermissionScope|null}
 
 export function canReadCrmLead(resource:CrmLeadVisibilityResource,candidate:CrmLeadVisibilityCandidate){
-  if(candidate.roleCode==='SUPER_ADMIN'&&candidate.roleIsSystem)return true;
   if(candidate.permissionCode!==CRM_LEAD_VIEW_PERMISSION)return false;
   if(candidate.scope==='GLOBAL')return true;
   if(candidate.scope==='OWN')return resource.assignedUserId!==null&&candidate.userId===resource.assignedUserId;

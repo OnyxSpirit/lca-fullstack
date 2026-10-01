@@ -10,8 +10,8 @@ export const dashboardRouter=Router();
 const num=(v:unknown)=>Number(v??0);
 export const dashboardComparison=(currentValue:unknown,previousValue:unknown)=>{const current=num(currentValue),previous=num(previousValue),delta=current-previous;return{current,previous,delta,deltaPercent:previous===0?null:delta/previous*100}};
 const first=async(sql:string,params:unknown[])=>(await query<RowDataPacket[]>(sql,params))[0]??({}as RowDataPacket);
-const has=(r:Request,p:string)=>Boolean(r.rbac?.isSuperAdmin||r.rbac?.permissions.has(p));
-function scope(r:Request,p:string,a:string,owner?:string){const s=(r.rbac?.isSuperAdmin?'GLOBAL':r.rbac?.permissions.get(p))as PermissionScope|undefined;if(s==='GLOBAL')return{sql:'1=1',params:[]as unknown[]};if(s==='CONCESSION')return{sql:`${a}.agency_id IN(SELECT x.id FROM agencies x JOIN agencies me ON me.concession_id=x.concession_id WHERE me.id=?)`,params:[r.user?.agencyId]};if(s==='AGENCY')return{sql:`${a}.agency_id=?`,params:[r.user?.agencyId]};if(s==='OWN'&&owner)return{sql:`${a}.${owner}=?`,params:[r.user?.sub]};return null}
+const has=(r:Request,p:string)=>Boolean(r.rbac?.permissions.has(p));
+function scope(r:Request,p:string,a:string,owner?:string){const s=(r.rbac?.permissions.get(p))as PermissionScope|undefined;if(s==='GLOBAL')return{sql:'1=1',params:[]as unknown[]};if(s==='CONCESSION')return{sql:`${a}.agency_id IN(SELECT x.id FROM agencies x JOIN agencies me ON me.concession_id=x.concession_id WHERE me.id=?)`,params:[r.user?.agencyId]};if(s==='AGENCY')return{sql:`${a}.agency_id=?`,params:[r.user?.agencyId]};if(s==='OWN'&&owner)return{sql:`${a}.${owner}=?`,params:[r.user?.sub]};return null}
 const searchTerm=(v:unknown)=>{const q=typeof v==='string'?v.trim():'';if(q.length<2)throw new HttpError(400,'Saisissez au moins 2 caractères');return`%${q.slice(0,120).replace(/[\\%_]/g,'\\$&')}%`};
 
 dashboardRouter.get('/dashboard/overview',requirePermission('dashboard.view'),asyncHandler(async(r,res)=>{

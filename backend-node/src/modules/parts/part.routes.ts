@@ -27,9 +27,9 @@ const partsPermission=(request:Request):PartsPermission=>{
   if(path.startsWith('/parts'))return write?'parts.catalog.manage':'parts.catalog.view';
   return 'parts.catalog.view';
 };
-async function assertAgencyScope(request:Request,permission:PartsPermission,agencyId:string){if(request.rbac?.isSuperAdmin)return;const granted=request.rbac?.permissions.get(permission) as PartsScope|undefined,actorAgency=String(request.user!.agencyId);if(granted==='GLOBAL'||granted==='AGENCY'&&partsScopeAllows(granted,actorAgency,agencyId))return;if(granted==='CONCESSION'){const[match]=await query<RowDataPacket[]>('SELECT target.id FROM agencies target JOIN agencies actor ON actor.concession_id=target.concession_id WHERE actor.id=? AND target.id=?',[actorAgency,agencyId]);if(partsScopeAllows(granted,actorAgency,agencyId,Boolean(match)))return;}if(granted==='OWN')throw new HttpError(403,'Le périmètre OWN ne couvre pas le stock collectif');throw new HttpError(403,'Périmètre Pièces insuffisant pour cette agence');}
+async function assertAgencyScope(request:Request,permission:PartsPermission,agencyId:string){const granted=request.rbac?.permissions.get(permission) as PartsScope|undefined,actorAgency=String(request.user!.agencyId);if(granted==='GLOBAL'||granted==='AGENCY'&&partsScopeAllows(granted,actorAgency,agencyId))return;if(granted==='CONCESSION'){const[match]=await query<RowDataPacket[]>('SELECT target.id FROM agencies target JOIN agencies actor ON actor.concession_id=target.concession_id WHERE actor.id=? AND target.id=?',[actorAgency,agencyId]);if(partsScopeAllows(granted,actorAgency,agencyId,Boolean(match)))return;}if(granted==='OWN')throw new HttpError(403,'Le périmètre OWN ne couvre pas le stock collectif');throw new HttpError(403,'Périmètre Pièces insuffisant pour cette agence');}
 const authorize=(..._legacy:string[])=>asyncHandler(async(request,response,next)=>{const permission=partsPermission(request);partsActionPermission.set(request,permission);await assertPermission(request,permission);const candidate=request.query.agencyId??request.body?.agencyId??request.body?.sourceAgencyId??request.user!.agencyId,agencyId=id(candidate);await assertAgencyScope(request,permission,agencyId);partsAgency.set(request,agencyId);next()});
-const has=(request:Request,permission:PartsPermission)=>Boolean(request.rbac?.isSuperAdmin||request.rbac?.permissions.has(permission));
+const has=(request:Request,permission:PartsPermission)=>Boolean(request.rbac?.permissions.has(permission));
 const id=(v:unknown)=>{const x=String(v??'');if(!/^[1-9]\d*$/.test(x))throw new HttpError(400,'Identifiant invalide');return x},oid=(v:unknown)=>v==null||v===''?null:id(v),txt=(v:unknown,n=1000)=>String(v??'').trim().slice(0,n);
 const num=(v:unknown,n:string,min=0)=>{const x=Number(v);if(!Number.isFinite(x)||x<min)throw new HttpError(400,`${n} invalide`);return x},pos=(v:unknown)=>{const x=num(v,'Quantité');if(!x)throw new HttpError(400,'Quantité doit être supérieure à zéro');return x};
 const agency=(r:Request,v?:unknown)=>v==null?(partsAgency.get(r)??id(r.user?.agencyId)):id(v);
@@ -52,7 +52,7 @@ const locationStatus=(value:unknown)=>{if(typeof value!=='boolean')throw new Htt
 const targetLocationAgency=async(r:Request,permission:PartsPermission)=>{const target=id(r.query.targetAgency??r.user!.agencyId);await assertAgencyScope(r,permission,target);return target};
 partRouter.get('/part-locations/agencies',authorize(...READ),asyncHandler(async(r,res)=>{
   await assertPermission(r,'parts.catalog.manage');
-  const granted=r.rbac?.isSuperAdmin?'GLOBAL':r.rbac?.permissions.get('parts.catalog.manage');
+  const granted=r.rbac?.permissions.get('parts.catalog.manage');
   let where='a.is_active=TRUE',params:unknown[]=[];
   if(granted==='CONCESSION'){where+=' AND a.concession_id=(SELECT concession_id FROM agencies WHERE id=?)';params=[r.user!.agencyId]}
   else if(granted==='AGENCY'){where+=' AND a.id=?';params=[r.user!.agencyId]}

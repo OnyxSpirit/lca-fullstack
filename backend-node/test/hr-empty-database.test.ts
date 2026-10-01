@@ -28,7 +28,7 @@ test('HR-EMPTY-04..08 reporting couvre employés, salaires, stock, budgets et d�
 test('HR-EMPTY-09..12 RBAC et scopes précèdent toujours les agrégats',()=>{
   assert.match(route,/get\('\/hr\/overview',requirePermission\('hr\.view'\)/);
   assert.match(route,/get\('\/hr\/reporting',requirePermission\('hr\.reporting\.view'\)/);
-  assert.match(route,/agencyPredicate\(r,context\.isSuperAdmin\?'GLOBAL'/);
+  assert.match(route,/agencyPredicate\(r,context\.permissions\.get/);
   assert.match(route,/andPredicates\(agencyPredicate/);
   assert.match(route,/andPredicates\(budgetPredicate/);
 });

@@ -47,9 +47,9 @@ test('VEH-11/12 : seules les transitions manuelles autorisées passent',()=>{
   assert.throws(()=>assertManualVehicleTransition('available','reserved'));
 });
 
-test('VEH-14/16 : rôle inconnu autorisé par permission et SUPER_ADMIN système global',async()=>{
+test('VEH-14/16 : rôle inconnu autorisé par permission et SUPER_ADMIN sans permission refusé',async()=>{
   assert.equal(await assertPermission(request({'vehicles.view':'AGENCY'}),'vehicles.view'),'AGENCY');
-  assert.equal(await assertPermission(request({}, {superAdmin:true}),'vehicles.view'),'GLOBAL');
+  await assert.rejects(()=>assertPermission(request({}, {superAdmin:true}),'vehicles.view'),/Permission insuffisante/);
 });
 
 test('VEH-22/23 : la chaîne upload persiste une URL /uploads exploitable',()=>{

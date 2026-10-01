@@ -15,7 +15,8 @@ test('le mapping financier est activé uniquement par vehicles.financials.view d
   const vehicle=mapVehicle(row,true);
   assert.equal(vehicle.purchasePrice,10000000);assert.equal(vehicle.minimumPrice,14500000);
   const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
-  assert.match(source,/can\(request\.rbac,'vehicles\.financials\.view'\)/);
+  assert.match(source,/permissionScopePredicate\(request,'vehicles\.financials\.view'/);
+  assert.match(source,/financial_allowed/);
   assert.doesNotMatch(source,/SALES_MANAGER|DIRECTOR|RECEPTIONIST/);
 });
 

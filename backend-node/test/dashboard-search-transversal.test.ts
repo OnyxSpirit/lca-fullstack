@@ -15,6 +15,6 @@ test('SEARCH-02 chaque type utilise sa permission et son scope',()=>{for(const p
 test('SEARCH-03 résultats sont minimaux et bornés',()=>{assert.match(runtime,/LIMIT 5/g);assert.doesNotMatch(runtime,/SELECT \*/)});
 test('SEARCH-04 requêtes LIKE sont paramétrées et échappées',()=>{assert.match(runtime,/LIKE \? ESCAPE/);assert.match(runtime,/replace\(\/\[\\\\%_\]/);assert.doesNotMatch(runtime,/LIKE ['"]%\$\{/)});
 test('SEARCH-05 filtres agency concession user client ne sont pas acceptés',()=>assert.doesNotMatch(runtime,/query\.(agencyId|concessionId|userId)/));
-test('SEARCH-06 mixed scopes sont calculés permission par permission',()=>assert.equal((runtime.match(/(?:scope|crmLeadScope)\(r,'[^']+'/g)??[]).length>=14,true));
+test('SEARCH-06 mixed scopes intersectent dashboard.view et chaque permission métier',()=>{assert.match(runtime,/dashboardScope=/);assert.match(runtime,/intersectScopePredicates/);assert.match(runtime,/crmLeadScope\(r,'dashboard\.view'/);assert.match(runtime,/crmLeadScope\(r,'crm\.prospect\.view'/)});
 test('SEARCH-07 navigation cible des routes existantes',()=>{for(const route of ['/customers','/vehicles','/crm/leads','/sales','/billing','/service/repair-orders','/parts'])assert.match(runtime,new RegExp(route))});
 test('SEARCH-08 faux Super Admin ne peut pas être créé dans ce module',()=>assert.doesNotMatch(runtime,/role\.code|SUPER_ADMIN/));

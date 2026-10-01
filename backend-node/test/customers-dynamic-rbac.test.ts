@@ -34,7 +34,8 @@ test('CLIENT-11/12 aucun rôle historique ne gouverne le runtime Clients',async(
 });
 test('CLIENT-21 les sous-données 360 sont conditionnées par leurs permissions sources',async()=>{
   const source=await readFile(new URL('../src/modules/customers/customer.routes.ts',import.meta.url),'utf8');
-  for(const permission of ['crm.prospect.view','vehicles.view','sales.view','quotations.view','service.order.view','billing.invoice.view','billing.payment.view'])assert.match(source,new RegExp(`can\\(context,'${permission.replaceAll('.','\\.')}'\\)`));
+  assert.match(source,/crmLeadScope\(request,'crm\.prospect\.view'/);
+  for(const permission of ['customers.history.view','vehicles.view','sales.view','quotations.view','service.order.view','billing.invoice.view','billing.payment.view'])assert.match(source,new RegExp(`permissionScopePredicate\\(request,'${permission.replaceAll('.','\\.')}'`));
 });
 test('CLIENT-13 le SUPER_ADMIN système ne contourne pas une permission absente',async()=>{
   const superRequest=request('OWN');superRequest.rbac={roleId:'1',roleCode:'SUPER_ADMIN',isSuperAdmin:true,permissions:new Map()};

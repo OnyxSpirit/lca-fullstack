@@ -27,7 +27,7 @@ test('SALE-02/03/04/05 : OWN utilise salesperson_id et les scopes supérieurs su
 test('SALE-11/20/22/27 : chaque opération emploie son scope et un rôle dynamique fonctionne',async()=>{
   assert.match(service,/one\(saleId,request,'sales\.update'\)/);assert.match(service,/saleScope\(request,permission\)/);
   assert.equal(await assertPermission(request({'sales.update':'OWN'}),'sales.update'),'OWN');
-  assert.equal(await assertPermission(request({},true),'sales.view'),'GLOBAL');
+  await assert.rejects(()=>assertPermission(request({},true),'sales.view'),/Permission insuffisante/);
 });
 
 test('SALE-09/13/14/15 : confirmation verrouille vente et véhicule, SOLD vient de confirmed',()=>{

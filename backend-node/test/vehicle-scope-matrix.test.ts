@@ -20,16 +20,22 @@ const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConn
 function reset(){vehicles=seed.map(item=>({...item}));nextId=900}
 function roleRows(userId:string){const role=auth.roles.get(auth.userRoles.get(userId)??'');return role?[{id:role.id,code:role.code,is_system:0}]:[]}
 function scoped(sql:string,params:unknown[],vehicle:VehicleRow,idFirst=false){
-  const offset=idFirst?1:0;
-  if(sql.includes('v.agency_id=?'))return vehicle.agency_id===String(params[offset]);
-  if(sql.includes('v.agency_id IN (SELECT id FROM agencies WHERE concession_id='))return concession(vehicle.agency_id)===concession(String(params[offset]));
+  const whereOffset=idFirst?(sql.slice(0,sql.indexOf('v.id=?')).match(/\?/g)??[]).length:0,offset=idFirst?whereOffset+1:0;
+  const selectEnd=sql.indexOf(' financial_allowed FROM vehicles'),where=sql.slice(sql.indexOf(' WHERE ',selectEnd<0?0:selectEnd));
+  if(where.includes('v.agency_id=?'))return vehicle.agency_id===String(params[offset]);
+  if(where.includes('v.agency_id IN (SELECT id FROM agencies WHERE concession_id='))return concession(vehicle.agency_id)===concession(String(params[offset]));
   return true;
 }
 function matching(sql:string,params:unknown[]){
   const idFirst=sql.includes('v.id=?');
+  const idIndex=idFirst?(sql.slice(0,sql.indexOf('v.id=?')).match(/\?/g)??[]).length:0;
   const searchIndex=params.findIndex(value=>String(value).startsWith('%')&&String(value).endsWith('%'));
   const search=searchIndex<0?'':String(params[searchIndex]).slice(1,-1).toLowerCase();
-  return vehicles.filter(v=>!v.archived_at&&(!idFirst||v.id===String(params[0]))&&scoped(sql,params,v,idFirst)&&(!search||[v.brand,v.model,v.version,v.vin,v.stock_number,v.registration_number].some(value=>String(value).toLowerCase().includes(search))));
+  return vehicles.filter(v=>!v.archived_at&&(!idFirst||v.id===String(params[idIndex]))&&scoped(sql,params,v,idFirst)&&(!search||[v.brand,v.model,v.version,v.vin,v.stock_number,v.registration_number].some(value=>String(value).toLowerCase().includes(search))));
+}
+function withFinancialFlag(sql:string,params:unknown[],rows:VehicleRow[]){
+  if(!sql.includes('financial_allowed'))return rows;
+  return rows.map(vehicle=>({...vehicle,financial_allowed:sql.includes('NULL financial_allowed')?null:sql.includes('IF(1=1')?'1':sql.includes('IF(v.agency_id=?')&&vehicle.agency_id===String(params[0])?'1':sql.includes('IF(v.agency_id IN')&&concession(vehicle.agency_id)===concession(String(params[0]))?'1':null}));
 }
 async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.includes('JOIN refresh_tokens rt'))return auth.authRows(params);
@@ -41,7 +47,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   }
   if(sql.startsWith('SELECT id FROM agencies WHERE id=? AND concession_id=')){const target=String(params[0]),actor=String(params[1]);return concession(target)===concession(actor)?[{id:target}]:[]}
   if(sql.includes('FROM vehicles v JOIN versions')&&sql.includes('COUNT(*) total'))return[{total:matching(sql,params).length}];
-  if(sql.includes('FROM vehicles v JOIN versions'))return matching(sql,params);
+  if(sql.includes('FROM vehicles v JOIN versions'))return withFinancialFlag(sql,params,matching(sql,params));
   if(sql.startsWith('SELECT COUNT(*) total')&&sql.includes('FROM vehicles v WHERE')){
     const visible=matching(sql,params),count=(status:string)=>visible.filter(v=>v.status===status).length;
     return[{total:visible.length,ordered:count('ordered'),in_transit:count('in_transit'),received:count('received'),preparation:count('preparation'),available:count('available'),reserved:count('reserved'),sold:count('sold'),delivered:count('delivered'),dormant:0,stock_value:visible.reduce((n,v)=>n+v.sale_price,0)}];

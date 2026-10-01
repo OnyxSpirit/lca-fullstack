@@ -8,8 +8,10 @@ import { HttpError } from '../../shared/http-error.js';
 import { notifyCrm } from './crm.notifications.js';
 import { listCrmTeamMembers, resolveLeadAssignee, validateLeadAssignee } from './crm-assignment.js';
 import {publishCrmLeadUpdated} from './crm.realtime.js';
-import {CRM_LEAD_OWNER_SQL,crmLeadAgencySql} from './crm-visibility.js';
+import {CRM_LEAD_OWNER_SQL,crmLeadAgencySql,crmLeadScope} from './crm-visibility.js';
 import {pageMeta,pageRequest,paged} from '../../shared/pagination.js';
+
+export {crmLeadScope} from './crm-visibility.js';
 
 export const crmRouter=Router();
 
@@ -31,21 +33,6 @@ const validPhone=(value:string|null)=>{if(value){const digits=value.replace(/\D/
 const leadStatusForStage=(stage:string)=>stage==='won'?'converted':stage==='lost'?'lost':['new','contacted','qualified'].includes(stage)?stage:'qualified';
 const dateValue=(value:unknown,name:string)=>{if(value==null||value==='')return null;if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(`${value}T00:00:00Z`)))throw new HttpError(400,`${name} doit être au format AAAA-MM-JJ`);return value;};
 const routeId=(value:string|string[]|undefined)=>{const id=Array.isArray(value)?value[0]:value;if(!id||!/^\d+$/.test(id))throw new HttpError(400,'Identifiant invalide');return id;};
-export function crmLeadScope(request:Request,permission:string,alias=leadAgencySql,applyFilters=false){
-  const requestedAgency=typeof request.query.agencyId==='string'?request.query.agencyId:null;
-  const requestedCommercial=typeof request.query.commercialId==='string'?request.query.commercialId:null;
-  const permissionScope=request.rbac?.permissions.get(permission);
-  if(permissionScope==='GLOBAL')return applyFilters?{sql:`(? IS NULL OR ${alias}=?) AND (? IS NULL OR l.assigned_user_id=?)`,params:[requestedAgency,requestedAgency,requestedCommercial,requestedCommercial]}:{sql:'1=1',params:[]};
-  const agencyId=request.user?.agencyId;
-  if(!agencyId)throw new HttpError(403,'Aucune agence associée à cet utilisateur');
-  if(permissionScope==='OWN'){
-    if(applyFilters&&requestedCommercial&&requestedCommercial!==request.user?.sub)throw new HttpError(403,'Cet utilisateur ne peut consulter que son portefeuille');
-    return{sql:`${alias}=? AND ${CRM_LEAD_OWNER_SQL}=?`,params:[agencyId,request.user?.sub]};
-  }
-  if(permissionScope==='CONCESSION')return applyFilters?{sql:`${alias} IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?)) AND (? IS NULL OR l.assigned_user_id=?)`,params:[agencyId,requestedCommercial,requestedCommercial]}:{sql:`${alias} IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[agencyId]};
-  return applyFilters?{sql:`${alias}=? AND (? IS NULL OR l.assigned_user_id=?)`,params:[agencyId,requestedCommercial,requestedCommercial]}:{sql:`${alias}=?`,params:[agencyId]};
-}
-
 async function accessibleLead(id:string,request:Request,permission='crm.prospect.view'){const scoped=crmLeadScope(request,permission);const[row]=await query<LeadRow[]>(`${leadSelect} WHERE l.id=? AND ${scoped.sql}`,[id,...scoped.params]);if(!row)throw new HttpError(404,'Prospect introuvable');return row;}
 async function leadById(id:string){const[row]=await query<LeadRow[]>(`${leadSelect} WHERE l.id=?`,[id]);if(!row)throw new HttpError(404,'Prospect introuvable');return row;}
 

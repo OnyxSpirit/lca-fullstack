@@ -17,11 +17,12 @@ test('RBAC dynamique : profil, permissions et actualisation temps réel sont câ
 
 test('CRM et ventes utilisent les permissions et scopes, pas une liste de rôles',()=>{
   const crm=source('src/modules/crm/crm.routes.ts');
+  const crmVisibility=source('src/modules/crm/crm-visibility.ts');
   const sales=source('src/modules/sales/sale.routes.ts');
   const saleService=source('src/modules/sales/sale.service.ts');
   assert.match(crm,/requirePermission\('crm\.prospect\.view'\)/);
-  assert.match(crm,/permissionScope==='OWN'/);
-  assert.match(crm,/permissionScope==='CONCESSION'/);
+  assert.match(crmVisibility,/permissionScope==='OWN'/);
+  assert.match(crmVisibility,/permissionScope==='CONCESSION'/);
   assert.match(sales,/requirePermission\('sales\.view'\)/);
   assert.match(saleService,/value==='OWN'/);
   assert.match(saleService,/value==='CONCESSION'/);

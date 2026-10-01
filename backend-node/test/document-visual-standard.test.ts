@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import test from 'node:test';
-import {getReferenceDocumentLogo,renderDeliveryPlanningDocumentData,renderVehicleDocumentData} from '../src/modules/documents/commercial-document.js';
+import {renderDeliveryPlanningDocumentData,renderVehicleDocumentData} from '../src/modules/documents/commercial-document.js';
 import {documentStyle} from '../src/modules/documents/document-layout.js';
 
-async function identity(){const logo=await getReferenceDocumentLogo();return{legalName:'LCA Concession Automobile',tradeName:'LCA',agencyName:'Agence Brazzaville',agencyAddress:'Avenue de la Concession',agencyCity:'Brazzaville',phone:'+242 00 000 00 00',email:'contact@lca.local',taxIdentifier:'NIU-LCA',currencyCode:'XAF',logoCandidates:logo?[logo]:[]}}
+async function identity(){const logo=await readFile(new URL('../../frontend/public/images/logo-lca2.png',import.meta.url)).then(value=>value.toString('base64'));return{legalName:'LCA Concession Automobile',tradeName:'LCA',agencyName:'Agence Brazzaville',agencyAddress:'Avenue de la Concession',agencyCity:'Brazzaville',phone:'+242 00 000 00 00',email:'contact@lca.local',taxIdentifier:'NIU-LCA',currencyCode:'XAF',logoCandidates:[logo]}}
 
 test('DOC-STYLE-01 centralise le format, les marges et la palette documentaire',()=>{
  assert.equal(documentStyle.page.size,'A4');assert.equal(documentStyle.page.margin,42);assert.equal(documentStyle.colors.primary,'#8f1722');assert.deepEqual(documentStyle.logo,{x:42,y:38,width:95,height:55});

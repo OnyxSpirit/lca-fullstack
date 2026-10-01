@@ -1,5 +1,4 @@
 import PDFDocument from 'pdfkit';
-import{readFile}from'node:fs/promises';
 import type{RowDataPacket}from'mysql2/promise';
 import{query}from'../../config/database.js';
 import{HttpError}from'../../shared/http-error.js';
@@ -13,13 +12,11 @@ type Kind='DEVIS'|'FACTURE'|'BON DE COMMANDE';
 const safe=(value:unknown)=>String(value??'').replace(/[\u0000-\u001f]/g,' ').trim();
 const deliveryDate=(value:unknown)=>{if(value instanceof Date)return new Intl.DateTimeFormat('fr-CG',{dateStyle:'short',timeStyle:'short',timeZone:'Africa/Brazzaville'}).format(value);const raw=safe(value),match=/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/.exec(raw);return match?`${match[3]}/${match[2]}/${match[1]}${match[4]?` ${match[4]}:${match[5]}`:''}`:raw};
 const money=formatDocumentAmount;
-let referenceLogo:Promise<string|null>|undefined;
-export const getReferenceDocumentLogo=()=>referenceLogo??=readFile(new URL('../../../assets/logo-lca2.png',import.meta.url)).then(value=>value.toString('base64')).catch(()=>null);
-export const documentLogoCandidates=(snapshotLogo:unknown,configuredLogo:unknown,reference:unknown)=>[snapshotLogo,configuredLogo,reference].filter(value=>typeof value==='string'&&value.length>0) as string[];
+export const documentLogoCandidates=(snapshotLogo:unknown,configuredLogo:unknown)=>[snapshotLogo,configuredLogo].filter(value=>typeof value==='string'&&value.length>0) as string[];
 const parsedSnapshot=(value:unknown)=>{if(!value)return null;try{const saved=typeof value==='string'?JSON.parse(value):value;return saved&&typeof saved==='object'?saved as Record<string,unknown>:null}catch{return null}};
-async function identityFor(agencyId:string,savedValue?:unknown){const live=await getBusinessIdentity(agencyId),saved=parsedSnapshot(savedValue),fallbackLogo=await getReferenceDocumentLogo();return{...live,...(saved??{}),logoCandidates:documentLogoCandidates(saved?.logoBase64,live.logoBase64,fallbackLogo)}}
+async function identityFor(agencyId:string,savedValue?:unknown){const live=await getBusinessIdentity(agencyId),saved=parsedSnapshot(savedValue);return{...live,...(saved??{}),logoCandidates:documentLogoCandidates(saved?.logoBase64,live.logoBase64)}}
 export async function documentIdentityForAgency(agencyId:string){return identityFor(agencyId)}
-export async function defaultDocumentIdentity(){const logo=await getReferenceDocumentLogo();return{legalName:'La Congolaise de l’Automobile',tradeName:'LCA',logoCandidates:logo?[logo]:[]}}
+export async function defaultDocumentIdentity(){return{legalName:'La Congolaise de l’Automobile',tradeName:'LCA',logoCandidates:[]}}
 const drawIdentityHeader=drawCompanyIdentity;
 async function render(kind:Kind,header:RowDataPacket,items:RowDataPacket[],warranty:WarrantyDocumentContext|null=null,policy:WarrantyRenderPolicy='CONTRACT_COMPACT'){
  const identity=await identityFor(String(header.agency_id),header.document_identity_snapshot);

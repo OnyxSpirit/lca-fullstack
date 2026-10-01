@@ -41,7 +41,7 @@ export interface User {
   /** Code serveur, y compris les rôles personnalisés qui ne font pas partie du jeu historique. */
   roleCode?: string;
   isSystemSuperAdmin?: boolean;
-  /** Permissions effectivement calculées côté serveur. La clé '*' représente le SUPER_ADMIN système. */
+  /** Permissions effectivement calculées côté serveur, indexées par leur code canonique. */
   permissions?: Record<string, EffectivePermissionScope | null>;
   roleTitle: string;
   avatar: string;

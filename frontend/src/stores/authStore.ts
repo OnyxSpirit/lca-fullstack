@@ -85,7 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return hasDynamicPermission(currentUser.permissions,dynamicCode);
   },
   can: (permissionCode) => hasDynamicPermission(get().currentUser?.permissions,permissionCode),
-  permissionScope: (permissionCode) => { const permissions = get().currentUser?.permissions; return permissions?.['*'] ?? permissions?.[permissionCode]; },
+  permissionScope: (permissionCode) => get().currentUser?.permissions?.[permissionCode],
   refreshPermissions: async () => {
     const { user: profile } = await apiRequest<{ user: AuthProfile }>('/auth/me');
     const user = toUser(profile);

@@ -3,7 +3,7 @@ import type { PermissionAction, User, UserRole } from '../types';
 export type ModulePermission = 'dashboard'|'modules'|'crm'|'customers'|'vehicles'|'showroom'|'sales'|'deliveries'|'service'|'workshop'|'parts'|'billing'|'documents'|'notifications'|'reports'|'hr'|'users'|'settings';
 export type WorkflowPermission = 'crm.stage.update'|'crm.activity.create'|'crm.close.won'|'crm.close.lost'|'sales.create'|'sales.update'|'sales.cancel'|'showroom.register'|'showroom.assign'|'showroom.cancelWaiting'|'showroom.takeOver'|'showroom.testDrive'|'showroom.returnTestDrive'|'showroom.complete'|'vehicles.create'|'vehicles.update'|'vehicles.viewFinancials'|'customers.create'|'customers.update'|'service.create'|'service.update'|'service.assign'|'service.invoice'|'workshop.manageResources'|'workshop.assign'|'workshop.timeTrack'|'parts.manageCatalog'|'parts.manageStock'|'parts.viewFinancials'|'parts.receive'|'parts.order'|'billing.create'|'billing.pay'|'billing.credit'|'billing.refund'|'deliveries.create'|'deliveries.update'|'deliveries.complete'|'documents.upload'|'documents.archive'|'reports.export'|'users.manage'|'settings.manage';
 export type AppPermission = `${ModulePermission}.view`|WorkflowPermission;
-export const hasDynamicPermission=(permissions:Record<string,unknown>|undefined,permissionCode:string)=>Boolean(permissions&&(Object.hasOwn(permissions,'*')||Object.hasOwn(permissions,permissionCode)));
+export const hasDynamicPermission=(permissions:Record<string,unknown>|undefined,permissionCode:string)=>Boolean(permissions&&Object.hasOwn(permissions,permissionCode));
 
 const modules=(...values:ModulePermission[]):AppPermission[]=>values.map(value=>`${value}.view` as AppPermission);
 const common=modules('dashboard','modules','notifications');

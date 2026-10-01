@@ -34,7 +34,7 @@ const phoneValid=(value:string)=>{const digits=value.replace(/\D/g,'');return !v
 
 export const CustomersListPage: React.FC = () => {
   const { addToast } = useUiStore();
-  const { currentUser, currentAgency, can } = useAuthStore();
+  const { currentAgency, can } = useAuthStore();
   const canCreateCustomer=can('customers.create');
   const navigate = useNavigate();
 
@@ -75,7 +75,6 @@ export const CustomersListPage: React.FC = () => {
       city: newCustomerForm.city,
       country: 'Congo',
       agencyId:currentAgency?.id,
-      assignedUserId: currentUser?.isSystemSuperAdmin ? undefined : currentUser?.id,
     });
     addToast({
       type: 'success',

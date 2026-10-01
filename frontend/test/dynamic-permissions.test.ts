@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canNavigateWithPermissions, hasDynamicPermission } from '../src/navigation/permissions';
 import { documentEntitiesForPermissions } from '../src/modules/documents/documentPolicy';
+import { readFileSync } from 'node:fs';
+
+const source=(path:string)=>readFileSync(new URL(`../src/${path}`,import.meta.url),'utf8');
 
 test('un rôle personnalisé absent de ROLE_PERMISSIONS conserve ses droits dynamiques',()=>{
   const permissions={'vehicles.view':'AGENCY' as const,'vehicles.create':'OWN' as const};
@@ -13,6 +16,7 @@ test('un rôle personnalisé absent de ROLE_PERMISSIONS conserve ses droits dyna
 test('le frontend refuse toute permission absente sans fallback de rôle',()=>{
   assert.equal(hasDynamicPermission(undefined,'users.view'),false);
   assert.equal(hasDynamicPermission({},'users.view'),false);
+  assert.equal(hasDynamicPermission({'*':'GLOBAL'},'users.view'),false);
 });
 
 test('la portée reste distincte de la présence de permission',()=>{
@@ -47,4 +51,12 @@ test('RBAC-FE-03 GLOBAL ne crée pas de bypass Super Admin',()=>{
   const permissions={'parts.stock.view':'GLOBAL'};
   assert.equal(hasDynamicPermission(permissions,'parts.stock.view'),true);
   assert.equal(hasDynamicPermission(permissions,'roles.permissions.manage'),false);
+});
+
+test('RBAC-04 les créations Client et budgets RH ne déduisent aucun droit du rôle système',()=>{
+  const customers=source('modules/customers/CustomersListPage.tsx'),hr=source('modules/hr/HrAdministrationPage.tsx');
+  assert.doesNotMatch(customers,/isSystemSuperAdmin|assignedUserId:/);
+  assert.doesNotMatch(hr,/isSystemSuperAdmin|SUPER_ADMIN/);
+  assert.match(hr,/budgetManagementScope=permissionScope\('hr\.budget\.manage'\)/);
+  assert.match(hr,/budgetCategoryManagementScope=permissionScope\('hr\.budget\.category\.manage'\)/);
 });

@@ -276,7 +276,7 @@ export async function updateDocumentLogo(body:unknown,r:Request){
 }
 export async function deleteDocumentLogo(r:Request){assertConcessionWrite(r);const concessionId=await currentConcessionId(r);await transaction(async c=>{await c.execute('UPDATE concessions SET document_logo=NULL,document_logo_mime=NULL WHERE id=?',[concessionId]);await audit(c,r,'concession',concessionId,'document_logo.deleted',null,{})});return currentConcession(r,false)}
 export async function agencies(r: Request) {
-  const scope = r.rbac?.permissions.get("settings.view"),
+  const scope = assertCollectiveRead(r),
     concessionId = await currentConcessionId(r),
     rows = await query<RowDataPacket[]>(
       `SELECT a.id,a.concession_id,a.name,a.code,a.address,a.city,a.phone,a.email,a.is_active FROM agencies a WHERE (?='GLOBAL' OR (?='CONCESSION' AND a.concession_id=?) OR a.id=?) ORDER BY a.name`,

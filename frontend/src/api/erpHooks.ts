@@ -893,7 +893,7 @@ export type ShowroomBoardVisit=ReturnType<typeof mapShowroom>;
 export interface ShowroomCounts {waiting:number;assigned:number;inProgress:number;completed:number;cancelled:number}
 export interface ShowroomMetrics {total:number;waiting:number;inProgress:number;completed:number;averageWaitMinutes:number;activeAdvisors:number;conversionRate:number;quotations:number}
 export interface ShowroomBoardPage extends PagedResult<ShowroomBoardVisit>{counts:ShowroomCounts;metrics:ShowroomMetrics}
-export const useShowroomBoardQuery = (filters:{from?:string;to?:string;all?:boolean}={},page=1,pageSize=6,requestEnabled=true) =>
+export const useShowroomBoardQuery = (filters:{from?:string;to?:string;all?:boolean;search?:string}={},page=1,pageSize=6,requestEnabled=true) =>
   useQuery({
     queryKey: ["showroom","board",filters,page,pageSize],
     queryFn: async () => {

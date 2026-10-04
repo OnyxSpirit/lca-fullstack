@@ -1,6 +1,8 @@
 type ShowroomUser={id?:string;name?:string;status:string;agencyId:string;isSystemSuperAdmin?:boolean;permissions?:Record<string,unknown>|string[];roles?:string[];role?:string};
 type ClassifiedVisit={status:string;assignedUserId?:string|null};
 type ConvertibleVisit={status:string;leadId?:string|null};
+export type ShowroomViewMode='board'|'list';
+export const showroomViewMode=(value:string|null):ShowroomViewMode=>value==='list'?'list':'board';
 
 export const eligibleShowroomSalesUsers=<T extends ShowroomUser>(users:T[],agencyId?:string)=>users.filter(user=>{const permissions=Array.isArray(user.permissions)?user.permissions:Object.keys(user.permissions??{});return !user.isSystemSuperAdmin&&user.status==='active'&&Boolean(agencyId)&&user.agencyId===agencyId&&(permissions.includes('sales.create')||permissions.includes('crm.prospect.update'))});
 

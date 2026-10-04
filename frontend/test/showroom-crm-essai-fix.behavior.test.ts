@@ -7,7 +7,7 @@ const page=read('../src/modules/showroom/ShowroomPage.tsx');
 const hooks=read('../src/api/erpHooks.ts');
 
 test('FRONT-01/04 conserve la qualification manuelle du parcours Showroom',()=>{
-  assert.match(page,/canComplete&&visit\.origin==='showroom'&&<Button[\s\S]*?>Clôturer<\/Button>/);
+  assert.match(page,/canComplete&&visit\.origin==='showroom'&&\(visit\.status==='En Entretien'\|\|visit\.status==='En Essai'\)&&<Button[\s\S]*?>Clôturer<\/Button>/);
   assert.match(page,/title="Clôturer la visite"/);
   for(const outcome of['follow_up','lead_created','quotation','sale','no_interest'])assert.match(page,new RegExp(`value="${outcome}"`));
   assert.match(page,/canConvertShowroomVisitToLead\(visit,canConvertToLead\)&&<Button[\s\S]*?>Créer le prospect CRM<\/Button>/);

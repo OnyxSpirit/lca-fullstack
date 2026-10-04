@@ -923,6 +923,7 @@ export function useCreateShowroomVisit() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["showroom"] }),
   });
 }
+export const useShowroomVisitQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['showroom','visit',id],queryFn:async()=>{const data=await apiRequest<{visit:any;testDrives:any[]}>(`/showroom/${id}`);return{...data,visit:mapShowroom(data.visit)}},enabled:enabled()&&requestEnabled&&Boolean(id)});
 export function useShowroomActions() {
   const qc = useQueryClient(),
     done = () => qc.invalidateQueries({ queryKey: ["showroom"] });
@@ -996,12 +997,14 @@ export function useShowroomActions() {
     }),
   };
 }
-export const useShowroomDetection = (phone: string, requestEnabled=true) =>
+export interface ShowroomDuplicateMatch {id:string;visitorName:string;phone:string|null;status:string;arrivalAt:string;assignedUserName:string|null;agencyId:string;phoneMatch:boolean;nameMatch:boolean;strength:'strong'|'potential'}
+export interface ShowroomDetectionResult {customers:any[];leads:any[];recentVisits:ShowroomDuplicateMatch[];matches:ShowroomDuplicateMatch[]}
+export const useShowroomDetection = (name:string,phone:string,agencyId?:string,requestEnabled=true) =>
   useQuery({
-    queryKey: ["showroom-detect", phone],
+    queryKey: ["showroom-detect",agencyId,name,phone],
     queryFn: () =>
-      apiRequest<any>(`/showroom/detect?phone=${encodeURIComponent(phone)}`),
-    enabled: enabled() && requestEnabled && phone.replace(/\D/g, "").length >= 6,
+      apiRequest<ShowroomDetectionResult>(`/showroom/detect?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}&agencyId=${encodeURIComponent(agencyId!)}`),
+    enabled: enabled()&&requestEnabled&&Boolean(agencyId)&&(phone.replace(/\D/g,'').length>=6||name.trim().length>=2),
   });
 export const useCreateVehicle = () =>
   mutation<any>(() => "/vehicles", "POST", erpKeys.vehicles);

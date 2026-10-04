@@ -4,7 +4,7 @@ import {test} from 'node:test';
 
 const source=readFileSync(new URL('../src/modules/reports/report.routes.ts',import.meta.url),'utf8');
 
-test('REPORTING-01 tous les endpoints exigent reporting.view',()=>assert.equal((source.match(/requirePermission\('reporting\.view'\)/g)??[]).length,11));
+test('REPORTING-01 tous les endpoints exigent reporting.view',()=>assert.equal((source.match(/requirePermission\('reporting\.view'\)/g)??[]).length,12));
 test('REPORTING-02 export exige aussi reporting.export',()=>assert.match(source,/use\('\/reports\/export',requirePermission\('reporting\.export'\)\)/));
 test('REPORTING-03 les sections sensibles exigent leur permission source',()=>{for(const code of ['billing.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view'])assert.ok(source.includes(code),code)});
 test('REPORTING-04 OWN collectif est explicitement refusé',()=>assert.match(source,/scope OWN ne s’applique pas aux agrégats Reporting collectifs/));
@@ -20,6 +20,6 @@ test('REPORTING-18 stock VN et VO compte les véhicules présents',()=>{assert.m
 test('REPORTING-11 période et granularité sont validées',()=>{assert.match(source,/if\(from>to\)/);assert.match(source,/\['day','week','month'\]\.includes/);assert.match(source,/WEEKDAY/)});
 test('REPORTING-12 la période précédente conserve le même nombre de jours',()=>{assert.match(source,/days=Math\.round/);assert.match(source,/previousStart\.setUTCDate\(previousStart\.getUTCDate\(\)-days\+1\)/)});
 test('REPORTING-13 zéro ne produit ni Infinity ni faux pourcentage',()=>{assert.match(source,/previous===0\?null/);for(const token of ['salesRevenueHt?','planned?','worked?','net?'])assert.ok(source.includes(token),token)});
-test('REPORTING-14 ventes multi-lignes ne multiplient plus les montants de vente',()=>{assert.doesNotMatch(source,/FROM sales s JOIN sale_items si ON si\.sale_id=s\.id AND si\.vehicle_id IS NOT NULL/);assert.match(source,/FROM sales s LEFT JOIN financing/);assert.match(source,/ROUND\(vsi\.line_total\/\(1\+CASE WHEN s\.tax_mode='TAXABLE'/)});
+test('REPORTING-14 ventes multi-lignes ne multiplient plus les montants de vente',()=>{assert.equal((source.match(/FROM sales s JOIN sale_items si ON si\.sale_id=s\.id AND si\.vehicle_id IS NOT NULL/g)??[]).length,1,'seule la requête de provenance joint directement les lignes');assert.match(source,/FROM sales s LEFT JOIN financing/);assert.match(source,/ROUND\(vsi\.line_total\/\(1\+CASE WHEN s\.tax_mode='TAXABLE'/)});
 test('REPORTING-15 Parts agrège part_stocks par agence',()=>{assert.match(source,/FROM part_stocks ps JOIN parts p/);assert.match(source,/ps\.current_stock-ps\.reserved_stock/)});
 test('REPORTING-16 aucun rôle historique ne gouverne Reporting',()=>assert.doesNotMatch(source,/DIRECTOR|DIRECTION|ACCOUNTANT|MANAGER|role\.code|hasRole|authorize\(/));

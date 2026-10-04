@@ -1,4 +1,4 @@
--- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 048.
+-- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 050.
 -- À exécuter exclusivement sur une base vide. Le runner refuse toute base ambiguë.
 SET NAMES utf8mb4;
 
@@ -589,11 +589,30 @@ CREATE TABLE locations (
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE vehicle_locations (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    agency_id BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(120) NOT NULL,
+    type ENUM('PARC','SHOWROOM') NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    legacy_location_id BIGINT UNSIGNED NULL,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_vehicle_location_agency_name_type (agency_id,name,type),
+    UNIQUE KEY uq_vehicle_location_legacy (legacy_location_id),
+    INDEX idx_vehicle_location_agency_type_active (agency_id,type,is_active),
+    CONSTRAINT fk_vehicle_location_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_vehicle_location_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_vehicle_location_legacy FOREIGN KEY (legacy_location_id) REFERENCES locations(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 CREATE TABLE vehicles (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     version_id BIGINT UNSIGNED NOT NULL,
     agency_id BIGINT UNSIGNED NOT NULL,
     location_id BIGINT UNSIGNED NULL,
+    vehicle_location_id BIGINT UNSIGNED NULL,
     supplier_id BIGINT UNSIGNED NULL,
     vehicle_type ENUM('new','used','demo','courtesy') NOT NULL DEFAULT 'new',
     vin VARCHAR(50) NOT NULL UNIQUE,
@@ -632,6 +651,7 @@ CREATE TABLE vehicles (
     archived_at DATETIME NULL,
     INDEX idx_vehicle_status (status),
     INDEX idx_vehicle_agency_status (agency_id, status),
+    INDEX idx_vehicle_vehicle_location (vehicle_location_id),
     CONSTRAINT fk_vehicle_version
         FOREIGN KEY (version_id) REFERENCES versions(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -641,6 +661,9 @@ CREATE TABLE vehicles (
     CONSTRAINT fk_vehicle_location
         FOREIGN KEY (location_id) REFERENCES locations(id)
         ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_vehicle_dedicated_location
+        FOREIGN KEY (vehicle_location_id) REFERENCES vehicle_locations(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_vehicle_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
@@ -648,7 +671,9 @@ CREATE TABLE vehicle_movements (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     vehicle_id BIGINT UNSIGNED NOT NULL,
     from_location_id BIGINT UNSIGNED NULL,
+    from_vehicle_location_id BIGINT UNSIGNED NULL,
     to_location_id BIGINT UNSIGNED NULL,
+    to_vehicle_location_id BIGINT UNSIGNED NULL,
     from_agency_id BIGINT UNSIGNED NULL,
     to_agency_id BIGINT UNSIGNED NULL,
     movement_type ENUM('entry','transfer','sale','delivery','return','adjustment') NOT NULL,
@@ -659,9 +684,13 @@ CREATE TABLE vehicle_movements (
     performed_by BIGINT UNSIGNED NULL,
     moved_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_vehicle_movement_vehicle (vehicle_id),
+    INDEX idx_vm_from_vehicle_location (from_vehicle_location_id),
+    INDEX idx_vm_to_vehicle_location (to_vehicle_location_id),
     CONSTRAINT fk_vm_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE RESTRICT,
     CONSTRAINT fk_vm_from_location FOREIGN KEY (from_location_id) REFERENCES locations(id) ON DELETE SET NULL,
     CONSTRAINT fk_vm_to_location FOREIGN KEY (to_location_id) REFERENCES locations(id) ON DELETE SET NULL,
+    CONSTRAINT fk_vm_from_vehicle_location FOREIGN KEY (from_vehicle_location_id) REFERENCES vehicle_locations(id) ON DELETE SET NULL,
+    CONSTRAINT fk_vm_to_vehicle_location FOREIGN KEY (to_vehicle_location_id) REFERENCES vehicle_locations(id) ON DELETE SET NULL,
     CONSTRAINT fk_vm_from_agency FOREIGN KEY (from_agency_id) REFERENCES agencies(id) ON DELETE SET NULL,
     CONSTRAINT fk_vm_to_agency FOREIGN KEY (to_agency_id) REFERENCES agencies(id) ON DELETE SET NULL,
     CONSTRAINT fk_vm_user FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL
@@ -838,6 +867,12 @@ CREATE TABLE sale_items (
     discount DECIMAL(18,2) NOT NULL DEFAULT 0,
     tax_rate DECIMAL(8,4) NOT NULL DEFAULT 0,
     line_total DECIMAL(18,2) NOT NULL DEFAULT 0,
+    purchase_price_snapshot DECIMAL(18,2) NULL,
+    refurbishment_cost_snapshot DECIMAL(18,2) NULL,
+    transport_cost_snapshot DECIMAL(18,2) NULL,
+    administrative_cost_snapshot DECIMAL(18,2) NULL,
+    additional_costs_snapshot DECIMAL(18,2) NULL,
+    total_cost_snapshot DECIMAL(18,2) NULL,
     CONSTRAINT fk_sale_item_sale FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     CONSTRAINT fk_sale_item_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
@@ -1824,22 +1859,66 @@ CREATE TABLE notifications (
     ,CONSTRAINT fk_notification_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+CREATE TABLE document_categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(80) NOT NULL,
+    name VARCHAR(120) NOT NULL,
+    display_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by BIGINT UNSIGNED NULL,
+    updated_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_document_category_code (code),
+    UNIQUE KEY uk_document_category_name (name),
+    INDEX idx_document_category_active (is_active,display_order,name),
+    CONSTRAINT fk_document_category_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_document_category_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE document_types (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_id BIGINT UNSIGNED NOT NULL,
+    code VARCHAR(100) NOT NULL,
+    name VARCHAR(120) NOT NULL,
+    display_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by BIGINT UNSIGNED NULL,
+    updated_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_document_type_code (code),
+    UNIQUE KEY uk_document_type_category_name (category_id,name),
+    INDEX idx_document_type_active (category_id,is_active,display_order,name),
+    CONSTRAINT fk_document_type_category FOREIGN KEY (category_id) REFERENCES document_categories(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_document_type_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_document_type_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 CREATE TABLE documents (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     uploaded_by BIGINT UNSIGNED NULL,
     origin ENUM('manual','generated') NOT NULL DEFAULT 'manual',
     source_key VARCHAR(190) NULL,
+    title VARCHAR(190) NULL,
+    category_id BIGINT UNSIGNED NULL,
     document_type VARCHAR(100) NULL,
+    document_type_id BIGINT UNSIGNED NULL,
+    reference VARCHAR(150) NULL,
+    document_date DATE NULL,
     file_name VARCHAR(255) NOT NULL,
     file_url VARCHAR(500) NOT NULL,
     mime_type VARCHAR(120) NULL,
     file_size BIGINT UNSIGNED NULL,
     version INT UNSIGNED NOT NULL DEFAULT 1,
-    entity_type VARCHAR(80) NOT NULL,
-    entity_id BIGINT UNSIGNED NOT NULL,
+    entity_type VARCHAR(80) NULL,
+    entity_id BIGINT UNSIGNED NULL,
+    agency_id BIGINT UNSIGNED NULL,
+    concession_id BIGINT UNSIGNED NULL,
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     file_hash CHAR(64) NULL,
     expires_at DATE NULL,
+    description TEXT NULL,
     archived_at DATETIME NULL,
     archived_by BIGINT UNSIGNED NULL,
     archive_reason VARCHAR(500) NULL,
@@ -1850,10 +1929,17 @@ CREATE TABLE documents (
     INDEX idx_documents_type (document_type),
     INDEX idx_documents_hash_entity (entity_type,entity_id,file_hash),
     INDEX idx_documents_parent (parent_document_id),
+    INDEX idx_documents_category_type (category_id,document_type_id),
+    INDEX idx_documents_attachment (entity_type,entity_id),
+    INDEX idx_documents_agency (agency_id,created_at),
     UNIQUE INDEX uk_documents_source_key (source_key),
     CONSTRAINT fk_document_user FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_documents_archived_by FOREIGN KEY (archived_by) REFERENCES users(id) ON DELETE SET NULL,
-    CONSTRAINT fk_documents_parent FOREIGN KEY (parent_document_id) REFERENCES documents(id) ON DELETE SET NULL
+    CONSTRAINT fk_documents_parent FOREIGN KEY (parent_document_id) REFERENCES documents(id) ON DELETE SET NULL,
+    CONSTRAINT fk_documents_category FOREIGN KEY (category_id) REFERENCES document_categories(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_documents_type FOREIGN KEY (document_type_id) REFERENCES document_types(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_documents_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_documents_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 CREATE TABLE settings (
@@ -1928,6 +2014,6 @@ CREATE INDEX idx_part_stock ON parts(current_stock, min_stock);
 CREATE INDEX idx_invoice_status_due ON invoices(status, due_date);
 CREATE INDEX idx_payment_date ON payments(payment_date);
 
--- Le baseline représente directement l'état consolidé au niveau 048.
+-- Le baseline représente directement l'état consolidé au niveau 050.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (48,'baseline_001_048',REPEAT('0',64));
+VALUES (50,'baseline_001_050',REPEAT('0',64));

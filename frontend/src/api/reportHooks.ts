@@ -1,6 +1,7 @@
-import{useQuery}from'@tanstack/react-query';import{apiRequest}from'../services/apiClient';import type{AgencyReport,FinanceReport,OverviewReport,PartsReport,ReportFilters,RevenueReport,SalespersonReport,SalesReport,VehicleReport,WarrantyReport,WorkshopReport}from'../types/reports';
+import{useQuery}from'@tanstack/react-query';import{apiRequest}from'../services/apiClient';import type{AgencyReport,FinanceReport,MarginProvenanceReport,OverviewReport,PartsReport,ReportFilters,RevenueReport,SalespersonReport,SalesReport,VehicleReport,WarrantyReport,WorkshopReport}from'../types/reports';
 const enabled=()=>Boolean(localStorage.getItem('lca-access-token'));const params=(f:ReportFilters)=>{const p=new URLSearchParams({from:f.from,to:f.to,granularity:f.granularity});if(f.agencyId)p.set('reportAgencyId',f.agencyId);if(f.providerId)p.set('providerId',f.providerId);if(f.decisionStatus)p.set('decisionStatus',f.decisionStatus);if(f.claimStatus)p.set('claimStatus',f.claimStatus);return p};const report=<T>(section:string,f:ReportFilters,active=true)=>useQuery({queryKey:['reports',section,f],queryFn:()=>apiRequest<T>(`/reports/${section}?${params(f)}`),enabled:enabled()&&active});
 export const useReportsOverviewQuery=(f:ReportFilters,active=true)=>report<OverviewReport>('overview',f,active);
+export const useMarginProvenanceQuery=(f:ReportFilters,active=true)=>report<MarginProvenanceReport>('margin-provenance',f,active);
 export const useRevenueReportQuery=(f:ReportFilters,active=true)=>report<RevenueReport>('revenue',f,active);
 export const useSalesReportQuery=(f:ReportFilters,active=true)=>report<SalesReport>('sales',f,active);
 export const useVehicleReportQuery=(f:ReportFilters,active=true)=>report<VehicleReport>('vehicles',f,active);

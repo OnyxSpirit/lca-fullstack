@@ -92,6 +92,8 @@ INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,i
 ('showroom','assign','showroom.assign','Affecter un commercial','Showroom','Affecter une visite à un commercial',TRUE),
 ('showroom','update','showroom.status.update','Changer le statut showroom','Showroom','Faire évoluer une visite showroom',TRUE),
 ('vehicles','view','vehicles.view','Voir les véhicules','Véhicules','Consulter le catalogue véhicules',TRUE),
+('vehicles','view','vehicles.assignments.view','Voir les affectations véhicules','Véhicules','Consulter les Parcs et Showrooms autorisés',TRUE),
+('vehicles','manage','vehicles.assignments.manage','Gérer les affectations véhicules','Véhicules','Créer, renommer et activer les Parcs et Showrooms',TRUE),
 ('customers','view','customers.view','Voir les clients','Clients 360°','Consulter les fiches clients',TRUE),
 ('quotations','view','quotations.view','Voir les devis','Devis','Consulter les devis',TRUE),
 ('sales','update','sales.update','Modifier une vente','Ventes','Modifier une vente autorisée',TRUE),
@@ -232,6 +234,30 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ('hr','manage','hr.expense.manage','Gérer les dépenses','RH & Administration','Administrer les dépenses de son périmètre',TRUE),
 ('hr','view','hr.reporting.view','Voir le reporting RH','RH & Administration','Consulter les indicateurs RH et administratifs autorisés',TRUE)
 ON DUPLICATE KEY UPDATE module=VALUES(module),action=VALUES(action),name=VALUES(name),group_name=VALUES(group_name),description=VALUES(description),is_active=TRUE;
+
+-- Référentiel GED canonique absorbé depuis la migration 049 pour les installations fraîches.
+INSERT INTO document_categories(code,name,display_order) VALUES
+('CLIENTS_IDENTITY','Clients & Identité',10),('VEHICLES','Véhicules',20),('SALES','Ventes & Commercial',30),
+('WORKSHOP','SAV & Atelier',40),('WARRANTY','Garantie constructeur',50),('PURCHASES','Achats & Fournisseurs',60),
+('FINANCE','Comptabilité & Finance',70),('HR','RH & Personnel',80),('LEGAL','Juridique & Administration',90),
+('OPERATIONS','Concession & Exploitation',100),('OTHER','Autres',110)
+ON DUPLICATE KEY UPDATE name=VALUES(name),display_order=VALUES(display_order),is_active=TRUE;
+
+INSERT INTO document_types(category_id,code,name,display_order)
+SELECT c.id,x.code,x.name,x.ord FROM document_categories c JOIN (
+ SELECT 'CLIENTS_IDENTITY' cat,'IDENTITY_CARD' code,'Pièce d''identité' name,10 ord UNION ALL SELECT 'CLIENTS_IDENTITY','DRIVING_LICENSE','Permis de conduire',20 UNION ALL SELECT 'CLIENTS_IDENTITY','PROOF_ADDRESS','Justificatif de domicile',30 UNION ALL SELECT 'CLIENTS_IDENTITY','PROXY','Procuration',40 UNION ALL SELECT 'CLIENTS_IDENTITY','CUSTOMER_DOCUMENT','Document client',50
+ UNION ALL SELECT 'VEHICLES','REGISTRATION_CERTIFICATE','Carte grise / certificat d''immatriculation',10 UNION ALL SELECT 'VEHICLES','TECHNICAL_INSPECTION','Contrôle technique',20 UNION ALL SELECT 'VEHICLES','CERTIFICATE_CONFORMITY','Certificat de conformité',30 UNION ALL SELECT 'VEHICLES','VEHICLE_INSURANCE','Assurance véhicule',40 UNION ALL SELECT 'VEHICLES','CUSTOMS_DOCUMENT','Document douanier',50 UNION ALL SELECT 'VEHICLES','IMPORT_DOCUMENT','Document d''importation',60 UNION ALL SELECT 'VEHICLES','VEHICLE_DOCUMENT','Document véhicule',70
+ UNION ALL SELECT 'SALES','COMMERCIAL_QUOTE','Devis commercial',10 UNION ALL SELECT 'SALES','CUSTOMER_ORDER','Bon de commande client',20 UNION ALL SELECT 'SALES','SALE_CONTRACT','Contrat de vente',30 UNION ALL SELECT 'SALES','CUSTOMER_INVOICE','Facture client',40 UNION ALL SELECT 'SALES','PAYMENT_RECEIPT','Reçu de paiement',50 UNION ALL SELECT 'SALES','CUSTOMER_CREDIT_NOTE','Avoir client',60 UNION ALL SELECT 'SALES','DELIVERY_REPORT','Bon / PV de livraison',70
+ UNION ALL SELECT 'WORKSHOP','REPAIR_ORDER','Ordre de réparation',10 UNION ALL SELECT 'WORKSHOP','DIAGNOSTIC','Diagnostic',20 UNION ALL SELECT 'WORKSHOP','WORKSHOP_ESTIMATE','Devis / chiffrage SAV',30 UNION ALL SELECT 'WORKSHOP','CUSTOMER_AUTHORIZATION','Autorisation client',40 UNION ALL SELECT 'WORKSHOP','INTERVENTION_SHEET','Fiche d''intervention',50 UNION ALL SELECT 'WORKSHOP','QUALITY_CONTROL','Contrôle qualité',60 UNION ALL SELECT 'WORKSHOP','RETURN_REPORT','PV de restitution',70 UNION ALL SELECT 'WORKSHOP','WORKSHOP_DOCUMENT','Document atelier',80
+ UNION ALL SELECT 'WARRANTY','WARRANTY_AUTHORIZATION','Autorisation de prise en charge',10 UNION ALL SELECT 'WARRANTY','MANUFACTURER_DECISION','Décision constructeur',20 UNION ALL SELECT 'WARRANTY','WARRANTY_PROOF','Justificatif de garantie',30 UNION ALL SELECT 'WARRANTY','WARRANTY_REQUEST','Demande de garantie',40 UNION ALL SELECT 'WARRANTY','COVERAGE_DOCUMENT','Document de prise en charge',50 UNION ALL SELECT 'WARRANTY','MANUFACTURER_PROOF','Justificatif constructeur',60
+ UNION ALL SELECT 'PURCHASES','SUPPLIER_QUOTE','Devis fournisseur',10 UNION ALL SELECT 'PURCHASES','SUPPLIER_ORDER','Commande fournisseur',20 UNION ALL SELECT 'PURCHASES','SUPPLIER_INVOICE','Facture fournisseur',30 UNION ALL SELECT 'PURCHASES','SUPPLIER_CREDIT_NOTE','Avoir fournisseur',40 UNION ALL SELECT 'PURCHASES','SUPPLIER_DELIVERY_NOTE','Bon de livraison fournisseur',50 UNION ALL SELECT 'PURCHASES','SUPPLIER_CONTRACT','Contrat fournisseur',60
+ UNION ALL SELECT 'FINANCE','EXPENSE_PROOF','Justificatif de dépense',10 UNION ALL SELECT 'FINANCE','BANK_STATEMENT','Relevé bancaire',20 UNION ALL SELECT 'FINANCE','PAYMENT_PROOF','Preuve de paiement',30 UNION ALL SELECT 'FINANCE','ACCOUNTING_DOCUMENT','Pièce comptable',40 UNION ALL SELECT 'FINANCE','EXPENSE_REPORT','Note de frais',50 UNION ALL SELECT 'FINANCE','TAX_DOCUMENT','Document fiscal',60
+ UNION ALL SELECT 'HR','EMPLOYMENT_CONTRACT','Contrat de travail',10 UNION ALL SELECT 'HR','EMPLOYEE_IDENTITY','Pièce d''identité employé',20 UNION ALL SELECT 'HR','CV','CV',30 UNION ALL SELECT 'HR','DIPLOMA','Diplôme / certificat',40 UNION ALL SELECT 'HR','PAYSLIP','Bulletin de paie',50 UNION ALL SELECT 'HR','CERTIFICATE','Attestation',60 UNION ALL SELECT 'HR','HR_ADMIN_DOCUMENT','Document administratif RH',70
+ UNION ALL SELECT 'LEGAL','CONTRACT','Contrat',10 UNION ALL SELECT 'LEGAL','AGREEMENT','Convention',20 UNION ALL SELECT 'LEGAL','ADMIN_MAIL','Courrier administratif',30 UNION ALL SELECT 'LEGAL','LICENSE','Agrément / licence',40 UNION ALL SELECT 'LEGAL','ADMIN_CERTIFICATE','Attestation administrative',50 UNION ALL SELECT 'LEGAL','LEGAL_DOCUMENT','Document juridique',60 UNION ALL SELECT 'LEGAL','MINUTES','Procès-verbal',70
+ UNION ALL SELECT 'OPERATIONS','ELECTRICITY_INVOICE','Facture électricité',10 UNION ALL SELECT 'OPERATIONS','WATER_INVOICE','Facture eau',20 UNION ALL SELECT 'OPERATIONS','TELECOM_INVOICE','Facture Internet / télécom',30 UNION ALL SELECT 'OPERATIONS','LEASE','Bail / location',40 UNION ALL SELECT 'OPERATIONS','PREMISES_INSURANCE','Assurance des locaux',50 UNION ALL SELECT 'OPERATIONS','MAINTENANCE','Maintenance',60 UNION ALL SELECT 'OPERATIONS','SECURITY','Sécurité',70 UNION ALL SELECT 'OPERATIONS','SUPPLIES','Fournitures',80 UNION ALL SELECT 'OPERATIONS','OPERATIONS_DOCUMENT','Document d''exploitation',90
+ UNION ALL SELECT 'OTHER','OTHER_DOCUMENT','Autre document',10
+) x ON x.cat=c.code
+ON DUPLICATE KEY UPDATE category_id=VALUES(category_id),name=VALUES(name),display_order=VALUES(display_order),is_active=TRUE;
 
 -- Après le catalogue complet : chaque permission active est globale pour le rôle système.
 INSERT INTO role_permissions(role_id,permission_id,scope)

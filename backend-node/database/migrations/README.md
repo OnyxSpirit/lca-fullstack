@@ -1,8 +1,14 @@
 # Futures migrations
 
 Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
-baseline fraîche 048 absorbe désormais les migrations 034–048 ; le runner les
+baseline fraîche 050 absorbe désormais les migrations 034–050 ; le runner les
 applique encore aux bases historiques selon leur journal `schema_migrations`.
+Un marqueur consolidé `baseline_001_N` est un marqueur de plage : il prouve
+que toutes les migrations de version inférieure ou égale à `N` sont déjà
+incorporées, même sans ligne individuelle. Les lignes individuelles redondantes
+et leurs anciennes traces d'étapes sous ce niveau restent conservées mais ne
+sont pas rejouées. Une trace `FAILED_PARTIAL` au-dessus du niveau consolidé
+reste en revanche bloquante et exige une réconciliation explicite.
 Les migrations 034–037 prolongent le RBAC et le workflow SAV. La migration
 `038_payment_refunds.sql` ajoute le registre central immuable des remboursements
 partiels. Chaque remboursement est idempotent et relie explicitement un paiement,
@@ -12,6 +18,15 @@ Les anciens remboursements portés
 par `payments.status='refunded'` restent lus séparément et ne sont pas recopiés.
 La numérotation continue sans doublon. Les migrations 001–033 de
 `../legacy-migrations/` ne sont jamais parcourues par le runner.
+
+La migration `050_vehicle_locations_and_sale_cost_snapshots.sql` sépare les
+affectations physiques véhicule des emplacements Pièces/Atelier. Seuls les
+anciens emplacements `showroom` et `yard` réellement utilisés sont repris ; les
+types ambigus restent « Non affecté ». Chaque transfert passe par
+`vehicle_movements`. Elle ajoute aussi les cinq composantes de coût snapshotées
+sur `sale_items` afin de stabiliser la marge historique. Le reporting conserve
+un fallback explicite vers le coût courant uniquement pour les ventes anciennes
+qui ne disposent pas de snapshot.
 
 La migration `045_customer_identity_per_agency.sql` définit l’identité client
 par agence. L’e-mail (`TRIM`, insensible à la casse) et le téléphone (caractères

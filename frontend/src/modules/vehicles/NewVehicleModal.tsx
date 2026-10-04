@@ -112,6 +112,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
     selectedAgencyId =
       form.agencyId || agencies[0]?.id || currentAgency?.id || "",
     selectedAgency = agencies.find((agency) => agency.id === selectedAgencyId),
+    currencyCode = selectedAgency?.currencyCode ?? "XAF",
     financialAllowed = Boolean(selectedAgency?.financialAllowed),
     references = useVehicleReferencesQuery(selectedAgencyId);
   const vinRef = useRef<HTMLInputElement>(null),
@@ -124,13 +125,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
         agencyId: current.agencyId || agencies[0]!.id,
       }));
   }, [isOpen, agencies]);
-  useEffect(() => {
-    if (isOpen)
-      setForm((current) => ({
-        ...current,
-        locationId: String(references.data?.locations?.[0]?.id ?? ""),
-      }));
-  }, [isOpen, selectedAgencyId, references.data]);
+  useEffect(() => { if (isOpen) setForm((current) => ({...current,locationId:""})) }, [isOpen, selectedAgencyId]);
   const field =
     (name: keyof typeof initial) =>
     (
@@ -456,17 +451,19 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 ],
                 [
                   "refurbishmentCost",
-                  "Remise en état",
+                  "Remise en état HT",
                   "Saisir le coût de remise en état",
                 ],
-                ["additionalCosts", "Autres frais", "Saisir les autres frais"],
-                ["catalogPrice", "Prix catalogue", "Saisir le prix catalogue"],
-                ["salePrice", "Prix de vente", "Saisir le prix de vente"],
-                ["minimumPrice", "Prix minimum", "Saisir le prix minimum"],
+                ["transportCost", "Transport HT", "Saisir les frais de transport"],
+                ["administrativeCost", "Frais administratifs HT", "Saisir les frais administratifs"],
+                ["additionalCosts", "Autres frais HT", "Saisir les autres frais"],
+                ["catalogPrice", "Prix catalogue HT", "Saisir le prix catalogue"],
+                ["salePrice", "Prix de vente HT", "Saisir le prix de vente"],
+                ["minimumPrice", "Prix minimum HT", "Saisir le prix minimum"],
               ] as const
             ).map(([name, label, placeholder]) => (
               <label key={name} className="text-xs font-semibold">
-                {label} (XAF)
+                {label} ({currencyCode})
                 <input
                   type="number"
                   min="0"

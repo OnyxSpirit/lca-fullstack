@@ -118,8 +118,11 @@ const mapVehicle = (r: any): Vehicle => ({
     vehicleStatusFromDb[r.status as keyof typeof vehicleStatusFromDb] ??
     "COMMANDE",
   location: r.locationName ?? "",
+  locationType: r.locationType ?? undefined,
+  locationActive: r.locationActive ?? undefined,
   agencyId: s(r.agencyId),
   agencyName: r.agencyName ?? "",
+  currencyCode: r.currencyCode ?? "XAF",
   stockDays: r.entryDate
     ? Math.max(
         0,
@@ -131,6 +134,9 @@ const mapVehicle = (r: any): Vehicle => ({
   otherCostsHT: [r.additionalCosts,r.transportCost,r.administrativeCost].every(value=>value!=null)
     ? Number(r.additionalCosts)+Number(r.transportCost)+Number(r.administrativeCost)
     : undefined,
+  catalogPriceHT: n(r.catalogPrice),
+  sellingPriceHT: n(r.salePrice),
+  minimumPriceHT: optionalNumber(r.minimumPrice),
   catalogPriceTTC: n(r.catalogPrice),
   sellingPriceTTC: n(r.salePrice),
   minimumPriceTTC: optionalNumber(r.minimumPrice),
@@ -483,12 +489,15 @@ export interface VehicleFilters {
   sort?: string;
   page?: number;
   pageSize?: number;
+  locationType?: 'PARC'|'SHOWROOM'|'';
+  assignment?: string;
 }
 export interface VehicleListResult {
   items: Vehicle[];
   total: number;
   page: number;
   pageSize: number;
+  totalPages: number;
 }
 export const useVehicleListQuery = (filters: VehicleFilters = {}, requestEnabled = true) =>
   useQuery({
@@ -503,7 +512,7 @@ export const useVehicleListQuery = (filters: VehicleFilters = {}, requestEnabled
         items: any[];
         total: number;
         page: number;
-        pageSize: number;
+        pageSize: number; totalPages: number;
       }>(`/vehicles?${params}`);
       return {...data,items:data.items.map(mapVehicle)} satisfies VehicleListResult;
     },
@@ -515,9 +524,9 @@ export const useVehiclesQuery = (filters: VehicleFilters = {}, requestEnabled = 
 };
 export interface VehicleFilterOption { id:string; name:string }
 export interface VehicleModelFilterOption extends VehicleFilterOption { brandId:string }
-export const useVehicleFilterOptionsQuery=(filters:{agencyId?:string;view?:VehicleFilters['view'];brandId?:string}={},requestEnabled=true)=>useQuery({
+export const useVehicleFilterOptionsQuery=(filters:{agencyId?:string;view?:VehicleFilters['view'];brandId?:string;locationType?:string}={},requestEnabled=true)=>useQuery({
   queryKey:[...erpKeys.vehicles,'filter-options',filters],
-  queryFn:()=>{const params=new URLSearchParams();Object.entries(filters).forEach(([key,value])=>{if(value)params.set(key,value)});return apiRequest<{brands:VehicleFilterOption[];models:VehicleModelFilterOption[]}>(`/vehicles/filter-options?${params}`)},
+  queryFn:()=>{const params=new URLSearchParams();Object.entries(filters).forEach(([key,value])=>{if(value)params.set(key,value)});return apiRequest<{brands:VehicleFilterOption[];models:VehicleModelFilterOption[];locations:Array<{id:string;name:string;type:'PARC'|'SHOWROOM';agencyId:string;agencyName:string}>}>(`/vehicles/filter-options?${params}`)},
   enabled:enabled()&&requestEnabled,
 });
 export interface VehicleStats {
@@ -529,7 +538,13 @@ export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   queryFn:()=>apiRequest<VehicleStats>(`/vehicles/stats${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),
   enabled:enabled(),
 });
-export interface VehicleCreateAgency {id:string;name:string;code:string;financialAllowed:boolean}
+export const useVehicleLocationCountsQuery=(agencyId?:string)=>useQuery({queryKey:[...erpKeys.vehicles,'location-counts',agencyId],queryFn:()=>apiRequest<{total:number;park:number;showroom:number;unassigned:number}>(`/vehicles/location-counts${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),enabled:enabled()});
+export interface VehicleLocationRecord{id:string;agencyId:string;agencyName:string;name:string;type:'PARC'|'SHOWROOM';isActive:boolean}
+export const useVehicleLocationsQuery=(filters:{agencyId?:string;type?:string;active?:boolean}={},requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'locations',filters],queryFn:()=>apiRequest<VehicleLocationRecord[]>(`/vehicle-locations?${pageParams(filters)}`),enabled:enabled()&&requestEnabled});
+export const useVehicleTransferAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-agencies'],queryFn:()=>apiRequest<Array<{id:string;name:string}>>('/vehicle-transfer-agencies'),enabled:enabled()&&requestEnabled});
+export const useVehicleTransferLocationsQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-locations'],queryFn:()=>apiRequest<VehicleLocationRecord[]>('/vehicle-transfer-locations'),enabled:enabled()&&requestEnabled});
+export const useVehicleLocationActions=()=>{const qc=useQueryClient(),done=()=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles})};return{create:useMutation({mutationFn:(body:{agencyId:string;name:string;type:'PARC'|'SHOWROOM'})=>apiRequest('/vehicle-locations',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),update:useMutation({mutationFn:({id,...body}:{id:string;name?:string;isActive?:boolean})=>apiRequest(`/vehicle-locations/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done})}};
+export interface VehicleCreateAgency {id:string;name:string;code:string;currencyCode:string;financialAllowed:boolean}
 export const useVehicleCreateAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'create-agencies'],queryFn:()=>apiRequest<VehicleCreateAgency[]>('/vehicles/agencies/create'),enabled:enabled()&&requestEnabled});
 export const useSalesQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.sales,queryFn:async()=>(await apiRequest<any[]>('/sales')).map(mapSale),enabled:enabled()&&requestEnabled});
 export interface PagedResult<T>{items:T[];total:number;page:number;pageSize:number;totalPages:number}
@@ -700,7 +715,7 @@ export interface CreateSalePayload { customerId:string;vehicleId:string;agencyId
 export const useCreateSale = () => { const qc=useQueryClient();return useMutation({mutationFn:(body:CreateSalePayload)=>apiRequest('/sales',{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.customers});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.quotations})}}); };
 export const useSaleDirectTaxConfigQuery=(agencyId?:string)=>useQuery({queryKey:['sales','direct-tax-config',agencyId],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string;defaultTaxMode:'TAXABLE';defaultPriceInputMode:'HT'}>(`/sales/config/direct-tax?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(agencyId),staleTime:300_000});
 export const useVehicleWarrantyProposalQuery=(vehicleId?:string)=>useQuery({queryKey:['vehicle-warranty-proposal',vehicleId],queryFn:()=>apiRequest<WarrantyProposal>(`/vehicles/${vehicleId}/warranty-proposal`),enabled:enabled()&&Boolean(vehicleId)});
-export const useSaleVehiclePricingGuardQuery=(vehicleId?:string)=>useQuery({queryKey:['sales','vehicle-pricing-guard',vehicleId],queryFn:()=>apiRequest<{salePrice:number;minimumPrice:number}>(`/sales/vehicles/${vehicleId}/pricing-guard`),enabled:enabled()&&Boolean(vehicleId)});
+export const useSaleVehiclePricingGuardQuery=(vehicleId?:string)=>useQuery({queryKey:['sales','vehicle-pricing-guard',vehicleId],queryFn:()=>apiRequest<{salePrice:number;maxDiscount:number}>(`/sales/vehicles/${vehicleId}/pricing-guard`),enabled:enabled()&&Boolean(vehicleId)});
 export const useUpdateSaleWarranty=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string}&WarrantySelectionPayload)=>apiRequest(`/sales/${id}/warranty`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(_,input)=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:[...erpKeys.sales,input.id]})}})};
 export interface ServiceVehicleOption {id:string;vin:string;registrationNumber:string;label:string}
 export interface AdvisorCandidate {id:string;name:string}
@@ -1018,8 +1033,11 @@ export function useVehicleImages() {
         apiRequest(`/vehicles/${id}/images/${imageId}`, { method: "DELETE" }),
       onSuccess: (_, v) => { qc.invalidateQueries({ queryKey: erpKeys.vehicles }); qc.invalidateQueries({ queryKey: ["vehicles", v.id] }); },
     }),
+    reorder: useMutation({mutationFn:({id,imageIds}:{id:string;imageIds:string[]})=>apiRequest(`/vehicles/${id}/images/order`,{method:'PATCH',body:JSON.stringify({imageIds})}),onSuccess:(_,v)=>qc.invalidateQueries({queryKey:['vehicles',v.id]})}),
   };
 }
+export const useVehicleTransfer=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;toAgencyId:string;toLocationId:string|null;reason:string})=>apiRequest(`/vehicles/${id}/transfer`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['vehicles',v.id]})}})};
+export const useArchiveVehicle=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest(`/vehicles/${id}`,{method:'DELETE'}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.vehicles})})};
 export const useCreateUser = () =>
   mutation<any>(() => "/users", "POST", erpKeys.users);
 export function useCreateActivity() {

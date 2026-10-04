@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useState } from 'react';
+import React, { useDeferredValue, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Car,
@@ -14,7 +14,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { useVehicleFilterOptionsQuery, useVehicleListQuery, useVehicleStatsQuery } from '../../api/erpHooks';
+import { useVehicleFilterOptionsQuery, useVehicleListQuery, useVehicleLocationCountsQuery, useVehicleStatsQuery } from '../../api/erpHooks';
 import { useAuthStore } from '../../stores/authStore';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -39,25 +39,33 @@ export const VehiclesListPage: React.FC = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
   const [selectedModel, setSelectedModel] = useState<string>('ALL');
   const [onlyDormant, setOnlyDormant] = useState(false);
+  const [locationType,setLocationType]=useState<''|'PARC'|'SHOWROOM'>('');
+  const [assignment,setAssignment]=useState('');
+  const [page,setPage]=useState(1);
+  const pageSize=20;
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
   const deferredSearch=useDeferredValue(searchQuery);
   const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
   const implicitAgencyId=implicitVehicleAgencyFilter(permissionScope('vehicles.view'),currentAgency?.id);
-  const vehicleFilters={agencyId:implicitAgencyId,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant};
+  const vehicleFilters={agencyId:implicitAgencyId,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant,locationType,assignment,page,pageSize};
   const vehiclesQuery=useVehicleListQuery(vehicleFilters);
-  const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:implicitAgencyId,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand});
+  const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:implicitAgencyId,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand,locationType});
   const statsQuery=useVehicleStatsQuery(implicitAgencyId),stats=statsQuery.data;
+  const locationCounts=useVehicleLocationCountsQuery(implicitAgencyId).data;
   const vehicles = vehiclesQuery.data?.items ?? [];
   const filteredTotal=vehiclesQuery.data?.total??0;
-  const brands=filterOptionsQuery.data?.brands??[],models=filterOptionsQuery.data?.models??[];
+  const totalPages=Math.max(1,vehiclesQuery.data?.totalPages??1),pageNumbers=Array.from(new Set([1,totalPages,page-1,page,page+1].filter(value=>value>=1&&value<=totalPages))).sort((a,b)=>a-b);
+  const brands=filterOptionsQuery.data?.brands??[],models=filterOptionsQuery.data?.models??[],locations=filterOptionsQuery.data?.locations??[];
+  useEffect(()=>setPage(1),[deferredSearch,selectedStatus,inventoryView,selectedFuel,selectedType,selectedBrand,selectedModel,onlyDormant,locationType,assignment,implicitAgencyId]);
+  useEffect(()=>{if(vehiclesQuery.data&&page>Math.max(1,vehiclesQuery.data.totalPages))setPage(Math.max(1,vehiclesQuery.data.totalPages))},[vehiclesQuery.data,page]);
 
   const filteredVehicles = vehicles;
 
   const availableCount = stats?.availableForSale??stats?.available??0;
   const dormantCount = stats?.dormant??0;
   const totalStockValue = stats?.stockValue??0;
-  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant);
-  const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false)};
+  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant||locationType||assignment);
+  const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false);setLocationType('');setAssignment('');setPage(1)};
 
   return (
     <div className="space-y-6">
@@ -116,10 +124,10 @@ export const VehiclesListPage: React.FC = () => {
           <div>
             <span className="text-xs text-slate-500 font-medium">Valeur Marchande du Parc</span>
             <div className="text-xl font-bold text-blue-700 mt-0.5">
-              {formatCurrency(totalStockValue)}
+              {formatCurrency(totalStockValue,vehicles[0]?.currencyCode??'XAF')}
             </div>
           </div>
-          <Badge variant="primary" size="md">TTC</Badge>
+          <Badge variant="primary" size="md">Commercial</Badge>
         </div>}
 
         <div
@@ -144,6 +152,10 @@ export const VehiclesListPage: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[
+        ['',`Tous ${locationCounts?.total??0}`],['PARC',`Parc automobile ${locationCounts?.park??0}`],['SHOWROOM',`Showroom ${locationCounts?.showroom??0}`],['UNASSIGNED',`Non affectés ${locationCounts?.unassigned??0}`],
+      ].map(([key,label])=>{const active=key==='UNASSIGNED'?assignment==='unassigned':locationType===key&&!assignment;return <button key={key} type="button" onClick={()=>{if(key==='UNASSIGNED'){setLocationType('');setAssignment('unassigned')}else{setLocationType(key as ''|'PARC'|'SHOWROOM');setAssignment('')}}} className={`rounded-xl border p-3 text-xs font-bold ${active?'border-[#8f1722] bg-red-50 text-[#8f1722]':'bg-white text-slate-600'}`}>{label}</button>})}</div>
 
       {/* Filter & Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
@@ -171,6 +183,8 @@ export const VehiclesListPage: React.FC = () => {
           <select value={selectedModel} onChange={(e)=>setSelectedModel(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Modèle">
             <option value="ALL">Tous modèles</option>{models.map(model=><option key={model.id} value={model.id}>{model.name}</option>)}
           </select>
+          <select value={locationType} onChange={e=>{setLocationType(e.target.value as ''|'PARC'|'SHOWROOM');setAssignment('')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Type d’affectation"><option value="">Parc et Showroom</option><option value="PARC">Parc automobile</option><option value="SHOWROOM">Showroom</option></select>
+          <select value={assignment} onChange={e=>setAssignment(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Affectation précise"><option value="">Toutes les affectations</option><option value="unassigned">Non affecté</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name} · {location.agencyName}</option>)}</select>
           {/* Status Filter */}
           <select
             value={selectedStatus}
@@ -279,16 +293,16 @@ export const VehiclesListPage: React.FC = () => {
               {/* Price & Margin Footer */}
               <div className="p-4 pt-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Prix Vente TTC</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-medium">Prix de vente</span>
                   <span className="text-base font-bold text-blue-700">
-                    {formatCurrency(v.sellingPriceTTC)}
+                    {formatCurrency(v.sellingPriceTTC,v.currencyCode)}
                   </span>
                 </div>
 
                 {canViewFinancials&&<div className="text-right">
                   <span className="text-[10px] text-slate-400 block uppercase font-medium">Marge Cible HT</span>
                   <span className="text-xs font-bold text-emerald-600">
-                    {v.targetMarginHT==null?'—':`+${formatCurrency(v.targetMarginHT)}`}
+                    {v.targetMarginHT==null?'—':`+${formatCurrency(v.targetMarginHT,v.currencyCode)}`}
                   </span>
                 </div>}
               </div>
@@ -309,7 +323,7 @@ export const VehiclesListPage: React.FC = () => {
                   <th className="py-3 px-4">Énergie & Boîte</th>
                   <th className="py-3 px-4">Kilométrage</th>
                   <th className="py-3 px-4">Jours en Stock</th>
-                  <th className="py-3 px-4">Prix Vente TTC</th>
+                  <th className="py-3 px-4">Prix de vente</th>
                   {canViewFinancials&&<th className="py-3 px-4">Marge Cible HT</th>}
                   <th className="py-3 px-4">Statut</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -350,8 +364,8 @@ export const VehiclesListPage: React.FC = () => {
                         {v.stockDays} j
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-bold text-blue-700">{formatCurrency(v.sellingPriceTTC)}</td>
-                    {canViewFinancials&&<td className="py-3 px-4 font-bold text-emerald-600">{v.targetMarginHT==null?'—':`+${formatCurrency(v.targetMarginHT)}`}</td>}
+                    <td className="py-3 px-4 font-bold text-blue-700">{formatCurrency(v.sellingPriceTTC,v.currencyCode)}</td>
+                    {canViewFinancials&&<td className="py-3 px-4 font-bold text-emerald-600">{v.targetMarginHT==null?'—':`+${formatCurrency(v.targetMarginHT,v.currencyCode)}`}</td>}
                     <td className="py-3 px-4">
                       <StatusBadge status={v.status} type="vehicle" />
                     </td>
@@ -367,6 +381,8 @@ export const VehiclesListPage: React.FC = () => {
           </div>
         </Card>
       )}
+
+      {!vehiclesQuery.isLoading&&!vehiclesQuery.isError&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3 text-xs"><span>{filteredTotal===0?'Affichage 0 sur 0':`Affichage ${(page-1)*pageSize+1}–${Math.min(page*pageSize,filteredTotal)} sur ${filteredTotal}`}</span><div className="flex items-center gap-1"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button>{pageNumbers.map((value,index)=><React.Fragment key={value}>{index>0&&value-pageNumbers[index-1]!>1&&<span>…</span>}<Button size="xs" variant={value===page?'primary':'outline'} onClick={()=>setPage(value)}>{value}</Button></React.Fragment>)}<Button size="xs" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>}
 
       {/* New Vehicle Modal */}
       <NewVehicleModal

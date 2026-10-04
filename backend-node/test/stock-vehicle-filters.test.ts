@@ -9,8 +9,10 @@ const sales=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.m
 const request=(scope:'AGENCY'|'CONCESSION'|'GLOBAL',agencyId='10')=>({user:{sub:'1',agencyId,roles:['DYNAMIC_STOCK']},query:{},rbac:{roleId:'1',roleCode:'DYNAMIC_STOCK',isSuperAdmin:false,permissions:new Map([['vehicles.view',scope]])}}) as unknown as Request;
 
 test('STOCK-FILTER-01 conserve recherche, vue, statut, type, énergie, emplacement et stock dormant',()=>{
-  for(const token of ['request.query.search','request.query.view','request.query.status','request.query.fuel','request.query.locationId','request.query.dormant'])assert.match(source,new RegExp(token.replaceAll('.','\\.')));
+  for(const token of ['request.query.search','request.query.view','request.query.status','request.query.fuel','request.query.locationType','request.query.assignment','request.query.dormant'])assert.match(source,new RegExp(token.replaceAll('.','\\.')));
   assert.match(source,/\['status','v\.status',DB_STATUSES\],\['type','v\.vehicle_type',TYPES\]/);
+  assert.match(source,/v\.vehicle_location_id IS NULL/);
+  assert.match(source,/v\.vehicle_location_id=\?/);
 });
 test('STOCK-FILTER-02/03/04/05 marque et modèle sont des filtres SQL paramétrés et combinables',()=>{
   assert.match(source,/\[\['brandId','b\.id','marque'\],\['modelId','m\.id','modèle'\]\]/);

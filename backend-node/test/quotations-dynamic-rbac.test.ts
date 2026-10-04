@@ -36,7 +36,7 @@ test('QUOTE-07/08/09/11/12 : création verrouillée, cohérente agence, essai re
 
 test('QUOTE-13/15/16/18 : calcul backend, remise dédiée et devis émis verrouillé',()=>{
   assert.match(service,/discount>0\)await assertPermission\(request,'quotations\.discount\.manage'\)/);
-  assert.match(service,/subtotal=amount\(vehicle\.sale_price/);assert.match(service,/total=subtotal-discount/);assert.match(service,/tax_total,total/);
+  assert.match(service,/salePriceHt=amount\(vehicle\.sale_price/);assert.match(service,/calculated=calculateTaxLine/);assert.match(service,/assertVehicleMinimumPrice\(vehicle,calculated\.netHt\)/);assert.match(service,/tax_total,total/);
   assert.match(service,/Seul un devis brouillon peut être modifié/);assert.match(service,/Seul un devis brouillon peut être émis/);
 });
 
@@ -57,7 +57,7 @@ test('QUOTE-28/29/30 : conversion transactionnelle, verrouillée, idempotente et
   assert.doesNotMatch(service,/UPDATE vehicles SET status='sold'/i);
 });
 
-test('QUOTE-31/32 : rôle inconnu autorisé par permission et SUPER_ADMIN seule exception',async()=>{
+test('QUOTE-31/32 : rôle inconnu autorisé par permission et aucun bypass SUPER_ADMIN',async()=>{
   assert.equal(await assertPermission(request({'quotations.validate':'OWN'}),'quotations.validate'),'OWN');
-  assert.equal(await assertPermission(request({},true),'quotations.view'),'GLOBAL');
+  await assert.rejects(()=>assertPermission(request({},true),'quotations.view'),(error:any)=>error.status===403);
 });

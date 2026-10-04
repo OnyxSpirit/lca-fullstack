@@ -5,7 +5,7 @@ import { createApp } from '../src/app.js';
 import { pool } from '../src/config/database.js';
 import { RbacTestSessionFixture, type TestPermission, type TestScope } from './support/rbac-test-session.js';
 
-type VehicleRow={id:string;agency_id:string;vin:string;stock_number:string;registration_number:string;status:string;notes:string;created_by:string;brand_id:string;brand:string;model_id:string;model:string;version_id:string;version:string;agency_name:string;purchase_price:number;sale_price:number;catalog_price:number;minimum_price:number;refurbishment_cost:number;transport_cost:number;administrative_cost:number;additional_costs:number;archived_at:null|string;location_id:null;supplier_id:null;mileage:number;vehicle_type:string;entry_date:string;created_at:string;updated_at:string};
+type VehicleRow={id:string;agency_id:string;vin:string;stock_number:string;registration_number:string;status:string;notes:string;created_by:string;brand_id:string;brand:string;model_id:string;model:string;version_id:string;version:string;agency_name:string;purchase_price:number;sale_price:number;catalog_price:number;minimum_price:number;refurbishment_cost:number;transport_cost:number;administrative_cost:number;additional_costs:number;archived_at:null|string;location_id:null;vehicle_location_id:null|string;supplier_id:null;mileage:number;vehicle_type:string;entry_date:string;created_at:string;updated_at:string};
 const A1='11',A2='12',B1='21',U1='101';
 const concession=(agency:string)=>agency===B1?'C2':'C1';
 const seed:VehicleRow[]=[
@@ -13,11 +13,11 @@ const seed:VehicleRow[]=[
   row('202',A2,'WVWZZZ1JZXW000002','VIN-A2'),
   row('203',B1,'WVWZZZ1JZXW000003','VIN-B1'),
 ];
-function row(id:string,agency:string,vin:string,notes:string):VehicleRow{return{id,agency_id:agency,vin,stock_number:`STK-${id}`,registration_number:`REG-${id}`,status:'received',notes,created_by:U1,brand_id:'1',brand:'MarqueScope',model_id:'1',model:'ModeleScope',version_id:'1',version:'Runtime',agency_name:`Agence ${agency}`,purchase_price:10,sale_price:20,catalog_price:22,minimum_price:18,refurbishment_cost:1,transport_cost:1,administrative_cost:1,additional_costs:1,archived_at:null,location_id:null,supplier_id:null,mileage:100,vehicle_type:'used',entry_date:'2026-01-01',created_at:'2026-01-01',updated_at:'2026-01-01'}}
-let vehicles:VehicleRow[]=[];let nextId=900;
+function row(id:string,agency:string,vin:string,notes:string):VehicleRow{return{id,agency_id:agency,vin,stock_number:`STK-${id}`,registration_number:`REG-${id}`,status:'received',notes,created_by:U1,brand_id:'1',brand:'MarqueScope',model_id:'1',model:'ModeleScope',version_id:'1',version:'Runtime',agency_name:`Agence ${agency}`,purchase_price:10,sale_price:20,catalog_price:22,minimum_price:18,refurbishment_cost:1,transport_cost:1,administrative_cost:1,additional_costs:1,archived_at:null,location_id:null,vehicle_location_id:null,supplier_id:null,mileage:100,vehicle_type:'used',entry_date:'2026-01-01',created_at:'2026-01-01',updated_at:'2026-01-01'}}
+let vehicles:VehicleRow[]=[];let nextId=900,failMovementInsert=false,transactionSnapshot:VehicleRow[]=[];
 const auth=new RbacTestSessionFixture(),app=createApp();
 const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConnection.bind(pool);
-function reset(){vehicles=seed.map(item=>({...item}));nextId=900}
+function reset(){vehicles=seed.map(item=>({...item}));nextId=900;failMovementInsert=false;transactionSnapshot=[]}
 function roleRows(userId:string){const role=auth.roles.get(auth.userRoles.get(userId)??'');return role?[{id:role.id,code:role.code,is_system:0}]:[]}
 function scoped(sql:string,params:unknown[],vehicle:VehicleRow,idFirst=false){
   const whereOffset=idFirst?(sql.slice(0,sql.indexOf('v.id=?')).match(/\?/g)??[]).length:0,offset=idFirst?whereOffset+1:0;
@@ -31,7 +31,8 @@ function matching(sql:string,params:unknown[]){
   const idIndex=idFirst?(sql.slice(0,sql.indexOf('v.id=?')).match(/\?/g)??[]).length:0;
   const searchIndex=params.findIndex(value=>String(value).startsWith('%')&&String(value).endsWith('%'));
   const search=searchIndex<0?'':String(params[searchIndex]).slice(1,-1).toLowerCase();
-  return vehicles.filter(v=>!v.archived_at&&(!idFirst||v.id===String(params[idIndex]))&&scoped(sql,params,v,idFirst)&&(!search||[v.brand,v.model,v.version,v.vin,v.stock_number,v.registration_number].some(value=>String(value).toLowerCase().includes(search))));
+  const inClause=sql.match(/WHERE v\.id IN \(([^)]+)\)/),inCount=(inClause?.[1].match(/\?/g)??[]).length,inOffset=inClause?(sql.slice(0,sql.indexOf('WHERE v.id IN')).match(/\?/g)??[]).length:0,selectedIds=inClause?params.slice(inOffset,inOffset+inCount).map(String):null;
+  return vehicles.filter(v=>!v.archived_at&&(!idFirst||v.id===String(params[idIndex]))&&(!selectedIds||selectedIds.includes(v.id))&&scoped(sql,params,v,idFirst)&&(!search||[v.brand,v.model,v.version,v.vin,v.stock_number,v.registration_number].some(value=>String(value).toLowerCase().includes(search))));
 }
 function withFinancialFlag(sql:string,params:unknown[],rows:VehicleRow[]){
   if(!sql.includes('financial_allowed'))return rows;
@@ -59,26 +60,28 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   return [];
 }
 async function connectionQuery(sql:string,params:unknown[]=[]):Promise<any>{
+  if(sql.startsWith('SELECT agency_id,vehicle_location_id FROM vehicles WHERE id=? FOR UPDATE')){const v=vehicles.find(x=>x.id===String(params[0]));return v?[{agency_id:v.agency_id,vehicle_location_id:v.vehicle_location_id}]:[]}
   if(sql.startsWith('SELECT id FROM brands'))return[{id:1}];
   if(sql.startsWith('SELECT id FROM models'))return[{id:1}];
   if(sql.startsWith('SELECT id FROM versions'))return[{id:1}];
   if(sql.startsWith('INSERT INTO vehicles(')){const id=String(nextId++),agency=String(params[1]),created=row(id,agency,String(params[5]),'creation');created.purchase_price=Number(params[19]??0);vehicles.push(created);return{insertId:Number(id),affectedRows:1}}
   if(sql.startsWith('UPDATE vehicles SET stock_number=')){const v=vehicles.find(x=>x.id===String(params[1]));if(v)v.stock_number=String(params[0]);return{affectedRows:v?1:0}}
   if(sql.startsWith('UPDATE vehicles SET status=')){const v=vehicles.find(x=>x.id===String(params.at(-1)));if(v)v.status=String(params[0]);return{affectedRows:v?1:0}}
-  if(sql.startsWith('UPDATE vehicles SET agency_id=')){const v=vehicles.find(x=>x.id===String(params[2]));if(v)v.agency_id=String(params[0]);return{affectedRows:v?1:0}}
+  if(sql.startsWith('UPDATE vehicles SET agency_id=')){const v=vehicles.find(x=>x.id===String(params[2]));if(v){v.agency_id=String(params[0]);v.vehicle_location_id=params[1]==null?null:String(params[1])}return{affectedRows:v?1:0}}
   if(sql.startsWith('UPDATE vehicles SET ')&&sql.includes(' WHERE id=?')){const v=vehicles.find(x=>x.id===String(params.at(-1)));if(v){if(sql.includes('notes=?'))v.notes=String(params[0]);if(sql.includes('purchase_price=?'))v.purchase_price=Number(params[0])}return{affectedRows:v?1:0}}
   if(sql.startsWith('SELECT id FROM vehicles WHERE id=? FOR UPDATE'))return vehicles.some(v=>v.id===String(params[0]))?[{id:params[0]}]:[];
   if(sql.startsWith('SELECT COUNT(*) total')&&sql.includes('vehicle_images'))return[{total:0,max_sort:-1}];
   if(sql.startsWith('SELECT id FROM vehicle_images WHERE'))return[{id:params[0]}];
   if(sql.startsWith('SELECT * FROM vehicle_images WHERE'))return[{id:params[0],vehicle_id:params[1],file_path:null,thumbnail_path:null,is_primary:0}];
   if(sql.startsWith('DELETE FROM vehicle_images')||sql.startsWith('UPDATE vehicle_images'))return{affectedRows:1};
+  if(sql.startsWith('INSERT INTO vehicle_movements')&&failMovementInsert)throw new Error('forced movement failure');
   if(sql.startsWith('INSERT INTO')||sql.startsWith('UPDATE '))return{affectedRows:1};
   return domainQuery(sql,params);
 }
 before(()=>{
   for(const agency of [{id:A1,concessionId:'C1'},{id:A2,concessionId:'C1'},{id:B1,concessionId:'C2'}])auth.addAgency(agency);
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>[await domainQuery(sql,params),[]];
-  (pool as any).getConnection=async()=>({beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},execute:async(sql:string,params:unknown[]=[])=>[await connectionQuery(sql,params),[]]});
+  (pool as any).getConnection=async()=>({beginTransaction:async()=>{transactionSnapshot=vehicles.map(item=>({...item}))},commit:async()=>{transactionSnapshot=[]},rollback:async()=>{vehicles=transactionSnapshot.map(item=>({...item}));transactionSnapshot=[]},release:()=>{},execute:async(sql:string,params:unknown[]=[])=>[await connectionQuery(sql,params),[]]});
 });
 after(()=>{(pool as any).execute=originalExecute;(pool as any).getConnection=originalGetConnection});beforeEach(reset);
 function bearer(permissions:TestPermission[]){return`Bearer ${auth.createRbacTestSession({user:{id:U1,agencyId:A1},roleCode:`ROLE_VEHICLE_RUNTIME_${Date.now()}_${Math.random()}`,permissions}).accessToken}`}
@@ -180,5 +183,11 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
     const response=await request(app).post(`/api/vehicles/${ids[source]}/transfer`).set('Authorization',bearer([{code:'vehicles.assign_agency',scope}])).send({toAgencyId:target,reason:'Recette'});
     const sourceAllowed=allowed(scope,source),targetAllowed=scope==='GLOBAL'||scope==='CONCESSION'&&target!==B1||scope==='AGENCY'&&target===A1;
     expectStatus(response.status,sourceAllowed&&targetAllowed?200:sourceAllowed?403:404,`transfert ${scope} ${source}->${target}`);
+  });
+  test('vehicles.assign_agency rollback si le mouvement échoue après UPDATE',async()=>{
+    failMovementInsert=true;
+    const response=await request(app).post('/api/vehicles/201/transfer').set('Authorization',bearer([{code:'vehicles.assign_agency',scope:'CONCESSION'}])).send({toAgencyId:A2,reason:'Échec forcé'});
+    expectStatus(response.status,500,'rollback transfert');
+    assert.equal(vehicles.find(vehicle=>vehicle.id==='201')?.agency_id,A1,'le véhicule ne doit pas rester déplacé sans mouvement');
   });
 });

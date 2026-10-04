@@ -18,7 +18,7 @@ import {
   ArrowRight,
   UploadCloud,
 } from 'lucide-react';
-import { useVehicle360Query, useVehicleImages, useVehicleStatusMutation } from '../../api/erpHooks';
+import { useArchiveVehicle, useVehicle360Query, useVehicleImages, useVehicleStatusMutation } from '../../api/erpHooks';
 import { optimizeImage } from './NewVehicleModal';
 import { EditVehicleModal } from './EditVehicleModal';
 import { useAuthStore } from '../../stores/authStore';
@@ -34,6 +34,7 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { apiDownload } from '../../services/apiClient';
 import { openBusinessPdf } from '../../services/businessPdf';
 import { UploadModal } from '../documents/DocumentsGedPage';
+import { VehicleTransferModal } from './VehicleTransferModal';
 
 export const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +50,7 @@ export const VehicleDetailPage: React.FC = () => {
   const canUploadDocuments=can('ged.upload');
   const canChangeStatus=can('vehicles.status.update');
   const canViewFinancials=can('vehicles.financials.view');
+  const canTransfer=can('vehicles.assign_agency'),canArchive=can('vehicles.archive');
   const { setActiveQuickActionModal, addToast } = useUiStore();
 
   const vehicle = vehicleQuery.data?.vehicle;
@@ -59,6 +61,8 @@ export const VehicleDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
   const [editOpen,setEditOpen]=useState(false);
   const [documentUploadOpen,setDocumentUploadOpen]=useState(false);
+  const [transferOpen,setTransferOpen]=useState(false);
+  const archiveVehicle=useArchiveVehicle();
   const galleryImages=vehicleQuery.data?.images??[];
   const selectedImage=galleryImages.find((image:any)=>String(image.id)===selectedImageId);
   useEffect(()=>{
@@ -83,7 +87,7 @@ export const VehicleDetailPage: React.FC = () => {
   }
 
   const handleStatusChange = async (newStatus: VehicleStatus) => {
-    const status = vehicleStatusToDb[newStatus]; try{if (status) await statusMutation.mutateAsync({ id: vehicle.id, status });addToast({
+    const status = vehicleStatusToDb[newStatus],reason=vehicle.status==='RESERVE'&&newStatus==='DISPONIBLE'?window.prompt('Motif obligatoire de la libération administrative')?.trim():undefined;if(vehicle.status==='RESERVE'&&newStatus==='DISPONIBLE'&&!reason)return; try{if (status) await statusMutation.mutateAsync({ id: vehicle.id, status,reason });addToast({
       type: 'success',
       title: 'Statut du véhicule modifié',
       description: `Le véhicule est maintenant marqué comme ${newStatus}.`,
@@ -96,6 +100,8 @@ export const VehicleDetailPage: React.FC = () => {
   const addImages=async(event:React.ChangeEvent<HTMLInputElement>)=>{try{const images=await Promise.all(Array.from(event.target.files??[]).map(optimizeImage));await imageMutations.add.mutateAsync({id:vehicle.id,images:images.map(({dataUrl,name})=>({dataUrl,name}))});addToast({type:'success',title:'Galerie mise à jour',description:`${images.length} photo(s) ajoutée(s).`})}catch(error){addToast({type:'error',title:'Ajout impossible',description:error instanceof Error?error.message:'Erreur image'})}event.target.value=''};
   const setPrimaryImage=async()=>{if(!selectedImage)return;try{await imageMutations.primary.mutateAsync({id:vehicle.id,imageId:String(selectedImage.id)});addToast({type:'success',title:'Image principale mise à jour',description:'La photo sélectionnée est maintenant l’image principale.'})}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur image'})}};
   const removeSelectedImage=async()=>{if(!selectedImage||!window.confirm('Supprimer cette photo du catalogue ?'))return;try{await imageMutations.remove.mutateAsync({id:vehicle.id,imageId:String(selectedImage.id)});setSelectedImageId(null);setSelectedPhotoIndex(0);addToast({type:'success',title:'Photo supprimée',description:'La photo sélectionnée a été retirée du catalogue.'})}catch(error){addToast({type:'error',title:'Suppression impossible',description:error instanceof Error?error.message:'Erreur image'})}};
+  const moveImage=async(direction:-1|1)=>{if(!selectedImage)return;const index=galleryImages.indexOf(selectedImage),target=index+direction;if(target<0||target>=galleryImages.length)return;const ids=galleryImages.map((image:any)=>String(image.id));[ids[index],ids[target]]=[ids[target]!,ids[index]!];await imageMutations.reorder.mutateAsync({id:vehicle.id,imageIds:ids})};
+  const archive=async()=>{if(!window.confirm('Archiver ce véhicule du catalogue ?'))return;try{await archiveVehicle.mutateAsync(vehicle.id);navigate('/vehicles')}catch(error){addToast({type:'error',title:'Archivage impossible',description:error instanceof Error?error.message:'Erreur API'})}};
 
   return (
     <div className="space-y-6">
@@ -111,6 +117,7 @@ export const VehicleDetailPage: React.FC = () => {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canEdit&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
+            {canTransfer&&<Button variant="outline" size="sm" onClick={()=>setTransferOpen(true)}>Transférer</Button>}
             {/* Quick Status Selector */}
             {canChangeStatus&&manualStatusOptions.length>0&&<select
               value={vehicle.status}
@@ -130,7 +137,7 @@ export const VehicleDetailPage: React.FC = () => {
               Fiche A4
             </Button>
 
-            {canCreateSale&&<Button
+            {canCreateSale&&vehicle.status==='DISPONIBLE'&&<Button
               variant="primary"
               size="sm"
               icon={<BadgePercent className="w-4 h-4" />}
@@ -180,24 +187,24 @@ export const VehicleDetailPage: React.FC = () => {
               ))}
             </div>
           )}
-          {canManageImages&&<div className="flex flex-col sm:flex-row sm:items-center gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold text-center cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-slate-500">{selectedImage?`Photo ${galleryImages.indexOf(selectedImage)+1} sélectionnée`:'Sélectionnez une photo'}</span><Button size="xs" variant="outline" disabled={!selectedImage||Boolean(selectedImage.is_primary)} loading={imageMutations.primary.isPending} onClick={setPrimaryImage}>Définir comme principale</Button><Button size="xs" variant="outline" disabled={!selectedImage} loading={imageMutations.remove.isPending} onClick={removeSelectedImage}>Supprimer</Button></div></div>}
+          {canManageImages&&<div className="flex flex-col sm:flex-row sm:items-center gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold text-center cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-slate-500">{selectedImage?`Photo ${galleryImages.indexOf(selectedImage)+1} sélectionnée`:'Sélectionnez une photo'}</span><Button size="xs" variant="outline" disabled={!selectedImage||galleryImages.indexOf(selectedImage)===0} onClick={()=>void moveImage(-1)}>Monter</Button><Button size="xs" variant="outline" disabled={!selectedImage||galleryImages.indexOf(selectedImage)===galleryImages.length-1} onClick={()=>void moveImage(1)}>Descendre</Button><Button size="xs" variant="outline" disabled={!selectedImage||Boolean(selectedImage.is_primary)} loading={imageMutations.primary.isPending} onClick={setPrimaryImage}>Définir comme principale</Button><Button size="xs" variant="outline" disabled={!selectedImage} loading={imageMutations.remove.isPending} onClick={removeSelectedImage}>Supprimer</Button></div></div>}
         </div>
 
         {/* Commercial Highlights Card */}
         <Card className="flex flex-col justify-between">
           <div className="space-y-4">
             <div className="pb-3 border-b border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prix de Vente Concession</span>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prix de vente concession HT</span>
               <div className="text-3xl font-extrabold text-blue-700 mt-1">
-                {formatCurrency(vehicle.sellingPriceTTC)}
+                {formatCurrency(vehicle.sellingPriceHT,vehicle.currencyCode)}
               </div>
-              <span className="text-xs text-slate-500">TVA incluse ({formatCurrency(vehicle.sellingPriceTTC / 1.2)} HT)</span>
+              <span className="text-xs text-slate-500">Prix commercial hors taxes configuré pour la concession</span>
             </div>
 
             <div className="space-y-2 text-xs">
               {canViewFinancials&&<div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Marge Brute Cible HT</span>
-                <span className="font-bold text-emerald-600">{vehicle.targetMarginHT==null?'—':`+${formatCurrency(vehicle.targetMarginHT)}`}</span>
+                <span className="font-bold text-emerald-600">{vehicle.targetMarginHT==null?'—':`+${formatCurrency(vehicle.targetMarginHT,vehicle.currencyCode)}`}</span>
               </div>}
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Kilométrage</span>
@@ -213,7 +220,7 @@ export const VehicleDetailPage: React.FC = () => {
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Emplacement Parc</span>
-                <span className="font-semibold text-slate-800">{vehicle.location}</span>
+                <span className="font-semibold text-slate-800">{vehicle.location||'Non affecté'}{vehicle.locationType?` · ${vehicle.locationType==='PARC'?'Parc':'Showroom'}`:''}</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-slate-500">Fournisseur d'origine</span>
@@ -223,12 +230,12 @@ export const VehicleDetailPage: React.FC = () => {
           </div>
 
           <div className="pt-4 border-t border-slate-100 space-y-2">
-            {canCreateSale&&<Button
+            {canCreateSale&&vehicle.status==='DISPONIBLE'&&<Button
               variant="primary"
               className="w-full"
               onClick={() => setActiveQuickActionModal('sale',{vehicleId:vehicle.id})}
             >
-              Établir une Proposition Commerciale
+              Créer Vente
             </Button>}
             {canCreateRepairOrder&&<Button
               variant="outline"
@@ -335,21 +342,33 @@ export const VehicleDetailPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-xs text-slate-500 font-medium">Prix d'Achat HT</span>
-              <div className="text-lg font-bold text-slate-900 mt-1">{vehicle.purchasePriceHT==null?'—':formatCurrency(vehicle.purchasePriceHT)}</div>
+              <div className="text-lg font-bold text-slate-900 mt-1">{vehicle.purchasePriceHT==null?'—':formatCurrency(vehicle.purchasePriceHT,vehicle.currencyCode)}</div>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-xs text-slate-500 font-medium">Frais Remise en État HT</span>
-              <div className="text-lg font-bold text-amber-700 mt-1">{vehicle.refurbishCostHT==null?'—':`+${formatCurrency(vehicle.refurbishCostHT)}`}</div>
+              <div className="text-lg font-bold text-amber-700 mt-1">{vehicle.refurbishCostHT==null?'—':`+${formatCurrency(vehicle.refurbishCostHT,vehicle.currencyCode)}`}</div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-xs text-slate-500 font-medium">Transport HT</span>
+              <div className="text-lg font-bold text-amber-700 mt-1">{vehicle.transportCost==null?'—':`+${formatCurrency(vehicle.transportCost,vehicle.currencyCode)}`}</div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-xs text-slate-500 font-medium">Frais administratifs HT</span>
+              <div className="text-lg font-bold text-amber-700 mt-1">{vehicle.administrativeCost==null?'—':`+${formatCurrency(vehicle.administrativeCost,vehicle.currencyCode)}`}</div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-xs text-slate-500 font-medium">Autres frais HT</span>
+              <div className="text-lg font-bold text-amber-700 mt-1">{vehicle.additionalCosts==null?'—':`+${formatCurrency(vehicle.additionalCosts,vehicle.currencyCode)}`}</div>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-xs text-slate-500 font-medium">Prix de Revient Total HT</span>
               <div className="text-lg font-bold text-slate-900 mt-1">
-                {[vehicle.purchasePriceHT,vehicle.refurbishCostHT,vehicle.otherCostsHT].some(value=>value==null)?'—':formatCurrency(vehicle.purchasePriceHT!+vehicle.refurbishCostHT!+vehicle.otherCostsHT!)}
+                {[vehicle.purchasePriceHT,vehicle.refurbishCostHT,vehicle.otherCostsHT].some(value=>value==null)?'—':formatCurrency(vehicle.purchasePriceHT!+vehicle.refurbishCostHT!+vehicle.otherCostsHT!,vehicle.currencyCode)}
               </div>
             </div>
             <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
               <span className="text-xs text-emerald-800 font-medium">Marge Nette Cible HT</span>
-              <div className="text-lg font-bold text-emerald-700 mt-1">{vehicle.targetMarginHT==null?'—':`+${formatCurrency(vehicle.targetMarginHT)}`}</div>
+              <div className="text-lg font-bold text-emerald-700 mt-1">{vehicle.targetMarginHT==null?'—':`+${formatCurrency(vehicle.targetMarginHT,vehicle.currencyCode)}`}</div>
             </div>
           </div>
         </Card>
@@ -363,7 +382,7 @@ export const VehicleDetailPage: React.FC = () => {
           </CardHeader>
           <div className="space-y-4 text-xs">
             {vehicleQuery.data?.statusHistory?.map((event:any)=><div key={`status-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-red-100 text-red-800 flex items-center justify-center shrink-0 font-bold">●</div><div><div className="font-bold text-slate-900">Statut : {event.old_status||'entrée'} → {event.new_status}</div><p className="text-slate-500 text-[11px]">{event.reason||'Changement de statut'} · {event.changed_by_name||'Système'}</p><span className="text-[10px] text-slate-400">{formatDate(event.changed_at)}</span></div></div>)}
-            {vehicleQuery.data?.movements?.map((event:any)=><div key={`movement-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shrink-0"><ArrowRight className="w-4 h-4"/></div><div><div className="font-bold text-slate-900">Mouvement : {event.movement_type}</div><p className="text-slate-500 text-[11px]">{event.from_location_name||event.from_agency_name||'Entrée'} → {event.to_location_name||event.to_agency_name||vehicle.agencyName}</p><span className="text-[10px] text-slate-400">{formatDate(event.moved_at)}</span></div></div>)}
+            {vehicleQuery.data?.movements?.map((event:any)=><div key={`movement-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shrink-0"><ArrowRight className="w-4 h-4"/></div><div><div className="font-bold text-slate-900">Mouvement : {event.movement_type}</div><p className="text-slate-500 text-[11px]">{event.from_location_name||event.from_agency_name||'Non affecté'} → {event.to_location_name||event.to_agency_name||'Non affecté'}</p><p className="text-[11px] text-slate-500">{event.reason||'Sans motif'} · {event.performed_by_name||'Système'}</p><span className="text-[10px] text-slate-400">{formatDate(event.moved_at)}</span></div></div>)}
             {!vehicleQuery.data?.statusHistory?.length&&!vehicleQuery.data?.movements?.length&&<p className="text-slate-500">Aucun historique enregistré.</p>}
           </div>
         </Card>
@@ -384,6 +403,10 @@ export const VehicleDetailPage: React.FC = () => {
         initialEntity={{entityType:'vehicle',entityId:vehicle.id,agencyId:vehicle.agencyId,agencyName:vehicle.agencyName,label:`${vehicle.brand} ${vehicle.model} — ${vehicle.vin}`,businessId:vehicle.stockNumber}}
         onSuccess={()=>void vehicleQuery.refetch()}
       />}
+      <Card><CardHeader><CardTitle>Dossiers associés</CardTitle></CardHeader><div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">{vehicleQuery.data?.reservations?.map((item:any)=><div key={`r-${item.id}`} className="rounded border p-3 text-xs"><b>Réservation</b><p>{item.customer_name||'Client protégé'} · {item.status}</p></div>)}{vehicleQuery.data?.sales?.map((item:any)=><div key={`s-${item.id}`} className="rounded border p-3 text-xs"><b>Vente {item.sale_number}</b><p>{item.customer_name||'Client protégé'} · {item.status}</p><Link className="font-bold text-[#8f1722]" to={`/sales/${item.id}`}>Voir la vente</Link></div>)}{vehicleQuery.data?.deliveries?.map((item:any)=><div key={`d-${item.id}`} className="rounded border p-3 text-xs"><b>Livraison {item.delivery_number}</b><p>{item.status}</p><Link className="font-bold text-[#8f1722]" to={`/deliveries/${item.id}`}>Voir la livraison</Link></div>)}{vehicleQuery.data?.repairOrders?.map((item:any)=><div key={`o-${item.id}`} className="rounded border p-3 text-xs"><b>OR {item.order_number}</b><p>{item.status}</p><Link className="font-bold text-[#8f1722]" to={`/service/repair-orders/${item.id}`}>Voir l’OR</Link></div>)}{vehicleQuery.data?.warranty&&<div className="rounded border p-3 text-xs"><b>Garantie constructeur</b><p>{vehicleQuery.data.warranty.provider_name_snapshot||vehicleQuery.data.warranty.provider_name||'Fournisseur non renseigné'}</p><p>{vehicleQuery.data.warranty.status} · échéance {vehicleQuery.data.warranty.expiry_date?formatDate(vehicleQuery.data.warranty.expiry_date):'à déterminer'}</p></div>}</div></Card>
+      {canViewFinancials&&Boolean(vehicleQuery.data?.priceHistory?.length)&&<Card><CardHeader><CardTitle>Historique des prix</CardTitle></CardHeader><div className="divide-y text-xs">{vehicleQuery.data.priceHistory.map((item:any)=><div key={item.id} className="grid gap-1 py-3 sm:grid-cols-4"><span>{formatDate(item.changed_at)}</span><span>Vente : {formatCurrency(Number(item.old_sale_price),vehicle.currencyCode)} → {formatCurrency(Number(item.new_sale_price),vehicle.currencyCode)}</span><span>Minimum : {formatCurrency(Number(item.old_minimum_price),vehicle.currencyCode)} → {formatCurrency(Number(item.new_minimum_price),vehicle.currencyCode)}</span><span>{item.reason||'Sans motif'} · {item.changed_by_name||'Système'}</span></div>)}</div></Card>}
+      {canArchive&&!['RESERVE','VENDU','LIVRE'].includes(vehicle.status)&&<div className="flex justify-end"><Button variant="danger" loading={archiveVehicle.isPending} onClick={()=>void archive()}>Archiver le véhicule</Button></div>}
+      <VehicleTransferModal open={transferOpen} close={()=>setTransferOpen(false)} vehicle={vehicle}/>
       <EditVehicleModal isOpen={editOpen} onClose={()=>setEditOpen(false)} vehicle={vehicle}/>
     </div>
   );

@@ -9,7 +9,7 @@ export interface DashboardOverview {
   agencyId:string|null;
   permissions:{revenue:boolean;margin:boolean;sales:boolean;crm:boolean;vehicles:boolean;showroom:boolean;deliveries:boolean;workshop:boolean};
   revenue:DashboardComparison|null;
-  grossMargin:DashboardComparison|null;
+  grossMargin:(DashboardComparison&{costSource:'HISTORICAL_SNAPSHOT'|'CURRENT_COST_FALLBACK';fallbackItems:number;snapshotItems:number})|null;
   sales:(DashboardComparison&{currentMonth:number;previousMonth:number})|null;
   crm:{activeLeads:number;scheduledTestDrivesThisWeek:number;deltaPercent:number|null}|null;
   vehicles:{total:number;available:number;reserved:number;sold:number;dormant:number;deltaPercent:number|null}|null;

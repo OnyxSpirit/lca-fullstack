@@ -112,7 +112,7 @@ export const DashboardPage: React.FC = () => {
           <div className="text-2xl font-bold text-white tracking-tight">
             {overview?.revenue?formatCurrency(overview.revenue.current):loadingValue}
           </div>
-          {canViewMargin&&<div className="text-xs text-zinc-400 mt-1">Marge réelle : {overview?.grossMargin?formatCurrency(overview.grossMargin.current):loadingValue}</div>}
+          {canViewMargin&&<div className="text-xs text-zinc-400 mt-1">Marge {overview?.grossMargin?.costSource==='CURRENT_COST_FALLBACK'?'indicative':'historisée'} : {overview?.grossMargin?formatCurrency(overview.grossMargin.current):loadingValue}</div>}
         </div>}
 
         {/* Metric 2: Ventes du Mois */}

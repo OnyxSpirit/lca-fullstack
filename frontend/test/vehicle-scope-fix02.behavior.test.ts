@@ -24,7 +24,7 @@ test('changement agence: toutes les valeurs financières sont effacées',()=>{
 test('UI: agences et finance proviennent du contexte scope-aware du backend',()=>{
   const modal=read('../src/modules/vehicles/NewVehicleModal.tsx'),hooks=read('../src/api/erpHooks.ts'),list=read('../src/modules/vehicles/VehiclesListPage.tsx');
   assert.match(hooks,/\/vehicles\/agencies\/create/);
-  assert.match(modal,/financialAllowed&&<section/);
+  assert.match(modal,/financialAllowed\s*&&\s*\(/);
   assert.match(modal,/vehiclePayloadForAgency/);
   assert.match(modal,/clearVehicleFinancialValues/);
   assert.match(list,/implicitVehicleAgencyFilter\(permissionScope\('vehicles\.view'\)/);

@@ -189,15 +189,25 @@ export interface Vehicle {
   co2Emissions: number; // g/km
   status: VehicleStatus;
   location: string;
+  locationType?: 'PARC'|'SHOWROOM';
+  locationActive?: boolean;
   agencyId: string;
   agencyName: string;
+  currencyCode: string;
   stockDays: number;
   // Financials
   purchasePriceHT?: number;
   refurbishCostHT?: number; // Frais de remise en état
   otherCostsHT?: number;
+  /** Canonical vehicle commercial amounts, stored excluding tax. */
+  catalogPriceHT: number;
+  sellingPriceHT: number;
+  minimumPriceHT?: number;
+  /** @deprecated Compatibility aliases; values are HT despite the old name. */
   catalogPriceTTC: number;
+  /** @deprecated Compatibility alias; value is HT despite the old name. */
   sellingPriceTTC: number;
+  /** @deprecated Compatibility alias; value is HT despite the old name. */
   minimumPriceTTC?: number;
   targetMarginHT?: number;
   // Photos & media

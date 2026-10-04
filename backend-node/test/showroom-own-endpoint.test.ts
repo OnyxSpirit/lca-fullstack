@@ -26,6 +26,13 @@ const visible=(sql:string,params:unknown[],visit:Visit)=>{
   if(sql.includes('sv.agency_id=?'))return visit.agency_id===String(params[sql.includes('sv.id=?')?1:0]);
   return true;
 };
+const visibleDrive=(sql:string,params:unknown[])=>{
+  const drive={id:'9',visit_id:'1',agency_id:'1',advisor_id:'102',status:'in_progress',visitor_name:'Client Test'};
+  if(drive.id!==String(params[0]))return null;
+  if(sql.includes('td.agency_id=? AND td.advisor_id=?')&&(drive.agency_id!==String(params[1])||drive.advisor_id!==String(params[2])))return null;
+  if(sql.includes('td.agency_id=?')&&drive.agency_id!==String(params[1]))return null;
+  return drive;
+};
 
 before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
@@ -34,7 +41,7 @@ before(()=>{
     if(sql.includes('SELECT p.code,rp.scope'))return [permissions[String(params[0]).replace('role-','')]??[],[]];
     if(sql.includes('FROM agencies target'))return [[{id:params[1],is_active:1,concession_id:params[1],actor_concession_id:params[0]}],[]];
     if(sql.includes('FROM showroom_visits sv'))return [visits.filter(visit=>visible(sql,params,visit)).map(visit=>({...visit,assigned_user_name:null,greeted_by_name:null,wait_minutes:0,active_test_drive_id:null,active_test_drive_mileage:null})),[]];
-    if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv'))return [[{id:'9',visit_id:'1',agency_id:'1',advisor_id:'102',status:'in_progress',visitor_name:'Client Test'}],[]];
+    if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv')){const drive=visibleDrive(sql,params);return [drive?[drive]:[],[]]}
     if(sql.includes('FROM users u JOIN user_roles'))return [[{id:params[0]}],[]];
     if(sql.includes('FROM opportunities o WHERE'))return [[],[]];
     return [[],[]];
@@ -42,7 +49,7 @@ before(()=>{
   (pool as any).getConnection=async()=>({
     beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},
     execute:async(sql:string,params:unknown[]=[])=>{
-      if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv'))return [[{id:'9',visit_id:'1',agency_id:'1',advisor_id:'102',status:'in_progress',visitor_name:'Client Test',mileage_out:100,vehicle_id:'5',lead_id:null,customer_id:null}],[]];
+      if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv')){const drive=visibleDrive(sql,params);return [drive?[{...drive,mileage_out:100,vehicle_id:'5',lead_id:null,customer_id:null}]:[],[]]}
       if(sql.startsWith('UPDATE showroom_test_drives'))driveWrites++;
       if(sql.includes('SELECT COALESCE(MAX(queue_number)'))return [[{next_number:nextId}],[]];
       if(sql.startsWith('INSERT INTO showroom_visits')){
@@ -125,8 +132,8 @@ test('showroom.visitor.update AGENCY charge la visite même avec showroom.view O
 
 test('un conseiller OWN ne peut ni annuler ni terminer l’essai d’un autre',async()=>{
   const cancel=await request(app).patch('/api/showroom/test-drives/9/cancel').set('Authorization',call('101').auth).send({reason:'Test'});
-  assert.equal(cancel.status,403);
+  assert.equal(cancel.status,404);
   const complete=await request(app).patch('/api/showroom/test-drives/9/complete').set('Authorization',call('101').auth).send({mileageIn:120});
-  assert.equal(complete.status,403);
+  assert.equal(complete.status,404);
   assert.equal(driveWrites,0);
 });

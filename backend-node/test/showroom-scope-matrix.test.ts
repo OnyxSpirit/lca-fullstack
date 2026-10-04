@@ -34,6 +34,7 @@ let visits:Visit[]=[];
 let drives:Drive[]=[];
 let nextVisit=900;
 let nextDrive=950;
+let leadOwnerOverrides:Record<string,string>={};
 
 function visitRow(resource:typeof resources[number],status='in_progress'):Visit{
   return {id:resource.id,agency_id:resource.agencyId,assigned_user_id:resource.ownerId,greeted_by:resource.ownerId,status,visitor_name:`Visiteur ${resource.id}`,phone:null,reason:'Recette',preferred_model:null,vehicle_id:null,lead_id:null,customer_id:null,queue_number:Number(resource.id),arrival_at:new Date().toISOString(),assigned_at:null,completed_at:null,cancellation_reason:null,notes:null,outcome:null};
@@ -41,7 +42,7 @@ function visitRow(resource:typeof resources[number],status='in_progress'):Visit{
 function resetDomain(){
   visits=resources.map(resource=>visitRow(resource));
   drives=resources.slice(0,3).map(resource=>({id:driveByAgency[resource.agencyId],visit_id:resource.id,agency_id:resource.agencyId,advisor_id:resource.ownerId,status:'in_progress',mileage_out:100,vehicle_id:vehicleByAgency[resource.agencyId],lead_id:null,customer_id:null,visitor_name:`Visiteur ${resource.id}`}));
-  nextVisit=900;nextDrive=950;
+  nextVisit=900;nextDrive=950;leadOwnerOverrides={};
 }
 function decorated(visit:Visit){return {...visit,assigned_user_name:null,greeted_by_name:null,vehicle_label:null,wait_minutes:0,active_test_drive_id:null,active_test_drive_mileage:null}}
 function concession(agency:string){return agency===B1?'C2':'C1'}
@@ -84,7 +85,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.includes('FROM vehicles WHERE id=? AND agency_id=?')){const id=String(params[0]),agency=String(params[1]);return vehicleByAgency[agency]===id?[{id,mileage:100,status:'available',agency_id:agency}]:[]}
   if(sql.includes('FROM leads l JOIN opportunities o')){
     const id=String(params[0]),agency=agencyByLead[id];
-    return agency?[{id,customer_id:null,first_name:'Prospect',last_name:id,company_name:null,phone:null,opportunity_id:`5${id}`,stage:'appointment',assigned_user_id:assigneeByAgency[agency],agency_id:agency,title:'Essai'}]:[];
+    return agency?[{id,customer_id:null,first_name:'Prospect',last_name:id,company_name:null,phone:null,opportunity_id:`5${id}`,stage:'appointment',assigned_user_id:leadOwnerOverrides[id]??assigneeByAgency[agency],agency_id:agency,title:'Essai'}]:[];
   }
   if(sql.includes('FROM opportunities o WHERE'))return [];
   if(sql==='SELECT concession_id FROM agencies WHERE id=?')return [{concession_id:concession(String(params[0]))}];
@@ -189,7 +190,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
     }
   });
 
-  for(const operation of ['start','complete','cancel'] as const)for(const scope of ['AGENCY','CONCESSION','GLOBAL'] as const)for(const resource of resources.slice(0,3)){
+  for(const operation of ['start','complete','cancel'] as const)for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const resource of resources.slice(0,3)){
     test(`essai ${operation} ${scope} -> ${resource.agencyId}`,async()=>{
       const token=bearer([{code:operation==='complete'?'showroom.status.update':'showroom.visitor.update',scope}]);
       const response=operation==='start'
@@ -197,7 +198,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
         :operation==='complete'
           ?await request(app).patch(`/api/showroom/test-drives/${driveByAgency[resource.agencyId]}/complete`).set('Authorization',token).send({mileageIn:110})
           :await request(app).patch(`/api/showroom/test-drives/${driveByAgency[resource.agencyId]}/cancel`).set('Authorization',token).send({reason:'Recette'});
-      const scopeAllows=scope==='GLOBAL'||scope==='CONCESSION'&&resource.agencyId!==B1||scope==='AGENCY'&&resource.agencyId===A1;
+      const scopeAllows=scope==='GLOBAL'||scope==='CONCESSION'&&resource.agencyId!==B1||scope==='AGENCY'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
       const expected=operation==='start'&&scopeAllows&&resource.agencyId!==A1?400:scopeAllows?(operation==='start'?201:200):404;
       expectStatus(response.status,expected,`${operation} ${scope} ${resource.agencyId}`);
     });
@@ -214,5 +215,13 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
   test('démarrage CRM exige réellement la permission secondaire crm.test_drive.create',async()=>{
     const response=await request(app).post('/api/showroom/crm/leads/401/test-drives').set('Authorization',bearer([{code:'showroom.visitor.update',scope:'AGENCY'}])).send({vehicleId:'201',licenseNumber:'PERMIS',mileageOut:100});
     expectStatus(response.status,403,'permission composite absente');
+  });
+  test('CRM-OWN-01 applique la propriété du commercial sans casser le démarrage autorisé',async()=>{
+    const token=bearer([{code:'showroom.visitor.update',scope:'OWN'},{code:'crm.test_drive.create',scope:'OWN'}]);
+    const other=await request(app).post('/api/showroom/crm/leads/401/test-drives').set('Authorization',token).send({vehicleId:'201',licenseNumber:'PERMIS',mileageOut:100});
+    expectStatus(other.status,403,'CRM OWN autre commercial');
+    leadOwnerOverrides['401']=U1;
+    const own=await request(app).post('/api/showroom/crm/leads/401/test-drives').set('Authorization',token).send({vehicleId:'201',licenseNumber:'PERMIS',mileageOut:100});
+    expectStatus(own.status,201,'CRM OWN commercial propriétaire');
   });
 });

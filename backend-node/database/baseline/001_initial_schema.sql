@@ -903,6 +903,7 @@ CREATE TABLE showroom_visits (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     customer_id BIGINT UNSIGNED NULL,
     lead_id BIGINT UNSIGNED NULL,
+    origin ENUM('showroom','crm') NOT NULL DEFAULT 'showroom',
     visitor_name VARCHAR(200) NULL,
     phone VARCHAR(50) NULL,
     reason VARCHAR(255) NULL,
@@ -913,7 +914,7 @@ CREATE TABLE showroom_visits (
     agency_id BIGINT UNSIGNED NOT NULL,
     queue_number INT UNSIGNED NULL,
     status ENUM('waiting','assigned','in_progress','completed','cancelled') NOT NULL DEFAULT 'waiting',
-    outcome ENUM('pending','lead_created','quotation','sale','no_interest','follow_up') NOT NULL DEFAULT 'pending',
+    outcome ENUM('pending','lead_created','quotation','sale','no_interest','follow_up','crm_test_drive') NOT NULL DEFAULT 'pending',
     arrival_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     assigned_at DATETIME NULL,
     completed_at DATETIME NULL,
@@ -923,6 +924,7 @@ CREATE TABLE showroom_visits (
     INDEX idx_showroom_agency_status_arrival (agency_id,status,arrival_at),
     INDEX idx_showroom_phone (phone),
     INDEX idx_showroom_lead (lead_id),
+    INDEX idx_showroom_origin_status (origin,status),
     CONSTRAINT fk_visit_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
     CONSTRAINT fk_showroom_lead FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
     CONSTRAINT fk_visit_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL,
@@ -2017,6 +2019,6 @@ CREATE INDEX idx_part_stock ON parts(current_stock, min_stock);
 CREATE INDEX idx_invoice_status_due ON invoices(status, due_date);
 CREATE INDEX idx_payment_date ON payments(payment_date);
 
--- Le baseline représente directement l'état consolidé au niveau 050.
+-- Le baseline représente directement l'état consolidé au niveau 052.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (51,'baseline_001_051',REPEAT('0',64));
+VALUES (52,'baseline_001_052',REPEAT('0',64));

@@ -865,6 +865,7 @@ const mapShowroom = (r: any) => ({
   assignedUserId: s(r.assignedUserId),
   customerId: s(r.customerId),
   leadId: s(r.leadId),
+  origin: r.origin === "crm" ? "crm" : "showroom",
   vehicleId: s(r.vehicleId),
   vehicleLabel: r.vehicleLabel ?? "",
   queueNumber: n(r.queueNumber),

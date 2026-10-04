@@ -271,8 +271,6 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
             >
               <option value="new">Véhicule neuf (VN)</option>
               <option value="used">Véhicule d’occasion (VO)</option>
-              <option value="demo">Démonstration</option>
-              <option value="courtesy">Courtoisie</option>
             </select>
           </label>
           <label className="text-xs font-semibold">

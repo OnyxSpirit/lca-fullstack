@@ -130,6 +130,13 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
     const response=await request(app).post('/api/vehicles').set('Authorization',bearer([{code:'vehicles.create',scope:'AGENCY'}])).send({vin:'WVWZZZ1JZXW009098',brand:'Runtime',model:'Scope',agencyId:A1,status:'received',purchasePrice:999,images:[{name:'runtime.jpg',dataUrl:'data:image/jpeg;base64,/9j/2wE='}]});
     expectStatus(response.status,403,'création financière sans permission secondaire');
   });
+  test('vehicles.create refuse les anciennes natures demo et courtesy',async()=>{
+    const token=bearer([{code:'vehicles.create',scope:'AGENCY'}]);
+    for(const [vehicleType,vin] of [['demo','WVWZZZ1JZXW009096'],['courtesy','WVWZZZ1JZXW009097']]){
+      const response=await request(app).post('/api/vehicles').set('Authorization',token).send({vin,brand:'Runtime',model:'Scope',agencyId:A1,status:'received',vehicleType});
+      expectStatus(response.status,400,`création ${vehicleType}`);assert.match(response.body.message,/VN ou VO/);
+    }
+  });
 
   for(const permission of ['vehicles.update','vehicles.status.update','vehicles.archive','vehicles.images.manage'] as const)for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`${permission} ${scope}: ${agency}`,async()=>{
     const token=bearer([{code:permission,scope}]),id=ids[agency];

@@ -10,7 +10,7 @@ const request=(scope:'AGENCY'|'CONCESSION'|'GLOBAL',agencyId='10')=>({user:{sub:
 
 test('STOCK-FILTER-01 conserve recherche, vue, statut, type, énergie, emplacement et stock dormant',()=>{
   for(const token of ['request.query.search','request.query.view','request.query.status','request.query.fuel','request.query.locationType','request.query.assignment','request.query.dormant'])assert.match(source,new RegExp(token.replaceAll('.','\\.')));
-  assert.match(source,/\['status','v\.status',DB_STATUSES\],\['type','v\.vehicle_type',TYPES\]/);
+  assert.match(source,/\['status','v\.status',DB_STATUSES\],\['type','v\.vehicle_type',ACTIVE_TYPES\]/);
   assert.match(source,/v\.vehicle_location_id IS NULL/);
   assert.match(source,/v\.vehicle_location_id=\?/);
 });

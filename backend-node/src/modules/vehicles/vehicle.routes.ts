@@ -14,7 +14,7 @@ import {permissionScopePredicate} from '../rbac/scope-intersection.js';
 export const vehicleRouter=Router();
 const DB_STATUSES=['ordered','in_transit','received','preparation','available','reserved','sold','delivered'];
 export const COMMERCIAL_PARK_STATUSES=['received','preparation','available','reserved'] as const;
-const TYPES=['new','used','demo','courtesy'];
+const ACTIVE_TYPES=['new','used'];
 export const VEHICLE_FINANCIAL_FIELDS=['purchasePrice','refurbishmentCost','transportCost','administrativeCost','additionalCosts','catalogPrice','salePrice','minimumPrice'] as const;
 const idOf=(value:string|string[]|undefined)=>{const id=Array.isArray(value)?value[0]:value;if(!id||!/^[1-9]\d*$/.test(id))throw new HttpError(400,'Identifiant véhicule invalide');return id;};
 const txt=(value:unknown,max=255)=>String(value??'').trim().slice(0,max);
@@ -29,6 +29,7 @@ const assertAgencyPermissionScope=async(request:Request,permission:string,target
 const agency=async(request:Request,permission:string,requested?:unknown)=>{const current=request.user?.agencyId,target=String(requested??current??'');if(!target)throw new HttpError(403,'Aucune agence associée');await assertAgencyPermissionScope(request,permission,target);const[row]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE id=? AND is_active=TRUE',[target]);if(!row)throw new HttpError(400,'Agence invalide ou inactive');return target;};
 const hasFinancialPayload=(body:Record<string,unknown>)=>VEHICLE_FINANCIAL_FIELDS.some(field=>Object.hasOwn(body,field));
 const jsonField=<T>(value:unknown,fallback:T):T=>{if(value==null||value==='')return fallback;if(typeof value!=='string')return value as T;try{return JSON.parse(value) as T}catch{throw new HttpError(400,'Champ JSON invalide')}};
+export function vehicleInventoryViewSql(view:string){if(view==='active')return " AND v.status NOT IN('sold','delivered')";if(view==='sold')return " AND v.status IN('sold','delivered')";if(view==='all')return'';throw new HttpError(400,'Vue de stock invalide')}
 
 vehicleRouter.use('/vehicles',(request,_response,next)=>{
   if(request.method!=='POST'||request.path!=='/')return next();
@@ -91,7 +92,9 @@ vehicleRouter.get('/vehicles/stats',requirePermission('vehicles.view'),asyncHand
 }));
 
 vehicleRouter.get('/vehicles/location-counts',requirePermission('vehicles.view'),asyncHandler(async(request,response)=>{
-  const scoped=vehicleScope(request,'vehicles.view'),[row]=await query<RowDataPacket[]>(`SELECT COUNT(*) total,SUM(vl.type='PARC') park,SUM(vl.type='SHOWROOM') showroom,SUM(v.vehicle_location_id IS NULL) unassigned FROM vehicles v LEFT JOIN vehicle_locations vl ON vl.id=v.vehicle_location_id WHERE v.archived_at IS NULL AND ${scoped.sql}`,scoped.params);
+  const scoped=vehicleScope(request,'vehicles.view'),view=txt(request.query.view)||'active';
+  const viewSql=vehicleInventoryViewSql(view);
+  const [row]=await query<RowDataPacket[]>(`SELECT COUNT(*) total,SUM(vl.type='PARC') park,SUM(vl.type='SHOWROOM') showroom,SUM(v.vehicle_location_id IS NULL) unassigned FROM vehicles v LEFT JOIN vehicle_locations vl ON vl.id=v.vehicle_location_id WHERE v.archived_at IS NULL AND ${scoped.sql}${viewSql}`,scoped.params);
   response.json({total:Number(row?.total??0),park:Number(row?.park??0),showroom:Number(row?.showroom??0),unassigned:Number(row?.unassigned??0)});
 }));
 
@@ -120,8 +123,7 @@ vehicleRouter.get('/vehicle-references',requirePermission('vehicles.view'),async
 vehicleRouter.get('/vehicles/filter-options',requirePermission('vehicles.view'),asyncHandler(async(request,response)=>{
   const scoped=vehicleScope(request,'vehicles.view');
   const view=txt(request.query.view)||'active';
-  if(!['active','sold','all'].includes(view))throw new HttpError(400,'Vue de stock invalide');
-  const viewSql=view==='active'?" AND v.status NOT IN('sold','delivered')":view==='sold'?" AND v.status IN('sold','delivered')":'';
+  const viewSql=vehicleInventoryViewSql(view);
   const brandId=txt(request.query.brandId);
   if(brandId&&!/^[1-9]\d*$/.test(brandId))throw new HttpError(400,'Filtre marque invalide');
   const locationType=txt(request.query.locationType);if(locationType&&!['PARC','SHOWROOM'].includes(locationType))throw new HttpError(400,"Type d'affectation invalide");
@@ -136,9 +138,9 @@ vehicleRouter.get('/vehicles/filter-options',requirePermission('vehicles.view'),
 vehicleRouter.get('/vehicles',requirePermission('vehicles.view'),asyncHandler(async(request,response)=>{
   const scoped=vehicleScope(request,'vehicles.view'),clauses=[scoped.sql,'v.archived_at IS NULL'],params=[...scoped.params];
   const requestedStatus=txt(request.query.status),view=txt(request.query.view)||'active';
-  if(!['active','sold','all'].includes(view))throw new HttpError(400,'Vue de stock invalide');
+  vehicleInventoryViewSql(view);
   if(!requestedStatus){if(view==='active')clauses.push("v.status NOT IN('sold','delivered')");if(view==='sold')clauses.push("v.status IN('sold','delivered')");}
-  for(const [key,column,allowed] of [['status','v.status',DB_STATUSES],['type','v.vehicle_type',TYPES]] as const){const value=txt(request.query[key]);if(value){if(!allowed.includes(value as never))throw new HttpError(400,`Filtre ${key} invalide`);clauses.push(`${column}=?`);params.push(value)}}
+  for(const [key,column,allowed] of [['status','v.status',DB_STATUSES],['type','v.vehicle_type',ACTIVE_TYPES]] as const){const value=txt(request.query[key]);if(value){if(!allowed.includes(value as never))throw new HttpError(400,`Filtre ${key} invalide`);clauses.push(`${column}=?`);params.push(value)}}
   for(const [key,column,label] of [['brandId','b.id','marque'],['modelId','m.id','modèle']] as const){const value=txt(request.query[key]);if(value){if(!/^[1-9]\d*$/.test(value))throw new HttpError(400,`Filtre ${label} invalide`);clauses.push(`${column}=?`);params.push(value)}}
   const fuel=txt(request.query.fuel);if(fuel){clauses.push('v.fuel_type=?');params.push(fuel)}const locationType=txt(request.query.locationType);if(locationType){if(!['PARC','SHOWROOM'].includes(locationType))throw new HttpError(400,"Type d'affectation invalide");clauses.push('vl.type=?');params.push(locationType)}const assignment=txt(request.query.assignment);if(assignment==='unassigned')clauses.push('v.vehicle_location_id IS NULL');else if(assignment){if(!/^[1-9]\d*$/.test(assignment))throw new HttpError(400,'Affectation invalide');clauses.push('v.vehicle_location_id=?');params.push(assignment)}const dormant=txt(request.query.dormant);if(dormant==='true')clauses.push('v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)');const search=txt(request.query.search,120);if(search){const term=`%${search}%`;clauses.push(`(b.name LIKE ? OR m.name LIKE ? OR ve.name LIKE ? OR v.vin LIKE ? OR v.stock_number LIKE ? OR v.registration_number LIKE ?)`);params.push(term,term,term,term,term,term)}
   const requestedPage=Math.max(1,Number(request.query.page)||1),pageSize=Math.min(100,Math.max(1,Number(request.query.pageSize)||20)),order=({oldest:'v.entry_date ASC,v.id ASC',price_asc:'v.sale_price ASC,v.id ASC',price_desc:'v.sale_price DESC,v.id DESC',mileage:'v.mileage ASC,v.id ASC'} as Record<string,string>)[txt(request.query.sort)]??'v.created_at DESC,v.id DESC',filterFrom='FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN vehicle_locations vl ON vl.id=v.vehicle_location_id';
@@ -173,7 +175,7 @@ vehicleRouter.get('/vehicles/:id/360',requirePermission('vehicles.view'),asyncHa
 vehicleRouter.post('/vehicles',requirePermission('vehicles.create'),asyncHandler(async(request,response)=>{
   const vin=String(request.body.vin??'').trim().toUpperCase();if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))throw new HttpError(400,'Le VIN doit contenir 17 caractères valides');
   const brandName=txt(request.body.brand,120),modelName=txt(request.body.model,120),versionName=txt(request.body.version,150)||'Standard';if(!brandName||!modelName)throw new HttpError(400,'La marque et le modèle sont obligatoires');
-  const vehicleType=txt(request.body.vehicleType)||'new';if(!TYPES.includes(vehicleType))throw new HttpError(400,'Type de véhicule invalide');const initialStatus=txt(request.body.status)||'received';if(!DB_STATUSES.includes(initialStatus))throw new HttpError(400,'Statut initial invalide');
+  const vehicleType=txt(request.body.vehicleType)||'new';if(!ACTIVE_TYPES.includes(vehicleType))throw new HttpError(400,'Le type doit être VN ou VO');const initialStatus=txt(request.body.status)||'received';if(!DB_STATUSES.includes(initialStatus))throw new HttpError(400,'Statut initial invalide');
   const agencyId=await agency(request,'vehicles.create',request.body.agencyId);if(hasFinancialPayload(request.body))await assertAgencyPermissionScope(request,'vehicles.financials.view',agencyId);const featureNames=jsonField<string[]>(request.body.features,[]).map(value=>txt(value,150)).filter(Boolean);
   assertCostTotal(['purchasePrice','refurbishmentCost','transportCost','administrativeCost','additionalCosts'].map(field=>amount(request.body[field],field)));
   const result=await withStagedVehicleImages(jsonField<VehicleImageInput[]>(request.body.images,[]),staged=>transaction(async connection=>{
@@ -192,7 +194,8 @@ vehicleRouter.post('/vehicles',requirePermission('vehicles.create'),asyncHandler
 vehicleRouter.patch('/vehicles/:id',requirePermission('vehicles.update'),asyncHandler(async(request,response)=>{
   const id=idOf(request.params.id),before=await accessible(id,request,'vehicles.update');
   if(Object.hasOwn(request.body,'locationId'))throw new HttpError(409,"Utilisez l'action Transférer pour modifier l'affectation physique");
-  const allowed:Record<string,string>={registrationNumber:'registration_number',bodyType:'body_type',year:'year',firstRegistrationDate:'first_registration_date',color:'color',interiorColor:'interior_color',fuelType:'fuel_type',engine:'engine',transmission:'transmission',fiscalPower:'fiscal_power',realPower:'real_power',co2Emissions:'co2_emissions',mileage:'mileage',supplierId:'supplier_id',notes:'notes'};
+  if(Object.hasOwn(request.body,'vehicleType')&&!ACTIVE_TYPES.includes(txt(request.body.vehicleType)))throw new HttpError(400,'Le type doit être VN ou VO');
+  const allowed:Record<string,string>={vehicleType:'vehicle_type',registrationNumber:'registration_number',bodyType:'body_type',year:'year',firstRegistrationDate:'first_registration_date',color:'color',interiorColor:'interior_color',fuelType:'fuel_type',engine:'engine',transmission:'transmission',fiscalPower:'fiscal_power',realPower:'real_power',co2Emissions:'co2_emissions',mileage:'mileage',supplierId:'supplier_id',notes:'notes'};
   const numericFields=new Set(['year','fiscalPower','realPower','co2Emissions','mileage','supplierId']);
   const amountFields=new Set<string>(VEHICLE_FINANCIAL_FIELDS);
   if(hasFinancialPayload(request.body)){await assertAgencyPermissionScope(request,'vehicles.financials.view',String(before.agency_id));Object.assign(allowed,{purchasePrice:'purchase_price',refurbishmentCost:'refurbishment_cost',transportCost:'transport_cost',administrativeCost:'administrative_cost',additionalCosts:'additional_costs',catalogPrice:'catalog_price',salePrice:'sale_price',minimumPrice:'minimum_price'})}

@@ -51,7 +51,7 @@ export const VehiclesListPage: React.FC = () => {
   const vehiclesQuery=useVehicleListQuery(vehicleFilters);
   const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:implicitAgencyId,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand,locationType});
   const statsQuery=useVehicleStatsQuery(implicitAgencyId),stats=statsQuery.data;
-  const locationCounts=useVehicleLocationCountsQuery(implicitAgencyId).data;
+  const locationCounts=useVehicleLocationCountsQuery(implicitAgencyId,inventoryView).data;
   const vehicles = vehiclesQuery.data?.items ?? [];
   const filteredTotal=vehiclesQuery.data?.total??0;
   const totalPages=Math.max(1,vehiclesQuery.data?.totalPages??1),pageNumbers=Array.from(new Set([1,totalPages,page-1,page,page+1].filter(value=>value>=1&&value<=totalPages))).sort((a,b)=>a-b);
@@ -71,7 +71,7 @@ export const VehiclesListPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Parc & Stock Véhicules (VN / VO)"
-        subtitle="Catalogue de véhicules neufs, occasions et démonstration en stock concession."
+        subtitle="Catalogue des véhicules neufs et d’occasion en stock concession."
         breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Commercial' }, { label: 'Stock Véhicules' }]}
         actions={
           <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ export const VehiclesListPage: React.FC = () => {
             <option value="active">Stock actif</option><option value="sold">Vendus / livrés</option><option value="all">Tous les véhicules</option>
           </select>
           <select value={selectedType} onChange={(e)=>setSelectedType(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium">
-            <option value="ALL">Tous types</option><option value="new">VN</option><option value="used">VO</option><option value="demo">Démonstration</option><option value="courtesy">Courtoisie</option>
+            <option value="ALL">Tous types</option><option value="new">VN</option><option value="used">VO</option>
           </select>
           <select value={selectedBrand} onChange={(e)=>{setSelectedBrand(e.target.value);setSelectedModel('ALL')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Marque">
             <option value="ALL">Toutes marques</option>{brands.map(brand=><option key={brand.id} value={brand.id}>{brand.name}</option>)}

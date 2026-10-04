@@ -538,7 +538,7 @@ export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   queryFn:()=>apiRequest<VehicleStats>(`/vehicles/stats${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),
   enabled:enabled(),
 });
-export const useVehicleLocationCountsQuery=(agencyId?:string)=>useQuery({queryKey:[...erpKeys.vehicles,'location-counts',agencyId],queryFn:()=>apiRequest<{total:number;park:number;showroom:number;unassigned:number}>(`/vehicles/location-counts${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),enabled:enabled()});
+export const useVehicleLocationCountsQuery=(agencyId?:string,view:'active'|'sold'|'all'='active')=>useQuery({queryKey:[...erpKeys.vehicles,'location-counts',agencyId,view],queryFn:()=>{const params=new URLSearchParams({view});if(agencyId)params.set('agencyId',agencyId);return apiRequest<{total:number;park:number;showroom:number;unassigned:number}>(`/vehicles/location-counts?${params}`)},enabled:enabled()});
 export interface VehicleLocationRecord{id:string;agencyId:string;agencyName:string;name:string;type:'PARC'|'SHOWROOM';isActive:boolean}
 export const useVehicleLocationsQuery=(filters:{agencyId?:string;type?:string;active?:boolean}={},requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'locations',filters],queryFn:()=>apiRequest<VehicleLocationRecord[]>(`/vehicle-locations?${pageParams(filters)}`),enabled:enabled()&&requestEnabled});
 export const useVehicleTransferAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-agencies'],queryFn:()=>apiRequest<Array<{id:string;name:string}>>('/vehicle-transfer-agencies'),enabled:enabled()&&requestEnabled});
@@ -1036,7 +1036,7 @@ export function useVehicleImages() {
     reorder: useMutation({mutationFn:({id,imageIds}:{id:string;imageIds:string[]})=>apiRequest(`/vehicles/${id}/images/order`,{method:'PATCH',body:JSON.stringify({imageIds})}),onSuccess:(_,v)=>qc.invalidateQueries({queryKey:['vehicles',v.id]})}),
   };
 }
-export const useVehicleTransfer=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;toAgencyId:string;toLocationId:string|null;reason:string})=>apiRequest(`/vehicles/${id}/transfer`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['vehicles',v.id]})}})};
+export const useVehicleTransfer=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;toAgencyId:string;toLocationId:string|null;reason:string})=>apiRequest(`/vehicles/${id}/transfer`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['vehicles',v.id]});void qc.invalidateQueries({queryKey:['dashboard']})}})};
 export const useArchiveVehicle=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest(`/vehicles/${id}`,{method:'DELETE'}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.vehicles})})};
 export const useCreateUser = () =>
   mutation<any>(() => "/users", "POST", erpKeys.users);

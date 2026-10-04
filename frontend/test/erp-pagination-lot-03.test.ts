@@ -13,8 +13,8 @@ test('C360-PAG-01..10 utilise le contrat serveur compatible et conserve les acti
 
 test('SHOWROOM-DATE-01..12 propose tous, aujourd’hui et période inclusive',()=>{
  assert.match(showroom,/dateMode==='all'/);assert.match(showroom,/dateMode==='today'/);assert.match(showroom,/Période personnalisée/);
- assert.match(showroom,/from:dateFrom\|\|undefined,to:dateTo\|\|undefined/);assert.match(showroom,/metrics\.waiting\?\?waiting\.length/);
- assert.match(showroom,/AssignmentSelect/);assert.match(hooks,/\["showroom","board",filters\]/);
+ assert.match(showroom,/from:dateFrom\|\|undefined,to:dateTo\|\|undefined/);assert.match(showroom,/metrics\?\.waiting\?\?0/);
+ assert.match(showroom,/AssignmentSelect/);assert.match(hooks,/\["showroom","board",filters,page,pageSize\]/);
 });
 
 test('DELIVERY-VIEW/PAG-01..14 partage source, actions et filtres entre cartes et liste',()=>{

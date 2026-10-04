@@ -46,7 +46,7 @@ test('SHOWROOM-FE-02 utilisateur inactif et autre agence sont exclus',()=>{
 test('SHOWROOM-FE-03 les requêtes et actions utilisent les permissions exactes',()=>{
   const page=readFileSync(new URL('../src/modules/showroom/ShowroomPage.tsx',import.meta.url),'utf8'),hooks=readFileSync(new URL('../src/api/erpHooks.ts',import.meta.url),'utf8');
   for(const code of ['showroom.view','showroom.assign','showroom.visitor.create','showroom.status.update','showroom.visitor.update'])assert.ok(page.includes(code),code);
-  assert.match(page,/useShowroomBoardQuery\(canView\)/);
+  assert.match(page,/useShowroomBoardQuery\(dateFilters,page,pageSize,canView\)/);
   assert.match(page,/useShowroomSalesCandidatesQuery\(visit\.agencyId,true\)/);
   assert.match(hooks,/enabled: enabled\(\) && requestEnabled/);
 });

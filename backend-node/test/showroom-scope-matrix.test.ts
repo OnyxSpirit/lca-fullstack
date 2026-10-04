@@ -64,6 +64,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles'))return roleRows(String(params[0]));
   if(sql.includes('SELECT p.code,rp.scope FROM role_permissions'))return auth.roles.get(String(params[0]))?.permissions??[];
   if(sql.includes('FROM agencies target')){const target=String(params[1]),actor=String(params[0]);return [{id:target,is_active:1,concession_id:concession(target),actor_concession_id:concession(actor)}]}
+  if(sql.startsWith('SELECT COUNT(*) total')&&sql.includes('FROM showroom_visits sv')){const rows=visits.filter(visit=>visible(sql,params,visit));return[{total:rows.length,waiting:rows.filter(row=>row.status==='waiting').length,assigned:rows.filter(row=>row.status==='assigned').length,in_progress:rows.filter(row=>row.status==='in_progress').length,completed:rows.filter(row=>row.status==='completed').length,cancelled:rows.filter(row=>row.status==='cancelled').length,average_wait_minutes:0,active_advisors:0,transformed:0,quotations:0}]}
   if(sql.includes('FROM showroom_visits sv'))return visits.filter(visit=>visible(sql,params,visit)).map(decorated);
   if(sql.includes('FROM showroom_test_drives td')&&sql.includes('WHERE td.visit_id=?'))return drives.filter(drive=>drive.visit_id===String(params[0]));
   if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv')){
@@ -78,6 +79,9 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.includes('EXISTS(SELECT 1 FROM user_roles')&&sql.includes('eligible FROM users u')){
     const id=String(params[0]),agency=id===U1?A1:id===CA1?A1:id===CA2?A2:id===CB1?B1:'';
     return agency?[{id,agency_id:agency,concession_id:concession(agency),is_active:1,eligible:1}]:[];
+  }
+  if(sql.includes('SELECT DISTINCT u.id')&&sql.includes("p.code IN ('sales.create','crm.prospect.update')")){
+    const agency=String(params[0]),id=assigneeByAgency[agency];return id?[{id,name:`Conseiller ${id}`}]:[];
   }
   if(sql.includes('FROM users u JOIN user_roles')&&sql.includes("p.code IN ('sales.create','crm.prospect.update')")){
     const id=String(params[0]),agency=String(params[1]);return assigneeByAgency[agency]===id||id===U1&&agency===A1?[{id}]:[];
@@ -132,7 +136,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
     test(`showroom.view ${scope}: collection filtrée et détails R1/R2/R3`,async()=>{
       const token=bearer([{code:'showroom.view',scope}]);
       const list=await request(app).get('/api/showroom').set('Authorization',token);
-      expectStatus(list.status,200,`${scope} liste`);assert.deepEqual(list.body.visits.map((v:{id:string})=>v.id),expectedIds);
+      expectStatus(list.status,200,`${scope} liste`);assert.deepEqual(list.body.items.map((v:{id:string})=>v.id),expectedIds);
       for(const resource of resources.slice(0,3)){
         const response=await request(app).get(`/api/showroom/${resource.id}`).set('Authorization',token);
         const allowed=scope==='GLOBAL'||scope==='CONCESSION'&&resource.agencyId!==B1||(scope==='AGENCY'||scope==='OWN')&&resource.agencyId===A1&&resource.ownerId===U1;
@@ -161,6 +165,23 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
     const visit=visits[0];visit.status='waiting';visit.assigned_user_id=null;
     const response=await request(app).patch('/api/showroom/101/assign').set('Authorization',bearer([{code:'showroom.assign',scope:'GLOBAL'}])).send({assignedUserId:CA2,expectedAssignedUserId:null});
     expectStatus(response.status,400,'affectation commerciale inter-agence');
+  });
+  test('ASSIGN-01/03/04/05 liste seulement les candidats éligibles de l’agence et respecte le scope',async()=>{
+    const agencyToken=bearer([{code:'showroom.assign',scope:'AGENCY'}]);
+    const sameAgency=await request(app).get(`/api/showroom/agencies/${A1}/sales-candidates`).set('Authorization',agencyToken);
+    expectStatus(sameAgency.status,200,'candidats agence');
+    assert.deepEqual(sameAgency.body,[{id:CA1,name:`Conseiller ${CA1}`,agencyId:A1}]);
+    expectStatus((await request(app).get(`/api/showroom/agencies/${A2}/sales-candidates`).set('Authorization',agencyToken)).status,403,'candidats autre agence');
+    const global=await request(app).get(`/api/showroom/agencies/${A2}/sales-candidates`).set('Authorization',bearer([{code:'showroom.assign',scope:'GLOBAL'}]));
+    assert.deepEqual(global.body,[{id:CA2,name:`Conseiller ${CA2}`,agencyId:A2}]);
+  });
+  test('ASSIGN-06/07/08 affecte réellement puis conserve statut, compteurs et résultat après refetch paginé',async()=>{
+    const visit=visits[0];visit.status='waiting';visit.assigned_user_id=null;
+    const token=bearer([{code:'showroom.assign',scope:'GLOBAL'},{code:'showroom.view',scope:'GLOBAL'}]);
+    const assigned=await request(app).patch('/api/showroom/101/assign').set('Authorization',token).send({assignedUserId:CA1,expectedAssignedUserId:null});
+    expectStatus(assigned.status,200,'affectation réelle');assert.equal(assigned.body.status,'assigned');assert.equal(assigned.body.assignedUserId,CA1);
+    const refetched=await request(app).get('/api/showroom?page=1&pageSize=6').set('Authorization',token);
+    expectStatus(refetched.status,200,'refetch paginé');assert.equal(refetched.body.items.find((item:{id:string})=>item.id==='101')?.assignedUserId,CA1);assert.equal(refetched.body.counts.assigned,1);assert.equal(refetched.body.counts.waiting,0);
   });
 
   for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const resource of resources.slice(0,3)){

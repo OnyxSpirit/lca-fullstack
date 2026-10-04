@@ -856,6 +856,7 @@ export function useWorkshopScheduleMutation(){const qc=useQueryClient();const do
 export function useWorkshopUnavailabilityMutation(){const qc=useQueryClient();const done=()=>{qc.invalidateQueries({queryKey:["workshop-unavailabilities"]});qc.invalidateQueries({queryKey:["workshop-planning"]});qc.invalidateQueries({queryKey:["workshop-stats"]})};return{create:useMutation({mutationFn:({technicianId,...body}:{technicianId:string;startsAt:string;endsAt:string;reason:string;agencyId?:string})=>apiRequest(`/workshop/technicians/${technicianId}/unavailability`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),remove:useMutation({mutationFn:({id,agencyId}:{id:string;agencyId?:string})=>apiRequest(`/workshop/unavailabilities/${id}`,{method:'DELETE',body:JSON.stringify({agencyId})}),onSuccess:done})}}
 const mapShowroom = (r: any) => ({
   id: s(r.id),
+  agencyId: s(r.agencyId),
   visitorName: r.visitorName ?? "",
   phone: r.phone ?? "",
   arrivalDateTime: r.arrivalAt,
@@ -888,12 +889,16 @@ const mapShowroom = (r: any) => ({
             : "Annulé",
   waitTimeMinutes: n(r.waitMinutes),
 });
-export const useShowroomBoardQuery = (filters:{from?:string;to?:string;all?:boolean}={},requestEnabled=true) =>
+export type ShowroomBoardVisit=ReturnType<typeof mapShowroom>;
+export interface ShowroomCounts {waiting:number;assigned:number;inProgress:number;completed:number;cancelled:number}
+export interface ShowroomMetrics {total:number;waiting:number;inProgress:number;completed:number;averageWaitMinutes:number;activeAdvisors:number;conversionRate:number;quotations:number}
+export interface ShowroomBoardPage extends PagedResult<ShowroomBoardVisit>{counts:ShowroomCounts;metrics:ShowroomMetrics}
+export const useShowroomBoardQuery = (filters:{from?:string;to?:string;all?:boolean}={},page=1,pageSize=6,requestEnabled=true) =>
   useQuery({
-    queryKey: ["showroom","board",filters],
+    queryKey: ["showroom","board",filters,page,pageSize],
     queryFn: async () => {
-      const data = await apiRequest<any>(`/showroom?${pageParams(filters)}`);
-      return { visits: data.visits.map(mapShowroom), metrics: data.metrics };
+      const data = await apiRequest<Omit<ShowroomBoardPage,'items'>&{items:Array<Parameters<typeof mapShowroom>[0]>}>(`/showroom?${pageParams({...filters,page,pageSize})}`);
+      return {...data,items:data.items.map(mapShowroom)};
     },
     enabled: enabled() && requestEnabled,
   });
@@ -905,8 +910,8 @@ export const useShowroomQuery = () =>
   useQuery({
     queryKey: ["showroom"],
     queryFn: async () => {
-      const data = await apiRequest<any>("/showroom");
-      return data.visits.map(mapShowroom);
+      const data = await apiRequest<Omit<ShowroomBoardPage,'items'>&{items:Array<Parameters<typeof mapShowroom>[0]>}>("/showroom");
+      return data.items.map(mapShowroom);
     },
     enabled: enabled(),
   });

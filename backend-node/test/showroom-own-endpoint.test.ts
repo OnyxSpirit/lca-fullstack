@@ -40,6 +40,7 @@ before(()=>{
     if(sql.includes('SELECT r.id,r.code,r.is_system'))return [[{id:`role-${params[0]}`,code:'DYNAMIC_SHOWROOM',is_system:0}],[]];
     if(sql.includes('SELECT p.code,rp.scope'))return [permissions[String(params[0]).replace('role-','')]??[],[]];
     if(sql.includes('FROM agencies target'))return [[{id:params[1],is_active:1,concession_id:params[1],actor_concession_id:params[0]}],[]];
+    if(sql.startsWith('SELECT COUNT(*) total')&&sql.includes('FROM showroom_visits sv')){const rows=visits.filter(visit=>visible(sql,params,visit));return [[{total:rows.length,waiting:rows.filter(row=>row.status==='waiting').length,assigned:rows.filter(row=>row.status==='assigned').length,in_progress:rows.filter(row=>row.status==='in_progress').length,completed:0,cancelled:0,average_wait_minutes:0,active_advisors:0,transformed:0,quotations:0}],[]]}
     if(sql.includes('FROM showroom_visits sv'))return [visits.filter(visit=>visible(sql,params,visit)).map(visit=>({...visit,assigned_user_name:null,greeted_by_name:null,wait_minutes:0,active_test_drive_id:null,active_test_drive_mileage:null})),[]];
     if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv')){const drive=visibleDrive(sql,params);return [drive?[drive]:[],[]]}
     if(sql.includes('FROM users u JOIN user_roles'))return [[{id:params[0]}],[]];
@@ -73,8 +74,8 @@ test('SHOW-OWN-01/02/07 : POST puis GET indépendant conserve la visite chez A, 
   assert.equal(created.body.assignedUserId,null);
   const a=await request(app).get('/api/showroom').set('Authorization',call('101').auth);
   const b=await request(app).get('/api/showroom').set('Authorization',call('102').auth);
-  assert.equal(a.status,200);assert.deepEqual(a.body.visits.map((visit:{id:string})=>visit.id),[created.body.id]);
-  assert.equal(b.status,200);assert.equal(b.body.visits.length,0);
+    assert.equal(a.status,200);assert.deepEqual(a.body.items.map((visit:{id:string})=>visit.id),[created.body.id]);
+    assert.equal(b.status,200);assert.equal(b.body.items.length,0);
 });
 
 test('SHOW-OWN-03/04 : l’affectation à A puis à B transfère la visibilité OWN',async()=>{
@@ -82,12 +83,12 @@ test('SHOW-OWN-03/04 : l’affectation à A puis à B transfère la visibilité 
   assert.equal(created.status,201);
   const id=created.body.id;
   assert.equal((await request(app).patch(`/api/showroom/${id}/assign`).set('Authorization',call('101').auth).send({assignedUserId:'101'})).status,200);
-  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('101').auth)).body.visits.map((visit:{id:string})=>visit.id),[id]);
+  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('101').auth)).body.items.map((visit:{id:string})=>visit.id),[id]);
   assert.equal((await request(app).patch(`/api/showroom/${id}/assign`).set('Authorization',call('101').auth).send({assignedUserId:'102',expectedAssignedUserId:'101'})).status,200);
   for(const user of ['101','102','103']){
     const response=await request(app).get('/api/showroom').set('Authorization',call(user).auth);
     assert.equal(response.status,200);
-    assert.deepEqual(response.body.visits.map((visit:{id:string})=>visit.id),user==='102'?[id]:[]);
+    assert.deepEqual(response.body.items.map((visit:{id:string})=>visit.id),user==='102'?[id]:[]);
   }
   const forbidden=await request(app).patch(`/api/showroom/${id}/complete`).set('Authorization',call('101').auth).send({outcome:'follow_up'});
   assert.equal(forbidden.status,404);
@@ -98,15 +99,15 @@ test('SHOW-OWN-05/06 : AGENCY garde les visites de son agence, OWN ne traverse p
   const created=await request(app).post('/api/showroom').set('Authorization',call('101').auth).send({visitorName:'Client Test',reason:'Visite'});
   assert.equal(created.status,201);
   const id=created.body.id;
-  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('201').auth)).body.visits.map((visit:{id:string})=>visit.id),[id]);
+  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('201').auth)).body.items.map((visit:{id:string})=>visit.id),[id]);
   assert.equal((await request(app).patch(`/api/showroom/${id}/assign`).set('Authorization',call('101').auth).send({assignedUserId:'102'})).status,200);
   const second=await request(app).post('/api/showroom').set('Authorization',call('102').auth).send({visitorName:'Autre client',reason:'Visite'});
   assert.equal(second.status,201);
-  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('201').auth)).body.visits.map((visit:{id:string})=>visit.id),[id,second.body.id]);
-  assert.equal((await request(app).get('/api/showroom').set('Authorization',call('203','2').auth)).body.visits.length,0);
+  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('201').auth)).body.items.map((visit:{id:string})=>visit.id),[id,second.body.id]);
+  assert.equal((await request(app).get('/api/showroom').set('Authorization',call('203','2').auth)).body.items.length,0);
   visits[0].agency_id='2';
-  assert.equal((await request(app).get('/api/showroom').set('Authorization',call('101').auth)).body.visits.length,0);
-  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('201').auth)).body.visits.map((visit:{id:string})=>visit.id),[second.body.id]);
+  assert.equal((await request(app).get('/api/showroom').set('Authorization',call('101').auth)).body.items.length,0);
+  assert.deepEqual((await request(app).get('/api/showroom').set('Authorization',call('201').auth)).body.items.map((visit:{id:string})=>visit.id),[second.body.id]);
 });
 
 test('le scope de mutation OWN reste indépendant de showroom.view AGENCY',async()=>{

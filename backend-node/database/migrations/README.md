@@ -1,7 +1,7 @@
 # Futures migrations
 
 Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
-baseline fraîche 050 absorbe désormais les migrations 034–050 ; le runner les
+baseline fraîche 051 absorbe désormais les migrations 034–051 ; le runner les
 applique encore aux bases historiques selon leur journal `schema_migrations`.
 Un marqueur consolidé `baseline_001_N` est un marqueur de plage : il prouve
 que toutes les migrations de version inférieure ou égale à `N` sont déjà
@@ -27,6 +27,10 @@ types ambigus restent « Non affecté ». Chaque transfert passe par
 sur `sale_items` afin de stabiliser la marge historique. Le reporting conserve
 un fallback explicite vers le coût courant uniquement pour les ventes anciennes
 qui ne disposent pas de snapshot.
+
+La migration `051_supplier_business_qualifications.sql` qualifie le référentiel
+central des fournisseurs. Les fournisseurs historiques restent fournisseurs de
+pièces et ne deviennent fournisseurs de véhicules qu'après choix explicite.
 
 La migration `045_customer_identity_per_agency.sql` définit l’identité client
 par agence. L’e-mail (`TRIM`, insensible à la casse) et le téléphone (caractères

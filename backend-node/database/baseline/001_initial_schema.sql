@@ -1249,8 +1249,11 @@ CREATE TABLE suppliers (
     country VARCHAR(100) NULL,
     tax_identifier VARCHAR(100) NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_parts_supplier BOOLEAN NOT NULL DEFAULT TRUE,
+    is_vehicle_supplier BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_suppliers_business_active (is_parts_supplier,is_vehicle_supplier,is_active)
 ) ENGINE=InnoDB;
 
 CREATE TABLE part_categories (
@@ -2016,4 +2019,4 @@ CREATE INDEX idx_payment_date ON payments(payment_date);
 
 -- Le baseline représente directement l'état consolidé au niveau 050.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (50,'baseline_001_050',REPEAT('0',64));
+VALUES (51,'baseline_001_051',REPEAT('0',64));

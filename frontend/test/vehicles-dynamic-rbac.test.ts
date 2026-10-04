@@ -12,7 +12,7 @@ test('VEH-17/18/19 : créer, modifier, images et statut dépendent de can(permis
   assert.match(detail,/canEdit=can\('vehicles\.update'\)/);
   assert.match(detail,/canManageImages=can\('vehicles\.images\.manage'\)/);
   assert.match(detail,/canChangeStatus=can\('vehicles\.status\.update'\)/);
-  assert.match(detail,/canChangeStatus&&manualStatusOptions\.length>0/);
+  assert.match(detail,/canChangeStatus&&!stockLocked&&manualStatusOptions\.length>0/);
 });
 
 test('VEH-20 : la route et le portail utilisent les permissions dynamiques du profil',()=>{
@@ -38,7 +38,7 @@ test('le frontend résout les URL /uploads sur l’origine backend',()=>{
 
 test('les statuts réservée, vendue et livrée ne sont jamais proposés manuellement',()=>{
   const detail=read('../src/modules/vehicles/VehicleDetailPage.tsx');
-  assert.match(detail,/DISPONIBLE:\['PREPARATION'\]/);
-  assert.match(detail,/VENDU:\[\],LIVRE:\[\]/);
-  assert.doesNotMatch(detail,/DISPONIBLE:\[[^\]]*'VENDU'/);
+  assert.match(detail,/administrableStatuses:VehicleStatus\[\]=\['COMMANDE','EN_TRANSIT','RECEPTIONNE','PREPARATION','DISPONIBLE'\]/);
+  assert.match(detail,/administrableStatuses\.includes\(vehicle\.status\)/);
+  assert.doesNotMatch(detail,/administrableStatuses[^\n]+(?:RESERVE|VENDU|LIVRE)/);
 });

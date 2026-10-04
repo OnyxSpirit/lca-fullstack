@@ -33,9 +33,11 @@ test('LIST-01..24 pagination et filtres sont exécutés côté serveur sur un tr
 });
 
 test('FLOW-01..12 transitions manuelles et annulation financière restent protégées',()=>{
-  assert.doesNotThrow(()=>assertManualVehicleTransition('reserved','available'));
+  assert.doesNotThrow(()=>assertManualVehicleTransition('available','ordered'));
+  assert.doesNotThrow(()=>assertManualVehicleTransition('received','in_transit'));
+  assert.throws(()=>assertManualVehicleTransition('reserved','available'));
   for(const next of ['reserved','sold','delivered'])assert.throws(()=>assertManualVehicleTransition('available',next));
-  assert.match(routes,/réservation active existe[^\n]+workflow d'annulation/);
+  assert.match(routes,/ADMINISTRABLE_VEHICLE_STATUSES\.includes\(current[\s\S]+n'est plus administrable depuis Stock Véhicules/);
   assert.match(sales,/amount_paid[\s\S]+Une vente ayant reçu un paiement ne peut plus être annulée/);
 });
 

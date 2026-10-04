@@ -26,6 +26,8 @@ const field = "rounded-md border border-slate-300 px-3 py-2 text-sm",
     country: "",
     taxIdentifier: "",
     isActive: true,
+    isPartsSupplier: true,
+    isVehicleSupplier: false,
   };
 export const SuppliersSettings = () => {
   const canManage = useAuthStore((s) => s.can("parts.suppliers.manage"));
@@ -59,6 +61,8 @@ export const SuppliersSettings = () => {
       country: s.country ?? "",
       taxIdentifier: s.tax_identifier ?? "",
       isActive: s.is_active,
+      isPartsSupplier: s.is_parts_supplier,
+      isVehicleSupplier: s.is_vehicle_supplier,
     });
   };
   const save = async (e: React.FormEvent) => {
@@ -114,6 +118,8 @@ export const SuppliersSettings = () => {
               onChange={(e) => setForm({ ...form, [k]: e.target.value })}
             />
           ))}
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isPartsSupplier} onChange={e=>setForm({...form,isPartsSupplier:e.target.checked})}/>Fournisseur de pièces</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isVehicleSupplier} onChange={e=>setForm({...form,isVehicleSupplier:e.target.checked})}/>Fournisseur de véhicules</label>
           <div className="flex gap-2 md:col-span-3">
             <Button
               type="submit"
@@ -167,6 +173,7 @@ export const SuppliersSettings = () => {
             <p className="mt-2 text-xs">
               {s.phone || "—"} · {s.email || "—"}
             </p>
+            <div className="mt-2 flex gap-2"><Badge variant={s.is_parts_supplier?"primary":"default"}>Pièces : {s.is_parts_supplier?"Oui":"Non"}</Badge><Badge variant={s.is_vehicle_supplier?"primary":"default"}>Véhicules : {s.is_vehicle_supplier?"Oui":"Non"}</Badge></div>
             {canManage && <div className="mt-3 flex gap-2 border-t pt-3">
               <Button size="xs" variant="outline" onClick={() => edit(s)}>
                 Modifier

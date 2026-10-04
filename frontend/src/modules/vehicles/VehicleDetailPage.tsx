@@ -54,8 +54,9 @@ export const VehicleDetailPage: React.FC = () => {
   const { setActiveQuickActionModal, addToast } = useUiStore();
 
   const vehicle = vehicleQuery.data?.vehicle;
-  const manualTransitions:Partial<Record<VehicleStatus,VehicleStatus[]>>={COMMANDE:['EN_TRANSIT','RECEPTIONNE'],EN_TRANSIT:['RECEPTIONNE'],RECEPTIONNE:['PREPARATION','DISPONIBLE'],PREPARATION:['DISPONIBLE'],DISPONIBLE:['PREPARATION'],RESERVE:['DISPONIBLE'],VENDU:[],LIVRE:[]};
-  const manualStatusOptions=vehicle?manualTransitions[vehicle.status]??[]:[];
+  const administrableStatuses:VehicleStatus[]=['COMMANDE','EN_TRANSIT','RECEPTIONNE','PREPARATION','DISPONIBLE'];
+  const manualStatusOptions=vehicle&&administrableStatuses.includes(vehicle.status)?administrableStatuses.filter(status=>status!==vehicle.status):[];
+  const stockLocked=vehicle?.status==='VENDU'||vehicle?.status==='LIVRE';
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [selectedImageId, setSelectedImageId] = useState<string|null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
@@ -87,7 +88,7 @@ export const VehicleDetailPage: React.FC = () => {
   }
 
   const handleStatusChange = async (newStatus: VehicleStatus) => {
-    const status = vehicleStatusToDb[newStatus],reason=vehicle.status==='RESERVE'&&newStatus==='DISPONIBLE'?window.prompt('Motif obligatoire de la libération administrative')?.trim():undefined;if(vehicle.status==='RESERVE'&&newStatus==='DISPONIBLE'&&!reason)return; try{if (status) await statusMutation.mutateAsync({ id: vehicle.id, status,reason });addToast({
+    const status = vehicleStatusToDb[newStatus],reason=window.prompt('Motif obligatoire du changement de statut')?.trim();if(!reason)return;try{if(status)await statusMutation.mutateAsync({id:vehicle.id,status,reason});addToast({
       type: 'success',
       title: 'Statut du véhicule modifié',
       description: `Le véhicule est maintenant marqué comme ${newStatus}.`,
@@ -116,10 +117,10 @@ export const VehicleDetailPage: React.FC = () => {
         badge={<StatusBadge status={vehicle.status} type="vehicle" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {canEdit&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
-            {canTransfer&&<Button variant="outline" size="sm" onClick={()=>setTransferOpen(true)}>Transférer</Button>}
+            {canEdit&&!stockLocked&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
+            {canTransfer&&!stockLocked&&<Button variant="outline" size="sm" onClick={()=>setTransferOpen(true)}>Transférer</Button>}
             {/* Quick Status Selector */}
-            {canChangeStatus&&manualStatusOptions.length>0&&<select
+            {canChangeStatus&&!stockLocked&&manualStatusOptions.length>0&&<select
               value={vehicle.status}
               onChange={(e) => handleStatusChange(e.target.value as VehicleStatus)}
               className="text-xs font-bold p-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none"
@@ -187,7 +188,7 @@ export const VehicleDetailPage: React.FC = () => {
               ))}
             </div>
           )}
-          {canManageImages&&<div className="flex flex-col sm:flex-row sm:items-center gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold text-center cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-slate-500">{selectedImage?`Photo ${galleryImages.indexOf(selectedImage)+1} sélectionnée`:'Sélectionnez une photo'}</span><Button size="xs" variant="outline" disabled={!selectedImage||galleryImages.indexOf(selectedImage)===0} onClick={()=>void moveImage(-1)}>Monter</Button><Button size="xs" variant="outline" disabled={!selectedImage||galleryImages.indexOf(selectedImage)===galleryImages.length-1} onClick={()=>void moveImage(1)}>Descendre</Button><Button size="xs" variant="outline" disabled={!selectedImage||Boolean(selectedImage.is_primary)} loading={imageMutations.primary.isPending} onClick={setPrimaryImage}>Définir comme principale</Button><Button size="xs" variant="outline" disabled={!selectedImage} loading={imageMutations.remove.isPending} onClick={removeSelectedImage}>Supprimer</Button></div></div>}
+          {canManageImages&&!stockLocked&&<div className="flex flex-col sm:flex-row sm:items-center gap-2"><label className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold text-center cursor-pointer">Ajouter des photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={addImages}/></label><div className="flex flex-wrap items-center gap-2"><span className="text-xs text-slate-500">{selectedImage?`Photo ${galleryImages.indexOf(selectedImage)+1} sélectionnée`:'Sélectionnez une photo'}</span><Button size="xs" variant="outline" disabled={!selectedImage||galleryImages.indexOf(selectedImage)===0} onClick={()=>void moveImage(-1)}>Monter</Button><Button size="xs" variant="outline" disabled={!selectedImage||galleryImages.indexOf(selectedImage)===galleryImages.length-1} onClick={()=>void moveImage(1)}>Descendre</Button><Button size="xs" variant="outline" disabled={!selectedImage||Boolean(selectedImage.is_primary)} loading={imageMutations.primary.isPending} onClick={setPrimaryImage}>Définir comme principale</Button><Button size="xs" variant="outline" disabled={!selectedImage} loading={imageMutations.remove.isPending} onClick={removeSelectedImage}>Supprimer</Button></div></div>}
         </div>
 
         {/* Commercial Highlights Card */}
@@ -392,12 +393,12 @@ export const VehicleDetailPage: React.FC = () => {
       {activeTab === 'documents' && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-3"><CardTitle>Documents Électroniques (GED Automobile)</CardTitle>{canUploadDocuments&&<Button size="sm" icon={<UploadCloud className="h-4 w-4"/>} onClick={()=>setDocumentUploadOpen(true)}>Ajouter un document</Button>}</div>
+            <div className="flex items-center justify-between gap-3"><CardTitle>Documents Électroniques (GED Automobile)</CardTitle>{canUploadDocuments&&!stockLocked&&<Button size="sm" icon={<UploadCloud className="h-4 w-4"/>} onClick={()=>setDocumentUploadOpen(true)}>Ajouter un document</Button>}</div>
           </CardHeader>
           <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
         </Card>
       )}
-      {canUploadDocuments&&<UploadModal
+      {canUploadDocuments&&!stockLocked&&<UploadModal
         open={documentUploadOpen}
         close={()=>setDocumentUploadOpen(false)}
         initialEntity={{entityType:'vehicle',entityId:vehicle.id,agencyId:vehicle.agencyId,agencyName:vehicle.agencyName,label:`${vehicle.brand} ${vehicle.model} — ${vehicle.vin}`,businessId:vehicle.stockNumber}}

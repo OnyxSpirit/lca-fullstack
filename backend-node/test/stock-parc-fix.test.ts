@@ -19,10 +19,10 @@ test('SPV-02 compare le plancher HT au net HT avec taux variable et arrondi',()=
   assert.deepEqual({net:zero.netHt,tax:zero.tax,total:zero.totalTtc},{net:100,tax:0,total:100});
 });
 
-test('SPV-01 baseline 050 absorbe la GED 049 sans migration 051',()=>{
+test('SPV-01 baseline 051 absorbe la GED 049 et le schéma Stock',()=>{
   const baseline=read('../database/baseline/001_initial_schema.sql');
   for(const token of ['document_categories','document_types','category_id','document_type_id','document_date','idx_documents_category_type','fk_documents_type'])assert.match(baseline,new RegExp(token));
-  assert.match(baseline,/baseline_001_050/);
+  assert.match(baseline,/baseline_001_051/);
 });
 
 test('SPV-03 une modification non financière conserve les snapshots du devis',()=>{

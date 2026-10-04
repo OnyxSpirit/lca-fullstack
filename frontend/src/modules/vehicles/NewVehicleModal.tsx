@@ -203,7 +203,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
       addToast({
         type: "success",
         title: "Véhicule ajouté",
-        description: `${form.brand} ${form.model} a été ajouté au stock avec le statut « Réceptionné ».`,
+        description: `${form.brand} ${form.model} a été enregistré avec le statut sélectionné.`,
       });
       setForm(initial);
       setImages([]);
@@ -232,7 +232,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Entrée en stock d’un véhicule VN / VO"
+      title="Enregistrer un véhicule VN / VO"
       description="Identification, données financières et photos du catalogue."
       maxWidth="2xl"
     >
@@ -273,6 +273,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <option value="used">Véhicule d’occasion (VO)</option>
             </select>
           </label>
+          <label className="text-xs font-semibold">Statut initial<select value={form.status} onChange={field("status")} className="mt-1 w-full p-2.5 border rounded-lg"><option value="ordered">Commandé</option><option value="in_transit">En transit</option><option value="received">Réceptionné</option><option value="preparation">En préparation</option><option value="available">Disponible</option></select></label>
           <label className="text-xs font-semibold">
             Marque *
             <input
@@ -437,6 +438,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
               )}
             </select>
           </label>
+          <label className="text-xs font-semibold">Fournisseur véhicule<select value={form.supplierId} onChange={field("supplierId")} className="mt-1 w-full p-2.5 border rounded-lg"><option value="">Non renseigné</option>{references.data?.suppliers?.map((item:{id:string;name:string;code:string})=><option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
         </section>
         {financialAllowed && (
           <section className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border">

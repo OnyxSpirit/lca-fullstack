@@ -60,7 +60,8 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   return [];
 }
 async function connectionQuery(sql:string,params:unknown[]=[]):Promise<any>{
-  if(sql.startsWith('SELECT agency_id,vehicle_location_id FROM vehicles WHERE id=? FOR UPDATE')){const v=vehicles.find(x=>x.id===String(params[0]));return v?[{agency_id:v.agency_id,vehicle_location_id:v.vehicle_location_id}]:[]}
+  if(sql.startsWith('SELECT agency_id,vehicle_location_id,status FROM vehicles WHERE id=? FOR UPDATE')){const v=vehicles.find(x=>x.id===String(params[0]));return v?[{agency_id:v.agency_id,vehicle_location_id:v.vehicle_location_id,status:v.status}]:[]}
+  if(sql.startsWith('SELECT status FROM vehicles WHERE id=? FOR UPDATE')){const v=vehicles.find(x=>x.id===String(params[0]));return v?[{status:v.status}]:[]}
   if(sql.startsWith('SELECT id FROM brands'))return[{id:1}];
   if(sql.startsWith('SELECT id FROM models'))return[{id:1}];
   if(sql.startsWith('SELECT id FROM versions'))return[{id:1}];
@@ -140,7 +141,7 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
 
   for(const permission of ['vehicles.update','vehicles.status.update','vehicles.archive','vehicles.images.manage'] as const)for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`${permission} ${scope}: ${agency}`,async()=>{
     const token=bearer([{code:permission,scope}]),id=ids[agency];
-    const response=permission==='vehicles.update'?await request(app).patch(`/api/vehicles/${id}`).set('Authorization',token).send({notes:'runtime'}):permission==='vehicles.status.update'?await request(app).patch(`/api/vehicles/${id}/status`).set('Authorization',token).send({status:'preparation'}):permission==='vehicles.archive'?await request(app).delete(`/api/vehicles/${id}`).set('Authorization',token):await request(app).patch(`/api/vehicles/${id}/images/1/primary`).set('Authorization',token);
+    const response=permission==='vehicles.update'?await request(app).patch(`/api/vehicles/${id}`).set('Authorization',token).send({notes:'runtime'}):permission==='vehicles.status.update'?await request(app).patch(`/api/vehicles/${id}/status`).set('Authorization',token).send({status:'preparation',reason:'Correction logistique'}):permission==='vehicles.archive'?await request(app).delete(`/api/vehicles/${id}`).set('Authorization',token):await request(app).patch(`/api/vehicles/${id}/images/1/primary`).set('Authorization',token);
     const expected=scope==='OWN'?403:allowed(scope,agency)?200:404;expectStatus(response.status,expected,`${permission} ${scope} ${agency}`);
   });
 

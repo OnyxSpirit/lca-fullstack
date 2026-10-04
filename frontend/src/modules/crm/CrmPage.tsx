@@ -38,6 +38,7 @@ import { SaleWizardModal } from '../sales/SaleWizardModal';
 import type { Quotation } from '../../types';
 import { appointmentDateError, appointmentIso } from './crmAppointmentPolicy';
 import { openBusinessPdf } from '../../services/businessPdf';
+import { hasDynamicPermission } from '../../navigation/permissions';
 
 export const CrmPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -53,7 +54,8 @@ export const CrmPage: React.FC = () => {
   const [interactionType, setInteractionType] = useState<'Appel' | 'Email' | 'Visite' | 'Essai'>('Appel');
   const [lostLead,setLostLead]=useState<Lead|null>(null),[lostReason,setLostReason]=useState(''),[editLead,setEditLead]=useState<Lead|null>(null),[appointmentLead,setAppointmentLead]=useState<Lead|null>(null),[scheduledAt,setScheduledAt]=useState(''),[testDriveLead,setTestDriveLead]=useState<Lead|null>(null),[quotationLead,setQuotationLead]=useState<Lead|null>(null),[saleQuotation,setSaleQuotation]=useState<Quotation|null>(null);
   const priorityToDb: Record<string,string> = { Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent' };
-  const can = useAuthStore((state) => state.can);
+  const permissions = useAuthStore((state) => state.currentUser?.permissions);
+  const can = (permissionCode:string) => hasDynamicPermission(permissions,permissionCode);
   const canCreateLead=can('crm.prospect.create'),canUpdateLead=can('crm.prospect.update'),canAssignLead=can('crm.prospect.assign');
   const canViewQuotations=can('quotations.view'),canCreateQuotation=can('quotations.create'),canUpdateQuotation=can('quotations.update'),canValidateQuotation=can('quotations.validate'),canCancelQuotation=can('quotations.cancel'),canConvertQuotation=can('quotations.convert')&&can('sales.create');
   const salesUsers=useCrmTeamMembersQuery(canAssignLead).data??[];

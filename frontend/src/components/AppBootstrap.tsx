@@ -35,6 +35,10 @@ export function AppBootstrap() {
   const users = useUsersQuery(); const agencies = useAgenciesQuery(); const qc = useQueryClient();
   useEffect(() => { if (users.data && agencies.data) setDirectory(users.data, agencies.data); }, [users.data, agencies.data, setDirectory]);
   useEffect(() => {
+    if (!authenticated || !localStorage.getItem('lca-access-token')) return;
+    void refreshPermissions().catch(() => logout());
+  }, [authenticated, refreshPermissions, logout]);
+  useEffect(() => {
     const token = localStorage.getItem('lca-access-token'); if (!authenticated || !token) return;
     const socket = connectRealtime(token);
     const crmRefresh=createCrmRefreshScheduler(customerChanged=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:dashboardOverviewKey});if(customerChanged)void qc.invalidateQueries({queryKey:erpKeys.customers})});

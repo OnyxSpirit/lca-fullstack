@@ -50,6 +50,7 @@ before(()=>{
   (pool as any).getConnection=async()=>({
     beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},
     execute:async(sql:string,params:unknown[]=[])=>{
+      if(sql.includes('phone_match')&&sql.includes('FROM showroom_visits sv'))return [[],[]];
       if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv')){const drive=visibleDrive(sql,params);return [drive?[{...drive,mileage_out:100,vehicle_id:'5',lead_id:null,customer_id:null}]:[],[]]}
       if(sql.startsWith('UPDATE showroom_test_drives'))driveWrites++;
       if(sql.includes('SELECT COALESCE(MAX(queue_number)'))return [[{next_number:nextId}],[]];

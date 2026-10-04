@@ -7,8 +7,9 @@ import { RbacTestSessionFixture, type TestPermission } from './support/rbac-test
 
 type Visit = {
   id:string; agency_id:string; assigned_user_id:string|null; greeted_by:string; status:string;
+  origin:'showroom'|'crm';
   visitor_name:string; phone:string|null; reason:string; preferred_model:null; vehicle_id:null;
-  lead_id:null; customer_id:null; queue_number:number; arrival_at:string; assigned_at:null;
+  lead_id:string|null; customer_id:null; queue_number:number; arrival_at:string; assigned_at:null;
   completed_at:null; cancellation_reason:null; notes:null; outcome:null;
 };
 type Drive = { id:string; visit_id:string; agency_id:string; advisor_id:string; status:string; mileage_out:number; vehicle_id:string; lead_id:null; customer_id:null; visitor_name:string };
@@ -37,7 +38,7 @@ let nextDrive=950;
 let leadOwnerOverrides:Record<string,string>={};
 
 function visitRow(resource:typeof resources[number],status='in_progress'):Visit{
-  return {id:resource.id,agency_id:resource.agencyId,assigned_user_id:resource.ownerId,greeted_by:resource.ownerId,status,visitor_name:`Visiteur ${resource.id}`,phone:null,reason:'Recette',preferred_model:null,vehicle_id:null,lead_id:null,customer_id:null,queue_number:Number(resource.id),arrival_at:new Date().toISOString(),assigned_at:null,completed_at:null,cancellation_reason:null,notes:null,outcome:null};
+  return {id:resource.id,agency_id:resource.agencyId,assigned_user_id:resource.ownerId,greeted_by:resource.ownerId,status,origin:'showroom',visitor_name:`Visiteur ${resource.id}`,phone:null,reason:'Recette',preferred_model:null,vehicle_id:null,lead_id:null,customer_id:null,queue_number:Number(resource.id),arrival_at:new Date().toISOString(),assigned_at:null,completed_at:null,cancellation_reason:null,notes:null,outcome:null};
 }
 function resetDomain(){
   visits=resources.map(resource=>visitRow(resource));
@@ -106,7 +107,7 @@ async function connectionExecute(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.startsWith('INSERT INTO showroom_visits')){
     const id=String(nextVisit++),isCrm=sql.includes("'in_progress'");
     const agency=String(params[isCrm?9:8]);
-    visits.push({id,agency_id:agency,assigned_user_id:isCrm?String(params[7]):null,greeted_by:String(params[isCrm?8:7]),status:isCrm?'in_progress':'waiting',visitor_name:String(params[isCrm?2:2]),phone:null,reason:'Recette',preferred_model:null,vehicle_id:null,lead_id:null,customer_id:null,queue_number:1,arrival_at:new Date().toISOString(),assigned_at:null,completed_at:null,cancellation_reason:null,notes:null,outcome:null});
+    visits.push({id,agency_id:agency,assigned_user_id:isCrm?String(params[7]):null,greeted_by:String(params[isCrm?8:7]),status:isCrm?'in_progress':'waiting',origin:isCrm?'crm':'showroom',visitor_name:String(params[isCrm?2:2]),phone:null,reason:'Recette',preferred_model:null,vehicle_id:null,lead_id:null,customer_id:null,queue_number:1,arrival_at:new Date().toISOString(),assigned_at:null,completed_at:null,cancellation_reason:null,notes:null,outcome:null});
     return {insertId:Number(id),affectedRows:1};
   }
   if(sql.startsWith('INSERT INTO showroom_test_drives'))return {insertId:nextDrive++,affectedRows:1};
@@ -114,6 +115,7 @@ async function connectionExecute(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.includes('FROM opportunities o')&&sql.includes('has_valid_appointment'))return [{id:`5${params[0]}`,stage:'appointment',has_valid_appointment:1}];
   if(sql.startsWith("UPDATE opportunities SET stage='test_drive'"))return {affectedRows:1};
   if(sql.startsWith('INSERT INTO leads'))return {insertId:nextVisit++,affectedRows:1};
+  if(sql.startsWith('UPDATE showroom_visits SET lead_id=')){const visit=visits.find(item=>item.id===String(params[1]));if(visit)visit.lead_id=String(params[0]);return {affectedRows:visit?1:0}}
   return domainQuery(sql,params);
 }
 
@@ -194,16 +196,32 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
 
   for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const resource of resources.slice(0,3)){
     test(`showroom.visitor.update ${scope} -> conversion ordinaire R${resource.id}`,async()=>{
+      visits.find(visit=>visit.id===resource.id)!.status='completed';
       const response=await request(app).post(`/api/showroom/${resource.id}/convert-to-lead`).set('Authorization',bearer([{code:'showroom.visitor.update',scope},{code:'crm.prospect.assign',scope}])).send({title:'Projet'});
       const allowed=scope==='GLOBAL'||scope==='CONCESSION'&&resource.agencyId!==B1||scope==='AGENCY'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
       expectStatus(response.status,allowed?201:404,`${scope} modification ${resource.id}`);
     });
   }
 
+  test('CONVERT-INT-01..07 impose état, origine et idempotence côté backend',async()=>{
+    const token=bearer([{code:'showroom.visitor.update',scope:'AGENCY'},{code:'crm.prospect.assign',scope:'AGENCY'}]),visit=visits.find(item=>item.id==='101')!;
+    for(const status of ['waiting','assigned','in_progress','cancelled']){visit.status=status;const denied=await request(app).post('/api/showroom/101/convert-to-lead').set('Authorization',token).send({title:'Projet'});expectStatus(denied.status,409,`conversion ${status}`);assert.equal(denied.body.details.code,'SHOWROOM_CONVERSION_NOT_ALLOWED')}
+    visit.status='completed';visit.origin='crm';expectStatus((await request(app).post('/api/showroom/101/convert-to-lead').set('Authorization',token).send({title:'Projet'})).status,409,'conversion CRM');
+    visit.origin='showroom';const created=await request(app).post('/api/showroom/101/convert-to-lead').set('Authorization',token).send({title:'Projet'});expectStatus(created.status,201,'conversion Showroom terminée');
+    const existingLead=visit.lead_id,again=await request(app).post('/api/showroom/101/convert-to-lead').set('Authorization',token).send({title:'Projet'});expectStatus(again.status,200,'conversion déjà faite');assert.equal(again.body.existing,true);assert.equal(again.body.leadId,existingLead);
+  });
+
+  test('CONVERT-INT-08/09 dissimule le hors-scope et exige la permission',async()=>{
+    visits.find(item=>item.id==='102')!.status='completed';
+    expectStatus((await request(app).post('/api/showroom/102/convert-to-lead').set('Authorization',bearer([{code:'showroom.visitor.update',scope:'AGENCY'},{code:'crm.prospect.assign',scope:'AGENCY'}])).send({title:'Projet'})).status,404,'conversion hors scope');
+    expectStatus((await request(app).post('/api/showroom/101/convert-to-lead').set('Authorization',bearer([])).send({title:'Projet'})).status,403,'conversion sans permission');
+  });
+
   test('OWN distingue une ressource possédée d’une ressource seulement située dans A1',async()=>{
     for(const code of ['showroom.view','showroom.assign','showroom.status.update','showroom.visitor.update']){
       const token=bearer([{code,scope:'OWN'},...(code==='showroom.visitor.update'?[{code:'crm.prospect.assign',scope:'OWN' as const}]:[])]);
       if(code==='showroom.assign'){const ownVisit=visits.find(v=>v.id==='101')!;ownVisit.status='waiting'}
+      if(code==='showroom.visitor.update')visits.find(v=>v.id==='101')!.status='completed';
       const own=code==='showroom.view'?await request(app).get('/api/showroom/101').set('Authorization',token):code==='showroom.assign'?await request(app).patch('/api/showroom/101/assign').set('Authorization',token).send({assignedUserId:CA1,expectedAssignedUserId:U1}):code==='showroom.status.update'?await request(app).patch('/api/showroom/101/cancel').set('Authorization',token).send({reason:'Recette'}):await request(app).post('/api/showroom/101/convert-to-lead').set('Authorization',token).send({title:'Projet'});
       resetDomain();if(code==='showroom.assign'){const otherVisit=visits.find(v=>v.id==='104')!;otherVisit.status='waiting'}
       const other=code==='showroom.view'?await request(app).get('/api/showroom/104').set('Authorization',token):code==='showroom.assign'?await request(app).patch('/api/showroom/104/assign').set('Authorization',token).send({assignedUserId:CA1,expectedAssignedUserId:CA1}):code==='showroom.status.update'?await request(app).patch('/api/showroom/104/cancel').set('Authorization',token).send({reason:'Recette'}):await request(app).post('/api/showroom/104/convert-to-lead').set('Authorization',token).send({title:'Projet'});

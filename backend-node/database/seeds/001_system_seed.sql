@@ -259,6 +259,13 @@ SELECT c.id,x.code,x.name,x.ord FROM document_categories c JOIN (
 ) x ON x.cat=c.code
 ON DUPLICATE KEY UPDATE category_id=VALUES(category_id),name=VALUES(name),display_order=VALUES(display_order),is_active=TRUE;
 
+INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,is_active) VALUES
+('treasury','view','treasury.view','Voir la trésorerie','Comptabilité & Trésorerie','Consulter comptes, soldes et journal',TRUE),
+('treasury','manage','treasury.account.manage','Gérer les comptes de trésorerie','Comptabilité & Trésorerie','Créer et activer les comptes',TRUE),
+('treasury','manage','treasury.category.manage','Gérer les catégories de trésorerie','Comptabilité & Trésorerie','Configurer les catégories concession',TRUE),
+('treasury','create','treasury.transfer.create','Créer un transfert','Comptabilité & Trésorerie','Transférer entre comptes accessibles',TRUE),
+('treasury','reverse','treasury.reverse','Contrepasser un mouvement','Comptabilité & Trésorerie','Créer une contre-écriture auditable',TRUE);
+
 -- Après le catalogue complet : chaque permission active est globale pour le rôle système.
 INSERT INTO role_permissions(role_id,permission_id,scope)
 SELECT r.id,p.id,'GLOBAL' FROM roles r CROSS JOIN permissions p

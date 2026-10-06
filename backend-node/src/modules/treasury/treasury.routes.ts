@@ -1,0 +1,16 @@
+import{Router}from'express';import{asyncHandler}from'../../middleware/error-handler.js';import{requirePermission}from'../../middleware/require-permission.js';import*as s from'./treasury.service.js';
+export const treasuryRouter=Router();
+treasuryRouter.get('/treasury/accounts',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.listAccounts(r))));
+treasuryRouter.get('/treasury/accounts/:id',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.getAccount(r,r.params.id))));
+treasuryRouter.post('/treasury/accounts',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.status(201).json(await s.createAccount(r,r.body))));
+treasuryRouter.patch('/treasury/accounts/:id',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await s.updateAccount(r,r.params.id,r.body))));
+treasuryRouter.patch('/treasury/accounts/:id/status',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await s.accountStatus(r,r.params.id,r.body.isActive))));
+treasuryRouter.get('/treasury/categories',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.listCategories(r))));
+treasuryRouter.post('/treasury/categories',requirePermission('treasury.category.manage'),asyncHandler(async(r,res)=>res.status(201).json(await s.createCategory(r,r.body))));
+treasuryRouter.patch('/treasury/categories/:id',requirePermission('treasury.category.manage'),asyncHandler(async(r,res)=>res.json(await s.updateCategory(r,r.params.id,r.body))));
+treasuryRouter.patch('/treasury/categories/:id/status',requirePermission('treasury.category.manage'),asyncHandler(async(r,res)=>res.json(await s.categoryStatus(r,r.params.id,r.body.isActive))));
+treasuryRouter.get('/treasury/journal',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.journal(r,r.query))));
+treasuryRouter.get('/treasury/journal/:id',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.movement(r,r.params.id))));
+treasuryRouter.get('/treasury/summary',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.summary(r,r.query))));
+treasuryRouter.post('/treasury/transfers',requirePermission('treasury.transfer.create'),asyncHandler(async(r,res)=>res.status(201).json(await s.transfer(r,r.body))));
+treasuryRouter.post('/treasury/movements/:id/reversal',requirePermission('treasury.reverse'),asyncHandler(async(r,res)=>res.status(201).json(await s.reverse(r,r.params.id,r.body))));

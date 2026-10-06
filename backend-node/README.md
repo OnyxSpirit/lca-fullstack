@@ -39,7 +39,7 @@ Un hôte MySQL est `127.0.0.1` ou `mysql`, jamais `http://localhost:3306`.
 
 `npm run db:bootstrap` est l’entrée canonique :
 
-- base vide : baseline consolidée 053 et seed système ;
+- base vide : baseline consolidée 054 et seed système ;
 - base versionnée : migrations `034+` absentes seulement ;
 - base non vide non versionnée : arrêt sans écriture.
 
@@ -99,6 +99,18 @@ Il est centré, répété sur chaque page et dimensionne le texte long dans la z
 réservée. Le NIU n'est pas répété dans le header. Les archives officielles déjà
 finalisées restent les octets historiques autoritaires : une modification de
 l'identité ne provoque aucune régénération lors de la preview ou du download.
+
+## Fondation Comptabilité & Trésorerie
+
+La trésorerie est distincte de la facturation et des budgets RH. Une facture,
+un avoir, un paiement existant ou une enveloppe budgétaire ne crée aucune
+écriture automatiquement dans ce lot. Les comptes appartiennent à une agence
+ou directement à une concession ; les catégories sont communes à la
+concession. Les soldes sont exclusivement dérivés des mouvements `POSTED` :
+entrées moins sorties. Les ouvertures sont des écritures identifiables, les
+transferts créent atomiquement un débit et un crédit de même devise, et toute
+correction passe par une contre-écriture append-only. Les clés de source sont
+protégées par une unicité SQL pour préparer les intégrations futures.
 
 ## Rôles à l’installation
 

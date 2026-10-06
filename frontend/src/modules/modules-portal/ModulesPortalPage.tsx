@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Sparkles,
   Layers,
+  Landmark,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -174,6 +175,15 @@ export const ModulesPortalPage: React.FC = () => {
           route: ROUTES.billing,
           permissionKey: 'billing',
           features: ['Factures multi-activités', 'Gestion des acomptes', 'Suivi des impayés', 'Export comptable'],
+        },
+        {
+          id: 'treasury',
+          title: 'Comptabilité & Trésorerie',
+          description: 'Comptes financiers, soldes dérivés, journal, transferts et contre-écritures.',
+          icon: <Landmark className="w-6 h-6 text-emerald-700" />,
+          route: ROUTES.treasury,
+          permissionKey: 'treasury',
+          features: ['Comptes multi-agence', 'Journal central', 'Transferts atomiques', 'Historique append-only'],
         },
         {
           id: 'reports',

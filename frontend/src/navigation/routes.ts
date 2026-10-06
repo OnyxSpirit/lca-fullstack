@@ -12,6 +12,7 @@ export const ROUTES = {
   workshop: '/workshop',
   parts: '/parts',
   billing: '/billing',
+  treasury: '/treasury',
   reports: '/reports',
   documents: '/documents',
   hr: '/hr',

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Sparkles,
   Layers,
+  Landmark,
   X,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -144,6 +145,12 @@ export const Sidebar: React.FC = () => {
           label: 'Facturation & Règl.',
           icon: <Receipt className="w-4 h-4" />,
           module: 'billing',
+        },
+        {
+          to: ROUTES.treasury,
+          label: 'Comptabilité & Trésorerie',
+          icon: <Landmark className="w-4 h-4" />,
+          module: 'treasury',
         },
         {
           to: ROUTES.reports,

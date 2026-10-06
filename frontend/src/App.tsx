@@ -24,6 +24,7 @@ import { UsersManagementPage } from './modules/users/UsersManagementPage';
 import { SettingsPage } from './modules/settings/SettingsPage';
 import { NotificationsPage } from './modules/notifications/NotificationsPage';
 import { HrAdministrationPage } from './modules/hr/HrAdministrationPage';
+import { TreasuryPage } from './modules/treasury/TreasuryPage';
 import { DeliveryDetailPage } from './modules/deliveries/DeliveryDetailPage';
 import { SparePartDetailPage } from './modules/parts/SparePartDetailPage';
 import { LoginPage } from './modules/auth/LoginPage';
@@ -40,7 +41,7 @@ function ProtectedLayout() {
   const location = useLocation();
   return isAuthenticated ? <AppLayout /> : <Navigate to={ROUTES.login} state={{ from: location }} replace />;
 }
-const MODULE_PERMISSION: Record<ModuleKey, string> = { dashboard:'dashboard.view', modules:'dashboard.view', crm:'crm.prospect.view', showroom:'showroom.view', vehicles:'vehicles.view', sales:'sales.view', deliveries:'delivery.view', customers:'customers.view', service:'service.order.view', workshop:'workshop.view', parts:'parts.view', billing:'billing.view', reports:'reporting.view', documents:'ged.view', hr:'hr.view', users:'users.view', settings:'settings.view', notifications:'notifications.view' };
+const MODULE_PERMISSION: Record<ModuleKey, string> = { dashboard:'dashboard.view', modules:'dashboard.view', crm:'crm.prospect.view', showroom:'showroom.view', vehicles:'vehicles.view', sales:'sales.view', deliveries:'delivery.view', customers:'customers.view', service:'service.order.view', workshop:'workshop.view', parts:'parts.view', billing:'billing.view', treasury:'treasury.view', reports:'reporting.view', documents:'ged.view', hr:'hr.view', users:'users.view', settings:'settings.view', notifications:'notifications.view' };
 function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNode}) {
   const can=useAuthStore(state=>state.can);
   return can(MODULE_PERMISSION[module])?<>{children}</>:<AccessDeniedPage/>;
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="billing" element={<ModuleGuard module="billing"><BillingPage /></ModuleGuard>} />
           <Route path="billing/:id" element={<ModuleGuard module="billing"><InvoiceDetailPage /></ModuleGuard>} />
+          <Route path="treasury" element={<ModuleGuard module="treasury"><TreasuryPage /></ModuleGuard>} />
           <Route path="reports" element={<ModuleGuard module="reports"><ReportsPage /></ModuleGuard>} />
           <Route path="documents" element={<ModuleGuard module="documents"><DocumentsGedPage /></ModuleGuard>} />
           <Route path="hr" element={<ModuleGuard module="hr"><HrAdministrationPage /></ModuleGuard>} />

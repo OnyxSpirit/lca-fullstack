@@ -1,7 +1,7 @@
 # Futures migrations
 
 Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
-baseline fraîche 053 absorbe désormais les migrations 034–053 ; le runner les
+baseline fraîche 054 absorbe désormais les migrations 034–054 ; le runner les
 applique encore aux bases historiques selon leur journal `schema_migrations`.
 Un marqueur consolidé `baseline_001_N` est un marqueur de plage : il prouve
 que toutes les migrations de version inférieure ou égale à `N` sont déjà
@@ -41,6 +41,11 @@ La migration `053_concession_document_identity.sql` complète l'identité légal
 canonique de la concession avec le RCCM, le RIB documentaire et le site web.
 Le NIU reste exclusivement porté par `concessions.tax_identifier`. Les champs
 ajoutés sont optionnels et ne modifient aucune donnée historique.
+
+La migration `054_treasury_foundation.sql` crée les comptes de trésorerie,
+catégories concession, transferts et journal append-only. Elle ajoute les cinq
+permissions granulaires du domaine. Aucun flux Billing, garantie ou budget RH
+n'est automatiquement raccordé à ce journal dans ce lot.
 
 La migration `045_customer_identity_per_agency.sql` définit l’identité client
 par agence. L’e-mail (`TRIM`, insensible à la casse) et le téléphone (caractères

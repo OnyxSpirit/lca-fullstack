@@ -27,14 +27,14 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f4f2] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden before:absolute before:inset-y-0 before:left-0 before:w-2 before:bg-[#8f1722]">
+    <div className="min-h-screen bg-[#f5f4f2] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden before:absolute before:inset-y-0 before:left-0 before:w-2 ">
       <div className="w-full max-w-5xl bg-white rounded-md shadow-[0_24px_70px_rgba(15,15,16,.16)] border border-[#d5d1cc] overflow-hidden grid lg:grid-cols-[1.05fr_.95fr] relative">
-        <div className="hidden lg:flex bg-[#680000] text-white p-12 flex-col justify-between min-h-[620px] relative overflow-hidden after:absolute after:-right-32 after:-bottom-32 after:w-80 after:h-80 after:border-[70px] after:border-[#8f1722]/15 after:rounded-full">
+        <div className="hidden lg:flex bg-[#ffffff] border-r-8 border-red-800 text-white p-12 flex-col justify-between min-h-[620px] relative overflow-hidden after:absolute after:-right-32 after:-bottom-32 after:w-80 after:h-80 after:border-[70px] after:border-[#8f1722]/15 after:rounded-full">
           <div>
-            <div className="flex items-center gap-2"><div className="w-[60%] p-5"><img alt='LCA Logo' src='/images/logo-lca.png'/></div><div></div></div>
+            <div className="flex items-center gap-2"><div className="w-[60%] p-5"><img alt='LCA Logo' src='/images/logo-lca2.png'/></div><div></div></div>
             <div className="mt-10 max-w-md">
-              <p className="text-[10px] font-black uppercase tracking-[.24em] text-[#d2767e]">Espace professionnel</p>
-              <h1 className="mt-4 text-[42px] font-bold leading-[1.08] tracking-[-.035em]">La performance automobile, pilotée avec précision.</h1>
+              <p className="text-[10px] font-black uppercase tracking-[.24em] text-[#000000]">Espace professionnel</p>
+              <h1 className="mt-4 text-[42px] font-bold leading-[1.08] tracking-[-.035em] text-black">La performance automobile, pilotée avec précision.</h1>
               <p className="mt-6 text-sm leading-6 text-zinc-400 max-w-sm">Une vision opérationnelle unique des ventes, du parc, de l'atelier et de la relation client.</p>
             </div>
           </div>
@@ -60,7 +60,7 @@ export const LoginPage: React.FC = () => {
               {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-medium text-red-700">{error}</div>}
               <button disabled={loading} className="w-full h-12 rounded-sm bg-[#8f1722] hover:bg-[#6f1019] disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors">{loading ? 'Connexion...' : 'Se connecter'} {!loading && <ArrowRight className="w-4 h-4" />}</button>
             </form>
-            <p className="mt-8 text-[10px] leading-4 text-zinc-400 text-center uppercase tracking-[.08em]">Authentification sécurisée · LCA ERP</p>
+            {/* <p className="mt-8 text-[10px] leading-4 text-zinc-400 text-center uppercase tracking-[.08em]">Authentification sécurisée · LCA ERP</p> */}
           </div>
         </div>
       </div>

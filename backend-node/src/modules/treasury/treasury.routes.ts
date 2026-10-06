@@ -13,7 +13,10 @@ treasuryRouter.patch('/treasury/categories/:id/status',requirePermission('treasu
 treasuryRouter.get('/treasury/journal',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.journal(r,r.query))));
 treasuryRouter.get('/treasury/journal/:id',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.movement(r,r.params.id))));
 treasuryRouter.get('/treasury/summary',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.summary(r,r.query))));
+treasuryRouter.get('/treasury/manual-options',requirePermission('treasury.view'),asyncHandler(async(_r,res)=>res.json(await s.manualOptions())));
 treasuryRouter.post('/treasury/transfers',requirePermission('treasury.transfer.create'),asyncHandler(async(r,res)=>res.status(201).json(await s.transfer(r,r.body))));
+treasuryRouter.post('/treasury/manual-receipts',requirePermission('treasury.receipt.create'),asyncHandler(async(r,res)=>res.status(201).json(await s.createManualReceipt(r,r.body))));
+treasuryRouter.post('/treasury/manual-disbursements',requirePermission('treasury.disbursement.create'),asyncHandler(async(r,res)=>res.status(201).json(await s.createManualDisbursement(r,r.body))));
 treasuryRouter.post('/treasury/movements/:id/reversal',requirePermission('treasury.reverse'),asyncHandler(async(r,res)=>res.status(201).json(await s.reverse(r,r.params.id,r.body))));
 treasuryRouter.get('/treasury/flow-configuration',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.getFlowConfiguration(r))));
 treasuryRouter.put('/treasury/flow-mappings',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.saveMapping(r,r.body))));

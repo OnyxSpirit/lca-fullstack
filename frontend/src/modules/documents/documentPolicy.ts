@@ -8,12 +8,13 @@ const options:DocumentEntityOption[]=[
   {value:'repair_order',label:'Ordre de réparation'}, {value:'delivery',label:'Livraison'},
   {value:'supplier',label:'Fournisseur'}, {value:'expense',label:'Dépense'},
   {value:'budget',label:'Budget'}, {value:'employee',label:'Employé'},
+  {value:'treasury_manual_operation',label:'Opération manuelle de trésorerie'},
 ];
 
 const policies:Record<DocumentEntityType,string[]>={
   customer:['customers.view'],vehicle:['vehicles.view'],sale:['sales.view'],invoice:['billing.view'],
   repair_order:['service.order.view','workshop.view'],delivery:['delivery.view'],supplier:['parts.suppliers.view'],
-  expense:['hr.expense.view','hr.expense.create'],budget:['hr.budget.view'],employee:['hr.employees.view'],
+  expense:['hr.expense.view','hr.expense.create'],budget:['hr.budget.view'],employee:['hr.employees.view'],treasury_manual_operation:['treasury.view'],
 };
 
 const has=(permissions:Record<string,unknown>|undefined,code:string)=>Boolean(permissions&&(Object.hasOwn(permissions,'*')||Object.hasOwn(permissions,code)));

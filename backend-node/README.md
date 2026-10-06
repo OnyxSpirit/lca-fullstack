@@ -39,7 +39,7 @@ Un hôte MySQL est `127.0.0.1` ou `mysql`, jamais `http://localhost:3306`.
 
 `npm run db:bootstrap` est l’entrée canonique :
 
-- base vide : baseline consolidée 056 et seed système ;
+- base vide : baseline consolidée 058 et seed système ;
 - base versionnée : migrations `034+` absentes seulement ;
 - base non vide non versionnée : arrêt sans écriture.
 
@@ -71,6 +71,29 @@ Les factures et avoirs ne sont pas des flux de trésorerie. La migration et le
 bootstrap ne recopient aucun paiement historique : le solde réel au cutover doit
 être rapproché humainement puis représenté par `OPENING_BALANCE`, afin d'éviter
 le double comptage. Les budgets RH restent entièrement découplés.
+
+### Opérations manuelles de trésorerie
+
+Les routes dédiées `POST /treasury/manual-receipts` et
+`POST /treasury/manual-disbursements` exigent respectivement
+`treasury.receipt.create` et `treasury.disbursement.create`. Leur scope suit les
+règles collectives Treasury existantes (`AGENCY`, `CONCESSION`, `GLOBAL`; `OWN`
+est refusé). Chaque requête porte un UUID client persistant, unique pour son
+créateur : un retry
+strictement identique renvoie l'opération existante, tandis qu'une réutilisation
+avec un contenu différent est refusée.
+
+Une opération valide écrit atomiquement sa source immuable et un mouvement
+`MANUAL_RECEIPT / POSTED` ou `MANUAL_DISBURSEMENT / POSTED`. La devise vient du
+compte, la catégorie doit être active et compatible, la date de valeur ne peut
+pas être future et une sortie verrouille le compte avant de vérifier le solde
+dérivé des mouvements `POSTED`. Aucune modification ni suppression n'est
+exposée : une correction passe par la contrepassation Treasury. Les
+justificatifs restent facultatifs au Lot 4 et sont rattachés directement à
+l'opération par le GED existant (`treasury_manual_operation` et l'identifiant de
+la source). L'ajout, la prévisualisation, le téléchargement et l'archivage suivent
+les permissions et scopes GED existants ; aucun stockage documentaire parallèle
+n'est créé.
 
 ## Développement et validation
 

@@ -264,6 +264,8 @@ INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,i
 ('treasury','manage','treasury.account.manage','Gérer les comptes de trésorerie','Comptabilité & Trésorerie','Créer et activer les comptes',TRUE),
 ('treasury','manage','treasury.category.manage','Gérer les catégories de trésorerie','Comptabilité & Trésorerie','Configurer les catégories concession',TRUE),
 ('treasury','create','treasury.transfer.create','Créer un transfert','Comptabilité & Trésorerie','Transférer entre comptes accessibles',TRUE),
+('treasury','create','treasury.receipt.create','Créer une entrée manuelle','Comptabilité & Trésorerie','Enregistrer une recette manuelle dans un compte autorisé',TRUE),
+('treasury','create','treasury.disbursement.create','Créer une sortie manuelle','Comptabilité & Trésorerie','Enregistrer un décaissement manuel dans un compte autorisé',TRUE),
 ('treasury','reverse','treasury.reverse','Contrepasser un mouvement','Comptabilité & Trésorerie','Créer une contre-écriture auditable',TRUE);
 
 -- Après le catalogue complet : chaque permission active est globale pour le rôle système.

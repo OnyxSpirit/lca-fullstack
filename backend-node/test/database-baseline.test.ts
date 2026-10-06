@@ -15,8 +15,8 @@ const docker=read('docker-compose.yml');
 function sourceFiles(directory:string):string[]{return readdirSync(directory).flatMap(name=>{const path=resolve(directory,name);return statSync(path).isDirectory()?sourceFiles(path):/\.tsx?$/.test(name)?[path]:[];});}
 function codes(text:string){return new Set([...text.matchAll(/['"]([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+)['"]/g)].map(match=>match[1]));}
 
-test('BASELINE-01 est unique, versionné 058 et non destructif',()=>{
-  assert.equal(FRESH_BASELINE_VERSION,58);assert.equal(FRESH_BASELINE_NAME,'baseline_001_058');assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(58,'baseline_001_058'/);
+test('BASELINE-01 est unique, versionné 059 et non destructif',()=>{
+  assert.equal(FRESH_BASELINE_VERSION,59);assert.equal(FRESH_BASELINE_NAME,'baseline_001_059');assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(59,'baseline_001_059'/);
   assert.doesNotMatch(baseline,/^\s*(DROP|DELETE|UPDATE|TRUNCATE)\b/im);
   const tables=[...baseline.matchAll(/CREATE TABLE\s+`?([a-z0-9_]+)`?/gi)].map(match=>match[1]);
   assert.equal(tables.length,new Set(tables).size);assert.ok(tables.length>=92);
@@ -62,8 +62,8 @@ test('BASELINE-06 seules les migrations futures strictement supérieures à 033 
   assert.match(read('backend-node/src/scripts/database-bootstrap.ts'),/DUPLICATE_MIGRATION_VERSION/);
 });
 
-test('BASELINE-06B fresh saute 034–058 mais une base historique 046 conserve 047–058',()=>{
-  for(let version=34;version<=58;version++)assert.equal(shouldApplyMigration(version,new Set([58]),58),false);
+test('BASELINE-06B fresh saute 034–059 mais une base historique 046 conserve 047–059',()=>{
+  for(let version=34;version<=59;version++)assert.equal(shouldApplyMigration(version,new Set([59]),59),false);
   assert.equal(shouldApplyMigration(47,new Set([46]),null),true);
   assert.equal(shouldApplyMigration(48,new Set([46]),null),true);
   assert.equal(shouldApplyMigration(49,new Set([46]),null),true);
@@ -73,15 +73,15 @@ test('BASELINE-06B fresh saute 034–058 mais une base historique 046 conserve 0
   assert.equal(shouldApplyMigration(34,new Set([33]),null),true);
 });
 
-test('BOOTSTRAP-10 la baseline 058 absorbe explicitement toutes les migrations 034–058',()=>{
+test('BOOTSTRAP-10 la baseline 059 absorbe explicitement toutes les migrations 034–059',()=>{
   for(const token of ['warranty_available','default_warranty_months','default_mileage_limit','warranty_provider_id','vehicle_warranty_contracts'])assert.match(baseline,new RegExp(token));
   const migrationVersions=futureMigrationNames(readdirSync(resolve(root,'backend-node/database/migrations'))).map(name=>Number(name.slice(0,3)));
-  assert.deepEqual(migrationVersions,Array.from({length:25},(_,index)=>index+34));
+  assert.deepEqual(migrationVersions,Array.from({length:26},(_,index)=>index+34));
   for(const token of ['CREATE TABLE document_categories','CREATE TABLE document_types','document_type_id','idx_documents_category_type','fk_documents_type'])assert.match(baseline,new RegExp(token));
   for(const token of ['vehicle_locations','vehicle_location_id','from_vehicle_location_id','purchase_price_snapshot','total_cost_snapshot'])assert.match(baseline,new RegExp(token));
 });
 
-test('BOOT-01/02 fresh baseline_001_058 ne rejoue rien et reste idempotente',()=>{const applied=new Set([58]),baseline=consolidatedBaselineVersion([{version:58,name:'baseline_001_058'}]);for(let version=34;version<=58;version++)assert.equal(shouldApplyMigration(version,applied,baseline),false)});
+test('BOOT-01/02 fresh baseline_001_059 ne rejoue rien et reste idempotente',()=>{const applied=new Set([59]),baseline=consolidatedBaselineVersion([{version:59,name:'baseline_001_059'}]);for(let version=34;version<=59;version++)assert.equal(shouldApplyMigration(version,applied,baseline),false)});
 test('BOOT-03 historique baseline 48 + 49 applique 050 à 058',()=>{const applied=new Set([48,49]),baseline=consolidatedBaselineVersion([{version:48,name:'baseline_001_048'},{version:49,name:'049_ged_centralized_repository.sql'}]);assert.deepEqual([34,35,48,49,50,51,52,53,54,55,56,57,58].filter(v=>shouldApplyMigration(v,applied,baseline)),[50,51,52,53,54,55,56,57,58])});
 test('BOOT-04 ligne 034 redondante sous baseline 48 reste sans effet',()=>{const applied=new Set([34,48,49]),baseline=consolidatedBaselineVersion([{version:34,name:'034_role_deletion_permission.sql'},{version:48,name:'baseline_001_048'},{version:49,name:'049_ged_centralized_repository.sql'}]);assert.deepEqual([34,35,49,50,51,52,53,54,55,56].filter(v=>shouldApplyMigration(v,applied,baseline)),[50,51,52,53,54,55,56])});
 test('BOOT-05 FAILED_PARTIAL 035 couvert ne rend pas 035 candidate',()=>assert.equal(shouldApplyMigration(35,new Set([34,48,49]),48),false));
@@ -92,7 +92,7 @@ test('BOOT-09 baseline 51 applique seulement 052',()=>{const applied=new Set([51
 test('BOOT-09B baseline 52 applique seulement 053',()=>{const applied=new Set([52]);assert.deepEqual([51,52,53].filter(v=>shouldApplyMigration(v,applied,52)),[53])});
 test('BOOT-09C baseline 53 applique 054 à 056',()=>{const applied=new Set([53]);assert.deepEqual([52,53,54,55,56].filter(v=>shouldApplyMigration(v,applied,53)),[54,55,56])});
 test('BOOT-09D baseline 55 applique seulement 056',()=>{const applied=new Set([55]);assert.deepEqual([54,55,56].filter(v=>shouldApplyMigration(v,applied,55)),[56])});
-test('BOOT-10 baseline 58 tolère une trace individuelle redondante',()=>{const applied=new Set([34,58]);for(let version=34;version<=58;version++)assert.equal(shouldApplyMigration(version,applied,58),false)});
+test('BOOT-10 baseline 59 tolère une trace individuelle redondante',()=>{const applied=new Set([34,59]);for(let version=34;version<=59;version++)assert.equal(shouldApplyMigration(version,applied,59),false)});
 
 test('BOOTSTRAP-05/06/07 les protections checksum et DDL partielle restent actives',()=>{
   const runner=read('backend-node/src/scripts/mysql-migration-runner.ts'),bootstrap=read('backend-node/src/scripts/database-bootstrap.ts');

@@ -2079,6 +2079,23 @@ CREATE TABLE treasury_manual_operations (
   CONSTRAINT fk_treasury_manual_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
+CREATE TABLE budget_expense_disbursements (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  budget_expense_id BIGINT UNSIGNED NOT NULL, treasury_account_id BIGINT UNSIGNED NOT NULL,
+  amount DECIMAL(15,2) NOT NULL, currency_code CHAR(3) NOT NULL, treasury_category_id BIGINT UNSIGNED NOT NULL,
+  payment_method_id BIGINT UNSIGNED NULL, beneficiary VARCHAR(255) NOT NULL, handed_to VARCHAR(255) NULL,
+  reference VARCHAR(150) NULL, description VARCHAR(1000) NOT NULL, value_date DATE NOT NULL,
+  client_request_id CHAR(36) NOT NULL, created_by BIGINT UNSIGNED NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_budget_expense_disbursement_request (created_by,client_request_id),
+  KEY idx_budget_expense_disbursement_expense (budget_expense_id,created_at,id), KEY idx_budget_expense_disbursement_account (treasury_account_id,value_date,id),
+  CONSTRAINT chk_budget_expense_disbursement_amount CHECK (amount > 0),
+  CONSTRAINT fk_budget_expense_disbursement_expense FOREIGN KEY (budget_expense_id) REFERENCES budget_expenses(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_budget_expense_disbursement_account FOREIGN KEY (treasury_account_id) REFERENCES treasury_accounts(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_budget_expense_disbursement_category FOREIGN KEY (treasury_category_id) REFERENCES treasury_categories(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_budget_expense_disbursement_method FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_budget_expense_disbursement_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
 CREATE TABLE treasury_flow_configurations (
   concession_id BIGINT UNSIGNED PRIMARY KEY, is_ready BOOLEAN NOT NULL DEFAULT FALSE, activated_at DATETIME NULL, activated_by BIGINT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -2099,6 +2116,6 @@ CREATE TABLE treasury_account_mappings (
   CONSTRAINT fk_treasury_mapping_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Le baseline représente directement l'état consolidé au niveau 058.
+-- Le baseline représente directement l'état consolidé au niveau 059.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (58,'baseline_001_058',REPEAT('0',64));
+VALUES (59,'baseline_001_059',REPEAT('0',64));

@@ -232,6 +232,7 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ('hr','view','hr.expense.view','Voir les dépenses','RH & Administration','Consulter les dépenses de son périmètre',TRUE),
 ('hr','create','hr.expense.create','Créer une dépense','RH & Administration','Enregistrer une dépense dans la limite disponible',TRUE),
 ('hr','manage','hr.expense.manage','Gérer les dépenses','RH & Administration','Administrer les dépenses de son périmètre',TRUE),
+('hr','create','hr.expense.disburse','Décaisser une dépense','RH & Administration','Créer un décaissement Treasury relié à une dépense budgétaire autorisée',TRUE),
 ('hr','view','hr.reporting.view','Voir le reporting RH','RH & Administration','Consulter les indicateurs RH et administratifs autorisés',TRUE)
 ON DUPLICATE KEY UPDATE module=VALUES(module),action=VALUES(action),name=VALUES(name),group_name=VALUES(group_name),description=VALUES(description),is_active=TRUE;
 

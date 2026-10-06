@@ -159,6 +159,37 @@ transferts créent atomiquement un débit et un crédit de même devise, et tout
 correction passe par une contre-écriture append-only. Les clés de source sont
 protégées par une unicité SQL pour préparer les intégrations futures.
 
+### Intégration Budget ↔ Trésorerie
+
+Le budget reste une autorisation de dépense, distincte de l’argent disponible.
+`budgets` expose l’alloué, `budget_expenses` consomme l’enveloppe et le restant
+budgétaire est calculé dès l’enregistrement de la dépense. Un décaissement ne
+consomme donc jamais le budget une seconde fois. Le solde Treasury reste la somme
+dérivée des entrées `POSTED` moins les sorties `POSTED`.
+
+Une dépense peut être payée en plusieurs fois par des enregistrements immuables
+`budget_expense_disbursements`. Chacun produit exactement un mouvement `OUT` de
+source `BUDGET_EXPENSE_DISBURSEMENT`. Le montant décaissé net, le reste à
+décaisser et les états `NOT_DISBURSED`, `PARTIALLY_DISBURSED` et `DISBURSED` sont
+dérivés des mouvements liés en tenant compte des contre-écritures. Toute
+correction financière passe par le reversal Treasury intégral existant.
+
+La commande exige l’intersection de `hr.expense.disburse` sur la dépense et de
+`treasury.disbursement.create` sur le compte ; `OWN` ne donne aucun accès à ces
+ressources collectives. Le compte doit être actif, dans la même concession, de
+la devise de concession et disposer du solde requis. Les budgets ne portent pas
+de devise propre et aucune conversion implicite n’est réalisée. Une dépense déjà
+créée reste payable après clôture de sa période ou de son budget : elle représente
+une obligation historique ; seules les nouvelles dépenses restent soumises aux
+règles de statut et de période du budget.
+
+L’idempotence est garantie par `(created_by, client_request_id)`. Le verrouillage
+transactionnel de la dépense puis du compte protège simultanément le plafond à
+décaisser et le solde Treasury. Les justificatifs sont rattachés dans la GED à
+l’entité de décaissement, séparément des justificatifs éventuels de la dépense.
+L’audit et le realtime ne sont produits qu’après une création effective et le
+realtime est émis après le commit.
+
 ## Rôles à l’installation
 
 Une installation neuve crée uniquement le rôle système **Super Administrateur**

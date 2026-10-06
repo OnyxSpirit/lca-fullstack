@@ -72,6 +72,19 @@ seul rôle système spécial.
 dans `GED_STORAGE_DIR` et servie via les routes autorisées. En Docker, ces deux
 répertoires sont des volumes persistants distincts.
 
+La lecture du contenu passe toujours par `ged.view` et les scopes de la
+ressource rattachée. `GET /documents/:id/preview` sert uniquement les PDF, PNG
+et JPEG vérifiés avec `Content-Disposition: inline`; le téléchargement utilise
+`GET /documents/:id/download` et impose `attachment`. Les deux réponses sont
+privées, non mises en cache et protégées par `nosniff`.
+
+Les devis émis, bons de commande confirmés, factures émises, reçus confirmés et
+PV de livraison finalisés sont des archives officielles. Leur finalisation
+exige un archivage GED idempotent. Un échec est renvoyé explicitement et la même
+action peut être rejouée pour réparer l'archive ; leur consultation ultérieure
+ne régénère jamais silencieusement le PDF depuis les données courantes. Les
+documents de consultation non finalisés restent, eux, générés dynamiquement.
+
 ## Rôles à l’installation
 
 Une installation neuve crée uniquement le rôle système **Super Administrateur**

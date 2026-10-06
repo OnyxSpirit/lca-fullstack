@@ -3,13 +3,13 @@ import { requirePermission } from '../../middleware/require-permission.js';
 import { one as accessibleSale } from '../sales/sale.service.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { renderSaleOrderDocument } from '../documents/commercial-document.js';
-import{historicalBusinessPdf}from'../documents/business-document.service.js';
+import{requiredHistoricalBusinessPdf}from'../documents/business-document.service.js';
 
 export const coreRouter = Router();
 
 coreRouter.get('/documents/business/sale/:id/pdf',requirePermission('sales.view'),asyncHandler(async(request,response)=>{
   const sale=await accessibleSale(String(request.params.id),request);
-  const pdf=await historicalBusinessPdf(`sale:${request.params.id}:confirmed:`)??await renderSaleOrderDocument(String(request.params.id));
+  const pdf=['confirmed','preparation','ready_for_delivery','delivered'].includes(String(sale.status))?await requiredHistoricalBusinessPdf(`sale:${request.params.id}:confirmed:`):await renderSaleOrderDocument(String(request.params.id));
   response.setHeader('Content-Type','application/pdf');
   response.setHeader('Content-Disposition',`${request.query.download==='true'?'attachment':'inline'}; filename="bon-commande-${sale.sale_number}.pdf"`);
   response.send(pdf);

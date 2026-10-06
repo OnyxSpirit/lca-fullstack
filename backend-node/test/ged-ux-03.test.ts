@@ -25,7 +25,7 @@ test('GED-UX03-B07/B08 audit cohérent, rollback DB et cleanup fichier', () => {
   assert.match(route, /connection\.execute\(auditSql,auditValues/);
   assert.match(route, /catch\(error\)\{await unlink\(stored\.absolute\)/);
 });
-test('GED-UX03-B09 téléchargement créé inchangé', () => assert.match(route, /documents\/:id\/download[\s\S]*requireDocumentFile/));
+test('GED-UX03-B09 téléchargement créé inchangé et hash vérifié', () => assert.match(route, /documents\/:id\/download[\s\S]*readDocumentFile\(doc\.file_url,doc\.file_hash\)/));
 test('GED-UX03-B10 sécurité upload historique préservée', () => {
   assert.match(storage, /MAX_DOCUMENT_SIZE=15\*1024\*1024/);
   assert.match(storage, /signatureMatches/);

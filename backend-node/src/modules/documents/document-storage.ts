@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { access, mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { HttpError } from '../../shared/http-error.js';
 
@@ -16,5 +16,7 @@ export function documentHash(buffer:Buffer){return createHash('sha256').update(b
 export async function storeDocument(file:UploadedDocument,agencyId:string|null){const extension=validateDocumentFile(file),now=new Date(),relative=path.posix.join(agencyId??'shared',String(now.getUTCFullYear()),String(now.getUTCMonth()+1).padStart(2,'0'),`${now.getTime()}-${randomUUID()}.${extension}`),absolute=path.join(storageRoot,...relative.split('/'));await mkdir(path.dirname(absolute),{recursive:true});await writeFile(absolute,file.buffer,{flag:'wx'});return{storageKey:relative,absolute}}
 function safeUnder(root:string,value:string){const candidate=path.resolve(root,value.replace(/^[/\\]+/,''));if(candidate!==root&&!candidate.startsWith(root+path.sep))throw new HttpError(400,'Chemin documentaire invalide');return candidate}
 export function resolveDocumentPath(fileUrl:string){if(fileUrl.startsWith('ged:'))return safeUnder(storageRoot,fileUrl.slice(4));const clean=fileUrl.replace(/^https?:\/\/[^/]+/,'').replace(/^\/uploads\//,'');return safeUnder(legacyRoot,clean)}
-export async function requireDocumentFile(fileUrl:string){const absolute=resolveDocumentPath(fileUrl);try{await access(absolute)}catch{throw new HttpError(410,'Fichier documentaire indisponible')}return absolute}
-
+const storageError=(error:unknown)=>{const code=(error as NodeJS.ErrnoException)?.code;if(code==='ENOENT'||code==='ENOTDIR')return new HttpError(410,'Fichier documentaire indisponible');return new HttpError(503,'Stockage documentaire temporairement indisponible')};
+export async function requireDocumentFile(fileUrl:string){const absolute=resolveDocumentPath(fileUrl);try{await access(absolute)}catch(error){throw storageError(error)}return absolute}
+export async function readDocumentFile(fileUrl:string,expectedHash?:unknown){const absolute=resolveDocumentPath(fileUrl);let buffer:Buffer;try{buffer=await readFile(absolute)}catch(error){throw storageError(error)}if(expectedHash&&documentHash(buffer)!==String(expectedHash))throw new HttpError(409,'Intégrité de l’archive officielle invalide');return buffer}
+export function verifiedPreviewMime(buffer:Buffer,declared:unknown){const mime=String(declared??'').toLowerCase(),head=buffer.subarray(0,12);if(mime==='application/pdf'&&head.subarray(0,5).toString()==='%PDF-')return mime;if(mime==='image/png'&&head.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return mime;if(mime==='image/jpeg'&&head[0]===0xff&&head[1]===0xd8)return mime;throw new HttpError(415,'Aperçu indisponible pour ce format documentaire')}

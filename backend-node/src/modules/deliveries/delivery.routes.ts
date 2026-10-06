@@ -1,7 +1,7 @@
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { Router, type Request } from "express";
-import {archiveDelivery,historicalBusinessPdf,safelyArchive} from "../documents/business-document.service.js";
+import {archiveDelivery,requireBusinessArchive,requiredHistoricalBusinessPdf} from "../documents/business-document.service.js";
 import {defaultDocumentIdentity,documentIdentityForAgency,renderDeliveryDocument,renderDeliveryPlanningDocumentData} from "../documents/commercial-document.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { execute, query, transaction } from "../../config/database.js";
@@ -640,7 +640,7 @@ deliveryRouter.post(
       await audit(connection,request,id,'delivery.finalized',{status:'ready',vehicleStatus:vehicle.status,vehicleMileage:Number(vehicle.mileage)},{status:'delivered',vehicleStatus:'delivered',mileage,signer,signedAt:signedAt.toISOString(),hash});
       return{duplicate:false,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
     });
-    if(result.duplicate){await safelyArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));return response.json(await detail(id,request,'delivery.complete'));}
+    if(result.duplicate){await requireBusinessArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));return response.json(await detail(id,request,'delivery.complete'));}
     emitToAgency(result.agencyId, "deliveries:delivered", { id });
     await notifyRoles(
       result.agencyId,
@@ -649,7 +649,7 @@ deliveryRouter.post(
       `${result.deliveryNumber} a été signé par ${signer}`,
       id,
     );
-    await safelyArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));
+    await requireBusinessArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));
     response.json(await detail(id, request,'delivery.complete'));
   }),
 );
@@ -660,7 +660,7 @@ deliveryRouter.get(
   requirePermission('delivery.documents.view'),
   asyncHandler(async (request, response) => {
     const row = await detail(idOf(request.params.id), request,'delivery.documents.view');
-    const buffer = await historicalBusinessPdf(`delivery:${row.id}:finalized:`)??await renderDeliveryDocument(String(row.id));
+    const buffer = row.status==='delivered'?await requiredHistoricalBusinessPdf(`delivery:${row.id}:finalized:`):await renderDeliveryDocument(String(row.id));
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader(
       "Content-Disposition",

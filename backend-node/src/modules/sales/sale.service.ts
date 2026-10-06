@@ -4,7 +4,7 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/prom
 import { query, transaction } from '../../config/database.js';
 import { emitToAgency } from '../../realtime/socket.js';
 import { HttpError } from '../../shared/http-error.js';
-import { archiveSaleOrder, safelyArchive } from '../documents/business-document.service.js';
+import { archiveSaleOrder, requireBusinessArchive, requiredHistoricalBusinessPdf } from '../documents/business-document.service.js';
 import { notifyPermissions } from '../notifications/notification.service.js';
 import { assertPermission, type PermissionScope } from '../rbac/rbac.service.js';
 import { assertSaleTransition, validateCreateSale, validateWarrantySelection } from './sale.domain.js';
@@ -61,6 +61,7 @@ export async function create(body:unknown,request:Request){
   if(input.opportunityId&&!input.quotationId)throw new HttpError(400,'Un devis est obligatoire pour transformer une opportunité en vente');
   if(input.quotationId&&!input.opportunityId)throw new HttpError(400,'Le devis doit être lié à une opportunité');
   if(input.quotationId)await assertPermission(request,'quotations.convert');
+  if(input.quotationId)await requiredHistoricalBusinessPdf(`quotation:${input.quotationId}:issued:`);
   if(!input.quotationId&&(input.taxMode!=='TAXABLE'||input.priceInputMode!=='HT'))await assertPermission(request,'sales.tax.override');
   const businessConfig=await getEffectiveBusinessSettings(agencyId);
   let requestedSalesperson=input.salespersonId??request.user!.sub;
@@ -132,8 +133,9 @@ export async function update(saleId:string,body:unknown,request:Request){
 
 export async function updateStatus(saleId:string,value:unknown,reasonValue:unknown,request:Request,permission:'sales.confirm'|'sales.cancel'){
   const reason=String(reasonValue??'').trim(),scoped=saleScope(request,permission);
+  const before=await one(saleId,request,permission);if(before.status==='confirmed'&&value!=='confirmed')await requiredHistoricalBusinessPdf(`sale:${saleId}:confirmed:`);
   const result=await transaction(async connection=>{
-    const[rows]=await connection.execute<RowDataPacket[]>(`SELECT s.id,s.status,s.agency_id,s.salesperson_id,si.vehicle_id,v.status vehicle_status FROM sales s LEFT JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL LEFT JOIN vehicles v ON v.id=si.vehicle_id WHERE s.id=? AND ${scoped.sql} FOR UPDATE`,[id(saleId),...scoped.params] as Array<string|number>),sale=rows[0];if(!sale)throw new HttpError(404,'Vente introuvable');
+    const[rows]=await connection.execute<RowDataPacket[]>(`SELECT s.id,s.status,s.agency_id,s.salesperson_id,si.vehicle_id,v.status vehicle_status FROM sales s LEFT JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL LEFT JOIN vehicles v ON v.id=si.vehicle_id WHERE s.id=? AND ${scoped.sql} FOR UPDATE`,[id(saleId),...scoped.params] as Array<string|number>),sale=rows[0];if(!sale)throw new HttpError(404,'Vente introuvable');if(sale.status==='confirmed'&&value==='confirmed')return{agencyId:String(sale.agency_id),status:'confirmed',vehicleId:sale.vehicle_id?String(sale.vehicle_id):null};
     const status=assertSaleTransition(String(sale.status),value);if(status==='delivered')throw new HttpError(409,'La livraison effective doit être validée depuis le module Livraisons');
     if(status==='cancelled'){
       if(permission!=='sales.cancel')throw new HttpError(403,'Permission d’annulation requise');if(!reason)throw new HttpError(400,"Le motif d’annulation est obligatoire");if(['ready_for_delivery','delivered'].includes(String(sale.status)))throw new HttpError(409,'Une vente prête à livrer ou livrée ne peut plus être annulée');
@@ -152,5 +154,5 @@ export async function updateStatus(saleId:string,value:unknown,reasonValue:unkno
     if(status==='cancelled')await connection.execute("UPDATE reservations SET status='cancelled' WHERE sale_id=? AND status IN('pending','confirmed')",[saleId]);else if(status==='ordered')await connection.execute("UPDATE reservations SET status='converted' WHERE sale_id=? AND status IN('pending','confirmed')",[saleId]);
     await audit(connection,request,saleId,status==='cancelled'?'sale.cancelled':'sale.status_changed',{status:sale.status,vehicleStatus:sale.vehicle_status},{status,vehicleStatus:nextVehicleStatus,reason:reason||null});return{agencyId:String(sale.agency_id),status,vehicleId:sale.vehicle_id?String(sale.vehicle_id):null};
   });
-  emitToAgency(result.agencyId,'sales:status',{id:saleId,status:result.status,vehicleId:result.vehicleId});if(result.status==='confirmed')await safelyArchive(`sale:${saleId}:confirmed`,()=>archiveSaleOrder(saleId,request.user!.sub));if(['cancelled','ready_for_delivery'].includes(result.status))await notifyPermissions({agencyId:result.agencyId,permissions:[result.status==='ready_for_delivery'?'delivery.view':'sales.view'],subject:result.status==='ready_for_delivery'?'Vente prête pour livraison':'Vente annulée',message:`La vente ${saleId} est au statut ${result.status}.`,eventType:`sale.${result.status}`,referenceType:'sale',referenceId:saleId,eventKey:`sale.status:${saleId}:${result.status}`});return one(saleId,request,permission);
+  emitToAgency(result.agencyId,'sales:status',{id:saleId,status:result.status,vehicleId:result.vehicleId});if(result.status==='confirmed')await requireBusinessArchive(`sale:${saleId}:confirmed`,()=>archiveSaleOrder(saleId,request.user!.sub));if(['cancelled','ready_for_delivery'].includes(result.status))await notifyPermissions({agencyId:result.agencyId,permissions:[result.status==='ready_for_delivery'?'delivery.view':'sales.view'],subject:result.status==='ready_for_delivery'?'Vente prête pour livraison':'Vente annulée',message:`La vente ${saleId} est au statut ${result.status}.`,eventType:`sale.${result.status}`,referenceType:'sale',referenceId:saleId,eventKey:`sale.status:${saleId}:${result.status}`});return one(saleId,request,permission);
 }

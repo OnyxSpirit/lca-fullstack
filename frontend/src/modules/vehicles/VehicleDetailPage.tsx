@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ArrowRight,
   UploadCloud,
+  Eye,
 } from 'lucide-react';
 import { useArchiveVehicle, useVehicle360Query, useVehicleImages, useVehicleStatusMutation } from '../../api/erpHooks';
 import { optimizeImage } from './NewVehicleModal';
@@ -34,6 +35,7 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { apiDownload } from '../../services/apiClient';
 import { openBusinessPdf } from '../../services/businessPdf';
 import { UploadModal } from '../documents/DocumentsGedPage';
+import { DocumentPreview, type PreviewDocument } from '../documents/DocumentPreview';
 import { VehicleTransferModal } from './VehicleTransferModal';
 
 export const VehicleDetailPage: React.FC = () => {
@@ -62,6 +64,7 @@ export const VehicleDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'details' | 'financials' | 'timeline' | 'documents'>('details');
   const [editOpen,setEditOpen]=useState(false);
   const [documentUploadOpen,setDocumentUploadOpen]=useState(false);
+  const [previewDocument,setPreviewDocument]=useState<PreviewDocument|null>(null);
   const [transferOpen,setTransferOpen]=useState(false);
   const archiveVehicle=useArchiveVehicle();
   const galleryImages=vehicleQuery.data?.images??[];
@@ -72,7 +75,7 @@ export const VehicleDetailPage: React.FC = () => {
     else if(selectedIndex>=0&&selectedPhotoIndex!==selectedIndex)setSelectedPhotoIndex(selectedIndex);
     else if(selectedPhotoIndex>=galleryImages.length)setSelectedPhotoIndex(Math.max(0,galleryImages.length-1));
   },[galleryImages,selectedImageId,selectedPhotoIndex]);
-  const downloadDocument=async(document:any)=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.file_name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  const downloadDocument=async(document:any)=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.file_name??document.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
 
   if(vehicleQuery.isLoading)return <div className="p-8 text-sm text-slate-500">Chargement du véhicule…</div>;
   if (vehicleQuery.isError) return <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-800"><strong>Lecture impossible.</strong> {vehicleQuery.error instanceof Error?vehicleQuery.error.message:'Erreur API'}<div className="mt-4"><Button variant="outline" onClick={()=>navigate('/vehicles')}>Retour au stock</Button></div></div>;
@@ -395,7 +398,7 @@ export const VehicleDetailPage: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between gap-3"><CardTitle>Documents Électroniques (GED Automobile)</CardTitle>{canUploadDocuments&&!stockLocked&&<Button size="sm" icon={<UploadCloud className="h-4 w-4"/>} onClick={()=>setDocumentUploadOpen(true)}>Ajouter un document</Button>}</div>
           </CardHeader>
-          <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
+          <div className="divide-y divide-slate-100 text-xs">{vehicleQuery.data?.documents?.map((document:any)=><div key={document.id} className="py-3 flex items-center justify-between"><div className="flex items-center gap-3"><FileText className="w-5 h-5 text-red-800"/><div><div className="font-semibold text-slate-800">{document.file_name}</div><div className="text-[11px] text-slate-400">{document.document_type||document.mime_type} · {document.file_size?`${Math.round(document.file_size/1024)} Ko`:''}</div></div></div><div className="flex gap-2"><Button size="xs" variant="outline" icon={<Eye className="h-3 w-3"/>} onClick={()=>setPreviewDocument({id:String(document.id),title:document.title??document.file_name,fileName:document.file_name,mimeType:document.mime_type})}>Visionner</Button><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div></div>)}{!vehicleQuery.data?.documents?.length&&<p className="py-6 text-center text-slate-500">Aucun document GED associé à ce véhicule.</p>}</div>
         </Card>
       )}
       {canUploadDocuments&&!stockLocked&&<UploadModal
@@ -409,6 +412,7 @@ export const VehicleDetailPage: React.FC = () => {
       {canArchive&&!['RESERVE','VENDU','LIVRE'].includes(vehicle.status)&&<div className="flex justify-end"><Button variant="danger" loading={archiveVehicle.isPending} onClick={()=>void archive()}>Archiver le véhicule</Button></div>}
       <VehicleTransferModal open={transferOpen} close={()=>setTransferOpen(false)} vehicle={vehicle}/>
       <EditVehicleModal isOpen={editOpen} onClose={()=>setEditOpen(false)} vehicle={vehicle}/>
+      <DocumentPreview document={previewDocument} onClose={()=>setPreviewDocument(null)} onDownload={downloadDocument}/>
     </div>
   );
 };

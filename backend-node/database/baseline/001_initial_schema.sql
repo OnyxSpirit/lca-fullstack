@@ -1,4 +1,4 @@
--- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 055.
+-- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 056.
 -- À exécuter exclusivement sur une base vide. Le runner refuse toute base ambiguë.
 SET NAMES utf8mb4;
 
@@ -2080,6 +2080,6 @@ CREATE TABLE treasury_account_mappings (
   CONSTRAINT fk_treasury_mapping_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Le baseline représente directement l'état consolidé au niveau 055.
+-- Le baseline représente directement l'état consolidé au niveau 056.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (55,'baseline_001_055',REPEAT('0',64));
+VALUES (56,'baseline_001_056',REPEAT('0',64));

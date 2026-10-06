@@ -77,7 +77,7 @@ CREATE TABLE treasury_movements (
   reversal_of_id BIGINT UNSIGNED NULL,
   created_by BIGINT UNSIGNED NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_treasury_source_event (source_type,source_id,event_type),
+  UNIQUE KEY uq_treasury_source_event (source_type,source_id,event_type,account_id),
   UNIQUE KEY uq_treasury_movement_reversal (reversal_of_id),
   KEY idx_treasury_movement_account_date (account_id,value_date,id),
   KEY idx_treasury_movement_category (category_id,value_date),

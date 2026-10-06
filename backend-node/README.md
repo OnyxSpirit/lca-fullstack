@@ -39,7 +39,7 @@ Un hôte MySQL est `127.0.0.1` ou `mysql`, jamais `http://localhost:3306`.
 
 `npm run db:bootstrap` est l’entrée canonique :
 
-- base vide : baseline consolidée 055 et seed système ;
+- base vide : baseline consolidée 056 et seed système ;
 - base versionnée : migrations `034+` absentes seulement ;
 - base non vide non versionnée : arrêt sans écriture.
 

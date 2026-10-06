@@ -1,7 +1,7 @@
 # Futures migrations
 
 Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
-baseline fraîche 055 absorbe désormais les migrations 034–055 ; le runner les
+baseline fraîche 056 absorbe désormais les migrations 034–056 ; le runner les
 applique encore aux bases historiques selon leur journal `schema_migrations`.
 Un marqueur consolidé `baseline_001_N` est un marqueur de plage : il prouve
 que toutes les migrations de version inférieure ou égale à `N` sont déjà
@@ -51,6 +51,11 @@ le mapping agence + moyen de paiement vers un compte de trésorerie et l'activat
 explicite par concession. Elle conserve le moyen des règlements constructeur. Les
 événements confirmés après activation sont écrits atomiquement dans Treasury ;
 les factures, avoirs, budgets et événements antérieurs ne sont jamais backfillés.
+
+La migration `056_treasury_source_event_global_uniqueness.sql` porte de façon
+additive le renforcement d'idempotence Treasury : l'unicité initialement publiée
+par 054 incluait le compte ; 056 vérifie d'abord l'absence de doublons inter-comptes,
+puis rend `(source_type, source_id, event_type)` globalement unique.
 
 La migration `045_customer_identity_per_agency.sql` définit l’identité client
 par agence. L’e-mail (`TRIM`, insensible à la casse) et le téléphone (caractères

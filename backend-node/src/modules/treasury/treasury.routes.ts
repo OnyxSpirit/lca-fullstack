@@ -1,4 +1,5 @@
 import{Router}from'express';import{asyncHandler}from'../../middleware/error-handler.js';import{requirePermission}from'../../middleware/require-permission.js';import*as s from'./treasury.service.js';
+import*as flow from'./treasury-flow.service.js';
 export const treasuryRouter=Router();
 treasuryRouter.get('/treasury/accounts',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.listAccounts(r))));
 treasuryRouter.get('/treasury/accounts/:id',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.getAccount(r,r.params.id))));
@@ -14,3 +15,7 @@ treasuryRouter.get('/treasury/journal/:id',requirePermission('treasury.view'),as
 treasuryRouter.get('/treasury/summary',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.summary(r,r.query))));
 treasuryRouter.post('/treasury/transfers',requirePermission('treasury.transfer.create'),asyncHandler(async(r,res)=>res.status(201).json(await s.transfer(r,r.body))));
 treasuryRouter.post('/treasury/movements/:id/reversal',requirePermission('treasury.reverse'),asyncHandler(async(r,res)=>res.status(201).json(await s.reverse(r,r.params.id,r.body))));
+treasuryRouter.get('/treasury/flow-configuration',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.getFlowConfiguration(r))));
+treasuryRouter.put('/treasury/flow-mappings',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.saveMapping(r,r.body))));
+treasuryRouter.patch('/treasury/flow-mappings/:id/status',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.setMappingStatus(r,r.params.id,r.body.isActive))));
+treasuryRouter.patch('/treasury/flow-readiness',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.setReadiness(r,r.body.isReady,r.body.concessionId))));

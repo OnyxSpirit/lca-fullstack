@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useRepairOrderActions, useWarrantyClaimPayment } from '../../api/erpHooks';
+import { usePaymentMethodsQuery, useRepairOrderActions, useWarrantyClaimPayment } from '../../api/erpHooks';
 import { Button } from '../../components/ui/Button';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { formatCurrency } from '../../lib/utils';
@@ -14,11 +14,13 @@ function ClaimPayment({ claim }: { claim: NonNullable<NonNullable<RepairOrder['w
   const can = useAuthStore((state) => state.can);
   const toast = useUiStore((state) => state.addToast);
   const payment = useWarrantyClaimPayment();
+  const methods = usePaymentMethodsQuery(can('billing.payment.collect'));
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
+  const [paymentMethodId, setPaymentMethodId] = useState('');
   const submit = async () => {
     try {
-      await payment.mutateAsync({ claimId: claim.id, amount: Number(amount), reference, requestKey: crypto.randomUUID() });
+      await payment.mutateAsync({ claimId: claim.id, paymentMethodId, amount: Number(amount), reference, requestKey: crypto.randomUUID() });
       toast({ type: 'success', title: 'Règlement constructeur enregistré' });
     } catch (error) {
       toast({ type: 'error', title: 'Règlement refusé', description: error instanceof Error ? error.message : 'Erreur API' });
@@ -26,10 +28,11 @@ function ClaimPayment({ claim }: { claim: NonNullable<NonNullable<RepairOrder['w
   };
   return <>
     <p className="text-sm">Créance {claim.claimNumber} · {formatCurrency(claim.total)} · reçu {formatCurrency(claim.amountReceived)} · solde {formatCurrency(claim.balanceDue)}</p>
-    {can('billing.payment.collect') && claim.balanceDue > 0 && <div className="grid gap-2 md:grid-cols-3">
+    {can('billing.payment.collect') && claim.balanceDue > 0 && <div className="grid gap-2 md:grid-cols-4">
       <input className={field} type="number" min="0.01" max={claim.balanceDue} value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Montant reçu" />
+      <select aria-label="Moyen du règlement constructeur" className={field} value={paymentMethodId} onChange={(event)=>setPaymentMethodId(event.target.value)}><option value="">Moyen de paiement</option>{methods.data?.map((method:any)=><option key={method.id} value={method.id}>{method.name}</option>)}</select>
       <input className={field} value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Référence du règlement" />
-      <Button disabled={!Number(amount) || Number(amount) > claim.balanceDue} loading={payment.isPending} onClick={submit}>Enregistrer le règlement</Button>
+      <Button disabled={!paymentMethodId||!Number(amount) || Number(amount) > claim.balanceDue} loading={payment.isPending} onClick={submit}>Enregistrer le règlement</Button>
     </div>}
   </>;
 }

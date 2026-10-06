@@ -1,7 +1,7 @@
 # Futures migrations
 
 Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
-baseline fraîche 054 absorbe désormais les migrations 034–054 ; le runner les
+baseline fraîche 055 absorbe désormais les migrations 034–055 ; le runner les
 applique encore aux bases historiques selon leur journal `schema_migrations`.
 Un marqueur consolidé `baseline_001_N` est un marqueur de plage : il prouve
 que toutes les migrations de version inférieure ou égale à `N` sont déjà
@@ -44,8 +44,13 @@ ajoutés sont optionnels et ne modifient aucune donnée historique.
 
 La migration `054_treasury_foundation.sql` crée les comptes de trésorerie,
 catégories concession, transferts et journal append-only. Elle ajoute les cinq
-permissions granulaires du domaine. Aucun flux Billing, garantie ou budget RH
-n'est automatiquement raccordé à ce journal dans ce lot.
+permissions granulaires du domaine.
+
+La migration `055_treasury_flow_integration.sql` ajoute, sans reprise de données,
+le mapping agence + moyen de paiement vers un compte de trésorerie et l'activation
+explicite par concession. Elle conserve le moyen des règlements constructeur. Les
+événements confirmés après activation sont écrits atomiquement dans Treasury ;
+les factures, avoirs, budgets et événements antérieurs ne sont jamais backfillés.
 
 La migration `045_customer_identity_per_agency.sql` définit l’identité client
 par agence. L’e-mail (`TRIM`, insensible à la casse) et le téléphone (caractères

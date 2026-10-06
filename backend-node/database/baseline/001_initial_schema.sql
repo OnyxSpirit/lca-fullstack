@@ -1,4 +1,4 @@
--- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 054.
+-- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 055.
 -- À exécuter exclusivement sur une base vide. Le runner refuse toute base ambiguë.
 SET NAMES utf8mb4;
 
@@ -1988,7 +1988,7 @@ CREATE TABLE repair_order_warranties(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY K
 CREATE TABLE repair_order_warranty_allocations(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,warranty_id BIGINT UNSIGNED NOT NULL,repair_order_item_id BIGINT UNSIGNED NOT NULL UNIQUE,manufacturer_share_ht DECIMAL(18,2) NOT NULL,created_by BIGINT UNSIGNED NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_by BIGINT UNSIGNED NULL,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,CHECK(manufacturer_share_ht>=0),INDEX idx_rowa_warranty(warranty_id),FOREIGN KEY(warranty_id) REFERENCES repair_order_warranties(id) ON DELETE CASCADE,FOREIGN KEY(repair_order_item_id) REFERENCES repair_order_items(id) ON DELETE RESTRICT,FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;
 CREATE TABLE warranty_claims(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,claim_number VARCHAR(50) NOT NULL UNIQUE,warranty_id BIGINT UNSIGNED NOT NULL UNIQUE,provider_id BIGINT UNSIGNED NOT NULL,agency_id BIGINT UNSIGNED NOT NULL,status ENUM('issued','partially_paid','paid','cancelled') NOT NULL DEFAULT 'issued',subtotal DECIMAL(18,2) NOT NULL,tax_total DECIMAL(18,2) NOT NULL,total DECIMAL(18,2) NOT NULL,amount_received DECIMAL(18,2) NOT NULL DEFAULT 0,balance_due DECIMAL(18,2) NOT NULL,currency_code CHAR(3) NOT NULL DEFAULT 'XAF',reference VARCHAR(100) NULL,issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,created_by BIGINT UNSIGNED NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,cancelled_by BIGINT UNSIGNED NULL,cancelled_at DATETIME NULL,cancellation_reason VARCHAR(500) NULL,INDEX idx_wc_agency_status(agency_id,status,issued_at),INDEX idx_wc_provider_status(provider_id,status),FOREIGN KEY(warranty_id) REFERENCES repair_order_warranties(id) ON DELETE RESTRICT,FOREIGN KEY(provider_id) REFERENCES warranty_providers(id) ON DELETE RESTRICT,FOREIGN KEY(agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,FOREIGN KEY(cancelled_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;
 CREATE TABLE warranty_claim_items(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,claim_id BIGINT UNSIGNED NOT NULL,repair_order_item_id BIGINT UNSIGNED NOT NULL,description VARCHAR(255) NOT NULL,item_type VARCHAR(20) NOT NULL,quantity_snapshot DECIMAL(12,2) NOT NULL,real_line_total_ht DECIMAL(18,2) NOT NULL,tax_rate_snapshot DECIMAL(8,4) NOT NULL,manufacturer_share_ht DECIMAL(18,2) NOT NULL,manufacturer_tax DECIMAL(18,2) NOT NULL,manufacturer_total DECIMAL(18,2) NOT NULL,UNIQUE KEY uk_wci_claim_item(claim_id,repair_order_item_id),FOREIGN KEY(claim_id) REFERENCES warranty_claims(id) ON DELETE CASCADE,FOREIGN KEY(repair_order_item_id) REFERENCES repair_order_items(id) ON DELETE RESTRICT) ENGINE=InnoDB;
-CREATE TABLE warranty_claim_payments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,claim_id BIGINT UNSIGNED NOT NULL,amount DECIMAL(18,2) NOT NULL,payment_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,reference VARCHAR(150) NULL,notes TEXT NULL,request_key VARCHAR(64) NOT NULL,status ENUM('confirmed','cancelled') NOT NULL DEFAULT 'confirmed',recorded_by BIGINT UNSIGNED NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY uk_wcp_request(claim_id,request_key),INDEX idx_wcp_claim_date(claim_id,payment_date),CHECK(amount>0),FOREIGN KEY(claim_id) REFERENCES warranty_claims(id) ON DELETE RESTRICT,FOREIGN KEY(recorded_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;
+CREATE TABLE warranty_claim_payments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,claim_id BIGINT UNSIGNED NOT NULL,payment_method_id BIGINT UNSIGNED NULL,amount DECIMAL(18,2) NOT NULL,payment_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,reference VARCHAR(150) NULL,notes TEXT NULL,request_key VARCHAR(64) NOT NULL,status ENUM('confirmed','cancelled') NOT NULL DEFAULT 'confirmed',recorded_by BIGINT UNSIGNED NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY uk_wcp_request(claim_id,request_key),INDEX idx_wcp_claim_date(claim_id,payment_date),CHECK(amount>0),FOREIGN KEY(claim_id) REFERENCES warranty_claims(id) ON DELETE RESTRICT,CONSTRAINT fk_wcp_payment_method FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT,FOREIGN KEY(recorded_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB;
 ALTER TABLE invoice_items ADD COLUMN repair_order_item_id BIGINT UNSIGNED NULL,ADD INDEX idx_invoice_item_repair_item(repair_order_item_id),ADD CONSTRAINT fk_invoice_item_repair_item FOREIGN KEY(repair_order_item_id) REFERENCES repair_order_items(id) ON DELETE RESTRICT;
 
 -- ============================================================
@@ -2060,6 +2060,26 @@ CREATE TABLE treasury_movements (
   CONSTRAINT fk_treasury_movement_reversal FOREIGN KEY (reversal_of_id) REFERENCES treasury_movements(id), CONSTRAINT fk_treasury_movement_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
--- Le baseline représente directement l'état consolidé au niveau 054.
+CREATE TABLE treasury_flow_configurations (
+  concession_id BIGINT UNSIGNED PRIMARY KEY, is_ready BOOLEAN NOT NULL DEFAULT FALSE, activated_at DATETIME NULL, activated_by BIGINT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_treasury_flow_config_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_treasury_flow_config_activator FOREIGN KEY (activated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE treasury_account_mappings (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, concession_id BIGINT UNSIGNED NOT NULL, agency_id BIGINT UNSIGNED NOT NULL,
+  payment_method_id BIGINT UNSIGNED NOT NULL, treasury_account_id BIGINT UNSIGNED NOT NULL, is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by BIGINT UNSIGNED NOT NULL, updated_by BIGINT UNSIGNED NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_treasury_mapping_context (agency_id,payment_method_id), KEY idx_treasury_mapping_scope (concession_id,agency_id,is_active),
+  CONSTRAINT fk_treasury_mapping_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_treasury_mapping_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_treasury_mapping_method FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_treasury_mapping_account FOREIGN KEY (treasury_account_id) REFERENCES treasury_accounts(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_treasury_mapping_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_treasury_mapping_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+-- Le baseline représente directement l'état consolidé au niveau 055.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (54,'baseline_001_054',REPEAT('0',64));
+VALUES (55,'baseline_001_055',REPEAT('0',64));

@@ -39,7 +39,7 @@ Un hôte MySQL est `127.0.0.1` ou `mysql`, jamais `http://localhost:3306`.
 
 `npm run db:bootstrap` est l’entrée canonique :
 
-- base vide : baseline consolidée 054 et seed système ;
+- base vide : baseline consolidée 055 et seed système ;
 - base versionnée : migrations `034+` absentes seulement ;
 - base non vide non versionnée : arrêt sans écriture.
 
@@ -47,6 +47,30 @@ Les commandes historiques `db:migrate:billing` et
 `db:migrate:customers360` sont conservées pour diagnostic ciblé d’anciennes
 installations ; elles ne remplacent pas le bootstrap et ne constituent pas le
 flux normal de mise à niveau. Voir `database/README.md`.
+
+### Connexion des flux à la trésorerie
+
+La connexion automatique est inactive après migration. Un administrateur ayant
+`treasury.account.manage` configure, pour chaque agence et moyen de paiement, un
+compte actif de la même concession, puis un scope `CONCESSION` ou `GLOBAL`
+active explicitement la concession. La date et l'acteur d'activation sont
+audités. Un paiement créé avant l'activation mais confirmé après celle-ci est
+traité, car le cutover porte sur l'événement financier et non sur sa création.
+
+Dans la transaction métier, un paiement confirmé crée un mouvement `PAYMENT /
+CONFIRMED` entrant, un remboursement exécuté crée `PAYMENT_REFUND / REFUNDED`
+sortant, et un règlement constructeur reçu crée `WARRANTY_CLAIM_PAYMENT /
+RECEIVED` entrant. Le remboursement débite le compte réellement crédité par le
+mouvement du paiement d'origine, même si le mapping courant a ensuite changé ou
+été désactivé ; si ce compte est inactif, le remboursement est refusé sans compte
+alternatif implicite. Le règlement constructeur exige son propre moyen. Les clés métier
+persistantes et l'unicité Treasury rendent les retries idempotents. Une erreur
+de mapping, devise, compte, readiness ou solde annule toute la transaction.
+
+Les factures et avoirs ne sont pas des flux de trésorerie. La migration et le
+bootstrap ne recopient aucun paiement historique : le solde réel au cutover doit
+être rapproché humainement puis représenté par `OPENING_BALANCE`, afin d'éviter
+le double comptage. Les budgets RH restent entièrement découplés.
 
 ## Développement et validation
 

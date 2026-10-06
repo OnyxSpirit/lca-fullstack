@@ -1,7 +1,7 @@
 # Futures migrations
 
 Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
-baseline fraîche 052 absorbe désormais les migrations 034–052 ; le runner les
+baseline fraîche 053 absorbe désormais les migrations 034–053 ; le runner les
 applique encore aux bases historiques selon leur journal `schema_migrations`.
 Un marqueur consolidé `baseline_001_N` est un marqueur de plage : il prouve
 que toutes les migrations de version inférieure ou égale à `N` sont déjà
@@ -36,6 +36,11 @@ La migration `052_showroom_visit_origin.sql` persiste l'origine Showroom ou CRM
 de chaque nouvelle visite. Les lignes historiques restent conservativement en
 origine Showroom. Le retour d'un essai créé explicitement depuis le CRM clôture
 ainsi atomiquement sa visite sans modifier le parcours Showroom direct.
+
+La migration `053_concession_document_identity.sql` complète l'identité légale
+canonique de la concession avec le RCCM, le RIB documentaire et le site web.
+Le NIU reste exclusivement porté par `concessions.tax_identifier`. Les champs
+ajoutés sont optionnels et ne modifient aucune donnée historique.
 
 La migration `045_customer_identity_per_agency.sql` définit l’identité client
 par agence. L’e-mail (`TRIM`, insensible à la casse) et le téléphone (caractères

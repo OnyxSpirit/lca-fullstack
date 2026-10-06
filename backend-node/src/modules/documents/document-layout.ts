@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 
 export const documentStyle={
-  page:{size:'A4' as const,margin:42,contentWidth:511,footerY:780},
+  page:{size:'A4' as const,margin:42,contentWidth:511,footerY:746},
   colors:{primary:'#8f1722',text:'#111827',muted:'#64748b',border:'#cbd5e1',line:'#e2e8f0',surface:'#f8fafc',white:'#ffffff'},
   logo:{x:42,y:38,width:95,height:55},
   title:{ruleY:110,y:126,referenceY:153,contentY:180},
@@ -27,7 +27,7 @@ export function drawCompanyIdentity(doc:PDFKit.PDFDocument,identity:any){
   const lines:unknown[]=[];
   if(!logoDrawn){const trade=documentText(identity.tradeName);if(trade&&!names.has(trade.toLocaleLowerCase())){lines.push(trade);names.add(trade.toLocaleLowerCase())}}
   const agency=documentText(identity.agencyName);if(agency&&!names.has(agency.toLocaleLowerCase()))lines.push(agency);
-  lines.push([identity.agencyAddress,identity.agencyCity].filter(Boolean).join(', '),[identity.phone,identity.email].filter(Boolean).join(' · '),identity.taxIdentifier?`Identifiant fiscal : ${identity.taxIdentifier}`:'');
+  lines.push([identity.agencyAddress||identity.concessionAddress,identity.agencyCity||identity.concessionCity].filter(Boolean).join(', '),[identity.phone,identity.email].filter(Boolean).join(' · '));
   doc.fillColor(documentStyle.colors.text).font('Helvetica').fontSize(8).text(lines.filter(Boolean).map(documentText).join('\n'),x,58,{width,align});
 }
 
@@ -45,7 +45,18 @@ export function drawSection(doc:PDFKit.PDFDocument,title:string,y:number){
   return y+23;
 }
 
+export function documentFooterLines(identity:any){
+  const website=documentText(identity.website).replace(/^https?:\/\//i,'').replace(/\/$/,'');
+  const legal=[["RCCM",identity.rccm],["NIU",identity.taxIdentifier],["RIB",identity.rib],["Site web",website]].flatMap(([label,value])=>{const clean=documentText(value);return clean?[`${label} : ${clean}`]:[]}).join(' • ');
+  const address=[identity.agencyAddress||identity.concessionAddress,identity.agencyCity||identity.concessionCity].filter(Boolean).map(documentText).join(', ');
+  const contact=[["Adresse",address],["Tél.",identity.phone]].flatMap(([label,value])=>{const clean=documentText(value);return clean?[`${label} : ${clean}`]:[]}).join(' • ');
+  return{legal,contact};
+}
+
+function footerFontSize(doc:PDFKit.PDFDocument,value:string,width:number,maxLines:number){let size=7;while(size>5.2){doc.fontSize(size);if(doc.heightOfString(value,{width,align:'center'})<=size*1.35*maxLines)return size;size-=.2}return 5.2}
+
 export function drawDocumentFooter(doc:PDFKit.PDFDocument,identity:any){
   const range=doc.bufferedPageRange();
-  for(let index=0;index<range.count;index++){doc.switchToPage(index);doc.fillColor(documentStyle.colors.muted).font('Helvetica').fontSize(7).text([identity.legalName||identity.tradeName,identity.taxIdentifier,identity.phone,identity.email].filter(Boolean).map(documentText).join(' • '),42,documentStyle.page.footerY,{width:430,lineBreak:false}).text(`Page ${index+1} / ${range.count}`,480,documentStyle.page.footerY,{width:73,align:'right',lineBreak:false})}
+  const lines=documentFooterLines(identity);
+  for(let index=0;index<range.count;index++){doc.switchToPage(index);doc.moveTo(42,documentStyle.page.footerY-7).lineTo(553,documentStyle.page.footerY-7).strokeColor(documentStyle.colors.line).lineWidth(.5).stroke();doc.fillColor(documentStyle.colors.muted).font('Helvetica');if(lines.legal)doc.fontSize(footerFontSize(doc,lines.legal,511,3)).text(lines.legal,42,documentStyle.page.footerY,{width:511,height:27,align:'center'});if(lines.contact)doc.fontSize(footerFontSize(doc,lines.contact,511,2)).text(lines.contact,42,775,{width:511,height:13,align:'center'});doc.fontSize(6).text(`Page ${index+1} / ${range.count}`,42,792,{width:511,align:'center',lineBreak:false})}
 }

@@ -1,4 +1,4 @@
--- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 050.
+-- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 053.
 -- À exécuter exclusivement sur une base vide. Le runner refuse toute base ambiguë.
 SET NAMES utf8mb4;
 
@@ -26,6 +26,9 @@ CREATE TABLE concessions (
     code VARCHAR(50) NOT NULL UNIQUE,
     legal_name VARCHAR(200) NULL,
     tax_identifier VARCHAR(100) NULL,
+    rccm VARCHAR(190) NULL,
+    rib VARCHAR(500) NULL,
+    website VARCHAR(500) NULL,
     address TEXT NULL,
     city VARCHAR(100) NULL,
     country VARCHAR(100) NULL,
@@ -2019,6 +2022,6 @@ CREATE INDEX idx_part_stock ON parts(current_stock, min_stock);
 CREATE INDEX idx_invoice_status_due ON invoices(status, due_date);
 CREATE INDEX idx_payment_date ON payments(payment_date);
 
--- Le baseline représente directement l'état consolidé au niveau 052.
+-- Le baseline représente directement l'état consolidé au niveau 053.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (52,'baseline_001_052',REPEAT('0',64));
+VALUES (53,'baseline_001_053',REPEAT('0',64));

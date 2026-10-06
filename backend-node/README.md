@@ -39,7 +39,7 @@ Un hôte MySQL est `127.0.0.1` ou `mysql`, jamais `http://localhost:3306`.
 
 `npm run db:bootstrap` est l’entrée canonique :
 
-- base vide : baseline consolidée 040, seed système, puis migrations `041+` ;
+- base vide : baseline consolidée 053 et seed système ;
 - base versionnée : migrations `034+` absentes seulement ;
 - base non vide non versionnée : arrêt sans écriture.
 
@@ -84,6 +84,21 @@ exige un archivage GED idempotent. Un échec est renvoyé explicitement et la m�
 action peut être rejouée pour réparer l'archive ; leur consultation ultérieure
 ne régénère jamais silencieusement le PDF depuis les données courantes. Les
 documents de consultation non finalisés restent, eux, générés dynamiquement.
+
+## Identité documentaire
+
+L'identité légale canonique appartient à `concessions` : raison sociale, RCCM,
+NIU (`tax_identifier`), RIB documentaire et site web. Aucun champ NIF ou second
+NIU n'est utilisé. Les coordonnées opérationnelles des documents proviennent de
+l'agence émettrice (`agencies.address`, `city`, `phone`, `email`) ; l'adresse de
+la concession sert de repli lorsque l'agence n'en possède pas.
+
+Le footer PDF commun construit dynamiquement ses segments RCCM, NIU, RIB, site
+web, adresse et téléphone. Les valeurs absentes et leurs séparateurs sont omis.
+Il est centré, répété sur chaque page et dimensionne le texte long dans la zone
+réservée. Le NIU n'est pas répété dans le header. Les archives officielles déjà
+finalisées restent les octets historiques autoritaires : une modification de
+l'identité ne provoque aucune régénération lors de la preview ou du download.
 
 ## Rôles à l’installation
 

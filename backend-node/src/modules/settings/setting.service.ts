@@ -134,6 +134,9 @@ export async function get(r: Request, enforceRead = true) {
       name: c.name,
       legalName: c.legal_name,
       taxIdentifier: c.tax_identifier,
+      rccm: c.rccm,
+      rib: c.rib,
+      website: c.website,
       address: c.address,
       city: c.city,
       country: c.country,
@@ -207,7 +210,8 @@ export function validateConcession(body: unknown): ConcessionIdentityPayload {
     throw new HttpError(400, "Identité concession invalide");
   const b = (body ?? {}) as Partial<ConcessionIdentityPayload>,
     currency = String(text(b.currencyCode, "Devise", true, 3)).toUpperCase(),
-    timezone = text(b.timezone, "Fuseau horaire", true, 80)!;
+    timezone = text(b.timezone, "Fuseau horaire", true, 80)!,
+    website = text(b.website, "Site web", false, 500);
   if (!/^[A-Z]{3}$/.test(currency)) throw new HttpError(400, "Devise invalide");
   const supportedCurrencies = (
     Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
@@ -219,10 +223,17 @@ export function validateConcession(body: unknown): ConcessionIdentityPayload {
   } catch {
     throw new HttpError(400, "Fuseau horaire invalide");
   }
+  if(website){
+    try{const parsed=new URL(/^https?:\/\//i.test(website)?website:`https://${website}`);if(!['http:','https:'].includes(parsed.protocol)||!parsed.hostname.includes('.'))throw new Error()}
+    catch{throw new HttpError(400,"Site web invalide")}
+  }
   return {
     name: text(b.name, "Nom commercial", true, 150)!,
     legalName: text(b.legalName, "Raison sociale", false, 200),
-    taxIdentifier: text(b.taxIdentifier, "Identifiant fiscal", false, 100),
+    taxIdentifier: text(b.taxIdentifier, "NIU", false, 100),
+    rccm: text(b.rccm, "RCCM", false, 190),
+    rib: text(b.rib, "RIB", false, 500),
+    website,
     address: text(b.address, "Adresse", false, 500),
     city: text(b.city, "Ville", false, 100),
     country: text(b.country, "Pays", false, 100),
@@ -240,11 +251,14 @@ export async function updateConcession(body: unknown, r: Request) {
       [concessionId],
     );
     await c.execute(
-      "UPDATE concessions SET name=?,legal_name=?,tax_identifier=?,address=?,city=?,country=?,currency_code=?,timezone=? WHERE id=?",
+      "UPDATE concessions SET name=?,legal_name=?,tax_identifier=?,rccm=?,rib=?,website=?,address=?,city=?,country=?,currency_code=?,timezone=? WHERE id=?",
       [
         v.name,
         v.legalName ?? null,
         v.taxIdentifier ?? null,
+        v.rccm ?? null,
+        v.rib ?? null,
+        v.website ?? null,
         v.address ?? null,
         v.city ?? null,
         v.country ?? null,

@@ -1,4 +1,4 @@
--- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 061.
+-- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 066.
 -- À exécuter exclusivement sur une base vide. Le runner refuse toute base ambiguë.
 SET NAMES utf8mb4;
 
@@ -210,6 +210,28 @@ CREATE TABLE salary_history (
     CONSTRAINT chk_salary_positive CHECK (amount > 0),
     CONSTRAINT fk_salary_employee FOREIGN KEY (employee_profile_id) REFERENCES employee_profiles(id) ON DELETE RESTRICT,
     CONSTRAINT fk_salary_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE employee_leave_types (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, concession_id BIGINT UNSIGNED NOT NULL, code VARCHAR(50) NOT NULL, label VARCHAR(120) NOT NULL, description VARCHAR(500) NULL,
+ requires_document BOOLEAN NOT NULL DEFAULT FALSE, requires_approval BOOLEAN NOT NULL DEFAULT TRUE, is_active BOOLEAN NOT NULL DEFAULT TRUE,
+ created_by BIGINT UNSIGNED NULL, updated_by BIGINT UNSIGNED NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uk_leave_type_concession_code(concession_id,code), UNIQUE KEY uk_leave_type_concession_label(concession_id,label), KEY idx_leave_type_active(concession_id,is_active,label),
+ CONSTRAINT fk_leave_type_concession FOREIGN KEY(concession_id) REFERENCES concessions(id) ON DELETE RESTRICT, CONSTRAINT fk_leave_type_creator FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL, CONSTRAINT fk_leave_type_updater FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE employee_leaves (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, employee_profile_id BIGINT UNSIGNED NOT NULL, concession_id BIGINT UNSIGNED NOT NULL, agency_id_snapshot BIGINT UNSIGNED NULL,
+ leave_type_id BIGINT UNSIGNED NOT NULL, type_code_snapshot VARCHAR(50) NOT NULL, type_label_snapshot VARCHAR(120) NOT NULL, origin ENUM('EMPLOYEE_REQUEST','HR_ENTRY') NOT NULL,
+ start_date DATE NOT NULL, end_date DATE NOT NULL, reason VARCHAR(1000) NULL, status ENUM('DRAFT','PENDING','APPROVED','REJECTED','CANCELLED') NOT NULL DEFAULT 'DRAFT',
+ submitted_by BIGINT UNSIGNED NULL, submitted_at DATETIME NULL, decided_by BIGINT UNSIGNED NULL, decided_at DATETIME NULL, decision_reason VARCHAR(1000) NULL,
+ cancelled_by BIGINT UNSIGNED NULL, cancelled_at DATETIME NULL, cancellation_reason VARCHAR(1000) NULL, created_by BIGINT UNSIGNED NOT NULL, updated_by BIGINT UNSIGNED NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_leave_employee_period(employee_profile_id,start_date,end_date), KEY idx_leave_employee_status(employee_profile_id,status,start_date), KEY idx_leave_scope(concession_id,agency_id_snapshot,status,start_date), KEY idx_leave_type(leave_type_id,status),
+ CONSTRAINT chk_leave_dates CHECK(end_date>=start_date), CONSTRAINT chk_leave_state CHECK((status='DRAFT' AND submitted_at IS NULL AND decided_at IS NULL AND cancelled_at IS NULL) OR (status='PENDING' AND submitted_at IS NOT NULL AND decided_at IS NULL AND cancelled_at IS NULL) OR (status IN('APPROVED','REJECTED') AND submitted_at IS NOT NULL AND decided_at IS NOT NULL AND cancelled_at IS NULL) OR (status='CANCELLED' AND cancelled_at IS NOT NULL)),
+ CONSTRAINT fk_leave_employee FOREIGN KEY(employee_profile_id) REFERENCES employee_profiles(id) ON DELETE RESTRICT, CONSTRAINT fk_leave_concession FOREIGN KEY(concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+ CONSTRAINT fk_leave_agency FOREIGN KEY(agency_id_snapshot) REFERENCES agencies(id) ON DELETE SET NULL, CONSTRAINT fk_leave_type FOREIGN KEY(leave_type_id) REFERENCES employee_leave_types(id) ON DELETE RESTRICT,
+ CONSTRAINT fk_leave_submitter FOREIGN KEY(submitted_by) REFERENCES users(id) ON DELETE SET NULL, CONSTRAINT fk_leave_decider FOREIGN KEY(decided_by) REFERENCES users(id) ON DELETE SET NULL,
+ CONSTRAINT fk_leave_canceller FOREIGN KEY(cancelled_by) REFERENCES users(id) ON DELETE SET NULL, CONSTRAINT fk_leave_creator FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE RESTRICT, CONSTRAINT fk_leave_updater FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE employee_contract_types (
@@ -2426,6 +2448,6 @@ CREATE TABLE post_delivery_vehicle_return_events (
   CONSTRAINT fk_vehicle_return_event_user FOREIGN KEY(performed_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Le baseline représente directement l'état consolidé au niveau 065.
+-- Le baseline représente directement l'état consolidé au niveau 066.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (65,'baseline_001_065',REPEAT('0',64));
+VALUES (66,'baseline_001_066',REPEAT('0',64));

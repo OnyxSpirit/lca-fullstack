@@ -36,13 +36,14 @@ import { ROUTES } from './navigation/routes';
 import type { ModuleKey } from './navigation/routes';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
+import { ActivityPage } from './modules/activity/ActivityPage';
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const location = useLocation();
   return isAuthenticated ? <AppLayout /> : <Navigate to={ROUTES.login} state={{ from: location }} replace />;
 }
-const MODULE_PERMISSION: Record<ModuleKey, string> = { dashboard:'dashboard.view', modules:'dashboard.view', crm:'crm.prospect.view', showroom:'showroom.view', vehicles:'vehicles.view', sales:'sales.view', deliveries:'delivery.view', customers:'customers.view', service:'service.order.view', workshop:'workshop.view', parts:'parts.view', billing:'billing.view', treasury:'treasury.view', reports:'reporting.view', documents:'ged.view', hr:'hr.view', users:'users.view', settings:'settings.view', notifications:'notifications.view' };
+const MODULE_PERMISSION: Record<ModuleKey, string> = { dashboard:'dashboard.view', modules:'dashboard.view', crm:'crm.prospect.view', showroom:'showroom.view', vehicles:'vehicles.view', sales:'sales.view', deliveries:'delivery.view', customers:'customers.view', service:'service.order.view', workshop:'workshop.view', parts:'parts.view', billing:'billing.view', treasury:'treasury.view', reports:'reporting.view', documents:'ged.view', hr:'hr.view', users:'users.view', settings:'settings.view', notifications:'notifications.view',activity:'activity.view' };
 function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNode}) {
   const can=useAuthStore(state=>state.can);
   return can(MODULE_PERMISSION[module])?<>{children}</>:<AccessDeniedPage/>;
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="hr" element={<ModuleGuard module="hr"><HrAdministrationPage /></ModuleGuard>} />
           <Route path="users" element={<ModuleGuard module="users"><UsersManagementPage /></ModuleGuard>} />
           <Route path="settings" element={<ModuleGuard module="settings"><SettingsPage /></ModuleGuard>} />
+          <Route path="activity" element={<ModuleGuard module="activity"><ActivityPage /></ModuleGuard>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.login} replace />} />

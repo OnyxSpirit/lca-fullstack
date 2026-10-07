@@ -34,6 +34,7 @@ import { hrLeaveRouter } from './modules/hr/hr-leave.routes.js';
 import { hrBonusRouter } from './modules/hr/hr-bonus.routes.js';
 import { treasuryRouter } from './modules/treasury/treasury.routes.js';
 import { vehicleReturnRouter } from './modules/vehicle-returns/vehicle-return.routes.js';
+import { activityRouter } from './modules/activity/activity.routes.js';
 
 export function createApp() {
   const app=express();
@@ -48,7 +49,7 @@ export function createApp() {
   for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
   app.use('/api/auth',createAuthRouter());
-  app.use('/api',authenticate,enforceAgencyScope,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,partRouter,warrantyRouter,workshopRouter,billingRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,partRouter,warrantyRouter,workshopRouter,billingRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

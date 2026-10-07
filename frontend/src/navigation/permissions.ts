@@ -1,6 +1,6 @@
 import type { PermissionAction, User, UserRole } from '../types';
 
-export type ModulePermission = 'dashboard'|'modules'|'crm'|'customers'|'vehicles'|'showroom'|'sales'|'deliveries'|'service'|'workshop'|'parts'|'billing'|'treasury'|'documents'|'notifications'|'reports'|'hr'|'users'|'settings';
+export type ModulePermission = 'dashboard'|'modules'|'crm'|'customers'|'vehicles'|'showroom'|'sales'|'deliveries'|'service'|'workshop'|'parts'|'billing'|'treasury'|'documents'|'notifications'|'reports'|'hr'|'users'|'settings'|'activity';
 export type WorkflowPermission = 'crm.stage.update'|'crm.activity.create'|'crm.close.won'|'crm.close.lost'|'sales.create'|'sales.update'|'sales.cancel'|'showroom.register'|'showroom.assign'|'showroom.cancelWaiting'|'showroom.takeOver'|'showroom.testDrive'|'showroom.returnTestDrive'|'showroom.complete'|'vehicles.create'|'vehicles.update'|'vehicles.viewFinancials'|'customers.create'|'customers.update'|'service.create'|'service.update'|'service.assign'|'service.invoice'|'workshop.manageResources'|'workshop.assign'|'workshop.timeTrack'|'parts.manageCatalog'|'parts.manageStock'|'parts.viewFinancials'|'parts.receive'|'parts.order'|'billing.create'|'billing.pay'|'billing.credit'|'billing.refund'|'deliveries.create'|'deliveries.update'|'deliveries.complete'|'documents.upload'|'documents.archive'|'reports.export'|'users.manage'|'settings.manage';
 export type AppPermission = `${ModulePermission}.view`|WorkflowPermission;
 export const hasDynamicPermission=(permissions:Record<string,unknown>|undefined,permissionCode:string)=>Boolean(permissions&&Object.hasOwn(permissions,permissionCode));
@@ -36,7 +36,7 @@ const routeModules:ReadonlyArray<[string,ModulePermission]>=[
   ['/vehicles','vehicles'],['/customers','customers'],['/showroom','showroom'],
   ['/billing','billing'],['/treasury','treasury'],['/documents','documents'],['/reports','reports'],['/hr','hr'],
   ['/parts','parts'],['/sales','sales'],['/crm','crm'],['/users','users'],
-  ['/settings','settings'],['/notifications','notifications'],['/modules','modules'],
+  ['/settings','settings'],['/activity','activity'],['/notifications','notifications'],['/modules','modules'],
   ['/dashboard','dashboard'],
 ];
 
@@ -45,7 +45,7 @@ export function moduleForRoute(path:string):ModulePermission|null{
   return routeModules.find(([root])=>pathname===root||pathname.startsWith(`${root}/`))?.[1]??null;
 }
 
-const dynamicModuleCodes:Record<ModulePermission,string>={dashboard:'dashboard.view',modules:'dashboard.view',crm:'crm.prospect.view',customers:'customers.view',vehicles:'vehicles.view',showroom:'showroom.view',sales:'sales.view',deliveries:'delivery.view',service:'service.order.view',workshop:'workshop.view',parts:'parts.view',billing:'billing.view',treasury:'treasury.view',documents:'ged.view',notifications:'notifications.view',reports:'reporting.view',hr:'hr.view',users:'users.view',settings:'settings.view'};
+const dynamicModuleCodes:Record<ModulePermission,string>={dashboard:'dashboard.view',modules:'dashboard.view',crm:'crm.prospect.view',customers:'customers.view',vehicles:'vehicles.view',showroom:'showroom.view',sales:'sales.view',deliveries:'delivery.view',service:'service.order.view',workshop:'workshop.view',parts:'parts.view',billing:'billing.view',treasury:'treasury.view',documents:'ged.view',notifications:'notifications.view',reports:'reporting.view',hr:'hr.view',users:'users.view',settings:'settings.view',activity:'activity.view'};
 export function canNavigateWithPermissions(permissions:Record<string,unknown>|undefined,path:string){const module=moduleForRoute(path);return module!==null&&hasDynamicPermission(permissions,dynamicModuleCodes[module])}
 
 export function canNavigateToRoute(roles:UserRole[]|UserRole,path:string):boolean{

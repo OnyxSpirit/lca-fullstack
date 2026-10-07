@@ -23,6 +23,7 @@ import {
   Layers,
   Landmark,
   X,
+  History,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationsQuery } from '../../api/notificationHooks';
@@ -182,6 +183,12 @@ export const Sidebar: React.FC = () => {
           badge: unreadNotifs > 0 ? unreadNotifs : undefined,
           badgeVariant: 'danger',
           module: 'notifications',
+        },
+        {
+          to: ROUTES.activity,
+          label: 'Activité utilisateurs',
+          icon: <History className="w-4 h-4" />,
+          module: 'activity',
         },
         {
           to: ROUTES.users,

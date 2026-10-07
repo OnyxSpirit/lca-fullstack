@@ -16,6 +16,7 @@ import {requireDocumentFile,storeDocument} from '../documents/document-storage.j
 import {decodeDeliveryDocument} from './delivery-document.js';
 import{lockActiveSaleInvoice,useDeliveryFinancialAuthorization}from'../billing/sale-financial-gate.js';
 import{activateAtDelivery}from'../sales/vehicle-warranty.service.js';
+import{writeAudit}from'../activity/audit-writer.js';
 import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 import{createDeliveryChecklistSnapshot,lockAndAssertDeliveryChecklistComplete,readDeliveryChecklist}from'./delivery-checklist.service.js';
 
@@ -132,7 +133,7 @@ async function notifyRoles(
   await createPermissionNotifications({agencyId,permissions,subject,message,eventType:'delivery.status_changed',referenceType:'delivery',referenceId,priority:'normal'});
 }
 async function audit(connection:PoolConnection,request:Request,deliveryId:string,action:string,oldValues:unknown,newValues:unknown){
-  await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'deliveries','delivery',?,?,?,?,?,?)`,[request.user!.sub,deliveryId,action,oldValues==null?null:JSON.stringify(oldValues),newValues==null?null:JSON.stringify(newValues),request.ip??null,request.get('user-agent')??null]);
+  await writeAudit(connection,request,{module:'deliveries',entityType:'delivery',entityId:deliveryId,action,oldValues,newValues});
 }
 deliveryRouter.get(
   "/deliveries",

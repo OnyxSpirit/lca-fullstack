@@ -2238,6 +2238,8 @@ CREATE TABLE settings (
 CREATE TABLE audit_logs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NULL,
+    agency_id BIGINT UNSIGNED NULL,
+    concession_id BIGINT UNSIGNED NULL,
     module VARCHAR(80) NOT NULL,
     entity_type VARCHAR(80) NOT NULL,
     entity_id BIGINT UNSIGNED NULL,
@@ -2248,8 +2250,14 @@ CREATE TABLE audit_logs (
     user_agent VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_audit_entity (entity_type, entity_id),
-    INDEX idx_audit_user_date (user_id, created_at),
-    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    INDEX idx_audit_user_date (user_id,created_at,id),
+    INDEX idx_audit_created (created_at,id),
+    INDEX idx_audit_agency_date (agency_id,created_at,id),
+    INDEX idx_audit_concession_date (concession_id,created_at,id),
+    INDEX idx_audit_module_date (module,created_at,id),
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_audit_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE SET NULL,
+    CONSTRAINT fk_audit_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- SAV-WARRANTY V1 : dossier, ventilation réelle et créance constructeur.
@@ -2468,6 +2476,6 @@ CREATE TABLE post_delivery_vehicle_return_events (
   CONSTRAINT fk_vehicle_return_event_user FOREIGN KEY(performed_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Le baseline représente directement l'état consolidé au niveau 067.
+-- Le baseline représente directement l'état consolidé au niveau 068.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (67,'baseline_001_067',REPEAT('0',64));
+VALUES (68,'baseline_001_068',REPEAT('0',64));

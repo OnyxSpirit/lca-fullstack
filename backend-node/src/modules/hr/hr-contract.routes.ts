@@ -6,6 +6,7 @@ import {requirePermission} from '../../middleware/require-permission.js';
 import {emitToAgenciesAndGlobals,emitToAgencyAndGlobals} from '../../realtime/socket.js';
 import {HttpError} from '../../shared/http-error.js';
 import {assertPermission,can,rbac,type PermissionScope} from '../rbac/rbac.service.js';
+import{writeAudit}from'../activity/audit-writer.js';
 
 export const hrContractRouter=Router();
 const query=<T extends RowDataPacket[]>(sql:string,values?:unknown[])=>rawQuery<T>(sql,values as any);
@@ -18,7 +19,7 @@ const optionalDate=(v:unknown,label:string)=>v==null||v===''?null:date(v,label);
 const code=(v:unknown)=>{const x=String(v??'').trim().toUpperCase().replace(/[\s-]+/g,'_');if(!/^[A-Z0-9_]{1,50}$/.test(x))throw new HttpError(400,'Code type invalide.');return x};
 const reference=(v:unknown)=>{const x=String(v??'').trim().toUpperCase().replace(/\s+/g,' ');if(!/^[A-Z0-9][A-Z0-9 ./_-]{0,99}$/.test(x))throw new HttpError(400,'Référence contrat invalide.');return x};
 const predicate=(r:Request,scope:PermissionScope|null,alias='ep')=>scope==='GLOBAL'?{sql:'1=1',params:[]as any[]}:scope==='CONCESSION'?{sql:`${alias}.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`,params:[r.user!.agencyId]}:scope==='AGENCY'?{sql:`${alias}.agency_id=?`,params:[r.user!.agencyId]}:scope==='OWN'?{sql:`${alias}.user_id=?`,params:[r.user!.sub]}:(()=>{throw new HttpError(403,'Périmètre employé invalide.')})();
-async function audit(c:PoolConnection,r:Request,type:string,entityId:string,action:string,value:unknown){await c.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'hr',?,?,?,?,?,?)`,[r.user!.sub,type,entityId,action,JSON.stringify(value),r.ip??null,r.get('user-agent')??null])}
+async function audit(c:PoolConnection,r:Request,type:string,entityId:string,action:string,value:unknown){await writeAudit(c,r,{module:'hr',entityType:type,entityId,action,newValues:value})}
 function event(employeeId:string,agencyId:string|null,action:string){const payload={employeeId,agencyId,action};if(agencyId)emitToAgencyAndGlobals(agencyId,'hr:contract-updated',payload);else emitToAgenciesAndGlobals([],'hr:contract-updated',payload)}
 async function actorConcession(r:Request){const[x]=await query<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=?',[r.user!.agencyId]);if(!x)throw new HttpError(403,'Agence de rattachement invalide.');return String(x.concession_id)}
 async function typeConcession(r:Request,requested?:unknown){const scope=await assertPermission(r,'hr.contract.type.manage');if(scope==='OWN'||scope==='AGENCY')throw new HttpError(403,'La gestion des types de contrat exige un scope CONCESSION ou GLOBAL.');if(scope==='CONCESSION'){const concessionId=await actorConcession(r);if(requested!=null&&requested!==''&&id(requested)!==concessionId)throw new HttpError(403,'Concession hors périmètre.');return concessionId}return id(requested)}

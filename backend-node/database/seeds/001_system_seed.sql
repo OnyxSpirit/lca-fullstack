@@ -135,6 +135,10 @@ INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,i
 ('parts','view','parts.reporting.view','Voir les rapports stock','Pièces & stock','Consulter les indicateurs stock',TRUE),
 ('reporting','export','reporting.export','Exporter les rapports','Reporting','Exporter les rapports',TRUE);
 
+INSERT INTO permissions(module,action,code,name,group_name,description,is_active) VALUES
+('activity','view','activity.view','Voir l’activité utilisateurs','Système & Concession','Consulter les événements opérationnels audités dans son périmètre',TRUE)
+ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),is_active=TRUE;
+
 INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,is_active) VALUES
 ('crm','view','crm.activity.view','Voir les activités CRM','CRM & Prospection','Consulter la chronologie des prospects accessibles',TRUE),
 ('crm','create','crm.activity.create','Créer une activité CRM','CRM & Prospection','Ajouter une activité à un prospect accessible',TRUE),

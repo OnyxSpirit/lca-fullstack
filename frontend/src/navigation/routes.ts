@@ -19,6 +19,7 @@ export const ROUTES = {
   notifications: '/notifications',
   users: '/users',
   settings: '/settings',
+  activity: '/activity',
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

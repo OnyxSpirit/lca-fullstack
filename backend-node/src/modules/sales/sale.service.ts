@@ -13,6 +13,7 @@ import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {assertVehicleMargin,assertVehicleMinimumPrice} from '../../shared/vehicle-margin.js';
 import{cancelUnpaidInvoice,cancellationActor}from'../billing/invoice-cancellation.service.js';
 import {publishCrmLeadUpdated} from '../crm/crm.realtime.js';
+import{writeAudit}from'../activity/audit-writer.js';
 import{lockActiveSaleInvoice}from'../billing/sale-financial-gate.js';
 import{calculateTaxLine}from'../../shared/tax-calculation.js';
 import{getEffectiveBusinessSettings}from'../settings/setting-resolver.js';
@@ -45,7 +46,7 @@ async function targetAgency(request:Request,permission:string,requested?:string)
   throw new HttpError(403,'Agence hors périmètre');
 }
 
-async function audit(connection:PoolConnection,request:Request,saleId:string,action:string,oldValues:unknown,newValues:unknown){await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'sales','sale',?,?,?,?,?,?)`,[request.user!.sub,saleId,action,oldValues==null?null:JSON.stringify(oldValues),newValues==null?null:JSON.stringify(newValues),request.ip??null,request.get('user-agent')??null])}
+async function audit(connection:PoolConnection,request:Request,saleId:string,action:string,oldValues:unknown,newValues:unknown){await writeAudit(connection,request,{module:'sales',entityType:'sale',entityId:saleId,action,oldValues,newValues})}
 async function validateSalesperson(connection:PoolConnection,userId:string,agencyId:string){const[rows]=await connection.execute<RowDataPacket[]>(`SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.is_active=TRUE AND p.code='sales.create' AND ${operationalCandidateSql('u')} LIMIT 1`,[userId,agencyId]);if(!rows[0])throw new HttpError(400,'Commercial inactif, non autorisé ou incompatible avec cette agence')}
 async function assertCanAssign(request:Request){await assertPermission(request,'sales.assign');if(grant(request,'sales.assign')==='OWN')throw new HttpError(403,'Le scope OWN ne permet pas de réaffecter une vente')}
 

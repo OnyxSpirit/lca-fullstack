@@ -172,7 +172,13 @@ CREATE TABLE user_roles (
 
 CREATE TABLE employee_profiles (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    user_id BIGINT UNSIGNED NULL UNIQUE,
+    concession_id BIGINT UNSIGNED NOT NULL,
+    agency_id BIGINT UNSIGNED NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(190) NULL,
+    phone VARCHAR(50) NULL,
     employee_number VARCHAR(50) NOT NULL UNIQUE,
     position_title VARCHAR(120) NULL,
     hire_date DATE NOT NULL,
@@ -182,7 +188,12 @@ CREATE TABLE employee_profiles (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_employee_status (employment_status),
-    CONSTRAINT fk_employee_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    INDEX idx_employee_concession_status (concession_id,employment_status),
+    INDEX idx_employee_agency_status (agency_id,employment_status),
+    INDEX idx_employee_identity (last_name,first_name),
+    CONSTRAINT fk_employee_user_optional FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_employee_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_employee_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_employee_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_employee_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -2358,6 +2369,6 @@ CREATE TABLE post_delivery_vehicle_return_events (
   CONSTRAINT fk_vehicle_return_event_user FOREIGN KEY(performed_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Le baseline représente directement l'état consolidé au niveau 063.
+-- Le baseline représente directement l'état consolidé au niveau 064.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (63,'baseline_001_063',REPEAT('0',64));
+VALUES (64,'baseline_001_064',REPEAT('0',64));

@@ -6,7 +6,7 @@ const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'
 
 test('RBAC-01 le contexte est relu en base et exclut utilisateurs et rôles inactifs',()=>{
   const auth=source('src/middleware/authenticate.ts'),rbac=source('src/modules/rbac/rbac.service.ts');
-  assert.match(auth,/users WHERE id=\? AND is_active=TRUE/);
+  assert.match(auth,/FROM users u JOIN refresh_tokens rt[\s\S]*WHERE u\.id=\? AND u\.is_active=TRUE/);
   assert.match(auth,/user\.agencyId=active\.agency_id/);
   assert.match(rbac,/u\.is_active=TRUE AND r\.is_active=TRUE/);
   assert.doesNotMatch(source('src/modules/users/user-access.ts'),/request\.user\?\.roles\.includes/);

@@ -225,6 +225,7 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ('hr','view','hr.view','Accéder à RH & Administration','RH & Administration','Accéder au module RH & Administration',TRUE),
 ('hr','view','hr.employees.view','Voir le personnel','RH & Administration','Consulter les profils employés dans son périmètre',TRUE),
 ('hr','manage','hr.employees.manage','Gérer le personnel','RH & Administration','Créer et modifier les profils employés dans son périmètre',TRUE),
+('hr','manage','hr.employee.account.manage','Gérer le compte ERP d’un employé','RH & Administration','Lier ou délier explicitement un compte ERP au dossier employé dans son périmètre',TRUE),
 ('hr','view','hr.salary.view','Voir les salaires','RH & Administration','Consulter les salaires et la masse salariale dans son périmètre',TRUE),
 ('hr','manage','hr.salary.manage','Gérer les salaires','RH & Administration','Ajouter une évolution salariale dans son périmètre',TRUE),
 ('hr','view','hr.stock.view','Voir les stocks internes','RH & Administration','Consulter les articles et mouvements internes',TRUE),

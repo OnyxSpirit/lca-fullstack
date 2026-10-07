@@ -7,7 +7,7 @@ export interface RolePermission{id:string|number;module:string;action:string;cod
 export interface PermissionCatalogItem extends RolePermission{is_active:boolean}
 export interface Role{id:string|number;code:string;name:string;description:string|null;is_system?:boolean;is_active?:boolean;user_count?:number;permissions?:RolePermission[]}
 export interface UserFilters{active?:''|'true'|'false';agencyId?:string;role?:string;search?:string;page?:number;pageSize?:number}
-export interface CreateUserPayload{firstName:string;lastName:string;email:string;phone?:string;jobTitle?:string;agencyId:string;roles:string[];password:string;isEmployee?:boolean;employeeNumber?:string;employeePosition?:string;employeeHireDate?:string;employeeStatus?:'active'|'inactive'|'departed'}
+export interface CreateUserPayload{firstName:string;lastName:string;email:string;phone?:string;jobTitle?:string;agencyId:string;roles:string[];password:string}
 export type UpdateUserPayload=Omit<CreateUserPayload,'password'>;
 export const userKeys={all:['users-admin']as const,detail:(id:string)=>['user',id]as const,directory:['user-directory']as const,roles:['roles']as const,permissions:['permissions']as const};
 const params=(f:UserFilters)=>{const p=new URLSearchParams();Object.entries(f).forEach(([k,v])=>{if(v)p.set(k,v)});return p.toString()};

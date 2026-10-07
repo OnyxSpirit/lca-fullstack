@@ -1,4 +1,4 @@
-export type DocumentEntityType='customer'|'vehicle'|'sale'|'invoice'|'repair_order'|'delivery'|'supplier'|'expense'|'budget'|'employee'|'employee_contract'|'employee_leave'|'treasury_manual_operation'|'budget_expense_disbursement';
+export type DocumentEntityType='customer'|'vehicle'|'sale'|'invoice'|'repair_order'|'delivery'|'supplier'|'expense'|'budget'|'employee'|'employee_contract'|'employee_leave'|'employee_bonus'|'treasury_manual_operation'|'budget_expense_disbursement';
 export interface DocumentCategory{id:string;code:string;name:string;displayOrder:number;isActive:boolean}
 export interface DocumentType{id:string;categoryId:string;code:string;name:string;displayOrder:number;isActive:boolean;categoryName?:string;categoryIsActive?:boolean}
 export interface DocumentReferences{categories:DocumentCategory[];types:DocumentType[]}

@@ -15,8 +15,8 @@ const docker=read('docker-compose.yml');
 function sourceFiles(directory:string):string[]{return readdirSync(directory).flatMap(name=>{const path=resolve(directory,name);return statSync(path).isDirectory()?sourceFiles(path):/\.tsx?$/.test(name)?[path]:[];});}
 function codes(text:string){return new Set([...text.matchAll(/['"]([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+)['"]/g)].map(match=>match[1]));}
 
-test('BASELINE-01 est unique, versionné 066 et non destructif',()=>{
-  assert.equal(FRESH_BASELINE_VERSION,66);assert.equal(FRESH_BASELINE_NAME,'baseline_001_066');assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(66,'baseline_001_066'/);
+test('BASELINE-01 est unique, versionné 067 et non destructif',()=>{
+  assert.equal(FRESH_BASELINE_VERSION,67);assert.equal(FRESH_BASELINE_NAME,'baseline_001_067');assert.equal(MINIMUM_MIGRATION_VERSION,33);assert.match(baseline,/CREATE TABLE schema_migrations/);assert.match(baseline,/VALUES \(67,'baseline_001_067'/);
   assert.doesNotMatch(baseline,/^\s*(DROP|DELETE|UPDATE|TRUNCATE)\b/im);
   const tables=[...baseline.matchAll(/CREATE TABLE\s+`?([a-z0-9_]+)`?/gi)].map(match=>match[1]);
   assert.equal(tables.length,new Set(tables).size);assert.ok(tables.length>=92);
@@ -62,8 +62,8 @@ test('BASELINE-06 seules les migrations futures strictement supérieures à 033 
   assert.match(read('backend-node/src/scripts/database-bootstrap.ts'),/DUPLICATE_MIGRATION_VERSION/);
 });
 
-test('BASELINE-06B fresh saute 034–066 mais une base historique 046 conserve les suivantes',()=>{
-  for(let version=34;version<=66;version++)assert.equal(shouldApplyMigration(version,new Set([66]),66),false);
+test('BASELINE-06B fresh saute 034–067 mais une base historique 046 conserve les suivantes',()=>{
+  for(let version=34;version<=67;version++)assert.equal(shouldApplyMigration(version,new Set([67]),67),false);
   assert.equal(shouldApplyMigration(47,new Set([46]),null),true);
   assert.equal(shouldApplyMigration(48,new Set([46]),null),true);
   assert.equal(shouldApplyMigration(49,new Set([46]),null),true);
@@ -73,15 +73,15 @@ test('BASELINE-06B fresh saute 034–066 mais une base historique 046 conserve l
   assert.equal(shouldApplyMigration(34,new Set([33]),null),true);
 });
 
-test('BOOTSTRAP-10 la baseline 066 absorbe explicitement toutes les migrations 034–066',()=>{
+test('BOOTSTRAP-10 la baseline 067 absorbe explicitement toutes les migrations 034–067',()=>{
   for(const token of ['warranty_available','default_warranty_months','default_mileage_limit','warranty_provider_id','vehicle_warranty_contracts'])assert.match(baseline,new RegExp(token));
   const migrationVersions=futureMigrationNames(readdirSync(resolve(root,'backend-node/database/migrations'))).map(name=>Number(name.slice(0,3)));
-  assert.deepEqual(migrationVersions,Array.from({length:33},(_,index)=>index+34));
+  assert.deepEqual(migrationVersions,Array.from({length:34},(_,index)=>index+34));
   for(const token of ['CREATE TABLE document_categories','CREATE TABLE document_types','document_type_id','idx_documents_category_type','fk_documents_type'])assert.match(baseline,new RegExp(token));
   for(const token of ['vehicle_locations','vehicle_location_id','from_vehicle_location_id','purchase_price_snapshot','total_cost_snapshot'])assert.match(baseline,new RegExp(token));
 });
 
-test('BOOT-01/02 fresh baseline_001_066 ne rejoue rien et reste idempotente',()=>{const applied=new Set([66]),baseline=consolidatedBaselineVersion([{version:66,name:'baseline_001_066'}]);for(let version=34;version<=66;version++)assert.equal(shouldApplyMigration(version,applied,baseline),false)});
+test('BOOT-01/02 fresh baseline_001_067 ne rejoue rien et reste idempotente',()=>{const applied=new Set([67]),baseline=consolidatedBaselineVersion([{version:67,name:'baseline_001_067'}]);for(let version=34;version<=67;version++)assert.equal(shouldApplyMigration(version,applied,baseline),false)});
 test('BOOT-03 historique baseline 48 + 49 applique 050 à 058',()=>{const applied=new Set([48,49]),baseline=consolidatedBaselineVersion([{version:48,name:'baseline_001_048'},{version:49,name:'049_ged_centralized_repository.sql'}]);assert.deepEqual([34,35,48,49,50,51,52,53,54,55,56,57,58].filter(v=>shouldApplyMigration(v,applied,baseline)),[50,51,52,53,54,55,56,57,58])});
 test('BOOT-04 ligne 034 redondante sous baseline 48 reste sans effet',()=>{const applied=new Set([34,48,49]),baseline=consolidatedBaselineVersion([{version:34,name:'034_role_deletion_permission.sql'},{version:48,name:'baseline_001_048'},{version:49,name:'049_ged_centralized_repository.sql'}]);assert.deepEqual([34,35,49,50,51,52,53,54,55,56].filter(v=>shouldApplyMigration(v,applied,baseline)),[50,51,52,53,54,55,56])});
 test('BOOT-05 FAILED_PARTIAL 035 couvert ne rend pas 035 candidate',()=>assert.equal(shouldApplyMigration(35,new Set([34,48,49]),48),false));

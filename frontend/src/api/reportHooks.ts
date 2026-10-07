@@ -1,4 +1,4 @@
-import{useQuery}from'@tanstack/react-query';import{apiRequest}from'../services/apiClient';import type{AgencyReport,FinanceReport,MarginProvenanceReport,OverviewReport,PartsReport,ReportFilters,RevenueReport,SalespersonReport,SalesReport,VehicleReport,WarrantyReport,WorkshopReport}from'../types/reports';
+import{useQuery}from'@tanstack/react-query';import{apiRequest}from'../services/apiClient';import type{ActivityConsolidatedReport,AgencyReport,BudgetConsolidatedReport,CommercialConsolidatedReport,FinanceReport,HrConsolidatedReport,MarginProvenanceReport,OverviewReport,PartsReport,ReportFilters,ReturnConsolidatedReport,RevenueReport,SalespersonReport,SalesReport,TreasuryConsolidatedReport,VehicleReport,WarrantyReport,WorkshopReport}from'../types/reports';
 const enabled=()=>Boolean(localStorage.getItem('lca-access-token'));const params=(f:ReportFilters)=>{const p=new URLSearchParams({from:f.from,to:f.to,granularity:f.granularity});if(f.agencyId)p.set('reportAgencyId',f.agencyId);if(f.providerId)p.set('providerId',f.providerId);if(f.decisionStatus)p.set('decisionStatus',f.decisionStatus);if(f.claimStatus)p.set('claimStatus',f.claimStatus);return p};const report=<T>(section:string,f:ReportFilters,active=true)=>useQuery({queryKey:['reports',section,f],queryFn:()=>apiRequest<T>(`/reports/${section}?${params(f)}`),enabled:enabled()&&active});
 export const useReportsOverviewQuery=(f:ReportFilters,active=true)=>report<OverviewReport>('overview',f,active);
 export const useMarginProvenanceQuery=(f:ReportFilters,active=true)=>report<MarginProvenanceReport>('margin-provenance',f,active);
@@ -11,3 +11,10 @@ export const usePartsReportQuery=(f:ReportFilters,active=true)=>report<PartsRepo
 export const useFinanceReportQuery=(f:ReportFilters,active=true)=>report<FinanceReport>('finance',f,active);
 export const useSalespeopleReportQuery=(f:ReportFilters,active=true)=>report<SalespersonReport[]>('salespeople',f,active);
 export const useAgencyReportQuery=(f:ReportFilters,active=true)=>report<AgencyReport[]>('agencies',f,active);
+const consolidated=<T>(section:string,f:ReportFilters,active=true)=>useQuery({queryKey:['reports','consolidated',section,f.from,f.to],queryFn:()=>apiRequest<T>(`/reports/consolidated/${section}?${new URLSearchParams({from:f.from,to:f.to})}`),enabled:enabled()&&active,retry:false});
+export const useCommercialConsolidatedQuery=(f:ReportFilters,active=true)=>consolidated<CommercialConsolidatedReport>('commercial',f,active);
+export const useTreasuryConsolidatedQuery=(f:ReportFilters,active=true)=>consolidated<TreasuryConsolidatedReport>('treasury',f,active);
+export const useBudgetConsolidatedQuery=(f:ReportFilters,active=true)=>consolidated<BudgetConsolidatedReport>('budgets',f,active);
+export const useHrConsolidatedQuery=(f:ReportFilters,active=true)=>consolidated<HrConsolidatedReport>('hr',f,active);
+export const useActivityConsolidatedQuery=(f:ReportFilters,active=true)=>consolidated<ActivityConsolidatedReport>('activity',f,active);
+export const useReturnConsolidatedQuery=(f:ReportFilters,active=true)=>consolidated<ReturnConsolidatedReport>('returns',f,active);

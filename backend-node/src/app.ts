@@ -22,6 +22,7 @@ import { warrantyRouter } from './modules/workshop/warranty.routes.js';
 import { partRouter } from './modules/parts/part.routes.js';
 import { billingRouter } from './modules/billing/billing.routes.js';
 import { reportRouter } from './modules/reports/report.routes.js';
+import { extendedReportRouter } from './modules/reports/extended-report.routes.js';
 import { documentRouter } from './modules/documents/document.routes.js';
 import { userRouter } from './modules/users/user.routes.js';
 import { settingRouter } from './modules/settings/setting.routes.js';
@@ -49,7 +50,7 @@ export function createApp() {
   for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
   app.use('/api/auth',createAuthRouter());
-  app.use('/api',authenticate,enforceAgencyScope,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,partRouter,warrantyRouter,workshopRouter,billingRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,partRouter,warrantyRouter,workshopRouter,billingRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

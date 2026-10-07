@@ -1,0 +1,7 @@
+import assert from'node:assert/strict';
+import{readFileSync}from'node:fs';
+import test from'node:test';
+const component=readFileSync(new URL('../src/modules/reports/ConsolidatedReportSections.tsx',import.meta.url),'utf8'),hooks=readFileSync(new URL('../src/api/reportHooks.ts',import.meta.url),'utf8');
+test('LOT12B-UI-01 les sections sont chargées indépendamment et gardent leurs erreurs locales',()=>{for(const name of['Commercial','Treasury','Budget','Hr','Activity','Return'])assert.match(hooks,new RegExp(`use${name}ConsolidatedQuery`));assert.match(component,/Failure error=\{commercial\.error\}/);assert.match(component,/Failure error=\{treasury\.error\}/);assert.match(component,/Failure error=\{hr\.error\}/)});
+test('LOT12B-UI-02 les libellés financiers séparent facturation, Treasury, budget et décaissement',()=>{for(const label of['Trésorerie','Entrées économiques','Budgets et décaissements','Réellement décaissé','Primes approuvées'])assert.match(component,new RegExp(label));assert.match(component,/sans classement ni score individuel/);assert.doesNotMatch(component,/<th>Utilisateur|performance individuelle/i)});
+test('LOT12B-UI-03 les sections exigent reporting et les permissions sources',()=>{assert.match(component,/can\('reporting\.view'\)/);for(const permission of['treasury.view','hr.budget.view','hr.bonus.view','activity.view','vehicle.return.view'])assert.match(component,new RegExp(permission.replace('.','\\.')))});

@@ -1068,6 +1068,11 @@ export const useDeliveryStatsQuery = (requestEnabled=true) =>
 export const useCreateDelivery = () =>
   mutation<any>(() => "/deliveries", "POST", erpKeys.deliveries);
 export const useDeliveryCandidatesQuery = (requestEnabled=true) => useQuery({queryKey:[...erpKeys.deliveries,'candidates'],queryFn:()=>apiRequest<any[]>('/deliveries/candidates'),enabled:enabled()&&requestEnabled});
+export const useDeliveryFinancialAuthorizations=(saleId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'financial-authorizations',saleId],queryFn:()=>apiRequest<any[]>(`/delivery/financial-authorizations/${saleId}`),enabled:enabled()&&requestEnabled&&Boolean(saleId)});
+export const useDeliveryFinancialAuthorizationActions=()=>{const qc=useQueryClient(),refresh=(_:unknown,variables:any)=>{void qc.invalidateQueries({queryKey:erpKeys.deliveries});void qc.invalidateQueries({queryKey:erpKeys.sales});if(variables.saleId)void qc.invalidateQueries({queryKey:[...erpKeys.deliveries,'financial-authorizations',variables.saleId]})};return{
+  authorize:useMutation({mutationFn:(body:any)=>apiRequest('/delivery/financial-authorizations',{method:'POST',body:JSON.stringify(body)}),onSuccess:refresh}),
+  revoke:useMutation({mutationFn:({authorizationId,...body}:any)=>apiRequest(`/delivery/financial-authorizations/${authorizationId}/revoke`,{method:'POST',body:JSON.stringify(body)}),onSuccess:refresh}),
+}};
 export const useDeliverySpecialistsQuery=(saleId:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'candidates',saleId,'specialists'],queryFn:()=>apiRequest<Array<{id:string;name:string;agencyId:string}>>(`/deliveries/candidates/${saleId}/specialists`),enabled:enabled()&&requestEnabled&&Boolean(saleId)});
 export const useDeliveryTemplatesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'templates'],queryFn:()=>apiRequest<any[]>('/deliveries/checklist-templates'),enabled:enabled()&&requestEnabled});
 export const useDeliveryTemplateActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:[...erpKeys.deliveries,'templates']});return{

@@ -14,7 +14,7 @@ import {
   ArrowRight,
   AlertTriangle,
 } from 'lucide-react';
-import { useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation, useUpdateSale, useUpdateSaleWarranty } from '../../api/erpHooks';
+import { useDeliveryFinancialAuthorizations, useInvoiceQuery, useSaleDetailQuery, useSaleStatusMutation, useUpdateSale, useUpdateSaleWarranty } from '../../api/erpHooks';
 import { saleStatusToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -25,6 +25,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate, formatDateTime } from '../../lib/utils';
 import { openBusinessPdf } from '../../services/businessPdf';
 import { useAuthStore } from '../../stores/authStore';
+import {DeliveryFinancialAuthorizationPanel} from '../deliveries/DeliveryFinancialAuthorizationPanel';
 
 export const SaleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +35,7 @@ export const SaleDetailPage: React.FC = () => {
   const { addToast } = useUiStore();
 
   const sale = salesQuery.data;
-  const invoiceQuery=useInvoiceQuery(sale?.invoiceId,agencyId,canViewInvoice),invoice=invoiceQuery.data;
+  const invoiceQuery=useInvoiceQuery(sale?.invoiceId,agencyId,canViewInvoice),invoice=invoiceQuery.data,authorizationQuery=useDeliveryFinancialAuthorizations(id,canViewDelivery||can('delivery.financial_override.authorize'));
 
   if (salesQuery.isLoading) return <div className="p-8 text-sm text-slate-500">Chargement du dossier de vente…</div>;
   if (!sale) {
@@ -65,7 +66,7 @@ export const SaleDetailPage: React.FC = () => {
   };
   const nextLabel: Record<string, string> = { COMMANDE: 'Confirmer la commande', FINANCEMENT_VALIDE: 'Confirmer la vente', PREPARATION: 'Lancer la préparation', PRET_LIVRAISON: 'Déclarer prêt à livrer' };
   const next=nextStatus[sale.status],isFinancialTransition=next==='PREPARATION'||next==='PRET_LIVRAISON';
-  const financialBlocked=isFinancialTransition&&!sale.financiallyCleared;
+  const currentBalance=Number(invoice?.remainingAmountTTC??sale.remainingBalanceTTC),activeAuthorization=authorizationQuery.data?.find((row:any)=>row.status==='AUTHORIZED'),authorizationValid=Boolean(activeAuthorization&&currentBalance>0&&currentBalance<=Number(activeAuthorization.balance_due_snapshot)+.001),financialBlocked=isFinancialTransition&&!sale.financiallyCleared&&!authorizationValid;
   const financialBlockReason=invoice?`Préparation impossible — solde restant : ${formatCurrency(invoice.remainingAmountTTC)}`:'Une facture émise et intégralement réglée est requise.';
   const netCollected=Number(invoice?.paidAmountTTC??0),financialRegularizationRequired=netCollected>0,refundedAmount=(invoice?.payments??[]).reduce((sum,payment)=>sum+payment.refundedAmount,0),cancellationBlocked=financialRegularizationRequired||['PRET_LIVRAISON','LIVRE'].includes(sale.status);
   const warrantyLabel={UNDETERMINED:'Décision à renseigner',NOT_APPLICABLE:'Garantie non applicable',APPLICABLE:'Garantie applicable'}[sale.warranty.decision];
@@ -206,6 +207,7 @@ export const SaleDetailPage: React.FC = () => {
               )}
             </div>
           </Card>
+          <DeliveryFinancialAuthorizationPanel saleId={sale.id} total={Number(invoice?.amountTTC??sale.totalSaleTTC)} paid={Number(invoice?.paidAmountTTC??sale.depositPaidTTC)} balance={currentBalance}/>
         </div>
 
         {/* Right Column: Financing & Payment Status */}

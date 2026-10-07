@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { env } from '../config/env.js';
 import { query } from '../config/database.js';
+import { resolveRbacContext } from '../modules/rbac/rbac.service.js';
 let realtimeNamespace = null;
 export function emitToUser(userId, event, payload) {
     realtimeNamespace?.to(`user:${userId}`).emit(event, payload);
@@ -22,18 +23,19 @@ export function createRealtimeServer(server) {
         const claims = jwt.verify(token, env.jwt.accessSecret, { algorithms: ['HS256'] });
         if (!claims.sid)
             throw new Error();
-        const [active] = await query(`SELECT u.id,u.agency_id,EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE) is_system_super_admin FROM users u JOIN refresh_tokens rt ON rt.id=? AND rt.user_id=u.id AND rt.revoked_at IS NULL AND rt.expires_at>NOW() WHERE u.id=? AND u.is_active=TRUE`, [claims.sid, claims.sub]);
+        const [active] = await query(`SELECT u.id,u.agency_id FROM users u JOIN refresh_tokens rt ON rt.id=? AND rt.user_id=u.id AND rt.revoked_at IS NULL AND rt.expires_at>NOW() WHERE u.id=? AND u.is_active=TRUE`, [claims.sid, claims.sub]);
         if (!active)
             throw new Error();
+        const context = await resolveRbacContext(claims.sub);
         socket.data.user = { ...claims, agencyId: String(active.agency_id) };
-        socket.data.isSystemSuperAdmin = Boolean(active.is_system_super_admin);
+        socket.data.receivesGlobalSettings = context.permissions.get('settings.view') === 'GLOBAL' || context.permissions.get('settings.update') === 'GLOBAL';
         next();
     }
     catch {
         next(new Error('Jeton invalide'));
     } });
     namespace.on('connection', socket => { const user = socket.data.user; void socket.join(`user:${user.sub}`); if (user.agencyId)
-        void socket.join(`agency:${user.agencyId}`); if (socket.data.isSystemSuperAdmin)
+        void socket.join(`agency:${user.agencyId}`); if (socket.data.receivesGlobalSettings)
         void socket.join('global'); });
     io.on('close', () => { realtimeNamespace = null; });
     return { io, namespace };

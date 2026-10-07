@@ -16,6 +16,7 @@ import { vehicleRouter } from './modules/vehicles/vehicle.routes.js';
 import { showroomRouter } from './modules/showroom/showroom.routes.js';
 import { deliveryRouter } from './modules/deliveries/delivery.routes.js';
 import { workshopRouter } from './modules/workshop/workshop.routes.js';
+import { warrantyRouter } from './modules/workshop/warranty.routes.js';
 import { partRouter } from './modules/parts/part.routes.js';
 import { billingRouter } from './modules/billing/billing.routes.js';
 import { reportRouter } from './modules/reports/report.routes.js';
@@ -26,6 +27,7 @@ import { saleRouter } from './modules/sales/sale.routes.js';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 import { quotationRouter } from './modules/quotations/quotation.routes.js';
 import { hrRouter } from './modules/hr/hr.routes.js';
+import { treasuryRouter } from './modules/treasury/treasury.routes.js';
 export function createApp() {
     const app = express();
     app.disable('x-powered-by');
@@ -40,7 +42,7 @@ export function createApp() {
         app.use(`/uploads/${folder}`, express.static(path.join(publicUploadRoot, folder), { fallthrough: false, index: false }));
     app.get('/api/health', asyncHandler(async (_request, response) => { await pool.query('SELECT 1'); response.json({ status: 'ok', service: 'lca-backend-node' }); }));
     app.use('/api/auth', createAuthRouter());
-    app.use('/api', authenticate, enforceAgencyScope, userRouter, hrRouter, settingRouter, documentRouter, customerRouter, crmRouter, notificationRouter, vehicleRouter, showroomRouter, quotationRouter, saleRouter, deliveryRouter, partRouter, workshopRouter, billingRouter, reportRouter, dashboardRouter, coreRouter);
+    app.use('/api', authenticate, enforceAgencyScope, userRouter, hrRouter, treasuryRouter, settingRouter, documentRouter, customerRouter, crmRouter, notificationRouter, vehicleRouter, showroomRouter, quotationRouter, saleRouter, deliveryRouter, partRouter, warrantyRouter, workshopRouter, billingRouter, reportRouter, dashboardRouter, coreRouter);
     app.use(notFound);
     app.use(errorHandler);
     return app;

@@ -17,7 +17,7 @@ async function userProfile(user) {
         id: String(user.id), firstName: user.first_name, lastName: user.last_name, email: user.email,
         agencyId: String(user.agency_id), agencyName: user.agency_name ?? '', agencyCode: user.agency_code ?? '', avatar: user.avatar_path ?? null,
         roles: [rbac.roleCode], role: { id: rbac.roleId, code: rbac.roleCode, isSystemSuperAdmin: rbac.isSuperAdmin },
-        permissions: rbac.isSuperAdmin ? [{ code: '*', scope: 'GLOBAL' }] : [...rbac.permissions.entries()].map(([code, scope]) => ({ code, scope })),
+        permissions: [...rbac.permissions.entries()].map(([code, scope]) => ({ code, scope })),
     };
 }
 function tokensFor(user, roles, sessionId) {

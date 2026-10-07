@@ -11,7 +11,7 @@ const request=(agencyId:string,userId:string,scope:'AGENCY'|'CONCESSION'|'GLOBAL
 
 test('CLOSE-TREAS-01..11 invariants financiers réels MySQL 8.4',{skip:!enabled,timeout:300_000},async()=>{
   try{
-    assert.equal((await bootstrapDatabase()).version,59);
+    assert.equal((await bootstrapDatabase()).version,60);
     const concession=await query<RowDataPacket[]>('SELECT id FROM concessions ORDER BY id LIMIT 1');let concessionId=String(concession[0]?.id??'');
     if(!concessionId){const[c]=await pool.execute<any>('INSERT INTO concessions(name,code) VALUES(?,?)',['Clôture Trésorerie','CLOSE_TREAS']);concessionId=String(c.insertId)}
     const[a]=await pool.execute<any>('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concessionId,'Agence clôture','CLOSE_TREAS_A']);const agencyId=String(a.insertId);
@@ -41,6 +41,6 @@ test('CLOSE-TREAS-01..11 invariants financiers réels MySQL 8.4',{skip:!enabled,
 
     const central=await account('BANK',1,true),agencySource=await account('BANK');assert.equal((await listAccounts(agency)).some(row=>String(row.id)===central),false);await assert.rejects(transfer(agency,{sourceAccountId:agencySource,destinationAccountId:central,amount:1,valueDate:'2026-10-06',description:'Agence vers central interdite'}),error=>(error as any).status===404);await transfer(concessionRequest,{sourceAccountId:agencySource,destinationAccountId:central,amount:1,valueDate:'2026-10-06',description:'Concession vers central autorisée'});assert.equal((await listAccounts(concessionRequest)).some(row=>String(row.id)===central),true);
 
-    assert.equal((await bootstrapDatabase()).version,59);
+    assert.equal((await bootstrapDatabase()).version,60);
   }finally{await pool.end()}
 });

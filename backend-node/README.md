@@ -190,6 +190,25 @@ l’entité de décaissement, séparément des justificatifs éventuels de la d�
 L’audit et le realtime ne sont produits qu’après une création effective et le
 realtime est émis après le commit.
 
+## Livraison avec solde restant dû
+
+Le paiement intégral reste la règle normale. Une exception persistante
+`delivery_financial_authorizations`, accordée avec la permission dynamique
+`delivery.financial_override.authorize`, peut couvrir un solde positif précis
+sans modifier la facture ni créer de paiement, d’avoir ou de mouvement Treasury.
+Le snapshot total/payé/solde est figé à l’autorisation ; le solde courant reste
+celui de Billing. Une baisse du solde reste couverte, une hausse au-delà du
+snapshot exige une nouvelle autorisation. `OWN` est refusé ; `AGENCY`,
+`CONCESSION` et `GLOBAL` suivent les scopes RBAC existants.
+
+L’autorisation documente le motif obligatoire, une garantie/sûreté facultative,
+l’échéance et les modalités. Elle est révocable avant la remise, puis passe à
+`USED` dans la transaction de finalisation. Ses justificatifs utilisent la GED
+avec `entity_type=delivery_financial_authorization`. Le PV existant mentionne la
+dérogation utilisée et son archive officielle en fige les informations. Les
+paiements post-livraison restent des paiements Billing ordinaires et alimentent
+Treasury par le flux `PAYMENT` existant.
+
 ## Rôles à l’installation
 
 Une installation neuve crée uniquement le rôle système **Super Administrateur**

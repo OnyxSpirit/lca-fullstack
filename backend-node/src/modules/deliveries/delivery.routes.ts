@@ -14,12 +14,12 @@ import {assertChecklistTemplateAgencyAccess,assertHandoverMileage,deliverySignat
 import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {requireDocumentFile,storeDocument} from '../documents/document-storage.js';
 import {decodeDeliveryDocument} from './delivery-document.js';
-import{lockActiveSaleInvoice}from'../billing/sale-financial-gate.js';
+import{lockActiveSaleInvoice,useDeliveryFinancialAuthorization}from'../billing/sale-financial-gate.js';
 import{activateAtDelivery}from'../sales/vehicle-warranty.service.js';
 import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 
 export const deliveryRouter = Router();
-type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel';
+type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel'|'delivery.financial_override.authorize';
 const STATUSES = [
   "planned",
   "preparing",
@@ -56,6 +56,7 @@ const mysqlDateTime = (value: unknown, label: string) => {
   return parsed.toISOString().slice(0, 19).replace("T", " ");
 };
 const permissionScope=(request:Request,permission:DeliveryPermission)=>request.rbac?.permissions.get(permission);
+const authorizationScope=(request:Request,alias='s')=>{const value=permissionScope(request,'delivery.financial_override.authorize');if(value==='OWN')throw new HttpError(403,'Le périmètre OWN ne permet pas une autorisation financière collective.');return scope(request,'delivery.financial_override.authorize',alias)};
 async function canViewFinancials(request:Request,agencyId:unknown){
   const value=request.rbac?.permissions.get('billing.payment.view');
   if(value==='GLOBAL')return true;
@@ -92,7 +93,9 @@ async function accessible(id: string, request: Request, permission:DeliveryPermi
     [id, ...scoped.params],
   );
   if (!row) throw new HttpError(404, "Livraison introuvable");
-  return {...row,financially_cleared:Number(row.balance_due)<=.001,balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null};
+  const[authorization]=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.sale_id=? ORDER BY (fa.status='AUTHORIZED') DESC,fa.id DESC LIMIT 1`,[row.sale_id]);
+  const balance=Number(row.balance_due),covered=authorization?.status==='AUTHORIZED'&&balance>0&&balance<=Number(authorization.balance_due_snapshot)+.001;
+  return {...row,financially_cleared:balance<=.001||covered,financial_authorization:authorization??null,balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null};
 }
 async function canAccessNested(id:string,request:Request,permissions:DeliveryPermission[]){
   for(const permission of permissions){
@@ -199,15 +202,19 @@ deliveryRouter.get(
         ]),
       );
     }
-    const items=await Promise.all(rows.map(async(row) => ({
+    const items=await Promise.all(rows.map(async(row) => {
+      const[authorization]=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.sale_id=? ORDER BY (fa.status='AUTHORIZED') DESC,fa.id DESC LIMIT 1`,[row.sale_id]);
+      const balance=Number(row.balance_due),covered=authorization?.status==='AUTHORIZED'&&balance>0&&balance<=Number(authorization.balance_due_snapshot)+.001;
+      return ({
         ...row,
-        financially_cleared:Number(row.balance_due)<=.001,
+        financially_cleared:balance<=.001||covered,
+        financial_authorization:authorization??null,
         balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null,
         checklist_progress: progress.get(String(row.id)) ?? {
           total: 0,
           completed: 0,
         },
-      })));
+      });}));
     response.json(meta?paged(items,count?.total,meta):items);
   }),
 );
@@ -232,7 +239,7 @@ deliveryRouter.get(
 );
 deliveryRouter.get('/deliveries/candidates',requirePermission('delivery.schedule'),asyncHandler(async(request,response)=>{
   const scoped=scope(request,'delivery.schedule','s');
-  const rows=await query<RowDataPacket[]>(`SELECT s.id sale_id,s.sale_number,s.customer_id,s.salesperson_id,s.agency_id,s.status,s.total,COALESCE((SELECT i.balance_due FROM invoices i WHERE i.sale_id=s.id AND i.status<>'cancelled' ORDER BY i.id DESC LIMIT 1),s.balance_due) balance_due,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,si.vehicle_id,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id WHERE ${scoped.sql} AND s.status='ready_for_delivery' AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.sale_id=s.id AND d.status<>'cancelled') ORDER BY s.updated_at,s.id`,scoped.params);
+  const rows=await query<RowDataPacket[]>(`SELECT s.id sale_id,s.sale_number,s.customer_id,s.salesperson_id,s.agency_id,s.status,s.total,i.balance_due,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,si.vehicle_id,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) salesperson_name FROM sales s JOIN customers c ON c.id=s.customer_id JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL JOIN vehicles v ON v.id=si.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=s.salesperson_id JOIN invoices i ON i.id=(SELECT i2.id FROM invoices i2 WHERE i2.sale_id=s.id AND i2.status<>'cancelled' ORDER BY i2.id DESC LIMIT 1) WHERE ${scoped.sql} AND s.status='ready_for_delivery' AND i.status<>'draft' AND (i.balance_due<=0.001 OR EXISTS(SELECT 1 FROM delivery_financial_authorizations fa WHERE fa.sale_id=s.id AND fa.invoice_id=i.id AND fa.status='AUTHORIZED' AND i.balance_due<=fa.balance_due_snapshot+0.001)) AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.sale_id=s.id AND d.status<>'cancelled') ORDER BY s.updated_at,s.id`,scoped.params);
   response.json(await Promise.all(rows.map(async row=>({...row,financially_cleared:Number(row.balance_due)<=.001,balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null}))));
 }));
 
@@ -242,6 +249,59 @@ deliveryRouter.get('/deliveries/candidates/:saleId/specialists',requirePermissio
   if(!sale)throw new HttpError(404,'Vente prête introuvable dans votre périmètre');
   const rows=await query<RowDataPacket[]>(`SELECT DISTINCT u.id,CONCAT_WS(' ',u.first_name,u.last_name) display_name,u.agency_id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')} ORDER BY display_name,u.id`,[sale.agency_id]);
   response.json(rows.map(row=>({id:String(row.id),name:String(row.display_name),agencyId:String(row.agency_id)})));
+}));
+
+const authorizationSelect=`SELECT fa.*,i.balance_due current_balance_due,i.status invoice_status,CONCAT_WS(' ',creator.first_name,creator.last_name) created_by_name,CONCAT_WS(' ',authorizer.first_name,authorizer.last_name) authorized_by_name,CONCAT_WS(' ',revoker.first_name,revoker.last_name) revoked_by_name FROM delivery_financial_authorizations fa JOIN invoices i ON i.id=fa.invoice_id LEFT JOIN users creator ON creator.id=fa.created_by LEFT JOIN users authorizer ON authorizer.id=fa.authorized_by LEFT JOIN users revoker ON revoker.id=fa.revoked_by`;
+const authorizationDate=(value:any)=>value instanceof Date?value.toISOString().slice(0,10):value?String(value).slice(0,10):null;
+const authorizationPayload=(row:any)=>({reason:String(row.reason),guaranteeType:row.guarantee_type??null,guaranteeDetails:row.guarantee_details??null,guaranteeReference:row.guarantee_reference??null,balanceDueDate:authorizationDate(row.balance_due_date),paymentTerms:row.payment_terms??null});
+const normalizedAuthorizationPayload=(body:any)=>({reason:text(body.reason,'Motif',1000,true)!,guaranteeType:text(body.guaranteeType,'Type de garantie',100),guaranteeDetails:text(body.guaranteeDetails,'Détails de garantie',5000),guaranteeReference:text(body.guaranteeReference,'Référence de garantie',150),balanceDueDate:text(body.balanceDueDate,'Échéance',10),paymentTerms:text(body.paymentTerms,'Modalités de règlement',1000)});
+
+deliveryRouter.get('/delivery/financial-authorizations/:saleId',requireAnyPermission(['delivery.view','delivery.financial_override.authorize']),asyncHandler(async(request,response)=>{
+  const saleId=idOf(request.params.saleId),authorizationReadScope=permissionScope(request,'delivery.financial_override.authorize'),permission=authorizationReadScope&&authorizationReadScope!=='OWN'?'delivery.financial_override.authorize':'delivery.view',scoped=scope(request,permission,'s');
+  const[sale]=await query<RowDataPacket[]>(`SELECT s.id FROM sales s WHERE s.id=? AND ${scoped.sql}`,[saleId,...scoped.params]);
+  if(!sale)throw new HttpError(404,'Vente introuvable dans votre périmètre');
+  const rows=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.sale_id=? ORDER BY fa.id DESC`,[saleId]);
+  response.json(rows.map(row=>({...row,valid_for_current_balance:row.status==='AUTHORIZED'&&Number(row.current_balance_due)>0&&Number(row.current_balance_due)<=Number(row.balance_due_snapshot)+.001})));
+}));
+
+deliveryRouter.post('/delivery/financial-authorizations',requirePermission('delivery.financial_override.authorize'),asyncHandler(async(request,response)=>{
+  const saleId=idOf(String(request.body.saleId)),clientRequestId=String(request.body.clientRequestId??'').trim(),payload=normalizedAuthorizationPayload(request.body);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId))throw new HttpError(400,'clientRequestId UUID invalide');
+  if(payload.balanceDueDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(payload.balanceDueDate)||payload.balanceDueDate<new Date().toISOString().slice(0,10)))throw new HttpError(400,"L’échéance du solde ne peut pas être passée");
+  const scoped=authorizationScope(request,'s');
+  const outcome=await transaction(async connection=>{
+    const[sales]=await connection.execute<RowDataPacket[]>(`SELECT s.id,s.agency_id,a.concession_id FROM sales s JOIN agencies a ON a.id=s.agency_id WHERE s.id=? AND ${scoped.sql} FOR UPDATE`,[saleId,...scoped.params] as any[]),sale=sales[0];
+    if(!sale)throw new HttpError(404,'Vente introuvable dans votre périmètre');
+    const[retryRows]=await connection.execute<RowDataPacket[]>('SELECT * FROM delivery_financial_authorizations WHERE created_by=? AND client_request_id=?',[request.user!.sub,clientRequestId]);
+    if(retryRows[0]){if(JSON.stringify(authorizationPayload(retryRows[0]))!==JSON.stringify(payload)||String(retryRows[0].sale_id)!==saleId)throw new HttpError(409,'Ce clientRequestId a déjà été utilisé avec une autre intention');return{id:String(retryRows[0].id),created:false};}
+    const[invoices]=await connection.execute<RowDataPacket[]>("SELECT id,status,total,amount_paid,balance_due,currency_code FROM invoices WHERE sale_id=? AND status<>'cancelled' ORDER BY id DESC LIMIT 1 FOR UPDATE",[saleId]),invoice=invoices[0];
+    if(!invoice||invoice.status==='draft')throw new HttpError(409,'Une facture émise est requise avant toute autorisation financière');
+    if(Number(invoice.balance_due)<=.001)throw new HttpError(409,'La facture est soldée : aucune dérogation financière n’est nécessaire');
+    const[activeRows]=await connection.execute<RowDataPacket[]>("SELECT id,balance_due_snapshot FROM delivery_financial_authorizations WHERE sale_id=? AND invoice_id=? AND status='AUTHORIZED' ORDER BY id DESC FOR UPDATE",[saleId,invoice.id]);
+    if(activeRows[0]&&Number(invoice.balance_due)<=Number(activeRows[0].balance_due_snapshot)+.001)throw new HttpError(409,'Une autorisation financière active couvre déjà ce solde');
+    if(activeRows.length)await connection.execute("UPDATE delivery_financial_authorizations SET status='SUPERSEDED' WHERE sale_id=? AND invoice_id=? AND status='AUTHORIZED'",[saleId,invoice.id]);
+    const[result]=await connection.execute<ResultSetHeader>(`INSERT INTO delivery_financial_authorizations(sale_id,invoice_id,concession_id,agency_id,total_amount,paid_amount,balance_due_snapshot,currency_code,reason,guarantee_type,guarantee_details,guarantee_reference,balance_due_date,payment_terms,client_request_id,created_by,authorized_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,[saleId,invoice.id,sale.concession_id,sale.agency_id,invoice.total,invoice.amount_paid,invoice.balance_due,invoice.currency_code,payload.reason,payload.guaranteeType,payload.guaranteeDetails,payload.guaranteeReference,payload.balanceDueDate,payload.paymentTerms,clientRequestId,request.user!.sub,request.user!.sub]);
+    await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'deliveries','delivery_financial_authorization',?,'delivery.financial_authorization.authorized',?,?,?)`,[request.user!.sub,result.insertId,JSON.stringify({saleId,invoiceId:String(invoice.id),balanceDueSnapshot:Number(invoice.balance_due)}),request.ip??null,request.get('user-agent')??null]);
+    return{id:String(result.insertId),created:true,agencyId:String(sale.agency_id)};
+  });
+  if(outcome.created)emitToAgency(outcome.agencyId!,'delivery:financial-authorization',{id:outcome.id,saleId});
+  const[row]=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.id=?`,[outcome.id]);
+  response.status(outcome.created?201:200).json(row);
+}));
+
+deliveryRouter.post('/delivery/financial-authorizations/:authorizationId/revoke',requirePermission('delivery.financial_override.authorize'),asyncHandler(async(request,response)=>{
+  const authorizationId=idOf(request.params.authorizationId),reason=text(request.body.reason,'Motif de révocation',1000,true)!,scoped=authorizationScope(request,'s');
+  const result=await transaction(async connection=>{
+    const[rows]=await connection.execute<RowDataPacket[]>(`SELECT fa.*,s.agency_id FROM delivery_financial_authorizations fa JOIN sales s ON s.id=fa.sale_id WHERE fa.id=? AND ${scoped.sql} FOR UPDATE`,[authorizationId,...scoped.params] as any[]),row=rows[0];
+    if(!row)throw new HttpError(404,'Autorisation introuvable dans votre périmètre');
+    if(row.status==='USED')throw new HttpError(409,'Une autorisation déjà utilisée ne peut pas être révoquée');
+    if(row.status!=='AUTHORIZED')throw new HttpError(409,'Cette autorisation n’est plus révocable');
+    await connection.execute("UPDATE delivery_financial_authorizations SET status='REVOKED',revoked_by=?,revoked_at=NOW(),revocation_reason=? WHERE id=?",[request.user!.sub,reason,authorizationId]);
+    await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'deliveries','delivery_financial_authorization',?,'delivery.financial_authorization.revoked',?,?,?,?)`,[request.user!.sub,authorizationId,JSON.stringify({status:'AUTHORIZED'}),JSON.stringify({status:'REVOKED',reason}),request.ip??null,request.get('user-agent')??null]);
+    return{agencyId:String(row.agency_id),saleId:String(row.sale_id)};
+  });
+  emitToAgency(result.agencyId,'delivery:financial-authorization',{id:authorizationId,saleId:result.saleId,status:'REVOKED'});
+  const[row]=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.id=?`,[authorizationId]);response.json(row);
 }));
 
 const CHECKLIST_CATEGORIES=['preparation','quality','documents','handover'];
@@ -620,7 +680,7 @@ deliveryRouter.post(
       if(delivery.status==='delivered')return{duplicate:true,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
       if(delivery.status!=='ready')throw new HttpError(409,'La livraison doit être prête avant signature');
       if(delivery.sale_status!=='ready_for_delivery')throw new HttpError(409,`Le statut de la vente (${delivery.sale_status}) est incompatible avec la remise`);
-      await lockActiveSaleInvoice(connection,String(delivery.sale_id),'delivery');
+      const financialEligibility=await useDeliveryFinancialAuthorization(connection,String(delivery.sale_id),id,request.user!.sub);
       const[pendingChecklist]=await connection.execute<RowDataPacket[]>("SELECT COUNT(*) count FROM delivery_checklists WHERE delivery_id=? AND category IN('preparation','quality','handover') AND is_required=TRUE AND is_completed=FALSE",[id]);
       if(Number(pendingChecklist[0]?.count??0)>0)throw new HttpError(409,'Checklist de remise client incomplète.');
       const[pendingDocs]=await connection.execute<RowDataPacket[]>('SELECT COUNT(*) count FROM delivery_documents WHERE delivery_id=? AND is_required=TRUE AND received=FALSE',[id]);
@@ -638,6 +698,7 @@ deliveryRouter.post(
       await connection.execute("INSERT INTO vehicle_status_history(vehicle_id,old_status,new_status,changed_by,reason) VALUES(?,?,'delivered',?,'Livraison client signée')",[delivery.vehicle_id,vehicle.status,request.user!.sub]);
       await connection.execute("INSERT INTO delivery_status_history(delivery_id,old_status,new_status,reason,changed_by) VALUES(?,'ready','delivered','Signature client',?)",[id,request.user!.sub]);
       await audit(connection,request,id,'delivery.finalized',{status:'ready',vehicleStatus:vehicle.status,vehicleMileage:Number(vehicle.mileage)},{status:'delivered',vehicleStatus:'delivered',mileage,signer,signedAt:signedAt.toISOString(),hash});
+      if(financialEligibility.coveredByAuthorization&&financialEligibility.authorization)await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'deliveries','delivery_financial_authorization',?,'delivery.financial_authorization.used',?,?,?)`,[request.user!.sub,financialEligibility.authorization.id,JSON.stringify({deliveryId:id,currentBalanceDue:Number(financialEligibility.invoice.balance_due)}),request.ip??null,request.get('user-agent')??null]);
       return{duplicate:false,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
     });
     if(result.duplicate){await requireBusinessArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));return response.json(await detail(id,request,'delivery.complete'));}

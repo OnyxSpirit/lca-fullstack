@@ -1670,6 +1670,90 @@ CREATE TABLE delivery_checklist_templates (
     CONSTRAINT fk_delivery_template_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE delivery_checklist_categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    concession_id BIGINT UNSIGNED NOT NULL,
+    code VARCHAR(80) NOT NULL,
+    name VARCHAR(180) NOT NULL,
+    description VARCHAR(1000) NULL,
+    sort_order INT UNSIGNED NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_delivery_checklist_category_code (concession_id,code),
+    UNIQUE KEY uq_delivery_checklist_category_order (concession_id,sort_order),
+    INDEX idx_delivery_checklist_category_active (concession_id,is_active,sort_order),
+    CONSTRAINT fk_delivery_checklist_category_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_delivery_checklist_category_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE delivery_checklist_items (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_id BIGINT UNSIGNED NOT NULL,
+    code VARCHAR(80) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    description VARCHAR(1000) NULL,
+    is_mandatory BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INT UNSIGNED NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_delivery_checklist_item_code (category_id,code),
+    UNIQUE KEY uq_delivery_checklist_item_order (category_id,sort_order),
+    INDEX idx_delivery_checklist_item_active (category_id,is_active,sort_order),
+    CONSTRAINT fk_delivery_checklist_item_category FOREIGN KEY (category_id) REFERENCES delivery_checklist_categories(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_delivery_checklist_item_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE delivery_checklist_category_instances (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    delivery_id BIGINT UNSIGNED NOT NULL,
+    source_category_id BIGINT UNSIGNED NULL,
+    code_snapshot VARCHAR(80) NOT NULL,
+    name_snapshot VARCHAR(180) NOT NULL,
+    description_snapshot VARCHAR(1000) NULL,
+    sort_order_snapshot INT UNSIGNED NOT NULL,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_delivery_checklist_category_instance (delivery_id,code_snapshot),
+    UNIQUE KEY uq_delivery_checklist_category_instance_order (delivery_id,sort_order_snapshot),
+    INDEX idx_delivery_checklist_category_instance_delivery (delivery_id,sort_order_snapshot),
+    CONSTRAINT fk_delivery_checklist_category_instance_delivery FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE,
+    CONSTRAINT fk_delivery_checklist_category_instance_source FOREIGN KEY (source_category_id) REFERENCES delivery_checklist_categories(id) ON DELETE SET NULL,
+    CONSTRAINT fk_delivery_checklist_category_instance_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE delivery_checklist_item_instances (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_instance_id BIGINT UNSIGNED NOT NULL,
+    source_item_id BIGINT UNSIGNED NULL,
+    legacy_checklist_id BIGINT UNSIGNED NULL,
+    legacy_document_id BIGINT UNSIGNED NULL,
+    code_snapshot VARCHAR(80) NOT NULL,
+    name_snapshot VARCHAR(200) NOT NULL,
+    description_snapshot VARCHAR(1000) NULL,
+    is_mandatory_snapshot BOOLEAN NOT NULL,
+    sort_order_snapshot INT UNSIGNED NOT NULL,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_by BIGINT UNSIGNED NULL,
+    completed_at DATETIME NULL,
+    notes TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_delivery_checklist_item_instance (category_instance_id,code_snapshot),
+    UNIQUE KEY uq_delivery_checklist_item_instance_order (category_instance_id,sort_order_snapshot),
+    UNIQUE KEY uq_delivery_checklist_legacy_item (legacy_checklist_id),
+    UNIQUE KEY uq_delivery_checklist_legacy_document (legacy_document_id),
+    INDEX idx_delivery_checklist_item_instance_progress (category_instance_id,is_mandatory_snapshot,is_completed,sort_order_snapshot),
+    CONSTRAINT fk_delivery_checklist_item_instance_category FOREIGN KEY (category_instance_id) REFERENCES delivery_checklist_category_instances(id) ON DELETE CASCADE,
+    CONSTRAINT fk_delivery_checklist_item_instance_source FOREIGN KEY (source_item_id) REFERENCES delivery_checklist_items(id) ON DELETE SET NULL,
+    CONSTRAINT fk_delivery_checklist_item_instance_legacy FOREIGN KEY (legacy_checklist_id) REFERENCES delivery_checklists(id) ON DELETE SET NULL,
+    CONSTRAINT fk_delivery_checklist_item_instance_document FOREIGN KEY (legacy_document_id) REFERENCES delivery_documents(id) ON DELETE SET NULL,
+    CONSTRAINT fk_delivery_checklist_item_instance_completed_by FOREIGN KEY (completed_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT chk_delivery_checklist_item_completion CHECK (is_completed=FALSE OR completed_at IS NOT NULL)
+) ENGINE=InnoDB;
+
 -- ============================================================
 -- 10. FACTURATION / ENCAISSEMENTS
 -- ============================================================
@@ -2196,4 +2280,4 @@ CREATE TABLE treasury_account_mappings (
 
 -- Le baseline représente directement l'état consolidé au niveau 061.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (61,'baseline_001_061',REPEAT('0',64));
+VALUES (62,'baseline_001_062',REPEAT('0',64));

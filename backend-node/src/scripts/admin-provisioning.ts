@@ -1,5 +1,5 @@
 import argon2 from 'argon2';
-import type {Pool,ResultSetHeader,RowDataPacket} from 'mysql2/promise';
+import type {Pool,PoolConnection,ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {provisionDefaultWorkshopLaborRates} from './workshop-labor-rate-provisioning.js';
 
 export type AdminProvisioningConfig={email:string;password:string;rotatePassword:boolean};
@@ -41,6 +41,7 @@ export async function provisionAdmin(pool:Pool,config:AdminProvisioningConfig):P
     const[agency]=await connection.execute<ResultSetHeader>(`INSERT INTO agencies(concession_id,name,code,city,is_active) VALUES(?,'Agence principale','LCA-BZV','Brazzaville',TRUE) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`,[concession.insertId]);
     await connection.execute(`INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,description) VALUES ('concession',?,'billing.default_vat_rate',JSON_EXTRACT('18.9','$'),'TVA par défaut'),('concession',?,'workshop.rate_t1',JSON_EXTRACT('35000','$'),'Tarif atelier T1'),('concession',?,'workshop.rate_t2',JSON_EXTRACT('45000','$'),'Tarif atelier T2'),('concession',?,'workshop.rate_t3',JSON_EXTRACT('55000','$'),'Tarif atelier T3'),('concession',?,'workshop.rate_t4',JSON_EXTRACT('45000','$'),'Tarif atelier T4') ON DUPLICATE KEY UPDATE setting_value=settings.setting_value`,[concession.insertId,concession.insertId,concession.insertId,concession.insertId,concession.insertId]);
     await provisionDefaultWorkshopLaborRates(connection,concession.insertId);
+    await provisionDefaultDeliveryChecklist(connection,concession.insertId);
     const[roles]=await connection.execute<RowDataPacket[]>(`SELECT id FROM roles WHERE code='SUPER_ADMIN' AND is_system=TRUE AND is_active=TRUE LIMIT 1 FOR UPDATE`),role=roles[0];
     if(!role)throw new Error('Rôle système SUPER_ADMIN actif absent');
     await connection.execute(`INSERT IGNORE INTO role_permissions(role_id,permission_id,scope)
@@ -66,4 +67,19 @@ export async function provisionAdmin(pool:Pool,config:AdminProvisioningConfig):P
     return result;
   }catch(error){await connection.rollback();throw error}
   finally{if(locked)await connection.execute("SELECT RELEASE_LOCK('lca:provision-super-admin')").catch(()=>undefined);connection.release()}
+}
+
+async function provisionDefaultDeliveryChecklist(connection:PoolConnection,concessionId:number){
+  await connection.execute(`INSERT INTO delivery_checklist_categories(concession_id,code,name,description,sort_order,is_active)
+    VALUES (?,'preparation','Préparation du véhicule','Préparation opérationnelle avant remise.',10,TRUE),
+           (?,'quality','Contrôle qualité','Contrôles qualité avant remise.',20,TRUE),
+           (?,'documents','Documents administratifs','Documents et éléments administratifs à remettre.',30,TRUE),
+           (?,'handover','Remise au client','Contrôles et explications lors de la remise.',40,TRUE)
+    ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description)`,[concessionId,concessionId,concessionId,concessionId]);
+  await connection.execute(`INSERT INTO delivery_checklist_items(category_id,code,name,is_mandatory,sort_order,is_active)
+    SELECT category.id,template.template_code,template.item_name,template.is_required,
+           ROW_NUMBER() OVER(PARTITION BY category.id ORDER BY template.sort_order,template.id)*10,template.is_active
+    FROM delivery_checklist_categories category JOIN delivery_checklist_templates template ON template.category=category.code AND template.agency_id IS NULL
+    WHERE category.concession_id=? AND template.template_code IS NOT NULL
+    ON DUPLICATE KEY UPDATE name=VALUES(name),is_mandatory=VALUES(is_mandatory)`,[concessionId]);
 }

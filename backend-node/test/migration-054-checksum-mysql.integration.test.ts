@@ -20,7 +20,7 @@ test('MIG-054 historique publié converge vers 056 sans mismatch ni perte',{skip
   await pool.query('DROP TABLE treasury_categories');
   await pool.query('DROP TABLE treasury_accounts');
   await pool.execute('DELETE FROM schema_migration_steps WHERE version BETWEEN 54 AND 56');
-  await pool.execute("UPDATE schema_migrations SET version=53,name='baseline_001_053' WHERE name='baseline_001_061'");
+  await pool.execute("UPDATE schema_migrations SET version=53,name='baseline_001_053' WHERE name='baseline_001_062'");
 
   const sql=readFileSync(new URL('../database/migrations/054_treasury_foundation.sql',import.meta.url),'utf8'),connection=await pool.getConnection();
   try{await executeResilientMigration(connection,{version:54,name:'054_treasury_foundation.sql',sql})}finally{connection.release()}

@@ -1082,11 +1082,18 @@ export const useDeliveryServiceCatalogActions=()=>{const qc=useQueryClient(),don
 export const useDeliveryServices=(deliveryId?:string,requestEnabled=true)=>useQuery({queryKey:['delivery-services',deliveryId],queryFn:()=>apiRequest<any[]>(`/deliveries/${deliveryId}/services`),enabled:enabled()&&requestEnabled&&Boolean(deliveryId)});
 export const useAddDeliveryService=()=>{const qc=useQueryClient();return useMutation({mutationFn:({deliveryId,...body}:any)=>apiRequest(`/deliveries/${deliveryId}/services`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:['delivery-services',v.deliveryId]});void qc.invalidateQueries({queryKey:['deliveries',v.deliveryId]});void qc.invalidateQueries({queryKey:erpKeys.invoices});void qc.invalidateQueries({queryKey:erpKeys.deliveries})}})};
 export const useDeliverySpecialistsQuery=(saleId:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'candidates',saleId,'specialists'],queryFn:()=>apiRequest<Array<{id:string;name:string;agencyId:string}>>(`/deliveries/candidates/${saleId}/specialists`),enabled:enabled()&&requestEnabled&&Boolean(saleId)});
-export const useDeliveryTemplatesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'templates'],queryFn:()=>apiRequest<any[]>('/deliveries/checklist-templates'),enabled:enabled()&&requestEnabled});
-export const useDeliveryTemplateActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:[...erpKeys.deliveries,'templates']});return{
-  create:useMutation({mutationFn:(body:any)=>apiRequest('/deliveries/checklist-templates',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
-  update:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/deliveries/checklist-templates/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
+export const useDeliveryChecklistConfig=(requestEnabled=true)=>useQuery({queryKey:['delivery-checklist-config'],queryFn:()=>apiRequest<any[]>('/delivery-checklist-config'),enabled:enabled()&&requestEnabled});
+export const useDeliveryChecklistConfigActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:['delivery-checklist-config']});return{
+  createCategory:useMutation({mutationFn:(body:any)=>apiRequest('/delivery-checklist-config/categories',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+  updateCategory:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/delivery-checklist-config/categories/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
+  categoryStatus:useMutation({mutationFn:({id,isActive}:any)=>apiRequest(`/delivery-checklist-config/categories/${id}/status`,{method:'PATCH',body:JSON.stringify({isActive})}),onSuccess:done}),
+  reorderCategories:useMutation({mutationFn:(ids:string[])=>apiRequest('/delivery-checklist-config/categories/reorder',{method:'POST',body:JSON.stringify({ids})}),onSuccess:done}),
+  createItem:useMutation({mutationFn:({categoryId,...body}:any)=>apiRequest(`/delivery-checklist-config/categories/${categoryId}/items`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+  updateItem:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/delivery-checklist-config/items/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
+  itemStatus:useMutation({mutationFn:({id,isActive}:any)=>apiRequest(`/delivery-checklist-config/items/${id}/status`,{method:'PATCH',body:JSON.stringify({isActive})}),onSuccess:done}),
+  reorderItems:useMutation({mutationFn:({categoryId,ids}:any)=>apiRequest(`/delivery-checklist-config/categories/${categoryId}/items/reorder`,{method:'POST',body:JSON.stringify({ids})}),onSuccess:done}),
 }};
+export const useDeliveryApplicableCategories=(deliveryId?:string,requestEnabled=true)=>useQuery({queryKey:['delivery-checklist-applicable',deliveryId],queryFn:()=>apiRequest<any[]>(`/deliveries/${deliveryId}/checklist-applicable-categories`),enabled:enabled()&&requestEnabled&&Boolean(deliveryId)});
 export function useDeliveryChecklist() {
   const qc = useQueryClient();
   return useMutation({

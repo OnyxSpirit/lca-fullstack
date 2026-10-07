@@ -79,6 +79,8 @@ INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,i
 ('delivery','create','delivery.schedule','Planifier une livraison','Livraisons','Créer ou reporter une livraison',TRUE),
 ('delivery','view','delivery.checklist.view','Voir les checklistes livraison','Livraisons','Consulter les checklistes',TRUE),
 ('delivery','update','delivery.checklist.manage','Gérer les checklistes livraison','Livraisons','Modifier checklistes et documents de remise',TRUE),
+('delivery','view','delivery.checklist.config.view','Voir la configuration checklist livraison','Livraisons','Consulter les catégories et items configurables de la concession',TRUE),
+('delivery','manage','delivery.checklist.config.manage','Gérer la configuration checklist livraison','Livraisons','Créer, modifier, activer et ordonner les catégories et items de la concession',TRUE),
 ('delivery','view','delivery.documents.view','Voir les documents livraison','Livraisons','Consulter les documents de livraison',TRUE),
 ('delivery','update','delivery.signature.capture','Capturer une signature livraison','Livraisons','Capturer la signature de remise',TRUE),
 ('delivery','update','delivery.complete','Finaliser une livraison','Livraisons','Finaliser la remise après contrôles métier',TRUE),

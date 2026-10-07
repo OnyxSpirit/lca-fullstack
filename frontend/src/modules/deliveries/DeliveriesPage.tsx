@@ -11,10 +11,9 @@ import { openBusinessPdf, openDeliveryPlanningPdf } from '../../services/busines
 import { useUiStore } from '../../stores/uiStore';
 import { NewDeliveryModal } from './NewDeliveryModal';
 import { useAuthStore } from '../../stores/authStore';
-import { DeliveryChecklistTemplates } from './DeliveryChecklistTemplates';
 
 export const DeliveriesPage:React.FC=()=>{
-  const navigate=useNavigate(),[params]=useSearchParams(),requestedSaleId=params.get('saleId')??'',addToast=useUiStore(s=>s.addToast),can=useAuthStore(s=>s.can),canView=can('delivery.view'),canCreate=can('delivery.schedule'),canViewDocuments=can('delivery.documents.view'),canManageChecklist=can('delivery.checklist.manage');
+  const navigate=useNavigate(),[params]=useSearchParams(),requestedSaleId=params.get('saleId')??'',addToast=useUiStore(s=>s.addToast),can=useAuthStore(s=>s.can),canView=can('delivery.view'),canCreate=can('delivery.schedule'),canViewDocuments=can('delivery.documents.view');
   const [newOpen,setNewOpen]=useState(Boolean(requestedSaleId)&&canCreate),[search,setSearch]=useState(''),[status,setStatus]=useState(''),[date,setDate]=useState(new Date().toISOString().slice(0,10)),[page,setPage]=useState(1),[view,setView]=useState<'cards'|'list'>('cards');
   const deferredSearch=useDeferredValue(search),list=useDeliveriesPageQuery({search:deferredSearch,status,page,pageSize:7},canView),stats=useDeliveryStatsQuery(canView),deliveries=list.data?.items??[];
   useEffect(()=>setPage(1),[deferredSearch,status]);
@@ -31,7 +30,6 @@ export const DeliveriesPage:React.FC=()=>{
     {list.isError&&<ErrorBox error={list.error} retry={()=>list.refetch()}/>}
     {!list.isLoading&&!list.isError&&<>{view==='cards'?<div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">{deliveries.map((item:any)=><DeliveryCard key={item.id} item={item} actions={<DeliveryActions item={item} canViewDocuments={canViewDocuments} open={()=>navigate(`/deliveries/${item.id}`)} error={error}/>}/>)}{!deliveries.length&&<EmptyDeliveries/>}</div>:<Card padding="none"><div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="border-b bg-slate-50 text-slate-500 uppercase"><tr><th className="p-3">Livraison</th><th className="p-3">Client</th><th className="p-3">Véhicule / VIN</th><th className="p-3">Date prévue</th><th className="p-3">Statut</th><th className="p-3 text-right">Actions</th></tr></thead><tbody className="divide-y">{deliveries.map((item:any)=><tr key={item.id}><td className="p-3 font-bold">{item.deliveryNumber}</td><td className="p-3"><b>{item.customerName}</b><div className="text-slate-500">{item.customerPhone}</div></td><td className="p-3"><b>{item.vehicleLabel}</b><div className="font-mono text-[10px]">{item.vehicleVin}</div></td><td className="p-3">{formatDate(item.deliveryDate)} {item.deliveryTimeSlot}</td><td className="p-3"><DeliveryStatus item={item}/></td><td className="p-3"><DeliveryActions item={item} canViewDocuments={canViewDocuments} open={()=>navigate(`/deliveries/${item.id}`)} error={error}/></td></tr>)}</tbody></table>{!deliveries.length&&<div className="p-10 text-center text-sm text-slate-500">Aucune livraison ne correspond aux filtres.</div>}</div></Card>}<Pager page={list.data?.page??page} totalPages={list.data?.totalPages??0} total={list.data?.total??0} onPage={setPage}/></>}
     <NewDeliveryModal isOpen={newOpen} initialSaleId={requestedSaleId} onClose={()=>setNewOpen(false)}/>
-    {canManageChecklist&&<DeliveryChecklistTemplates/>}
   </div>;
 };
 

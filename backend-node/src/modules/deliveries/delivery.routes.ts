@@ -10,13 +10,14 @@ import { asyncHandler } from "../../middleware/error-handler.js";
 import { emitToAgency } from "../../realtime/socket.js";
 import { HttpError } from "../../shared/http-error.js";
 import { notifyPermissions as createPermissionNotifications } from "../notifications/notification.service.js";
-import {assertChecklistTemplateAgencyAccess,assertHandoverMileage,deliverySignatureHash} from './delivery.domain.js';
+import {assertHandoverMileage,deliverySignatureHash} from './delivery.domain.js';
 import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {requireDocumentFile,storeDocument} from '../documents/document-storage.js';
 import {decodeDeliveryDocument} from './delivery-document.js';
 import{lockActiveSaleInvoice,useDeliveryFinancialAuthorization}from'../billing/sale-financial-gate.js';
 import{activateAtDelivery}from'../sales/vehicle-warranty.service.js';
 import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
+import{createDeliveryChecklistSnapshot,lockAndAssertDeliveryChecklistComplete,readDeliveryChecklist}from'./delivery-checklist.service.js';
 
 export const deliveryRouter = Router();
 type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel'|'delivery.financial_override.authorize';
@@ -36,7 +37,6 @@ const ALLOWED: Record<string, string[]> = {
   delivered: [],
   cancelled: [],
 };
-const PHASE_FOR_STATUS:Record<string,string|null>={planned:null,preparing:'preparation',quality_control:'quality',ready:'handover'};
 const DELIVERY_DOCUMENT_PERMISSIONS:DeliveryPermission[]=['delivery.documents.view','delivery.checklist.manage'];
 const idOf = (value: string | string[] | undefined) => {
   const id = Array.isArray(value) ? value[0] : value;
@@ -72,18 +72,6 @@ const agency = (request: Request, permission:DeliveryPermission, requested?: unk
   return request.user.agencyId;
 };
 const scope=(request:Request,permission:DeliveryPermission,alias='d')=>{const value=permissionScope(request,permission);if(value==='GLOBAL')return{sql:'1=1',params:[] as unknown[]};if(value==='CONCESSION')return{sql:`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[request.user!.agencyId]};if(value==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[request.user!.agencyId]};if(value==='OWN'&&alias==='d')return{sql:`${alias}.delivery_specialist_id=?`,params:[request.user!.sub]};if(value==='OWN')return{sql:'1=0',params:[] as unknown[]};throw new HttpError(403,'Périmètre Livraison insuffisant.');};
-async function manageableChecklistTemplateAgency(request:Request,requested:unknown,connection?:PoolConnection){
-  const permission='delivery.checklist.manage' as const,permissionScopeValue=permissionScope(request,permission);
-  if(permissionScopeValue==='GLOBAL')return requested==null||requested===''?null:idOf(String(requested));
-  const actorAgencyId=request.user?.agencyId?String(request.user.agencyId):null,target=requested==null||requested===''?actorAgencyId:idOf(String(requested));
-  if(permissionScopeValue==='AGENCY'){assertChecklistTemplateAgencyAccess(permissionScopeValue,actorAgencyId,target);return target!;}
-  if(permissionScopeValue==='CONCESSION'){
-    const sql='SELECT target.id FROM agencies target JOIN agencies actor ON actor.concession_id=target.concession_id WHERE target.id=? AND actor.id=?';
-    const rows=target&&actorAgencyId?(connection?(await connection.execute<RowDataPacket[]>(sql,[target,actorAgencyId]))[0]:await query<RowDataPacket[]>(sql,[target,actorAgencyId])):[];
-    assertChecklistTemplateAgencyAccess(permissionScopeValue,actorAgencyId,target,Boolean(rows[0]));return target!;
-  }
-  assertChecklistTemplateAgencyAccess(permissionScopeValue,actorAgencyId,target);throw new HttpError(403,'Périmètre Livraison insuffisant.');
-}
 const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_total,COALESCE((SELECT SUM(i.balance_due) FROM invoices i WHERE i.sale_id=s.id AND i.status NOT IN('draft','cancelled')),s.balance_due) balance_due,COALESCE((SELECT SUM(i.total) FROM invoices i WHERE i.sale_id=s.id AND i.status NOT IN('draft','cancelled') AND i.invoice_type='other'),0) delivery_services_total,COALESCE((SELECT SUM(i.balance_due) FROM invoices i WHERE i.sale_id=s.id AND i.status NOT IN('draft','cancelled') AND i.invoice_type='other'),0) delivery_services_balance,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone,c.email,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.vin,v.registration_number,v.mileage vehicle_mileage,vwc.decision warranty_decision,vwc.status warranty_status,vwc.provider_name_snapshot warranty_provider_name,vwc.duration_months warranty_duration_months,vwc.mileage_limit warranty_mileage_limit,vwc.start_date warranty_start_date,vwc.expiry_date warranty_expiry_date,vwc.initial_mileage warranty_initial_mileage,vwc.activated_at warranty_activated_at,CONCAT_WS(' ',sp.first_name,sp.last_name) salesperson_name,CONCAT_WS(' ',du.first_name,du.last_name) delivery_specialist_name,a.name agency_name FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN vehicle_warranty_contracts vwc ON vwc.sale_id=s.id AND vwc.vehicle_id=v.id LEFT JOIN users sp ON sp.id=s.salesperson_id LEFT JOIN users du ON du.id=d.delivery_specialist_id JOIN agencies a ON a.id=d.agency_id`;
 
 async function accessible(id: string, request: Request, permission:DeliveryPermission): Promise<any> {
@@ -114,11 +102,8 @@ async function detail(id: string, request: Request, permission:DeliveryPermissio
     canAccessNested(id,request,['delivery.signature.capture','delivery.complete']),
   ]);
   const canServices=Boolean(request.rbac?.permissions.has('delivery.service.view')||request.rbac?.permissions.has('delivery.service.add'));
-  const [checklist, documents, signatures, history,services] = await Promise.all([
-    canChecklist?query<RowDataPacket[]>(
-      "SELECT dc.*,CONCAT_WS(' ',u.first_name,u.last_name) completed_by_name FROM delivery_checklists dc LEFT JOIN users u ON u.id=dc.completed_by WHERE dc.delivery_id=? ORDER BY FIELD(dc.category,'preparation','quality','handover','documents'),dc.sort_order,dc.id",
-      [id],
-    ):Promise.resolve([]),
+  const [checklistCategories, documents, signatures, history,services] = await Promise.all([
+    canChecklist?readDeliveryChecklist(id):Promise.resolve([]),
     canDocuments?query<RowDataPacket[]>(
       "SELECT dd.*,CONCAT_WS(' ',u.first_name,u.last_name) received_by_name FROM delivery_documents dd LEFT JOIN users u ON u.id=dd.received_by WHERE dd.delivery_id=? ORDER BY dd.id",
       [id],
@@ -133,7 +118,9 @@ async function detail(id: string, request: Request, permission:DeliveryPermissio
     ),
     canServices?query<RowDataPacket[]>('SELECT ds.*,i.invoice_number,i.status invoice_status,i.amount_paid,i.balance_due FROM delivery_services ds JOIN invoices i ON i.id=ds.invoice_id WHERE ds.delivery_id=? ORDER BY ds.id',[id]):Promise.resolve([]),
   ]);
-  return { ...row, checklist, documents, signatures, history,services };
+  const checklist=checklistCategories.flatMap((category:any)=>category.items.map((item:any)=>({...item,item_name:item.name_snapshot,category:category.code_snapshot,is_required:item.is_mandatory_snapshot,sort_order:item.sort_order_snapshot})));
+  const mandatoryTotal=checklistCategories.reduce((sum:number,category:any)=>sum+Number(category.mandatory_total),0),mandatoryCompleted=checklistCategories.reduce((sum:number,category:any)=>sum+Number(category.mandatory_completed),0);
+  return { ...row, checklist,checklist_categories:checklistCategories,checklist_progress:{mandatoryTotal,mandatoryCompleted,percent:mandatoryTotal?Math.round(mandatoryCompleted/mandatoryTotal*100):100}, documents, signatures, history,services };
 }
 async function notifyRoles(
   agencyId: string,
@@ -194,7 +181,7 @@ deliveryRouter.get(
     if (ids.length) {
       const marks = ids.map(() => "?").join(",");
       const sums = await query<RowDataPacket[]>(
-        `SELECT delivery_id,COUNT(*) total,SUM(is_completed) completed FROM delivery_checklists WHERE delivery_id IN (${marks}) GROUP BY delivery_id`,
+        `SELECT ci.delivery_id,SUM(ii.is_mandatory_snapshot=TRUE) total,SUM(ii.is_mandatory_snapshot=TRUE AND ii.is_completed=TRUE) completed FROM delivery_checklist_category_instances ci LEFT JOIN delivery_checklist_item_instances ii ON ii.category_instance_id=ci.id WHERE ci.delivery_id IN (${marks}) GROUP BY ci.delivery_id`,
         ids,
       );
       progress = new Map(
@@ -308,10 +295,15 @@ deliveryRouter.post('/delivery/financial-authorizations/:authorizationId/revoke'
   const[row]=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.id=?`,[authorizationId]);response.json(row);
 }));
 
-const CHECKLIST_CATEGORIES=['preparation','quality','documents','handover'];
-deliveryRouter.get('/deliveries/checklist-templates',requirePermission('delivery.checklist.view'),asyncHandler(async(request,response)=>{const agencyId=agency(request,'delivery.checklist.view',request.query.agencyId);const rows=await query<RowDataPacket[]>('SELECT id,agency_id,item_name,category,is_required,sort_order,is_active,created_at FROM delivery_checklist_templates WHERE agency_id IS NULL OR agency_id=? ORDER BY category,sort_order,id',[agencyId]);response.json(rows)}));
-deliveryRouter.post('/deliveries/checklist-templates',requirePermission('delivery.checklist.manage'),asyncHandler(async(request,response)=>{const agencyId=await manageableChecklistTemplateAgency(request,request.body.agencyId),name=text(request.body.itemName,'Nom',200,true)!,category=text(request.body.category,'Catégorie',30,true)!;if(!CHECKLIST_CATEGORIES.includes(category))throw new HttpError(400,'Catégorie de checklist invalide');const sortOrder=Number(request.body.sortOrder??0);if(!Number.isInteger(sortOrder)||sortOrder<0)throw new HttpError(400,'Ordre invalide');const result=await execute('INSERT INTO delivery_checklist_templates(agency_id,item_name,category,is_required,sort_order,is_active) VALUES(?,?,?,?,?,?)',[agencyId,name,category,Boolean(request.body.isRequired),sortOrder,request.body.isActive!==false]);response.status(201).json({id:String(result.insertId)});}));
-deliveryRouter.patch('/deliveries/checklist-templates/:templateId',requirePermission('delivery.checklist.manage'),asyncHandler(async(request,response)=>{const templateId=idOf(request.params.templateId),name=text(request.body.itemName,'Nom',200,true)!,category=text(request.body.category,'Catégorie',30,true)!;if(!CHECKLIST_CATEGORIES.includes(category))throw new HttpError(400,'Catégorie de checklist invalide');const sortOrder=Number(request.body.sortOrder??0);if(!Number.isInteger(sortOrder)||sortOrder<0)throw new HttpError(400,'Ordre invalide');await transaction(async connection=>{const[templates]=await connection.execute<RowDataPacket[]>('SELECT id,agency_id FROM delivery_checklist_templates WHERE id=? FOR UPDATE',[templateId]),template=templates[0];if(!template)throw new HttpError(404,'Template de checklist introuvable');if(template.agency_id==null)assertChecklistTemplateAgencyAccess(permissionScope(request,'delivery.checklist.manage'),request.user?.agencyId?String(request.user.agencyId):null,null);else await manageableChecklistTemplateAgency(request,String(template.agency_id),connection);await connection.execute('UPDATE delivery_checklist_templates SET item_name=?,category=?,is_required=?,sort_order=?,is_active=? WHERE id=?',[name,category,Boolean(request.body.isRequired),sortOrder,request.body.isActive!==false,templateId]);});response.json({success:true});}));
+deliveryRouter.get(
+  "/deliveries/:id/checklist-applicable-categories",
+  requirePermission('delivery.prepare'),
+  asyncHandler(async(request,response)=>{
+    const id=idOf(request.params.id),row=await accessible(id,request,'delivery.prepare');
+    const categories=await query<RowDataPacket[]>(`SELECT c.id,c.code,c.name,c.description,c.sort_order,COUNT(i.id) item_count FROM agencies a JOIN delivery_checklist_categories c ON c.concession_id=a.concession_id AND c.is_active=TRUE LEFT JOIN delivery_checklist_items i ON i.category_id=c.id AND i.is_active=TRUE WHERE a.id=? GROUP BY c.id ORDER BY c.sort_order,c.id`,[row.agency_id]);
+    response.json(categories);
+  }),
+);
 
 deliveryRouter.get(
   "/deliveries/:id",
@@ -388,14 +380,6 @@ deliveryRouter.post(
           request.user!.sub,
         ],
       );
-      const [templates] = await connection.execute<RowDataPacket[]>(
-        `SELECT id,item_name,category,is_required,sort_order FROM delivery_checklist_templates WHERE is_active=TRUE AND (agency_id IS NULL OR agency_id=?) ORDER BY agency_id IS NULL DESC,sort_order,id`,
-        [agencyId],
-      );
-      for (const item of templates){
-        if(item.category==='documents')await connection.execute("INSERT INTO delivery_documents(delivery_id,document_name,document_type,is_required,received) VALUES(?,?,? ,?,FALSE)",[result.insertId,item.item_name,'physical_handover',item.is_required]);
-        else await connection.execute("INSERT INTO delivery_checklists(delivery_id,template_id,item_name,category,is_required,sort_order) VALUES(?,?,?,?,?,?)",[result.insertId,item.id,item.item_name,item.category,item.is_required,item.sort_order]);
-      }
       await connection.execute(
         `INSERT INTO delivery_status_history(delivery_id,new_status,reason,changed_by) VALUES(?,'planned','Planification',?)`,
         [result.insertId, request.user!.sub],
@@ -423,6 +407,7 @@ deliveryRouter.patch(
       row = await accessible(id, request,'delivery.prepare'),
       status = text(request.body.status, "Statut", 30, true)!;
     if (!STATUSES.includes(status)) throw new HttpError(400, "Statut invalide");
+    if(row.status===status&&status==='preparing')return response.json(await detail(id,request,'delivery.prepare'));
     if (!ALLOWED[row.status]?.includes(status))
       throw new HttpError(
         409,
@@ -439,9 +424,10 @@ deliveryRouter.patch(
       500,
       status === "cancelled",
     );
-    await transaction(async (connection) => {
+    const changed=await transaction(async (connection) => {
       const[currentRows]=await connection.execute<RowDataPacket[]>('SELECT status,sale_id FROM deliveries WHERE id=? FOR UPDATE',[id]),current=currentRows[0];
       if(!current)throw new HttpError(404,'Livraison introuvable');
+      if(current.status==='preparing'&&status==='preparing')return false;
       if(String(current.status)!==String(row.status))throw new HttpError(409,'Le statut de la livraison a changé, rechargez le dossier');
       const isForwardProgression=current.status==='planned'&&status==='preparing'||current.status==='preparing'&&status==='quality_control'||current.status==='quality_control'&&status==='ready';
       if(isForwardProgression){
@@ -449,11 +435,11 @@ deliveryRouter.patch(
         if(!sales[0])throw new HttpError(409,'La vente associée est introuvable');
         await lockActiveSaleInvoice(connection,String(current.sale_id),'delivery');
       }
-      const requiredPhase=status==='quality_control'?'preparation':status==='ready'?'quality':null;
-      if(requiredPhase){
-        const[pendingRows]=await connection.execute<RowDataPacket[]>('SELECT COUNT(*) count FROM delivery_checklists WHERE delivery_id=? AND category=? AND is_required=TRUE AND is_completed=FALSE',[id,requiredPhase]);
-        if(Number(pendingRows[0]?.count??0)>0)throw new HttpError(409,requiredPhase==='preparation'?'Checklist de préparation incomplète.':'Checklist de contrôle qualité incomplète.');
+      if(current.status==='planned'&&status==='preparing'){
+        const created=await createDeliveryChecklistSnapshot(connection,id,request.user!.sub,Array.isArray(request.body.categoryIds)?request.body.categoryIds:undefined);
+        if(created)await audit(connection,request,id,'delivery.checklist_snapshot_created',null,{categoryIds:request.body.categoryIds??'ALL_ACTIVE'});
       }
+      if(status==='ready')await lockAndAssertDeliveryChecklistComplete(connection,id);
       await connection.execute(
         `UPDATE deliveries SET status=?,prepared_at=IF(?='ready',NOW(),prepared_at),postponement_reason=IF(?='planned',?,postponement_reason),cancellation_reason=IF(?='cancelled',?,cancellation_reason),quality_notes=COALESCE(?,quality_notes) WHERE id=?`,
         [
@@ -472,8 +458,9 @@ deliveryRouter.patch(
         [id, row.status, status, reason, request.user!.sub],
       );
       await audit(connection,request,id,'delivery.status_changed',{status:row.status},{status,reason});
+      return true;
     });
-    emitToAgency(String(row.agency_id), "deliveries:status", { id, status });
+    if(changed)emitToAgency(String(row.agency_id), "deliveries:status", { id, status });
     response.json(await detail(id, request,'delivery.prepare'));
   }),
 );
@@ -548,22 +535,21 @@ deliveryRouter.patch(
       throw new HttpError(409, "Cette livraison ne peut plus être modifiée");
     if (!["preparing", "quality_control", "ready"].includes(row.status))
       throw new HttpError(409, "Démarrez la préparation avant la checklist");
-    const completed = Boolean(request.body.completed);
+    const completed = Boolean(request.body.completed),notes=text(request.body.notes,"Notes",5000);
     const updated=await transaction(async connection=>{
       const scoped=scope(request,'delivery.checklist.manage');
       const[deliveries]=await connection.execute<RowDataPacket[]>(`SELECT d.id,d.status,d.agency_id FROM deliveries d WHERE d.id=? AND ${scoped.sql} FOR UPDATE`,[id,...scoped.params] as any[]),lockedDelivery=deliveries[0];
       if(!lockedDelivery)throw new HttpError(404,'Livraison introuvable');
       if(["delivered", "cancelled"].includes(String(lockedDelivery.status)))throw new HttpError(409,"Cette livraison ne peut plus être modifiée");
       if(!["preparing", "quality_control", "ready"].includes(String(lockedDelivery.status)))throw new HttpError(409,"Démarrez la préparation avant la checklist");
-      const[items]=await connection.execute<RowDataPacket[]>('SELECT id,category,is_completed FROM delivery_checklists WHERE id=? AND delivery_id=? FOR UPDATE',[itemId,id]),item=items[0];
+      const[items]=await connection.execute<RowDataPacket[]>(`SELECT ii.id,ii.is_completed,ii.notes,ci.code_snapshot category FROM delivery_checklist_item_instances ii JOIN delivery_checklist_category_instances ci ON ci.id=ii.category_instance_id WHERE ii.id=? AND ci.delivery_id=? FOR UPDATE`,[itemId,id]),item=items[0];
       if(!item)throw new HttpError(404,'Élément de checklist introuvable');
-      const phase=PHASE_FOR_STATUS[String(lockedDelivery.status)];
-      if(item.category!==phase)throw new HttpError(409,`Cet élément appartient à la phase ${item.category}`);
-      await connection.execute("UPDATE delivery_checklists SET is_completed=?,completed_by=?,completed_at=IF(?,NOW(),NULL),notes=? WHERE id=?",[completed,completed?request.user!.sub:null,completed,text(request.body.notes,"Notes",5000),itemId]);
+      if(Boolean(item.is_completed)===completed&&String(item.notes??'')===String(notes??''))return{agencyId:String(lockedDelivery.agency_id),changed:false};
+      await connection.execute("UPDATE delivery_checklist_item_instances SET is_completed=?,completed_by=?,completed_at=IF(?,NOW(),NULL),notes=? WHERE id=?",[completed,completed?request.user!.sub:null,completed,notes,itemId]);
       await audit(connection,request,id,'delivery.checklist_updated',{itemId,completed:Boolean(item.is_completed)},{itemId,completed,category:item.category});
-      return{agencyId:String(lockedDelivery.agency_id)};
+      return{agencyId:String(lockedDelivery.agency_id),changed:true};
     });
-    emitToAgency(updated.agencyId, "deliveries:checklist", {
+    if(updated.changed)emitToAgency(updated.agencyId, "deliveries:checklist", {
       deliveryId: id,
       itemId,
       completed,
@@ -685,8 +671,7 @@ deliveryRouter.post(
       if(delivery.status!=='ready')throw new HttpError(409,'La livraison doit être prête avant signature');
       if(delivery.sale_status!=='ready_for_delivery')throw new HttpError(409,`Le statut de la vente (${delivery.sale_status}) est incompatible avec la remise`);
       const financialEligibility=await useDeliveryFinancialAuthorization(connection,String(delivery.sale_id),id,request.user!.sub);
-      const[pendingChecklist]=await connection.execute<RowDataPacket[]>("SELECT COUNT(*) count FROM delivery_checklists WHERE delivery_id=? AND category IN('preparation','quality','handover') AND is_required=TRUE AND is_completed=FALSE",[id]);
-      if(Number(pendingChecklist[0]?.count??0)>0)throw new HttpError(409,'Checklist de remise client incomplète.');
+      await lockAndAssertDeliveryChecklistComplete(connection,id);
       const[pendingDocs]=await connection.execute<RowDataPacket[]>('SELECT COUNT(*) count FROM delivery_documents WHERE delivery_id=? AND is_required=TRUE AND received=FALSE',[id]);
       if(Number(pendingDocs[0]?.count??0)>0)throw new HttpError(409,'Les documents obligatoires ne sont pas tous remis.');
       const[vehicles]=await connection.execute<RowDataPacket[]>('SELECT id,status,mileage FROM vehicles WHERE id=? FOR UPDATE',[delivery.vehicle_id]),vehicle=vehicles[0];

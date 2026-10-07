@@ -1,7 +1,7 @@
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { Router, type Request } from "express";
-import {archiveDelivery,requireBusinessArchive,requiredHistoricalBusinessPdf} from "../documents/business-document.service.js";
+import {archiveDelivery,archiveDeliveryInTransaction,requireBusinessArchive,requiredHistoricalBusinessPdf} from "../documents/business-document.service.js";
 import {defaultDocumentIdentity,documentIdentityForAgency,renderDeliveryDocument,renderDeliveryPlanningDocumentData} from "../documents/commercial-document.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { execute, query, transaction } from "../../config/database.js";
@@ -21,6 +21,7 @@ import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 import{createDeliveryChecklistSnapshot,lockAndAssertDeliveryChecklistComplete,readDeliveryChecklist}from'./delivery-checklist.service.js';
 
 export const deliveryRouter = Router();
+export const deliverySignTestHooks:{afterMarksLocked?:()=>Promise<void>;afterDocumentRealtime?: (documentId:string)=>void}={};
 type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel'|'delivery.financial_override.authorize';
 const STATUSES = [
   "planned",
@@ -657,6 +658,7 @@ deliveryRouter.post(
         true,
       )!,
       consent = text(request.body.consentText, "Consentement", 500, true)!;
+    const requestedStampId=request.body.serviceStampId==null||request.body.serviceStampId===''?null:idOf(request.body.serviceStampId);
     if (
       !signature.startsWith("data:image/png;base64,") ||
       signature.length < 200
@@ -664,13 +666,17 @@ deliveryRouter.post(
       throw new HttpError(400, "Une signature manuscrite PNG est requise");
     const requestedMileage=request.body.mileageAtDelivery;
     const signedAt=new Date(),signedAtSql=signedAt.toISOString().slice(0,19).replace('T',' ');
-    const result=await transaction(async connection=>{
+    let archiveAbsolute:string|null=null;let result:{duplicate:boolean;agencyId:string;deliveryNumber:string;documentId?:string};try{result=await transaction(async connection=>{
       const[deliveries]=await connection.execute<RowDataPacket[]>('SELECT d.*,s.status sale_status FROM deliveries d JOIN sales s ON s.id=d.sale_id WHERE d.id=? FOR UPDATE',[id]),delivery=deliveries[0];
       if(!delivery)throw new HttpError(404,'Livraison introuvable');
       if(String(delivery.agency_id)!==String(scopedRow.agency_id))throw new HttpError(403,'Livraison rattachée à une autre agence');
       if(delivery.status==='delivered')return{duplicate:true,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
       if(delivery.status!=='ready')throw new HttpError(409,'La livraison doit être prête avant signature');
       if(delivery.sale_status!=='ready_for_delivery')throw new HttpError(409,`Le statut de la vente (${delivery.sale_status}) est incompatible avec la remise`);
+      let userSignatureVersionId:string|null=null,serviceStampVersionId:string|null=null;
+      if(request.rbac?.permissions.has('document.signature.apply')){const[signature]=await connection.execute<RowDataPacket[]>('SELECT sv.id FROM user_signature_versions sv JOIN users u ON u.id=sv.user_id AND u.is_active=TRUE WHERE sv.user_id=? AND sv.is_active=TRUE FOR UPDATE',[request.user!.sub]);userSignatureVersionId=signature[0]?String(signature[0].id):null}
+      if(requestedStampId){const stampScope=request.rbac?.permissions.get('stamp.use');if(!request.rbac?.permissions.has('stamp.use')||stampScope==='OWN')throw new HttpError(403,'Utilisation du cachet non autorisée');const[stamp]=await connection.execute<RowDataPacket[]>(`SELECT sv.id FROM service_stamps st JOIN service_stamp_versions sv ON sv.stamp_id=st.id AND sv.is_active=TRUE JOIN agencies da ON da.id=? LEFT JOIN users actor ON actor.id=? WHERE st.id=? AND st.is_active=TRUE AND st.document_context='DELIVERY_REPORT' AND st.concession_id=da.concession_id AND (st.agency_id IS NULL OR st.agency_id=da.id) AND (st.department_id IS NULL OR st.department_id=actor.department_id) AND (?='GLOBAL' OR ?='CONCESSION' OR (?='AGENCY' AND st.agency_id=da.id)) FOR UPDATE`,[delivery.agency_id,request.user!.sub,requestedStampId,stampScope,stampScope,stampScope]);if(!stamp[0])throw new HttpError(409,'Cachet inactif ou incompatible avec cette livraison');serviceStampVersionId=String(stamp[0].id)}
+      if(process.env.NODE_ENV==='test')await deliverySignTestHooks.afterMarksLocked?.();
       const financialEligibility=await useDeliveryFinancialAuthorization(connection,String(delivery.sale_id),id,request.user!.sub);
       await lockAndAssertDeliveryChecklistComplete(connection,id);
       const[pendingDocs]=await connection.execute<RowDataPacket[]>('SELECT COUNT(*) count FROM delivery_documents WHERE delivery_id=? AND is_required=TRUE AND received=FALSE',[id]);
@@ -681,18 +687,22 @@ deliveryRouter.post(
       const mileage=assertHandoverMileage(vehicle.mileage,requestedMileage);
       await activateAtDelivery(connection,{saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),mileage,signedAt:signedAtSql,userId:request.user!.sub});
       const hash=deliverySignatureHash({deliveryId:id,saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),signer,mileage,signedAt:signedAt.toISOString(),signature});
-      await connection.execute('INSERT INTO delivery_signatures(delivery_id,signer_name,signed_by,signature_data,consent_text,document_hash,signed_at,ip_address) VALUES(?,?,?,?,?,?,?,?)',[id,signer,request.user!.sub,signature,consent,hash,signedAtSql,request.ip??null]);
+      await connection.execute('INSERT INTO delivery_signatures(delivery_id,signer_name,signed_by,user_signature_version_id,service_stamp_version_id,signature_data,consent_text,document_hash,signed_at,ip_address) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,signer,request.user!.sub,userSignatureVersionId,serviceStampVersionId,signature,consent,hash,signedAtSql,request.ip??null]);
       await connection.execute("UPDATE deliveries SET status='delivered',delivered_at=?,mileage_at_delivery=? WHERE id=?",[signedAtSql,mileage,id]);
       await connection.execute("UPDATE sales SET status='delivered',sold_at=COALESCE(sold_at,?) WHERE id=?",[signedAtSql,delivery.sale_id]);
       await connection.execute("UPDATE vehicles SET status='delivered',mileage=? WHERE id=?",[mileage,delivery.vehicle_id]);
       await connection.execute("INSERT INTO vehicle_status_history(vehicle_id,old_status,new_status,changed_by,reason) VALUES(?,?,'delivered',?,'Livraison client signée')",[delivery.vehicle_id,vehicle.status,request.user!.sub]);
       await connection.execute("INSERT INTO delivery_status_history(delivery_id,old_status,new_status,reason,changed_by) VALUES(?,'ready','delivered','Signature client',?)",[id,request.user!.sub]);
-      await audit(connection,request,id,'delivery.finalized',{status:'ready',vehicleStatus:vehicle.status,vehicleMileage:Number(vehicle.mileage)},{status:'delivered',vehicleStatus:'delivered',mileage,signer,signedAt:signedAt.toISOString(),hash});
+      await audit(connection,request,id,'delivery.finalized',{status:'ready',vehicleStatus:vehicle.status,vehicleMileage:Number(vehicle.mileage)},{status:'delivered',vehicleStatus:'delivered',mileage,signer,signedAt:signedAt.toISOString(),hash,userSignatureVersionId,serviceStampVersionId});
+      if(userSignatureVersionId)await writeAudit(connection,request,{module:'documents',entityType:'delivery',entityId:id,action:'document.signature.applied',newValues:{userSignatureVersionId,documentContext:'DELIVERY_REPORT'}});
+      if(serviceStampVersionId)await writeAudit(connection,request,{module:'documents',entityType:'delivery',entityId:id,action:'document.stamp.applied',newValues:{serviceStampVersionId,documentContext:'DELIVERY_REPORT'}});
       if(financialEligibility.coveredByAuthorization&&financialEligibility.authorization)await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'deliveries','delivery_financial_authorization',?,'delivery.financial_authorization.used',?,?,?)`,[request.user!.sub,financialEligibility.authorization.id,JSON.stringify({deliveryId:id,currentBalanceDue:Number(financialEligibility.invoice.balance_due)}),request.ip??null,request.get('user-agent')??null]);
-      return{duplicate:false,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number)};
-    });
+      const archived=await archiveDeliveryInTransaction(connection,id,request.user!.sub);archiveAbsolute=archived.absolute;
+      return{duplicate:false,agencyId:String(delivery.agency_id),deliveryNumber:String(delivery.delivery_number),documentId:archived.documentId};
+    })}catch(error){if(archiveAbsolute)await unlink(archiveAbsolute).catch(()=>undefined);throw error}
     if(result.duplicate){await requireBusinessArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));return response.json(await detail(id,request,'delivery.complete'));}
     emitToAgency(result.agencyId, "deliveries:delivered", { id });
+    if(result.documentId){emitToAgency(result.agencyId,'documents:created',{id:result.documentId,entityType:'delivery',entityId:id,origin:'generated'});if(process.env.NODE_ENV==='test')deliverySignTestHooks.afterDocumentRealtime?.(result.documentId)}
     await notifyRoles(
       result.agencyId,
       ['delivery.view'],
@@ -700,7 +710,6 @@ deliveryRouter.post(
       `${result.deliveryNumber} a été signé par ${signer}`,
       id,
     );
-    await requireBusinessArchive(`delivery:${id}:finalized`,()=>archiveDelivery(id,request.user!.sub));
     response.json(await detail(id, request,'delivery.complete'));
   }),
 );

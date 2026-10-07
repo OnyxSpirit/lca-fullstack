@@ -303,6 +303,16 @@ INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,i
 ('treasury','reverse','treasury.reverse','Contrepasser un mouvement','Comptabilité & Trésorerie','Créer une contre-écriture auditable',TRUE);
 
 -- Après le catalogue complet : chaque permission active est globale pour le rôle système.
+INSERT INTO permissions(module,action,code,name,group_name,description,is_active) VALUES
+('documents','view','signature.view.self','Voir sa signature','Documents & Gouvernance','Consulter sa signature visuelle active',TRUE),
+('documents','manage','signature.manage.self','Gérer sa signature','Documents & Gouvernance','Importer, remplacer ou révoquer sa propre signature visuelle',TRUE),
+('documents','view','stamp.view','Voir les cachets','Documents & Gouvernance','Consulter les cachets institutionnels dans son périmètre',TRUE),
+('documents','manage','stamp.manage','Gérer les cachets','Documents & Gouvernance','Créer, versionner et désactiver les cachets institutionnels',TRUE),
+('documents','use','stamp.use','Utiliser un cachet','Documents & Gouvernance','Apposer un cachet compatible sur un document officiel',TRUE),
+('documents','apply','document.signature.apply','Apposer sa signature','Documents & Gouvernance','Apposer sa signature visuelle active sur un document compatible',TRUE)
+ON DUPLICATE KEY UPDATE name=VALUES(name),group_name=VALUES(group_name),description=VALUES(description),is_active=TRUE;
+
+-- Après le catalogue complet : chaque permission active est globale pour le rôle système.
 INSERT INTO role_permissions(role_id,permission_id,scope)
 SELECT r.id,p.id,'GLOBAL' FROM roles r CROSS JOIN permissions p
 WHERE r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE AND p.is_active=TRUE

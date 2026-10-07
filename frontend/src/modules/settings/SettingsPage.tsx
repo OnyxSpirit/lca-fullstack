@@ -10,6 +10,7 @@ import { BaysSettings, SuppliersSettings } from './OperationalResourcesSettings'
 import { WorkshopLaborRatesSettings } from './WorkshopLaborRatesSettings';
 import { ManufacturersSettings } from './ManufacturersSettings';
 import { DocumentReferencesSettings } from './DocumentReferencesSettings';
+import { DocumentMarksSettings } from './DocumentMarksSettings';
 import { useAuthStore } from '../../stores/authStore';
 import { canManageDocumentLogo } from './documentLogoAccess';
 import { VehicleLocationsSettings } from './VehicleLocationsSettings';
@@ -71,7 +72,7 @@ export const SettingsPage: React.FC = () => {
     {tab === 'workshop' && <div className="space-y-4">{canWorkshop&&<Card><CardHeader><div><CardTitle>Ressources atelier</CardTitle><CardDescription>Ponts, postes et ressources opérationnelles disponibles pour le planning.</CardDescription></div></CardHeader><BaysSettings/></Card>}<Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Référentiel concession, surcharges agence et tarifs effectifs des nouveaux chiffrages.</CardDescription></div></CardHeader><WorkshopLaborRatesSettings currencyCode={settings.data?.concession.currencyCode??'XAF'}/></Card></div>}
 
     {tab === 'manufacturers' && <ManufacturersSettings canView={canManufacturers} canCreate={can('settings.manufacturers.create')} canUpdate={can('settings.manufacturers.update')} canDisable={can('settings.manufacturers.disable')}/>}
-    {tab === 'documents' && <DocumentReferencesSettings canUpdate={admin}/>}
+    {tab === 'documents' && <div className="space-y-4"><DocumentMarksSettings/><DocumentReferencesSettings canUpdate={admin}/></div>}
     {tab === 'delivery-services' && <DeliveryServicesSettings/>}
     {tab === 'delivery-checklist' && <DeliveryChecklistTemplates/>}
 

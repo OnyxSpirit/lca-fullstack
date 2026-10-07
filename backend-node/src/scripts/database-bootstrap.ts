@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
 import {ensureMigrationStepJournal,executeResilientMigration,migrationChecksum,migrationLockName,splitSqlStatements,type MigrationFaultHook} from './mysql-migration-runner.js';
 
-export const FRESH_BASELINE_VERSION=68;
+export const FRESH_BASELINE_VERSION=69;
 export const FRESH_BASELINE_NAME=`baseline_001_${String(FRESH_BASELINE_VERSION).padStart(3,'0')}`;
 export const MINIMUM_MIGRATION_VERSION=33;
 export const databaseRoot=()=>resolve(process.env.DATABASE_ROOT??'database');

@@ -1073,6 +1073,14 @@ export const useDeliveryFinancialAuthorizationActions=()=>{const qc=useQueryClie
   authorize:useMutation({mutationFn:(body:any)=>apiRequest('/delivery/financial-authorizations',{method:'POST',body:JSON.stringify(body)}),onSuccess:refresh}),
   revoke:useMutation({mutationFn:({authorizationId,...body}:any)=>apiRequest(`/delivery/financial-authorizations/${authorizationId}/revoke`,{method:'POST',body:JSON.stringify(body)}),onSuccess:refresh}),
 }};
+export const useDeliveryServiceCatalog=(includeInactive=false,requestEnabled=true)=>useQuery({queryKey:['delivery-service-catalog',includeInactive],queryFn:()=>apiRequest<any[]>(`/delivery-services/catalog${includeInactive?'?includeInactive=true':''}`),enabled:enabled()&&requestEnabled});
+export const useDeliveryServiceCatalogActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:['delivery-service-catalog']});return{
+  create:useMutation({mutationFn:(body:any)=>apiRequest('/delivery-services/catalog',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+  update:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/delivery-services/catalog/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
+  status:useMutation({mutationFn:({id,isActive}:any)=>apiRequest(`/delivery-services/catalog/${id}/status`,{method:'PATCH',body:JSON.stringify({isActive})}),onSuccess:done}),
+}};
+export const useDeliveryServices=(deliveryId?:string,requestEnabled=true)=>useQuery({queryKey:['delivery-services',deliveryId],queryFn:()=>apiRequest<any[]>(`/deliveries/${deliveryId}/services`),enabled:enabled()&&requestEnabled&&Boolean(deliveryId)});
+export const useAddDeliveryService=()=>{const qc=useQueryClient();return useMutation({mutationFn:({deliveryId,...body}:any)=>apiRequest(`/deliveries/${deliveryId}/services`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:['delivery-services',v.deliveryId]});void qc.invalidateQueries({queryKey:['deliveries',v.deliveryId]});void qc.invalidateQueries({queryKey:erpKeys.invoices});void qc.invalidateQueries({queryKey:erpKeys.deliveries})}})};
 export const useDeliverySpecialistsQuery=(saleId:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'candidates',saleId,'specialists'],queryFn:()=>apiRequest<Array<{id:string;name:string;agencyId:string}>>(`/deliveries/candidates/${saleId}/specialists`),enabled:enabled()&&requestEnabled&&Boolean(saleId)});
 export const useDeliveryTemplatesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.deliveries,'templates'],queryFn:()=>apiRequest<any[]>('/deliveries/checklist-templates'),enabled:enabled()&&requestEnabled});
 export const useDeliveryTemplateActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:[...erpKeys.deliveries,'templates']});return{

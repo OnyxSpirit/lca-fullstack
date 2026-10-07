@@ -209,6 +209,26 @@ dérogation utilisée et son archive officielle en fige les informations. Les
 paiements post-livraison restent des paiements Billing ordinaires et alimentent
 Treasury par le flux `PAYMENT` existant.
 
+## Services additionnels de livraison
+
+Le catalogue `delivery_service_catalog` est configurable à l’échelle de la
+concession. Lors de l’ajout, `delivery_services` fige code, libellé, description,
+quantité, prix et devise ; les évolutions du catalogue restent sans effet sur
+l’historique.
+
+Chaque intention crée transactionnellement une prestation Delivery, une facture
+Billing complémentaire officielle de type `other` et une ligne de provenance
+`DELIVERY_SERVICE`. La facture véhicule émise n’est jamais réécrite. L’ajout ne
+crée ni paiement ni mouvement Treasury : seul le paiement Billing confirmé crée
+un flux `PAYMENT`; avoirs et remboursements utilisent leurs workflows existants.
+
+L’exposition de remise agrège les factures émises non annulées de la vente. Une
+autorisation Lot 6 couvre ce total agrégé. Le verrouillage livraison → vente →
+factures → autorisation sérialise l’ajout avec la finalisation, et aucun service
+n’est ajoutable après remise. Les permissions dynamiques sont
+`delivery.service.view`, `delivery.service.manage` et `delivery.service.add` ;
+`OWN` ne donne pas accès aux ressources collectives.
+
 ## Rôles à l’installation
 
 Une installation neuve crée uniquement le rôle système **Super Administrateur**

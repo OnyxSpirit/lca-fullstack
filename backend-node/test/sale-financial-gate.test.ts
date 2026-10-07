@@ -18,11 +18,11 @@ test('FIN-FIX-07 solde nul legitime par avoir suit le statut autoritaire paid',(
 test('FIN-FIX-08 appel direct est protege dans la transaction Vente',()=>{assert.match(sale,/status==='preparation'\)await lockActiveSaleInvoice\(connection,saleId,'preparation'\)/);assert.match(sale,/status==='ready_for_delivery'\)await lockActiveSaleInvoice/)});
 test('FIN-FIX-09/10 planification exige dynamiquement une facture soldee',()=>{assert.match(delivery,/lockedSale\.status!=='ready_for_delivery'.*lockActiveSaleInvoice\(connection,saleId,'delivery'\)/s);assert.doesNotThrow(()=>assertActiveInvoiceFinancialClearance(paid(),'delivery'));denied({id:'1',status:'partially_paid',amount_paid:28_000_000,balance_due:5_000_000},'delivery')});
 test('FIN-FIX-11 progression Livraison reverifie la finance',()=>{assert.match(delivery,/isForwardProgression.*SELECT id FROM sales WHERE id=\? FOR UPDATE.*lockActiveSaleInvoice/s)});
-test('FIN-FIX-12 signature conserve la garde centralisee',()=>{const sign=delivery.slice(delivery.indexOf('"/deliveries/:id/sign"'),delivery.indexOf('"/deliveries/:id/pdf"'));assert.match(sign,/lockActiveSaleInvoice\(connection,String\(delivery\.sale_id\),'delivery'\)/)});
+test('FIN-FIX-12 signature conserve la garde centralisee',()=>{const sign=delivery.slice(delivery.indexOf('"/deliveries/:id/sign"'),delivery.indexOf('"/deliveries/:id/pdf"'));assert.match(sign,/useDeliveryFinancialAuthorization\(connection,String\(delivery\.sale_id\),id,request\.user!\.sub\)/)});
 test('FIN-FIX-13 regularisation permet la reprise',()=>{denied({id:'1',status:'partially_paid',amount_paid:28_000_000,balance_due:5_000_000},'delivery');assert.doesNotThrow(()=>assertActiveInvoiceFinancialClearance(paid(),'delivery'))});
 test('RACE-FIN-01/02/03 ordre Vente puis Facture conserve par transitions, planification, remboursement et signature',()=>{
   assert.match(sale,/SELECT s\.id,s\.status.*FOR UPDATE.*lockActiveSaleInvoice/s);
   assert.match(delivery,/lockedSales.*FOR UPDATE.*lockActiveSaleInvoice\(connection,saleId/s);
-  assert.match(delivery,/SELECT d\.\*,s\.status sale_status.*FOR UPDATE.*lockActiveSaleInvoice\(connection,String\(delivery\.sale_id/s);
+  assert.match(delivery,/SELECT d\.\*,s\.status sale_status.*FOR UPDATE.*useDeliveryFinancialAuthorization\(connection,String\(delivery\.sale_id/s);
   assert.match(billing,/SELECT id FROM sales WHERE id=\? FOR UPDATE.*access\(String\(target\.invoice_id\),r,'billing\.payment\.refund',c,true\)/s);
 });

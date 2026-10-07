@@ -83,6 +83,9 @@ INSERT IGNORE INTO permissions(module,action,code,label,group_name,description,i
 ('delivery','update','delivery.signature.capture','Capturer une signature livraison','Livraisons','Capturer la signature de remise',TRUE),
 ('delivery','update','delivery.complete','Finaliser une livraison','Livraisons','Finaliser la remise après contrôles métier',TRUE),
 ('delivery','authorize','delivery.financial_override.authorize','Autoriser une livraison avec solde','Livraisons','Autoriser ou révoquer une dérogation financière de livraison',TRUE),
+('delivery','read','delivery.service.view','Voir les services de livraison','Livraisons','Consulter le catalogue et les prestations de livraison',TRUE),
+('delivery','manage','delivery.service.manage','Gérer les services de livraison','Livraisons','Créer, modifier et désactiver le catalogue concession',TRUE),
+('delivery','create','delivery.service.add','Ajouter un service facturable','Livraisons','Ajouter et facturer une prestation sur une livraison',TRUE),
 ('documents','view','ged.view','Voir la GED','GED','Consulter les documents',TRUE),
 ('reporting','view','reporting.view','Voir les rapports','Reporting','Consulter les rapports',TRUE);
 

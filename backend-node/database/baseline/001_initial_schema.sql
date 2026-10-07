@@ -1,4 +1,4 @@
--- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 060.
+-- LCA ERP — baseline MySQL 8, état fonctionnel consolidé au niveau 061.
 -- À exécuter exclusivement sur une base vide. Le runner refuse toute base ambiguë.
 SET NAMES utf8mb4;
 
@@ -1788,9 +1788,43 @@ CREATE TABLE invoice_items (
     tax_rate DECIMAL(8,4) NOT NULL DEFAULT 0,
     tax_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
     line_total DECIMAL(18,2) NOT NULL DEFAULT 0,
+    source_type VARCHAR(64) NULL,
+    source_id BIGINT UNSIGNED NULL,
+    UNIQUE KEY uq_invoice_item_source (source_type,source_id),
+    INDEX idx_invoice_item_source (source_type,source_id),
     CONSTRAINT fk_invoice_item_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
     CONSTRAINT fk_invoice_item_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE SET NULL,
     CONSTRAINT fk_invoice_item_part FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE delivery_service_catalog (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, concession_id BIGINT UNSIGNED NOT NULL, code VARCHAR(80) NOT NULL, name VARCHAR(180) NOT NULL,
+  description VARCHAR(1000) NULL, default_unit_price DECIMAL(18,2) NOT NULL, currency_code CHAR(3) NOT NULL, is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  display_order INT NOT NULL DEFAULT 0, created_by BIGINT UNSIGNED NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_delivery_service_catalog_code (concession_id,code), KEY idx_delivery_service_catalog_active (concession_id,is_active,display_order,id),
+  CONSTRAINT chk_delivery_service_catalog_price CHECK (default_unit_price > 0),
+  CONSTRAINT fk_delivery_service_catalog_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_catalog_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+CREATE TABLE delivery_services (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, delivery_id BIGINT UNSIGNED NOT NULL, sale_id BIGINT UNSIGNED NOT NULL, agency_id BIGINT UNSIGNED NOT NULL,
+  concession_id BIGINT UNSIGNED NOT NULL, catalog_service_id BIGINT UNSIGNED NOT NULL, invoice_id BIGINT UNSIGNED NOT NULL, invoice_item_id BIGINT UNSIGNED NULL,
+  code_snapshot VARCHAR(80) NOT NULL, name_snapshot VARCHAR(180) NOT NULL, description_snapshot VARCHAR(1000) NULL, quantity DECIMAL(12,2) NOT NULL,
+  unit_price_snapshot DECIMAL(18,2) NOT NULL, amount DECIMAL(18,2) NOT NULL, currency_code CHAR(3) NOT NULL, client_request_id CHAR(36) NOT NULL,
+  payload_hash CHAR(64) NOT NULL, created_by BIGINT UNSIGNED NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_delivery_service_request (created_by,client_request_id), UNIQUE KEY uq_delivery_service_catalog_once (delivery_id,catalog_service_id),
+  UNIQUE KEY uq_delivery_service_invoice (invoice_id), UNIQUE KEY uq_delivery_service_invoice_item (invoice_item_id), KEY idx_delivery_service_delivery (delivery_id,id), KEY idx_delivery_service_sale (sale_id,id),
+  CONSTRAINT chk_delivery_service_quantity CHECK (quantity > 0), CONSTRAINT chk_delivery_service_price CHECK (unit_price_snapshot > 0 AND amount > 0),
+  CONSTRAINT fk_delivery_service_delivery FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_sale FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_concession FOREIGN KEY (concession_id) REFERENCES concessions(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_catalog FOREIGN KEY (catalog_service_id) REFERENCES delivery_service_catalog(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_invoice_item FOREIGN KEY (invoice_item_id) REFERENCES invoice_items(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_delivery_service_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 CREATE TABLE payments (
@@ -2160,6 +2194,6 @@ CREATE TABLE treasury_account_mappings (
   CONSTRAINT fk_treasury_mapping_updater FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Le baseline représente directement l'état consolidé au niveau 059.
+-- Le baseline représente directement l'état consolidé au niveau 061.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (60,'baseline_001_060',REPEAT('0',64));
+VALUES (61,'baseline_001_061',REPEAT('0',64));

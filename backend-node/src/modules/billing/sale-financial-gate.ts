@@ -21,17 +21,20 @@ export function assertActiveInvoiceFinancialClearance(invoice:ActiveInvoice|unde
 }
 
 export async function lockActiveSaleInvoice(connection:PoolConnection,saleId:string,gate:FinancialGate){
-  const[rows]=await connection.execute<RowDataPacket[]>("SELECT id,status,total,amount_paid,balance_due,currency_code FROM invoices WHERE sale_id=? AND status<>'cancelled' ORDER BY id DESC LIMIT 1 FOR UPDATE",[saleId]);
-  const invoice=rows[0] as ActiveInvoice|undefined;
+  const[rows]=await connection.execute<RowDataPacket[]>("SELECT id,status,total,amount_paid,balance_due,currency_code,invoice_type FROM invoices WHERE sale_id=? AND status<>'cancelled' ORDER BY id FOR UPDATE",[saleId]);
+  const invoice=(rows.find(row=>row.invoice_type==='vehicle')??rows[0]) as ActiveInvoice|undefined;
   if(!invoice)return assertActiveInvoiceFinancialClearance(invoice,gate);
   if(String(invoice.status)==='draft')return assertActiveInvoiceFinancialClearance(invoice,gate);
-  const balance=Number(invoice.balance_due);
-  if(balance<=.001)return{invoice,financiallyCleared:true,coveredByAuthorization:false} satisfies DeliveryFinancialEligibility;
-  const[authorizations]=await connection.execute<RowDataPacket[]>("SELECT * FROM delivery_financial_authorizations WHERE sale_id=? AND invoice_id=? AND status='AUTHORIZED' ORDER BY id DESC LIMIT 1 FOR UPDATE",[saleId,String(invoice.id)]);
+  const billable=rows.filter(row=>String(row.status)!=='draft'),currencies=new Set(billable.map(row=>String(row.currency_code)));
+  if(currencies.size>1)throw new HttpError(409,'Les créances liées à la livraison utilisent des devises incompatibles.');
+  const balance=billable.reduce((sum,row)=>sum+Number(row.balance_due),0),total=billable.reduce((sum,row)=>sum+Number(row.total),0),paid=billable.reduce((sum,row)=>sum+Number(row.amount_paid),0);
+  const exposureInvoice={...invoice,total,amount_paid:paid,balance_due:balance,currency_code:billable[0]?.currency_code??invoice.currency_code};
+  if(balance<=.001)return{invoice:exposureInvoice,financiallyCleared:true,coveredByAuthorization:false} satisfies DeliveryFinancialEligibility;
+  const[authorizations]=await connection.execute<RowDataPacket[]>("SELECT * FROM delivery_financial_authorizations WHERE sale_id=? AND status='AUTHORIZED' ORDER BY id DESC LIMIT 1 FOR UPDATE",[saleId]);
   const authorization=authorizations[0];
-  if(!authorization)return assertActiveInvoiceFinancialClearance(invoice,gate);
+  if(!authorization)return assertActiveInvoiceFinancialClearance(exposureInvoice,gate);
   if(balance>Number(authorization.balance_due_snapshot)+.001)throw new HttpError(409,'Autorisation financière insuffisante — une nouvelle autorisation est requise.');
-  return{invoice,authorization,financiallyCleared:false,coveredByAuthorization:true} satisfies DeliveryFinancialEligibility;
+  return{invoice:exposureInvoice,authorization,financiallyCleared:false,coveredByAuthorization:true} satisfies DeliveryFinancialEligibility;
 }
 
 export async function useDeliveryFinancialAuthorization(connection:PoolConnection,saleId:string,deliveryId:string,userId:string){

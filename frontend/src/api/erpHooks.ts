@@ -1170,6 +1170,20 @@ export function useAssignRepairOrder() {
     onSuccess: () => {qc.invalidateQueries({ queryKey: erpKeys.repairOrders });qc.invalidateQueries({queryKey:["workshop-planning"]});qc.invalidateQueries({queryKey:["workshop-intervention-history"]});qc.invalidateQueries({queryKey:["workshop-stats"]});},
   });
 }
+export const useVehicleReturnQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['vehicle-return',id],queryFn:()=>apiRequest<any>(`/vehicle-returns/${id}`),enabled:enabled()&&requestEnabled&&Boolean(id)});
+export const useVehicleReturnOptions=(id?:string,requestEnabled=true)=>useQuery({queryKey:['vehicle-return-options',id],queryFn:()=>apiRequest<any>(`/vehicle-returns/${id}/options`),enabled:enabled()&&requestEnabled&&Boolean(id)});
+export const useVehicleReturnActions=()=>{const qc=useQueryClient(),done=(_:unknown,v:any)=>{void qc.invalidateQueries({queryKey:['vehicle-return',String(v.returnId??v.id??'')]});void qc.invalidateQueries({queryKey:['vehicle-return-options',String(v.returnId??v.id??'')]});void qc.invalidateQueries({queryKey:['vehicle-returns']});void qc.invalidateQueries({queryKey:erpKeys.deliveries});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.invoices})};return{
+ create:useMutation({mutationFn:(body:any)=>apiRequest<any>('/vehicle-returns',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ inspect:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/inspection`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ approve:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/approve`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ reject:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/reject`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ addDeduction:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/deductions`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ resolve:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/financial-resolution`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ receive:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/receive`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ stock:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/stock-decision`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ close:useMutation({mutationFn:({returnId}:any)=>apiRequest(`/vehicle-returns/${returnId}/close`,{method:'POST'}),onSuccess:done}),
+}}
+
 export function useInvoiceRepairOrder() {
   const qc = useQueryClient();
   return useMutation({

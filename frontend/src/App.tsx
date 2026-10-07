@@ -26,6 +26,7 @@ import { NotificationsPage } from './modules/notifications/NotificationsPage';
 import { HrAdministrationPage } from './modules/hr/HrAdministrationPage';
 import { TreasuryPage } from './modules/treasury/TreasuryPage';
 import { DeliveryDetailPage } from './modules/deliveries/DeliveryDetailPage';
+import { VehicleReturnPage } from './modules/vehicle-returns/VehicleReturnPage';
 import { SparePartDetailPage } from './modules/parts/SparePartDetailPage';
 import { LoginPage } from './modules/auth/LoginPage';
 import { useAuthStore } from './stores/authStore';
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="sales/:id" element={<ModuleGuard module="sales"><SaleDetailPage /></ModuleGuard>} />
           <Route path="deliveries" element={<ModuleGuard module="deliveries"><DeliveriesPage /></ModuleGuard>} />
           <Route path="deliveries/:id" element={<ModuleGuard module="deliveries"><DeliveryDetailPage /></ModuleGuard>} />
+          <Route path="vehicle-returns/:id" element={<ModuleGuard module="deliveries"><VehicleReturnPage /></ModuleGuard>} />
           <Route path="customers" element={<ModuleGuard module="customers"><CustomersListPage /></ModuleGuard>} />
           <Route path="customers/:id" element={<ModuleGuard module="customers"><CustomerDetailPage /></ModuleGuard>} />
           <Route path="service" element={<ModuleGuard module="service"><ServiceDashboardPage /></ModuleGuard>} />

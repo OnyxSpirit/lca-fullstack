@@ -242,6 +242,15 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ('hr','view','hr.reporting.view','Voir le reporting RH','RH & Administration','Consulter les indicateurs RH et administratifs autorisés',TRUE)
 ON DUPLICATE KEY UPDATE module=VALUES(module),action=VALUES(action),name=VALUES(name),group_name=VALUES(group_name),description=VALUES(description),is_active=TRUE;
 
+INSERT INTO permissions(module,action,code,label,name,group_name,category,description,is_active) VALUES
+('vehicles','view','vehicle.return.view','Voir les retours post-livraison','Voir les retours post-livraison','Véhicules','Véhicules','Consulter les dossiers de retour post-livraison',TRUE),
+('vehicles','create','vehicle.return.create','Créer un retour post-livraison','Créer un retour post-livraison','Véhicules','Véhicules','Initier une demande de retour sur livraison finalisée',TRUE),
+('vehicles','update','vehicle.return.inspect','Inspecter un véhicule retourné','Inspecter un véhicule retourné','Véhicules','Véhicules','Enregistrer le constat physique avant décision',TRUE),
+('vehicles','approve','vehicle.return.approve','Décider un retour post-livraison','Décider un retour post-livraison','Véhicules','Véhicules','Approuver ou rejeter une demande de retour',TRUE),
+('vehicles','manage','vehicle.return.financial.resolve','Résoudre financièrement un retour','Résoudre financièrement un retour','Véhicules','Véhicules','Créer les avoirs et remboursements justifiés',TRUE),
+('vehicles','manage','vehicle.return.stock.receive','Réceptionner un véhicule retourné','Réceptionner un véhicule retourné','Véhicules','Véhicules','Réceptionner et décider la remise en stock',TRUE)
+ON DUPLICATE KEY UPDATE module=VALUES(module),action=VALUES(action),label=VALUES(label),name=VALUES(name),group_name=VALUES(group_name),category=VALUES(category),description=VALUES(description),is_active=TRUE;
+
 -- Référentiel GED canonique absorbé depuis la migration 049 pour les installations fraîches.
 INSERT INTO document_categories(code,name,display_order) VALUES
 ('CLIENTS_IDENTITY','Clients & Identité',10),('VEHICLES','Véhicules',20),('SALES','Ventes & Commercial',30),

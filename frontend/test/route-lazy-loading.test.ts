@@ -21,9 +21,12 @@ test('Suspense fournit un fallback accessible sans navigation ni déconnexion',(
   assert.doesNotMatch(fallbackSource,/Navigate/);
 });
 
-test('bootstrap, layout et gardes RBAC restent synchrones et hors des pages lazy',()=>{
-  for(const eager of ['AppLayout','useAuthStore','AppBootstrap','AccessDeniedPage','RouteErrorBoundary'])assert.match(app,new RegExp(`import .*${eager}.* from`));
-  assert.match(app,/<AppBootstrap \/>/);
+test('le shell authentifié est différé tandis que la session et les gardes RBAC restent synchrones',()=>{
+  for(const eager of ['useAuthStore','AccessDeniedPage','RouteErrorBoundary'])assert.match(app,new RegExp(`import .*${eager}.* from`));
+  assert.match(app,/const AppLayout=lazy\(\(\)=>import\('\.\/components\/layout\/AppLayout'\)/);
+  assert.match(app,/<SessionBootstrap \/>/);
+  assert.doesNotMatch(app,/import \{ AppLayout \} from/);
+  assert.doesNotMatch(app,/import \{ AppBootstrap \} from/);
   assert.match(app,/function ProtectedLayout/);
   assert.match(app,/function ModuleGuard/);
   assert.match(app,/can\(MODULE_PERMISSION\[module\]\)\?<>{children}<\/>:<AccessDeniedPage\/>/);

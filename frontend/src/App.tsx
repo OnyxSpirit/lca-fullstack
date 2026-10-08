@@ -1,8 +1,6 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AppLayout } from './components/layout/AppLayout';
 import { useAuthStore } from './stores/authStore';
-import { AppBootstrap } from './components/AppBootstrap';
 import { ROUTES } from './navigation/routes';
 import type { ModuleKey } from './navigation/routes';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
@@ -38,6 +36,7 @@ const NotificationsPage=lazy(()=>import('./modules/notifications/NotificationsPa
 const ActivityPage=lazy(()=>import('./modules/activity/ActivityPage').then(module=>({default:module.ActivityPage})));
 const LoginPage=lazy(()=>import('./modules/auth/LoginPage').then(module=>({default:module.LoginPage})));
 const NotFoundPage=lazy(()=>import('./modules/errors/NotFoundPage').then(module=>({default:module.NotFoundPage})));
+const AppLayout=lazy(()=>import('./components/layout/AppLayout').then(module=>({default:module.AppLayout})));
 
 function RouteLoadingFallback(){
   return <div className="min-h-[55vh] grid place-items-center" role="status" aria-live="polite"><div className="flex items-center gap-3 text-sm font-medium text-slate-600"><span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#8f1722]" aria-hidden="true"/>Chargement du module…</div></div>;
@@ -47,7 +46,12 @@ const lazyPage=(element:React.ReactNode)=><Suspense fallback={<RouteLoadingFallb
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const location = useLocation();
-  return isAuthenticated ? <AppLayout /> : <Navigate to={ROUTES.login} state={{ from: location }} replace />;
+  return isAuthenticated ? lazyPage(<AppLayout />) : <Navigate to={ROUTES.login} state={{ from: location }} replace />;
+}
+function SessionBootstrap(){
+  const logout=useAuthStore(state=>state.logout);
+  useEffect(()=>{const expired=()=>logout();window.addEventListener('lca:session-expired',expired);return()=>window.removeEventListener('lca:session-expired',expired)},[logout]);
+  return null;
 }
 const MODULE_PERMISSION: Record<ModuleKey, string> = { dashboard:'dashboard.view', modules:'dashboard.view', crm:'crm.prospect.view', showroom:'showroom.view', vehicles:'vehicles.view', sales:'sales.view', deliveries:'delivery.view', customers:'customers.view', service:'service.order.view', workshop:'workshop.view', parts:'parts.view', billing:'billing.view', treasury:'treasury.view', reports:'reporting.view', documents:'ged.view', hr:'hr.view', users:'users.view', settings:'settings.view', notifications:'notifications.view',activity:'activity.view' };
 function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNode}) {
@@ -59,7 +63,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <RouteErrorBoundary>
-      <AppBootstrap />
+      <SessionBootstrap />
       <Routes>
         <Route path={ROUTES.login} element={lazyPage(<LoginPage />)} />
         <Route path="/" element={<ProtectedLayout />}>

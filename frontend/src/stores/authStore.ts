@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User, Agency, PermissionAction, EffectivePermissionScope } from '../types';
 import { apiRequest, markAuthSessionBoundary } from '../services/apiClient';
-import { connectRealtime, disconnectRealtime } from '../services/realtime';
+import { disconnectRealtime } from '../services/realtime';
 import { hasDynamicPermission } from '../navigation/permissions';
 import { clearSessionClientState } from '../services/sessionIsolation';
 
@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       markAuthSessionBoundary();
       clearSessionClientState();
       localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken); localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken); localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      connectRealtime(response.accessToken); set({ currentUser: user, currentAgency: agency, allUsers: [user], allAgencies: [agency], isAuthenticated: true }); return { success: true };
+      set({ currentUser: user, currentAgency: agency, allUsers: [user], allAgencies: [agency], isAuthenticated: true }); return { success: true };
     } catch (error) { return { success: false, message: error instanceof Error ? error.message : 'Connexion impossible' }; }
   },
 

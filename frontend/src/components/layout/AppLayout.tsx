@@ -6,9 +6,12 @@ import { GlobalSearchModal } from './GlobalSearchModal';
 import { QuickActionModal } from './QuickActionModal';
 import { ToastContainer } from '../ui/Toast';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
+import { AppBootstrap } from '../AppBootstrap';
 
 export const AppLayout: React.FC = () => {
   return (
+    <>
+      <AppBootstrap />
     <div className="min-h-screen bg-[#ffffff] flex flex-col antialiased text-[#111113]">
       <div className="flex flex-1 min-h-screen">
         {/* Left Sidebar */}
@@ -31,5 +34,6 @@ export const AppLayout: React.FC = () => {
       <QuickActionModal />
       <ToastContainer />
     </div>
+    </>
   );
 };

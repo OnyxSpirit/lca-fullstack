@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Building2, Image as ImageIcon, Plus, Save, Upload } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Badge } from '../../components/ui/Badge';
@@ -6,16 +6,18 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useUiStore } from '../../stores/uiStore';
 import { type AgencyInput, type ConcessionIdentity, type SettingsAgency, useAgencyActions, useCurrentConcessionQuery, useDocumentLogo, useSettingsAgenciesQuery, useSettingsQuery, useUpdateConcession, useUpdateSettings } from '../../api/settingHooks';
-import { BaysSettings, SuppliersSettings } from './OperationalResourcesSettings';
-import { WorkshopLaborRatesSettings } from './WorkshopLaborRatesSettings';
-import { ManufacturersSettings } from './ManufacturersSettings';
-import { DocumentReferencesSettings } from './DocumentReferencesSettings';
-import { DocumentMarksSettings } from './DocumentMarksSettings';
 import { useAuthStore } from '../../stores/authStore';
 import { canManageDocumentLogo } from './documentLogoAccess';
-import { VehicleLocationsSettings } from './VehicleLocationsSettings';
-import { DeliveryServicesSettings } from './DeliveryServicesSettings';
-import { DeliveryChecklistTemplates } from '../deliveries/DeliveryChecklistTemplates';
+
+const BaysSettings=lazy(()=>import('./OperationalResourcesSettings').then(module=>({default:module.BaysSettings})));
+const SuppliersSettings=lazy(()=>import('./OperationalResourcesSettings').then(module=>({default:module.SuppliersSettings})));
+const WorkshopLaborRatesSettings=lazy(()=>import('./WorkshopLaborRatesSettings').then(module=>({default:module.WorkshopLaborRatesSettings})));
+const ManufacturersSettings=lazy(()=>import('./ManufacturersSettings').then(module=>({default:module.ManufacturersSettings})));
+const DocumentReferencesSettings=lazy(()=>import('./DocumentReferencesSettings').then(module=>({default:module.DocumentReferencesSettings})));
+const DocumentMarksSettings=lazy(()=>import('./DocumentMarksSettings').then(module=>({default:module.DocumentMarksSettings})));
+const VehicleLocationsSettings=lazy(()=>import('./VehicleLocationsSettings').then(module=>({default:module.VehicleLocationsSettings})));
+const DeliveryServicesSettings=lazy(()=>import('./DeliveryServicesSettings').then(module=>({default:module.DeliveryServicesSettings})));
+const DeliveryChecklistTemplates=lazy(()=>import('../deliveries/DeliveryChecklistTemplates').then(module=>({default:module.DeliveryChecklistTemplates})));
 
 type Tab = 'general' | 'documents' | 'manufacturers' | 'delivery-services' | 'delivery-checklist' | 'workshop' | 'suppliers' | 'vehicle-locations' | 'agencies' | 'integrations';
 const field = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
@@ -69,15 +71,15 @@ export const SettingsPage: React.FC = () => {
       {admin&&<div className="flex items-end gap-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateConcession.isPending}>Enregistrer l’identité</Button><Button type="button" variant="outline" onClick={saveBusiness} loading={updateSettings.isPending}>Enregistrer la TVA</Button></div>}
     </form></Card>}
 
-    {tab === 'workshop' && <div className="space-y-4">{canWorkshop&&<Card><CardHeader><div><CardTitle>Ressources atelier</CardTitle><CardDescription>Ponts, postes et ressources opérationnelles disponibles pour le planning.</CardDescription></div></CardHeader><BaysSettings/></Card>}<Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Référentiel concession, surcharges agence et tarifs effectifs des nouveaux chiffrages.</CardDescription></div></CardHeader><WorkshopLaborRatesSettings currencyCode={settings.data?.concession.currencyCode??'XAF'}/></Card></div>}
+    {tab === 'workshop' && <SettingsSectionBoundary><div className="space-y-4">{canWorkshop&&<Card><CardHeader><div><CardTitle>Ressources atelier</CardTitle><CardDescription>Ponts, postes et ressources opérationnelles disponibles pour le planning.</CardDescription></div></CardHeader><BaysSettings/></Card>}<Card><CardHeader><div><CardTitle>Barèmes horaires atelier</CardTitle><CardDescription>Référentiel concession, surcharges agence et tarifs effectifs des nouveaux chiffrages.</CardDescription></div></CardHeader><WorkshopLaborRatesSettings currencyCode={settings.data?.concession.currencyCode??'XAF'}/></Card></div></SettingsSectionBoundary>}
 
-    {tab === 'manufacturers' && <ManufacturersSettings canView={canManufacturers} canCreate={can('settings.manufacturers.create')} canUpdate={can('settings.manufacturers.update')} canDisable={can('settings.manufacturers.disable')}/>}
-    {tab === 'documents' && <div className="space-y-4"><DocumentMarksSettings/><DocumentReferencesSettings canUpdate={admin}/></div>}
-    {tab === 'delivery-services' && <DeliveryServicesSettings/>}
-    {tab === 'delivery-checklist' && <DeliveryChecklistTemplates/>}
+    {tab === 'manufacturers' && <SettingsSectionBoundary><ManufacturersSettings canView={canManufacturers} canCreate={can('settings.manufacturers.create')} canUpdate={can('settings.manufacturers.update')} canDisable={can('settings.manufacturers.disable')}/></SettingsSectionBoundary>}
+    {tab === 'documents' && <SettingsSectionBoundary><div className="space-y-4"><DocumentMarksSettings/><DocumentReferencesSettings canUpdate={admin}/></div></SettingsSectionBoundary>}
+    {tab === 'delivery-services' && <SettingsSectionBoundary><DeliveryServicesSettings/></SettingsSectionBoundary>}
+    {tab === 'delivery-checklist' && <SettingsSectionBoundary><DeliveryChecklistTemplates/></SettingsSectionBoundary>}
 
-    {tab === 'suppliers' && <SuppliersSettings/>}
-    {tab === 'vehicle-locations' && <VehicleLocationsSettings canManage={can('vehicles.assignments.manage')}/>}
+    {tab === 'suppliers' && <SettingsSectionBoundary><SuppliersSettings/></SettingsSectionBoundary>}
+    {tab === 'vehicle-locations' && <SettingsSectionBoundary><VehicleLocationsSettings canManage={can('vehicles.assignments.manage')}/></SettingsSectionBoundary>}
 
     {tab === 'agencies' && <div className="space-y-4">{admin&&<Card><CardHeader><div><CardTitle>Créer une agence</CardTitle><CardDescription>Les codes doivent être uniques dans la base.</CardDescription></div></CardHeader><form onSubmit={createAgency} className="grid gap-3 md:grid-cols-3">{agencyFields.map(({ key, label, placeholder, required }) => <label key={key} htmlFor={`create-agency-${key}`} className="text-xs font-semibold text-slate-700">{label}<input id={`create-agency-${key}`} required={required} className={`${field} mt-1`} placeholder={placeholder} value={String(agencyForm[key] ?? '')} onChange={e => setAgencyForm(current => ({ ...current, [key]: e.target.value }))} /></label>)}<div><Button type="submit" icon={<Plus className="h-4 w-4" />} loading={agencyActions.create.isPending}>Créer l’agence</Button></div></form></Card>}
       {agencies.isError && <Card className="border-red-200 text-sm text-red-700">{agencies.error instanceof Error ? agencies.error.message : 'Chargement impossible'}</Card>}
@@ -88,3 +90,5 @@ export const SettingsPage: React.FC = () => {
     {tab === 'integrations' && <Card><CardHeader><div><CardTitle>Intégrations externes</CardTitle><CardDescription>Aucun connecteur ne doit être présenté comme actif sans configuration technique réelle.</CardDescription></div></CardHeader><div className="flex items-center gap-3 rounded-md border border-dashed border-slate-300 p-6 text-sm text-slate-600"><Building2 className="h-5 w-5" /><div><b>Aucune intégration configurée</b><p className="text-xs">Connecteurs DMS et portails d’annonces : à venir.</p></div></div></Card>}
   </div>;
 };
+
+const SettingsSectionBoundary=({children}:{children:React.ReactNode})=><Suspense fallback={<Card><p className="animate-pulse p-8 text-center text-xs text-slate-500" role="status" aria-live="polite">Chargement de la section Paramètres…</p></Card>}>{children}</Suspense>;

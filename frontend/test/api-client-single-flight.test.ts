@@ -36,6 +36,13 @@ test('F7–F9 refresh invalide termine et notifie une seule fois sans replay',as
   assert.equal(results.every(result=>result.status==='rejected'),true);assert.equal(refreshes,1);assert.equal(business,10);assert.equal(expired,1);assert.equal(queryClient.getQueryData(['secret']),undefined);assert.equal(localStorage.getItem('lca-access-token'),null);
 });
 
+test('un refresh refusé 403 termine également la session sans replay',async()=>{
+  install('A');let refreshes=0,business=0,expired=0;window.addEventListener('lca:session-expired',()=>{expired+=1},{once:true});
+  globalThis.fetch=async input=>{if(String(input).endsWith('/auth/refresh')){refreshes+=1;return json({message:'Session révoquée'},403)}business+=1;return json({message:'Expired'},401)};
+  const results=await Promise.allSettled(Array.from({length:10},(_,index)=>apiRequest(`/revoked/${index}`)));
+  assert.equal(results.every(result=>result.status==='rejected'),true);assert.equal(refreshes,1);assert.equal(business,10);assert.equal(expired,1);assert.equal(localStorage.getItem('lca-access-token'),null);
+});
+
 test('F10/F11 un replay 401 et /auth/refresh ne bouclent jamais',async()=>{
   install('A');let refreshes=0,business=0;globalThis.fetch=async input=>{if(String(input).endsWith('/auth/refresh')){refreshes+=1;return json({accessToken:'access-A2',refreshToken:'refresh-A2'})}business+=1;return json({message:'Toujours 401'},401)};
   await assert.rejects(apiRequest('/still-unauthorized'));assert.equal(refreshes,1);assert.equal(business,2);

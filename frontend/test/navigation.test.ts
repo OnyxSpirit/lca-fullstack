@@ -84,7 +84,7 @@ test('les modules visibles respectent la matrice des 13 rôles',()=>{
 
 test('une route inconnue affiche une page 404 explicite', () => {
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  assert.match(app, /path="\*" element={<NotFoundPage \/>}/);
+  assert.match(app, /path="\*" element={lazyPage\(<NotFoundPage \/>\)}/);
   assert.doesNotMatch(app, /path="\*" element={<Navigate to="\/dashboard"/);
 });
 

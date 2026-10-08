@@ -6,6 +6,7 @@ import { createCrmRefreshScheduler } from '../services/crmRealtime';
 import { useAuthStore } from '../stores/authStore';
 import { dashboardOverviewKey } from '../api/dashboardHooks';
 import { armNotificationSound, notificationSignal } from '../services/notificationSound';
+import { isDefinitiveAuthenticationFailure, waitForActiveRefresh } from '../services/apiClient';
 
 const eventKeys: Record<string, readonly string[]> = {
   'sales:created': erpKeys.sales, 'sales:status': erpKeys.sales,
@@ -27,6 +28,13 @@ const eventKeys: Record<string, readonly string[]> = {
 };
 const planningEvents=['workshop:assigned','workshop:schedule-updated','workshop:schedule-cancelled','workshop:session-started','workshop:session-stopped','workshop:resources-changed'];
 
+async function synchronizePermissions(refreshPermissions:()=>Promise<void>,logout:()=>void){
+  try{await refreshPermissions();return}catch{/* A concurrent refresh may still make the session usable. */}
+  try{await waitForActiveRefresh()}catch{/* Session expiry is handled centrally by apiClient. */}
+  if(!useAuthStore.getState().isAuthenticated||!localStorage.getItem('lca-access-token'))return;
+  try{await refreshPermissions()}catch(error){if(isDefinitiveAuthenticationFailure(error))logout()}
+}
+
 export function AppBootstrap() {
   const authenticated = useAuthStore((s) => s.isAuthenticated);
   const setDirectory = useAuthStore((s) => s.setDirectory);
@@ -36,7 +44,7 @@ export function AppBootstrap() {
   useEffect(() => { if (users.data && agencies.data) setDirectory(users.data, agencies.data); }, [users.data, agencies.data, setDirectory]);
   useEffect(() => {
     if (!authenticated || !localStorage.getItem('lca-access-token')) return;
-    void refreshPermissions().catch(() => logout());
+    void synchronizePermissions(refreshPermissions,logout);
   }, [authenticated, refreshPermissions, logout]);
   useEffect(() => {
     const token = localStorage.getItem('lca-access-token'); if (!authenticated || !token) return;
@@ -50,7 +58,7 @@ export function AppBootstrap() {
     const eventHandlers=new Map<string,()=>void>();
     Object.entries(eventKeys).forEach(([event,key]) => {const handler=()=>{void qc.invalidateQueries({ queryKey: key });void qc.invalidateQueries({queryKey:dashboardOverviewKey}); if(event==='showroom:test-drive-completed'||event==='sales:created'||event==='sales:status'){void qc.invalidateQueries({queryKey:erpKeys.vehicles});} if(event==='showroom:test-drive-completed'){void qc.invalidateQueries({queryKey:erpKeys.leads});} if(event==='parts:stock-changed'){void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:['parts']});} if(event==='settings:updated'){void qc.invalidateQueries({queryKey:['concession-current']});void qc.invalidateQueries({queryKey:['billing-config']});void qc.invalidateQueries({queryKey:['workshop-config']});}};eventHandlers.set(event,handler);socket.on(event,handler)});
     const planningHandlers=new Map<string,()=>void>();planningEvents.forEach(event=>{const handler=()=>{void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:['workshop-bays']});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['workshop-unavailabilities']});void qc.invalidateQueries({queryKey:dashboardOverviewKey});};planningHandlers.set(event,handler);socket.on(event,handler)});
-    const rbacUpdated=()=>{void refreshPermissions().then(()=>{void qc.invalidateQueries();}).catch(()=>logout());};
+    const rbacUpdated=()=>{void synchronizePermissions(refreshPermissions,logout).then(()=>{if(useAuthStore.getState().isAuthenticated)void qc.invalidateQueries();})};
     socket.on('rbac:updated',rbacUpdated);
     return () => { crmRefresh.dispose();window.removeEventListener('pointerdown',armAudio);window.removeEventListener('keydown',armAudio);socket.off('crm:lead-updated',crmLeadUpdated);socket.off('notifications:created',notificationCreated);eventHandlers.forEach((handler,event)=>socket.off(event,handler));planningHandlers.forEach((handler,event)=>socket.off(event,handler));socket.off('rbac:updated',rbacUpdated);qc.removeQueries({queryKey:['notifications']});disconnectRealtime(); };
   }, [authenticated, qc, refreshPermissions, logout]);

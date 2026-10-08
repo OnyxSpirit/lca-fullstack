@@ -12,6 +12,8 @@ export class ApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
 }
 
+export const isDefinitiveAuthenticationFailure=(error:unknown)=>error instanceof ApiError&&(error.status===401||error.status===403)&&!error.message.startsWith('La session a changé');
+
 type SessionSnapshot={generation:number;accessToken:string|null;refreshToken:string|null};
 type RefreshFlight={snapshot:SessionSnapshot;promise:Promise<string>};
 let sessionGeneration=0;
@@ -63,6 +65,9 @@ function refreshSingleFlight(snapshot:SessionSnapshot){
   refreshFlight=flight;
   return flight.promise;
 }
+
+/** Let bootstrap work wait for the refresh already protecting concurrent API calls. */
+export async function waitForActiveRefresh(){if(refreshFlight)await refreshFlight.promise;}
 
 async function sendWithRefresh(path:string,init:RequestInit){
   const snapshot=snapshotSession();

@@ -60,7 +60,7 @@ showroomRouter.post('/showroom/crm/leads/:leadId/test-drives',requirePermission(
   await assertAgencyScope(request,String(lead.agency_id),'crm.test_drive.create',lead.assigned_user_id);
   if(!lead.assigned_user_id)throw new HttpError(409,'Un commercial doit être affecté avant l’essai');
   await validAssignee(String(lead.assigned_user_id),String(lead.agency_id));
-  const[vehicle]=await query<RowDataPacket[]>(`SELECT id,mileage,status,agency_id FROM vehicles WHERE id=? AND agency_id=? AND archived_at IS NULL`,[vehicleId,lead.agency_id]);
+  const[vehicle]=await query<RowDataPacket[]>(`SELECT id,mileage,status,agency_id FROM vehicles WHERE id=? AND agency_id=? AND is_commercial_stock=TRUE AND archived_at IS NULL`,[vehicleId,lead.agency_id]);
   if(!vehicle||vehicle.status!=='available')throw new HttpError(409,'Véhicule indisponible pour un essai');
   const mileage=Number(request.body.mileageOut??vehicle.mileage);
   if(!Number.isInteger(mileage)||mileage<Number(vehicle.mileage))throw new HttpError(400,'Kilométrage de départ invalide');
@@ -95,7 +95,7 @@ showroomRouter.post('/showroom/:id/test-drives',requirePermission('showroom.visi
   if(String(visit.assigned_user_id)!==request.user!.sub&&permissionScope(request,'showroom.visitor.update')==='OWN')throw new HttpError(403,'Visite affectée à un autre conseiller');
   await validAssignee(request.user!.sub,String(visit.agency_id));
   const vehicleId=idOf(String(request.body.vehicleId));
-  const[vehicle]=await query<RowDataPacket[]>(`SELECT id,mileage,status,agency_id FROM vehicles WHERE id=? AND agency_id=? AND archived_at IS NULL`,[vehicleId,visit.agency_id]);
+  const[vehicle]=await query<RowDataPacket[]>(`SELECT id,mileage,status,agency_id FROM vehicles WHERE id=? AND agency_id=? AND is_commercial_stock=TRUE AND archived_at IS NULL`,[vehicleId,visit.agency_id]);
   if(!vehicle||vehicle.status!=='available')throw new HttpError(409,'Véhicule indisponible pour un essai');
   const mileage=Number(request.body.mileageOut??vehicle.mileage);
   if(!Number.isInteger(mileage)||mileage<Number(vehicle.mileage))throw new HttpError(400,'Kilométrage de départ invalide');

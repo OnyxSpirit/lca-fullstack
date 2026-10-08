@@ -29,7 +29,7 @@ test('STOCK-FILTER-08/09/10 les filtres restent dans le scope AGENCY, CONCESSION
 test('STOCK-KPI-01/02/04/06 seul available est compté par MySQL dans le scope courant',()=>{
   assert.match(source,/SUM\(v\.status='available'\) available/);
   assert.match(source,/availableForSale=Number\(row\?\.available/);
-  assert.match(source,/FROM vehicles v WHERE v\.archived_at IS NULL AND \$\{scoped\.sql\}/);
+  assert.match(source,/FROM vehicles v WHERE \$\{commercialStockPredicate\(\)\} AND v\.archived_at IS NULL AND \$\{scoped\.sql\}/);
   assert.match(source,/const availableForSale=Number\(row\?\.available\?\?0\)/);
 });
 test('STOCK-KPI-03 la vente réserve puis vend le véhicule au moment métier existant',()=>{

@@ -722,13 +722,19 @@ CREATE TABLE vehicle_locations (
 
 CREATE TABLE vehicles (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    version_id BIGINT UNSIGNED NOT NULL,
+    version_id BIGINT UNSIGNED NULL,
     agency_id BIGINT UNSIGNED NOT NULL,
     location_id BIGINT UNSIGNED NULL,
     vehicle_location_id BIGINT UNSIGNED NULL,
     supplier_id BIGINT UNSIGNED NULL,
+    commercial_origin ENUM('CONCESSION','EXTERNAL','UNKNOWN') NOT NULL DEFAULT 'UNKNOWN',
+    commercial_origin_source ENUM('LEGACY','SALE','MANUAL','WORKSHOP','IMPORT') NOT NULL DEFAULT 'LEGACY',
+    is_commercial_stock BOOLEAN NOT NULL DEFAULT TRUE,
+    identity_brand VARCHAR(120) NULL,
+    identity_model VARCHAR(120) NULL,
+    identity_version VARCHAR(150) NULL,
     vehicle_type ENUM('new','used','demo','courtesy') NOT NULL DEFAULT 'new',
-    vin VARCHAR(50) NOT NULL UNIQUE,
+    vin VARCHAR(50) NULL UNIQUE,
     stock_number VARCHAR(80) NULL UNIQUE,
     registration_number VARCHAR(50) NULL,
     body_type VARCHAR(60) NULL,
@@ -765,6 +771,9 @@ CREATE TABLE vehicles (
     INDEX idx_vehicle_status (status),
     INDEX idx_vehicle_agency_status (agency_id, status),
     INDEX idx_vehicle_vehicle_location (vehicle_location_id),
+    INDEX idx_vehicle_commercial_stock (is_commercial_stock, archived_at, status, agency_id),
+    INDEX idx_vehicle_commercial_origin (commercial_origin, agency_id),
+    CONSTRAINT chk_vehicle_identity_description CHECK (version_id IS NOT NULL OR (NULLIF(TRIM(identity_brand),'') IS NOT NULL AND NULLIF(TRIM(identity_model),'') IS NOT NULL)),
     CONSTRAINT fk_vehicle_version
         FOREIGN KEY (version_id) REFERENCES versions(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -778,6 +787,34 @@ CREATE TABLE vehicles (
         FOREIGN KEY (vehicle_location_id) REFERENCES vehicle_locations(id)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_vehicle_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE customer_vehicles (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    customer_id BIGINT UNSIGNED NOT NULL,
+    vehicle_id BIGINT UNSIGNED NOT NULL,
+    agency_id BIGINT UNSIGNED NOT NULL,
+    relation_type ENUM('OWNER','DRIVER','RESPONSIBLE','FLEET') NOT NULL,
+    source_type ENUM('SALE','REPAIR_ORDER','MANUAL','IMPORT') NOT NULL,
+    source_id BIGINT UNSIGNED NULL,
+    is_current BOOLEAN NOT NULL DEFAULT TRUE,
+    valid_from DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    valid_to DATETIME NULL,
+    notes VARCHAR(500) NULL,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    current_relation_key TINYINT GENERATED ALWAYS AS (CASE WHEN is_current THEN 1 ELSE NULL END) STORED,
+    UNIQUE KEY uq_customer_vehicle_current (customer_id,vehicle_id,relation_type,current_relation_key),
+    INDEX idx_customer_vehicle_customer (customer_id,is_current,vehicle_id),
+    INDEX idx_customer_vehicle_vehicle (vehicle_id,is_current,customer_id),
+    INDEX idx_customer_vehicle_agency (agency_id,is_current),
+    INDEX idx_customer_vehicle_source (source_type,source_id),
+    CONSTRAINT chk_customer_vehicle_period CHECK ((is_current=TRUE AND valid_to IS NULL) OR (is_current=FALSE AND valid_to IS NOT NULL AND valid_to>=valid_from)),
+    CONSTRAINT fk_customer_vehicle_customer FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_customer_vehicle_vehicle FOREIGN KEY(vehicle_id) REFERENCES vehicles(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_customer_vehicle_agency FOREIGN KEY(agency_id) REFERENCES agencies(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_customer_vehicle_creator FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE vehicle_movements (
@@ -1107,6 +1144,8 @@ CREATE TABLE repair_orders (
     appointment_id BIGINT UNSIGNED NULL,
     customer_id BIGINT UNSIGNED NOT NULL,
     vehicle_id BIGINT UNSIGNED NOT NULL,
+    vehicle_commercial_origin ENUM('CONCESSION','EXTERNAL','UNKNOWN') NOT NULL DEFAULT 'UNKNOWN',
+    vehicle_origin_source ENUM('LEGACY','SALE','MANUAL','WORKSHOP','IMPORT') NOT NULL DEFAULT 'LEGACY',
     agency_id BIGINT UNSIGNED NOT NULL,
     advisor_id BIGINT UNSIGNED NULL,
     mileage_in INT UNSIGNED NULL,
@@ -1129,6 +1168,7 @@ CREATE TABLE repair_orders (
     closed_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_ro_vehicle_origin (agency_id, vehicle_commercial_origin, created_at),
     abandonment_reason_code VARCHAR(50) NULL,
     abandonment_reason VARCHAR(500) NULL,
     abandonment_requested_at DATETIME NULL,
@@ -2524,4 +2564,4 @@ ALTER TABLE delivery_signatures
 
 -- Le baseline représente directement l'état consolidé au niveau 069.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (69,'baseline_001_069',REPEAT('0',64));
+VALUES (70,'baseline_001_070',REPEAT('0',64));

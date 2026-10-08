@@ -37,6 +37,19 @@ de chaque nouvelle visite. Les lignes historiques restent conservativement en
 origine Showroom. Le retour d'un essai créé explicitement depuis le CRM clôture
 ainsi atomiquement sa visite sans modifier le parcours Showroom direct.
 
+La migration `070_vehicle_commercial_origin.sql` conserve `vehicles` comme
+identité unique tout en séparant l'origine commerciale (`CONCESSION`, `EXTERNAL`,
+`UNKNOWN`) de la présence dans le stock commercial. Les lignes historiques
+restent visibles dans le stock mais conservent une origine `UNKNOWN`; aucune
+reclassification approximative n'est effectuée. `customer_vehicles` porte les
+relations client–véhicule courantes et historiques avec leur source, tandis que
+chaque nouvel OR photographie l'origine du véhicule. Le VIN devient nullable
+pour préparer le parcours Atelier, mais reste unique lorsqu'il est renseigné et
+les créations commerciales continuent d'exiger un VIN réel de 17 caractères.
+Une description marque/modèle hors catalogue est possible sans créer de fausse
+version commerciale. Cette phase ne livre aucune interface ni API de création
+de véhicule extérieur et n'attribue aucune permission supplémentaire.
+
 La migration `053_concession_document_identity.sql` complète l'identité légale
 canonique de la concession avec le RCCM, le RIB documentaire et le site web.
 Le NIU reste exclusivement porté par `concessions.tax_identifier`. Les champs

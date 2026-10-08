@@ -23,6 +23,7 @@ import{evaluateVehicleWarranty}from'./vehicle-warranty-eligibility.service.js';
 import{customerApprovalState}from'./customer-approval-state.js';
 import{WORK_STARTED_COUNT_SQL,workStartedFromEvidence}from'./work-start-state.js';
 import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
+import{vehicleOriginSnapshot}from'../vehicles/vehicle-commercial.js';
 export const workshopRouter = Router();
 type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.order.abandon'|'service.documents.view'|'service.documents.manage';
 type WorkshopPermission='workshop.view'|'workshop.plan'|'workshop.assign_technician'|'workshop.assign_bay'|'workshop.bay.view'|'workshop.bay.manage'|'workshop.schedule.view'|'workshop.schedule.manage'|'workshop.intervention.view'|'workshop.intervention.assign'|'workshop.intervention.update'|'workshop.session.view'|'workshop.session.track'|'workshop.session.manage'|'workshop.time.view'|'workshop.time.adjust'|'workshop.technicians.view'|'workshop.technicians.manage'|'workshop.resources.view'|'workshop.resources.manage'|'workshop.productivity.view';
@@ -345,7 +346,7 @@ workshopRouter.get('/repair-orders/customer-candidates',serviceAccess('service.o
 workshopRouter.get('/repair-orders/customer-vehicles',serviceAccess('service.order.create'),asyncHandler(async(r,res)=>{
   const customer=idOf(r.query.customerId);
   const agency=await serviceCustomerAgency(r,customer);
-  const rows=await query<RowDataPacket[]>(`SELECT DISTINCT v.id,v.vin,v.registration_number,CONCAT(b.name,' ',m.name,' ',ve.name) label FROM vehicles v JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id WHERE v.agency_id=? AND (EXISTS(SELECT 1 FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.vehicle_id=v.id AND s.customer_id=?) OR EXISTS(SELECT 1 FROM repair_orders ro WHERE ro.vehicle_id=v.id AND ro.customer_id=?)) ORDER BY label`,[agency,customer,customer]);
+  const rows=await query<RowDataPacket[]>(`SELECT DISTINCT v.id,v.vin,v.registration_number,COALESCE(CONCAT(b.name,' ',m.name,' ',ve.name),CONCAT_WS(' ',v.identity_brand,v.identity_model,v.identity_version)) label FROM vehicles v LEFT JOIN versions ve ON ve.id=v.version_id LEFT JOIN models m ON m.id=ve.model_id LEFT JOIN brands b ON b.id=m.brand_id WHERE (v.agency_id=? OR EXISTS(SELECT 1 FROM customer_vehicles cv_scope WHERE cv_scope.vehicle_id=v.id AND cv_scope.customer_id=? AND cv_scope.agency_id=? AND cv_scope.is_current=TRUE)) AND (EXISTS(SELECT 1 FROM customer_vehicles cv WHERE cv.vehicle_id=v.id AND cv.customer_id=? AND cv.is_current=TRUE) OR EXISTS(SELECT 1 FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.vehicle_id=v.id AND s.customer_id=?) OR EXISTS(SELECT 1 FROM repair_orders ro WHERE ro.vehicle_id=v.id AND ro.customer_id=?)) ORDER BY label`,[agency,customer,agency,customer,customer,customer]);
   res.json(rows.map(row=>({id:String(row.id),vin:row.vin,registrationNumber:row.registration_number,label:row.label})));
 }));
 workshopRouter.get(
@@ -412,14 +413,15 @@ workshopRouter.post(
     const mileage=Number(r.body.mileage??0);if(!Number.isInteger(mileage)||mileage<0)throw new HttpError(400,"Kilométrage invalide");
     const promised=r.body.promisedCompletionAt?dateTime(r.body.promisedCompletionAt,"Fin promise"):null;
     const [valid] = await query<RowDataPacket[]>(
-      "SELECT c.id FROM customers c JOIN vehicles v ON v.agency_id=c.agency_id WHERE c.id=? AND v.id=? AND c.agency_id=? AND (EXISTS(SELECT 1 FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.vehicle_id=v.id AND s.customer_id=c.id) OR EXISTS(SELECT 1 FROM repair_orders ro WHERE ro.vehicle_id=v.id AND ro.customer_id=c.id))",
-      [customer, vehicle, agency],
+      "SELECT c.id,v.commercial_origin,v.commercial_origin_source FROM customers c JOIN vehicles v ON v.id=? WHERE c.id=? AND c.agency_id=? AND (v.agency_id=c.agency_id OR EXISTS(SELECT 1 FROM customer_vehicles cv_scope WHERE cv_scope.customer_id=c.id AND cv_scope.vehicle_id=v.id AND cv_scope.agency_id=c.agency_id AND cv_scope.is_current=TRUE)) AND (EXISTS(SELECT 1 FROM customer_vehicles cv WHERE cv.vehicle_id=v.id AND cv.customer_id=c.id AND cv.is_current=TRUE) OR EXISTS(SELECT 1 FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.vehicle_id=v.id AND s.customer_id=c.id) OR EXISTS(SELECT 1 FROM repair_orders ro WHERE ro.vehicle_id=v.id AND ro.customer_id=c.id))",
+      [vehicle,customer,agency],
     );
     if (!valid)
       throw new HttpError(
         400,
         "Ce véhicule n’est pas lié au client dans cette agence",
       );
+    const originSnapshot=vehicleOriginSnapshot(valid.commercial_origin,valid.commercial_origin_source);
     const appointment=r.body.appointmentId?idOf(r.body.appointmentId):null;
     const advisor=idOf(r.body.advisorId??r.user!.sub);
     if(advisor!==r.user!.sub){const assignmentScope=await assertPermission(r,'service.order.assign_advisor');if(assignmentScope==='OWN'||!await permissionCoversAgency(r,'service.order.assign_advisor',String(agency)))throw new HttpError(403,'Périmètre d’affectation du conseiller SAV insuffisant');}
@@ -429,12 +431,14 @@ workshopRouter.post(
       const contractWarranty=await evaluateVehicleWarranty(vehicle,mileage,c);
       if(appointment){const [appointments]=await c.execute<RowDataPacket[]>("SELECT id FROM service_appointments WHERE id=? AND customer_id=? AND vehicle_id=? AND agency_id=? FOR UPDATE",[appointment,customer,vehicle,agency]);if(!appointments[0])throw new HttpError(400,"Rendez-vous SAV incompatible");}
       const [x] = await c.execute<ResultSetHeader>(
-        `INSERT INTO repair_orders(order_number,appointment_id,customer_id,vehicle_id,agency_id,advisor_id,mileage_in,complaint,diagnosis_summary,status,warranty_covered,warranty_reference,promised_completion_at,created_by)VALUES(?,?,?,?,?,?,?,?,?,'planned',?,?,?,?)`,
+        `INSERT INTO repair_orders(order_number,appointment_id,customer_id,vehicle_id,vehicle_commercial_origin,vehicle_origin_source,agency_id,advisor_id,mileage_in,complaint,diagnosis_summary,status,warranty_covered,warranty_reference,promised_completion_at,created_by)VALUES(?,?,?,?,?,?,?,?,?,?,?,'planned',?,?,?,?)`,
         [
           no,
           appointment,
           customer,
           vehicle,
+          originSnapshot.origin,
+          originSnapshot.source,
           agency,
           advisor,
           mileage,

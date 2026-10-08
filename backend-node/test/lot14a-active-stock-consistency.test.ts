@@ -14,15 +14,15 @@ const vehicles=read('src/modules/vehicles/vehicle.routes.ts');
 test('LOT14A-A recherche globale et dashboard excluent seulement le stock véhicule archivé',()=>{
   const overview=dashboard.slice(dashboard.indexOf("dashboardRouter.get('/dashboard/overview'"),dashboard.indexOf("dashboardRouter.get('/global-search'"));
   const search=dashboard.slice(dashboard.indexOf("dashboardRouter.get('/global-search'"));
-  assert.match(overview,/FROM vehicles v WHERE v\.archived_at IS NULL AND/);
-  assert.match(overview,/v\.archived_at IS NULL AND v\.status IN\('received','preparation','available','reserved'\)/);
-  assert.match(search,/FROM vehicles v JOIN versions[\s\S]*WHERE v\.archived_at IS NULL AND \$\{vehicles\.sql\}/);
+  assert.match(overview,/FROM vehicles v WHERE v\.is_commercial_stock=TRUE AND v\.archived_at IS NULL AND/);
+  assert.match(overview,/v\.is_commercial_stock=TRUE AND v\.archived_at IS NULL AND v\.status IN\('received','preparation','available','reserved'\)/);
+  assert.match(search,/FROM vehicles v JOIN versions[\s\S]*WHERE v\.is_commercial_stock=TRUE AND v\.archived_at IS NULL AND \$\{vehicles\.sql\}/);
   assert.match(search,/\['repair_order'[\s\S]*FROM repair_orders ro JOIN vehicles v[\s\S]*WHERE %S/);
   assert.doesNotMatch(search,/FROM repair_orders ro JOIN vehicles v[^`]*archived_at/);
 });
 
 test('LOT14A-B reporting et export filtrent le stock courant mais préservent les ventes historiques',()=>{
-  const currentStock=reporting.match(/FROM vehicles v WHERE v\.archived_at IS NULL AND v\.status IN\('received','preparation','available','reserved'\)/g)??[];
+  const currentStock=reporting.match(/FROM vehicles v WHERE v\.is_commercial_stock=TRUE AND v\.archived_at IS NULL AND v\.status IN\('received','preparation','available','reserved'\)/g)??[];
   assert.equal(currentStock.length,3,'résumé, vieillissement et export stock doivent partager le filtre');
   const vehicleReport=reporting.slice(reporting.indexOf("reportRouter.get('/reports/vehicles'"),reporting.indexOf("reportRouter.get('/reports/agencies'"));
   assert.match(vehicleReport,/FROM sales s JOIN sale_items si ON si\.sale_id=s\.id JOIN vehicles v ON v\.id=si\.vehicle_id WHERE DATE\(s\.sold_at\)/);
@@ -40,7 +40,7 @@ test('LOT14A-C vente et devis refusent une archive sous verrou avant toute créa
 });
 
 test('LOT14A-D Stock conserve son filtre et les modules OR, GED et images restent historiquement ouverts',()=>{
-  assert.match(vehicles,/clauses=\[scoped\.sql,'v\.archived_at IS NULL'\]/);
+  assert.match(vehicles,/clauses=\[scoped\.sql,commercialStockPredicate\(\),'v\.archived_at IS NULL'\]/);
   const customerVehicles=workshop.slice(workshop.indexOf("workshopRouter.get('/repair-orders/customer-vehicles'"),workshop.indexOf("workshopRouter.get('/repair-orders/vehicles/"));
   assert.match(customerVehicles,/EXISTS\(SELECT 1 FROM sale_items/);
   assert.doesNotMatch(customerVehicles,/archived_at/);

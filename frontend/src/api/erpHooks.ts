@@ -1042,11 +1042,9 @@ export function useVehicleImages() {
         apiRequest(`/vehicles/${id}/images/${imageId}`, { method: "DELETE" }),
       onSuccess: (_, v) => { qc.invalidateQueries({ queryKey: erpKeys.vehicles }); qc.invalidateQueries({ queryKey: ["vehicles", v.id] }); },
     }),
-    reorder: useMutation({mutationFn:({id,imageIds}:{id:string;imageIds:string[]})=>apiRequest(`/vehicles/${id}/images/order`,{method:'PATCH',body:JSON.stringify({imageIds})}),onSuccess:(_,v)=>qc.invalidateQueries({queryKey:['vehicles',v.id]})}),
   };
 }
 export const useVehicleTransfer=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;toAgencyId:string;toLocationId:string|null;reason:string})=>apiRequest(`/vehicles/${id}/transfer`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['vehicles',v.id]});void qc.invalidateQueries({queryKey:['dashboard']})}})};
-export const useArchiveVehicle=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest(`/vehicles/${id}`,{method:'DELETE'}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.vehicles})})};
 export const useCreateUser = () =>
   mutation<any>(() => "/users", "POST", erpKeys.users);
 export function useCreateActivity() {

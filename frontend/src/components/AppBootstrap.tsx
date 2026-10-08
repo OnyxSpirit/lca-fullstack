@@ -10,7 +10,7 @@ import { armNotificationSound, notificationSignal } from '../services/notificati
 const eventKeys: Record<string, readonly string[]> = {
   'sales:created': erpKeys.sales, 'sales:status': erpKeys.sales,
   'reservations:created': erpKeys.vehicles, 'reservations:cancelled': erpKeys.vehicles,
-  'vehicles:created': erpKeys.vehicles, 'vehicles:updated': erpKeys.vehicles, 'vehicles:status-changed': erpKeys.vehicles, 'vehicles:transferred': erpKeys.vehicles, 'vehicles:archived': erpKeys.vehicles, 'vehicles:image-added': erpKeys.vehicles,
+  'vehicles:created': erpKeys.vehicles, 'vehicles:updated': erpKeys.vehicles, 'vehicles:status-changed': erpKeys.vehicles, 'vehicles:transferred': erpKeys.vehicles, 'vehicles:image-added': erpKeys.vehicles,
   'workshop:repair-order-created': erpKeys.repairOrders, 'workshop:status': erpKeys.repairOrders,
   'workshop:repair-order-updated': erpKeys.repairOrders, 'workshop:invoiced': erpKeys.repairOrders,
   'parts:stock-changed': erpKeys.parts,

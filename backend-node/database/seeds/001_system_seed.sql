@@ -159,9 +159,8 @@ INSERT INTO permissions(module,action,code,name,category,description,is_active) 
 ('vehicles','create','vehicles.create','Créer un véhicule','Véhicules','Créer une entrée de stock',TRUE),
 ('vehicles','update','vehicles.update','Modifier un véhicule','Véhicules','Modifier les caractéristiques du véhicule',TRUE),
 ('vehicles','update','vehicles.status.update','Changer le statut véhicule','Véhicules','Effectuer une transition manuelle autorisée',TRUE),
-('vehicles','update','vehicles.images.manage','Gérer les images véhicule','Véhicules','Ajouter, ordonner ou supprimer les photos',TRUE),
+('vehicles','update','vehicles.images.manage','Gérer les images véhicule','Véhicules','Ajouter, définir l’image principale ou supprimer les photos',TRUE),
 ('vehicles','assign','vehicles.assign_agency','Transférer un véhicule','Véhicules','Changer l’agence ou l’emplacement du véhicule',TRUE),
-('vehicles','delete','vehicles.archive','Archiver un véhicule','Véhicules','Retirer sans suppression physique un véhicule du catalogue',TRUE),
 ('vehicles','view','vehicles.financials.view','Voir les coûts véhicule','Véhicules','Consulter coûts, marge et historique tarifaire',TRUE)
 ON DUPLICATE KEY UPDATE module=VALUES(module),action=VALUES(action),name=VALUES(name),category=VALUES(category),description=VALUES(description),is_active=TRUE;
 

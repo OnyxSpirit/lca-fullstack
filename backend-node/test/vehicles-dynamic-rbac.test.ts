@@ -13,6 +13,7 @@ const request=(permissions:Record<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'>={
 const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
 const imageStorage=readFileSync(new URL('../src/modules/vehicles/vehicle-image-storage.ts',import.meta.url),'utf8');
 const migration=readFileSync(new URL('../database/legacy-migrations/026_vehicles_dynamic_permissions.sql',import.meta.url),'utf8');
+const seed=readFileSync(new URL('../database/seeds/001_system_seed.sql',import.meta.url),'utf8');
 const sales=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
 
 test('VEH-01/06/08/10/15/21 : une permission absente est refusée, sans bypass de rôle',async()=>{
@@ -66,6 +67,10 @@ test('VEH-24 : la vente verrouille le véhicule et exige available',()=>{
   assert.match(sales,/FOR UPDATE/); assert.match(sales,/vehicle\.status!=='available'/);
 });
 
-test('le catalogue SQL contient toutes les permissions dynamiques Véhicules',()=>{
-  for(const permission of ['vehicles.create','vehicles.update','vehicles.status.update','vehicles.images.manage','vehicles.assign_agency','vehicles.archive','vehicles.financials.view'])assert.match(migration,new RegExp(permission.replaceAll('.','\\.')));
+test('le catalogue historique reste traçable mais le runtime n’expose plus l’archivage',()=>{
+  for(const permission of ['vehicles.create','vehicles.update','vehicles.status.update','vehicles.images.manage','vehicles.assign_agency','vehicles.financials.view'])assert.match(migration,new RegExp(permission.replaceAll('.','\\.')));
+  assert.match(migration,/vehicles\.archive/);
+  assert.doesNotMatch(seed,/vehicles\.archive/);
+  assert.doesNotMatch(source,/vehicles\.archive|vehicles:archived|SET archived_at=NOW/);
+  assert.doesNotMatch(source,/images\/order/);
 });

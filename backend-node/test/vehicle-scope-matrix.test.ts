@@ -139,10 +139,21 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
     }
   });
 
-  for(const permission of ['vehicles.update','vehicles.status.update','vehicles.archive','vehicles.images.manage'] as const)for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`${permission} ${scope}: ${agency}`,async()=>{
+  for(const permission of ['vehicles.update','vehicles.status.update','vehicles.images.manage'] as const)for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`${permission} ${scope}: ${agency}`,async()=>{
     const token=bearer([{code:permission,scope}]),id=ids[agency];
-    const response=permission==='vehicles.update'?await request(app).patch(`/api/vehicles/${id}`).set('Authorization',token).send({notes:'runtime'}):permission==='vehicles.status.update'?await request(app).patch(`/api/vehicles/${id}/status`).set('Authorization',token).send({status:'preparation',reason:'Correction logistique'}):permission==='vehicles.archive'?await request(app).delete(`/api/vehicles/${id}`).set('Authorization',token):await request(app).patch(`/api/vehicles/${id}/images/1/primary`).set('Authorization',token);
+    const response=permission==='vehicles.update'?await request(app).patch(`/api/vehicles/${id}`).set('Authorization',token).send({notes:'runtime'}):permission==='vehicles.status.update'?await request(app).patch(`/api/vehicles/${id}/status`).set('Authorization',token).send({status:'preparation',reason:'Correction logistique'}):await request(app).patch(`/api/vehicles/${id}/images/1/primary`).set('Authorization',token);
     const expected=scope==='OWN'?403:allowed(scope,agency)?200:404;expectStatus(response.status,expected,`${permission} ${scope} ${agency}`);
+  });
+
+  for(const permissions of [[],[{code:'vehicles.archive',scope:'GLOBAL'}] as TestPermission[]])test('DELETE /api/vehicles/:id ne permet aucun archivage',async()=>{
+    const before=vehicles[0].archived_at;
+    const response=await request(app).delete('/api/vehicles/201').set('Authorization',bearer(permissions));
+    expectStatus(response.status,404,'ancienne route archivage');assert.equal(vehicles[0].archived_at,before);
+  });
+
+  test('PATCH /api/vehicles/:id/images/order n’est plus exposée',async()=>{
+    const response=await request(app).patch('/api/vehicles/201/images/order').set('Authorization',bearer([{code:'vehicles.images.manage',scope:'GLOBAL'}])).send({imageIds:['1']});
+    expectStatus(response.status,404,'ancienne route réorganisation');
   });
 
   for(const scope of ['AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`vehicles.images.manage delete ${scope}: parent ${agency}`,async()=>{

@@ -12,6 +12,7 @@ const settings=read('../src/modules/settings/VehicleLocationsSettings.tsx');
 const saleWizard=read('../src/modules/sales/SaleWizardModal.tsx');
 const quotation=read('../src/modules/crm/QuotationModal.tsx');
 const reports=read('../src/modules/reports/ReportsPage.tsx');
+const hooks=read('../src/api/erpHooks.ts');
 
 test('LIST UI compteurs, affectation précise, état vide et pagination serveur',()=>{
   for(const token of ['Parc automobile','Showroom','Non affectés','Toutes les affectations','Non affecté','Affichage','Précédent','Suivant'])assert.match(list,new RegExp(token));
@@ -21,7 +22,9 @@ test('LIST UI compteurs, affectation précise, état vide et pagination serveur'
 });
 
 test('DETAIL UI transferts, workflows, dossiers, historique et photos',()=>{
-  for(const token of ['Transférer','Créer Vente','Voir la vente','Garantie constructeur','Historique des prix','Monter','Descendre','Archiver le véhicule'])assert.match(detail,new RegExp(token));
+  for(const token of ['Transférer','Créer Vente','Voir la vente','Garantie constructeur','Historique des prix','Ajouter des photos','Définir comme principale','Supprimer'])assert.match(detail,new RegExp(token));
+  for(const removed of ['Monter','Descendre','Archiver le véhicule','useArchiveVehicle','moveImage'])assert.doesNotMatch(detail,new RegExp(removed));
+  assert.doesNotMatch(hooks,/useArchiveVehicle|\/vehicles\/\$\{id\}\/images\/order/);
   assert.doesNotMatch(detail,/Proposition Commerciale|Établir une Proposition/);
   assert.match(transfer,/Motif obligatoire/);
   assert.match(transfer,/Non affecté/);

@@ -55,6 +55,13 @@ les cinq capacités RBAC nécessaires aux API Atelier de recherche, création de
 véhicule extérieur, association, consultation et clôture. Elle n'attribue ces
 permissions à aucun rôle : leur délégation et leur scope restent explicites.
 
+La migration `072_budget_expense_approval_workflows.sql` ajoute les circuits
+d’approbation des budgets et dépenses sans reconstruire Treasury. Les budgets
+antérieurs non brouillons sont identifiés comme historiques. Les dépenses
+antérieures restent approuvées et engagées, sans approbateur ni date fabriqués.
+Les nouvelles dépenses ne consomment l’enveloppe qu’à leur approbation et seul
+leur décaissement effectif produit un mouvement Treasury.
+
 La migration `053_concession_document_identity.sql` complète l'identité légale
 canonique de la concession avec le RCCM, le RIB documentaire et le site web.
 Le NIU reste exclusivement porté par `concessions.tax_identifier`. Les champs

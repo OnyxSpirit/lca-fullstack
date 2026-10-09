@@ -6,7 +6,7 @@ const page=readFileSync(new URL('../src/modules/reports/ReportsPage.tsx',import.
 const hooks=readFileSync(new URL('../src/api/reportHooks.ts',import.meta.url),'utf8');
 
 test('REPORTING-FE-01 le module et chaque query sont conditionnés par permissions',()=>{for(const flag of ['reportAccess','overviewAccess','salesAccess','vehicleAccess','workshopAccess','partsAccess','financeAccess'])assert.ok(page.includes(flag),flag);assert.match(hooks,/enabled:enabled\(\)&&active/)});
-test('REPORTING-FE-02 la matrice frontend reprend les permissions backend',()=>{for(const code of ['reporting.view','reporting.export','billing.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view'])assert.ok(page.includes(code),code)});
+test('REPORTING-FE-02 la matrice frontend reprend les permissions backend',()=>{for(const code of ['reporting.view','reporting.export','billing.view','billing.payment.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view'])assert.ok(page.includes(code),code)});
 test('REPORTING-FE-03 CONCESSION et GLOBAL permettent sélection et consolidation',()=>{assert.match(page,/reportScope==='CONCESSION'\|\|reportScope==='GLOBAL'/);assert.match(page,/<option value="">Consolidé<\/option>/)});
 test('REPORTING-FE-04 AGENCY conserve son agence sans sélecteur',()=>assert.match(page,/agencyId:canSelectAgency\?selectedAgency\|\|undefined:auth\.currentAgency\?\.id/));
 test('REPORTING-FE-05 le sélecteur utilise exclusivement les agences renvoyées par Reporting',()=>{assert.match(page,/\(agencies\.data\?\?\[\]\)\.map/);assert.doesNotMatch(page,/auth\.allAgencies\.map/)});

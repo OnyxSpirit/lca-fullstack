@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 
 const source=readFileSync(new URL('../src/modules/reports/report.routes.ts',import.meta.url),'utf8');
+const workshop=readFileSync(new URL('../src/modules/reports/workshop-report.service.ts',import.meta.url),'utf8');
 
 test('REPORTING-01 tous les endpoints exigent reporting.view',()=>assert.equal((source.match(/requirePermission\('reporting\.view'\)/g)??[]).length,12));
 test('REPORTING-02 export exige aussi reporting.export',()=>assert.match(source,/use\('\/reports\/export',requirePermission\('reporting\.export'\)\)/));
@@ -19,7 +20,7 @@ test('REPORTING-17 le périmètre d’une section est borné par ses permissions
 test('REPORTING-18 stock VN et VO compte les véhicules présents',()=>{assert.match(source,/SUM\(v.vehicle_type='new'\) vn_stock/);assert.match(source,/SUM\(v.vehicle_type='used'\) vo_stock/)});
 test('REPORTING-11 période et granularité sont validées',()=>{assert.match(source,/if\(from>to\)/);assert.match(source,/\['day','week','month'\]\.includes/);assert.match(source,/WEEKDAY/)});
 test('REPORTING-12 la période précédente conserve le même nombre de jours',()=>{assert.match(source,/days=Math\.round/);assert.match(source,/previousStart\.setUTCDate\(previousStart\.getUTCDate\(\)-days\+1\)/)});
-test('REPORTING-13 zéro ne produit ni Infinity ni faux pourcentage',()=>{assert.match(source,/previous===0\?null/);for(const token of ['salesRevenueHt?','planned?','worked?','net?'])assert.ok(source.includes(token),token)});
+test('REPORTING-13 zéro ne produit ni Infinity ni faux pourcentage',()=>{assert.match(source,/previous===0\?null/);for(const token of ['salesRevenueHt?','net?'])assert.ok(source.includes(token),token);for(const token of ['planned?','worked?'])assert.ok(workshop.includes(token),token)});
 test('REPORTING-14 ventes multi-lignes ne multiplient plus les montants de vente',()=>{assert.equal((source.match(/FROM sales s JOIN sale_items si ON si\.sale_id=s\.id AND si\.vehicle_id IS NOT NULL/g)??[]).length,1,'seule la requête de provenance joint directement les lignes');assert.match(source,/FROM sales s LEFT JOIN financing/);assert.match(source,/ROUND\(vsi\.line_total\/\(1\+CASE WHEN s\.tax_mode='TAXABLE'/)});
 test('REPORTING-15 Parts agrège part_stocks par agence',()=>{assert.match(source,/FROM part_stocks ps JOIN parts p/);assert.match(source,/ps\.current_stock-ps\.reserved_stock/)});
 test('REPORTING-16 aucun rôle historique ne gouverne Reporting',()=>assert.doesNotMatch(source,/DIRECTOR|DIRECTION|ACCOUNTANT|MANAGER|role\.code|hasRole|authorize\(/));

@@ -1,5 +1,6 @@
 type Section = 'overview'|'sales'|'finance'|'vehicles'|'workshop'|'parts';
 type Column = readonly [key:string,label:string,kind:'number'|'text'];
+import type {WorkshopReportAggregate} from './workshop-report.service.js';
 export const reportFileNames:Record<Section,string>={overview:'synthese',sales:'ventes',finance:'finances',vehicles:'vehicules',workshop:'atelier',parts:'pieces'};
 
 export const reportColumns:Record<Section,readonly Column[]>={
@@ -19,4 +20,12 @@ export function reportCsv(section:Section,data:Record<string,unknown>,from:strin
   const today=new Intl.DateTimeFormat('fr-FR',{timeZone:'Africa/Brazzaville'}).format(new Date());
   const rows=[snapshot?['Date du relevé','Agence','Indicateur','Valeur']:['Période du','Période au','Agence','Indicateur','Valeur'],...reportColumns[section].map(([key,label,kind])=>[...(snapshot?[today,agency]:[date(from),date(to),agency]),label,kind==='number'&&data[key]!=null?Number(data[key]).toLocaleString('fr-FR',{useGrouping:false,maximumFractionDigits:2}):String(data[key]??'')])];
   return '\ufeff'+rows.map((row,rowIndex)=>row.map((value,columnIndex)=>cell(value,!(rowIndex>0&&columnIndex===row.length-1&&reportColumns[section][rowIndex-1]?.[2]==='number'))).join(';')).join('\r\n')+'\r\n';
+}
+
+export function workshopReportCsv(data:WorkshopReportAggregate,from:string,to:string,agency:string){
+  const base=reportCsv('workshop',{invoices:data.invoiced_orders,revenue:data.workshop_revenue,collected:data.workshop_collected,outstanding:data.workshop_outstanding},from,to,agency).trimEnd();
+  const labels:Record<string,string>={CONCESSION:'Concession',EXTERNAL:'Extérieur',UNKNOWN:'Inconnue'};
+  const header=['Origine commerciale','OR créés','OR clôturés','Clients distincts','Véhicules distincts','Montant interventions TTC','CA net facturé TTC','Encaissements nets','Reste à encaisser actuel'];
+  const rows=data.byCommercialOrigin.map(row=>[labels[row.origin],row.repairOrdersCreated,row.closedOrdersInPeriod,row.distinctCustomers,row.distinctVehicles,row.interventionAmount,row.netInvoiced,row.netCollected,row.currentOutstanding]);
+  return `${base}\r\n\r\n${[header,...rows].map((row,rowIndex)=>row.map(value=>cell(String(value),rowIndex===0)).join(';')).join('\r\n')}\r\n`;
 }

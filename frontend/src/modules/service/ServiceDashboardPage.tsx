@@ -25,6 +25,7 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewRepairOrderModal } from './NewRepairOrderModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
+import { ExternalCustomersPanel } from './ExternalCustomersPanel';
 
 export const ServiceDashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,8 +36,11 @@ export const ServiceDashboardPage: React.FC = () => {
   const stats=useRepairStatsQuery();
   const navigate = useNavigate();
   const can=useAuthStore(state=>state.can),canCreate=can('service.order.create'),canViewWorkshop=can('workshop.view');
+  const canViewExternalCustomers=can('service.order.view')&&can('customers.view');
 
   const [isNewOrOpen, setIsNewOrOpen] = useState(false);
+  const [activeView,setActiveView]=useState<'orders'|'external-customers'>('orders');
+  const [newOrderCustomerId,setNewOrderCustomerId]=useState<string|undefined>();
   useEffect(()=>{if(repairQuery.data&&repairQuery.data.page!==page)setPage(repairQuery.data.page)},[repairQuery.data,page]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
@@ -68,6 +72,9 @@ export const ServiceDashboardPage: React.FC = () => {
         }
       />
 
+      <div className="flex gap-2 overflow-x-auto border-b border-slate-200"><button type="button" onClick={()=>setActiveView('orders')} className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold ${activeView==='orders'?'border-blue-600 text-blue-700':'border-transparent text-slate-500'}`}>Ordres de réparation</button>{canViewExternalCustomers&&<button type="button" onClick={()=>setActiveView('external-customers')} className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold ${activeView==='external-customers'?'border-blue-600 text-blue-700':'border-transparent text-slate-500'}`}>Clients extérieurs</button>}</div>
+
+      {activeView==='orders'&&<>
       {/* KPI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
@@ -208,11 +215,15 @@ export const ServiceDashboardPage: React.FC = () => {
         </div>
         <div className="flex items-center justify-between border-t p-4 text-xs"><span>{repairQuery.data?.total??0} ordre(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Précédent</Button><span>Page {page}/{Math.max(1,repairQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(repairQuery.data?.totalPages??1)} onClick={()=>setPage(p=>p+1)}>Suivant</Button></div></div>
       </Card>
+      </>}
+
+      {activeView==='external-customers'&&canViewExternalCustomers&&<ExternalCustomersPanel canCreateOrder={canCreate} canViewCustomer={can('customers.view')} onNewOrder={customerId=>{setNewOrderCustomerId(customerId);setIsNewOrOpen(true)}}/>}
 
       {/* New Repair Order Modal */}
       <NewRepairOrderModal
         isOpen={isNewOrOpen}
-        onClose={() => setIsNewOrOpen(false)}
+        initialCustomerId={newOrderCustomerId}
+        onClose={() => {setIsNewOrOpen(false);setNewOrderCustomerId(undefined)}}
       />
     </div>
   );

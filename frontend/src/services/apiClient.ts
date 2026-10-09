@@ -9,7 +9,7 @@ export const API_ORIGIN = API_URL.startsWith('http') ? API_URL.replace(/\/api\/?
 export const assetUrl = (value?: string | null) => value ? (/^https?:\/\//.test(value) ? value : `${API_ORIGIN}${value}`) : '';
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) { super(message); }
+  constructor(public readonly status: number, message: string, public readonly details?: unknown) { super(message); }
 }
 
 export const isDefinitiveAuthenticationFailure=(error:unknown)=>error instanceof ApiError&&(error.status===401||error.status===403)&&!error.message.startsWith('La session a changé');
@@ -84,7 +84,7 @@ async function sendWithRefresh(path:string,init:RequestInit){
 export async function apiRequest<T>(path:string,init:RequestInit={}):Promise<T>{
   const{response,responseToken,snapshot}=await sendWithRefresh(path,init);
   if(snapshot.generation!==sessionGeneration||(responseToken&&localStorage.getItem(ACCESS_TOKEN_KEY)!==responseToken))throw new ApiError(401,'La session a changé pendant la requête');
-  if(!response.ok){const payload=await response.json().catch(()=>({message:response.statusText}));throw new ApiError(response.status,payload.message??'Erreur API');}
+  if(!response.ok){const payload=await response.json().catch(()=>({message:response.statusText})) as {message?:string;details?:unknown};throw new ApiError(response.status,payload.message??'Erreur API',payload.details);}
   if(response.status===204)return undefined as T;
   return response.json() as Promise<T>;
 }

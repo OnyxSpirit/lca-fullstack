@@ -18,6 +18,7 @@ import { deliveryRouter } from './modules/deliveries/delivery.routes.js';
 import { deliveryServiceRouter } from './modules/deliveries/delivery-service.routes.js';
 import { deliveryChecklistRouter } from './modules/deliveries/delivery-checklist.routes.js';
 import { workshopRouter } from './modules/workshop/workshop.routes.js';
+import { workshopVehicleRouter } from './modules/workshop/workshop-vehicle.routes.js';
 import { warrantyRouter } from './modules/workshop/warranty.routes.js';
 import { partRouter } from './modules/parts/part.routes.js';
 import { billingRouter } from './modules/billing/billing.routes.js';
@@ -51,7 +52,7 @@ export function createApp() {
         app.use(`/uploads/${folder}`, express.static(path.join(publicUploadRoot, folder), { fallthrough: false, index: false }));
     app.get('/api/health', asyncHandler(async (_request, response) => { await pool.query('SELECT 1'); response.json({ status: 'ok', service: 'lca-backend-node' }); }));
     app.use('/api/auth', createAuthRouter());
-    app.use('/api', authenticate, enforceAgencyScope, documentMarkRouter, activityRouter, userRouter, hrBonusRouter, hrLeaveRouter, hrContractRouter, hrRouter, treasuryRouter, settingRouter, documentRouter, customerRouter, crmRouter, notificationRouter, vehicleReturnRouter, vehicleRouter, showroomRouter, quotationRouter, saleRouter, deliveryChecklistRouter, deliveryServiceRouter, deliveryRouter, partRouter, warrantyRouter, workshopRouter, billingRouter, extendedReportRouter, reportRouter, dashboardRouter, coreRouter);
+    app.use('/api', authenticate, enforceAgencyScope, documentMarkRouter, activityRouter, userRouter, hrBonusRouter, hrLeaveRouter, hrContractRouter, hrRouter, treasuryRouter, settingRouter, documentRouter, customerRouter, crmRouter, notificationRouter, vehicleReturnRouter, vehicleRouter, showroomRouter, quotationRouter, saleRouter, deliveryChecklistRouter, deliveryServiceRouter, deliveryRouter, partRouter, warrantyRouter, workshopVehicleRouter, workshopRouter, billingRouter, extendedReportRouter, reportRouter, dashboardRouter, coreRouter);
     app.use(notFound);
     app.use(errorHandler);
     return app;

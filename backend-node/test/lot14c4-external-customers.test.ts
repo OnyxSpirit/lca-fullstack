@@ -1,0 +1,11 @@
+import assert from'node:assert/strict';
+import{readFileSync}from'node:fs';
+import test from'node:test';
+const routes=readFileSync(new URL('../src/modules/workshop/workshop.routes.ts',import.meta.url),'utf8');
+
+test('14C4-BE-01 qualification fondée exclusivement sur le snapshot OR',()=>{assert.match(routes,/ro\.vehicle_commercial_origin='EXTERNAL'/);assert.doesNotMatch(routes,/v\.commercial_origin='EXTERNAL'/)});
+test('14C4-BE-02 liste paginée, stable et dédupliquée',()=>{assert.match(routes,/\/workshop\/external-customers'/);assert.match(routes,/COUNT\(DISTINCT c\.id\)/);assert.match(routes,/COUNT\(DISTINCT ro\.id\) external_order_count/);assert.match(routes,/COUNT\(DISTINCT ro\.vehicle_id\) external_vehicle_count/);assert.match(routes,/ORDER BY last_external_order_at DESC,c\.id DESC LIMIT \? OFFSET \?/)});
+test('14C4-BE-03 recherche couvre identité, société, téléphone et code',()=>{for(const token of['c.first_name LIKE ?','c.last_name LIKE ?',"CONCAT_WS(' ',c.first_name,c.last_name)","CONCAT_WS(' ',c.last_name,c.first_name)",'c.company_name LIKE ?','c.phone LIKE ?','c.customer_code LIKE ?'])assert.ok(routes.includes(token))});
+test('14C4-BE-04 scopes et permissions existantes gouvernent les routes',()=>{assert.match(routes,/externalCustomerAccess=\[serviceAccess\('service\.order\.view'\),requirePermission\('customers\.view'\)\]/);assert.match(routes,/const scoped=scope\(r\)/);assert.match(routes,/permissionCoversAgency\(r,'service\.order\.view',agencyId\)/)});
+test('14C4-BE-05 détail conserve uniquement véhicules et OR extérieurs historiques',()=>{assert.match(routes,/\/workshop\/external-customers\/:customerId/);assert.match(routes,/COUNT\(DISTINCT ro\.id\) external_order_count/);assert.match(routes,/repairOrders:orderRows\.map/);assert.match(routes,/Client extérieur introuvable dans votre périmètre Atelier/)});
+test('14C4-BE-06 aucune donnée financière ni structure redondante',()=>{const section=routes.slice(routes.indexOf("workshopRouter.get('/workshop/external-customers'"),routes.indexOf("workshopRouter.get('/repair-orders/advisor-candidates'"));assert.doesNotMatch(section,/actual_total|estimated_total|invoice|payment|revenue|external_customers\s+table/i)});

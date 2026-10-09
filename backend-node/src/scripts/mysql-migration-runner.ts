@@ -56,11 +56,16 @@ async function ddlState(connection:Connection,statement:string):Promise<'SATISFI
   const alter=/^ALTER\s+TABLE\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
   if(!alter)return 'AMBIGUOUS';
   const table=identifier(alter[1]!),objects:Array<Promise<boolean>>=[];
+  const droppedConstraints:Array<Promise<boolean>>=[];
+  for(const match of statement.matchAll(/\bDROP\s+FOREIGN\s+KEY\s+(`?[a-zA-Z0-9_]+`?)/gi))droppedConstraints.push(objectExists(connection,'constraint',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+COLUMN\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'column',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+(?:UNIQUE\s+)?(?:INDEX|KEY)\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'index',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+CONSTRAINT\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'constraint',table,identifier(match[1]!)));
-  if(!objects.length)return 'AMBIGUOUS';
-  const states=await Promise.all(objects);return states.every(Boolean)?'SATISFIED':states.every(value=>!value)?'ABSENT':'AMBIGUOUS';
+  if(!objects.length&&!droppedConstraints.length)return 'AMBIGUOUS';
+  const[states,droppedStates]=await Promise.all([Promise.all(objects),Promise.all(droppedConstraints)]),additionsSatisfied=states.every(Boolean),dropsSatisfied=droppedStates.every(value=>!value);
+  if(additionsSatisfied&&dropsSatisfied)return'SATISFIED';
+  if(states.every(value=>!value)&&droppedStates.every(Boolean))return'ABSENT';
+  return'AMBIGUOUS';
 }
 
 export async function ensureMigrationStepJournal(connection:Connection){

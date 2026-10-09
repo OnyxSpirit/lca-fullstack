@@ -1,5 +1,7 @@
 ALTER TABLE vehicles
-  DROP FOREIGN KEY fk_vehicle_version,
+  DROP FOREIGN KEY fk_vehicle_version;
+
+ALTER TABLE vehicles
   MODIFY COLUMN version_id BIGINT UNSIGNED NULL,
   MODIFY COLUMN vin VARCHAR(50) NULL,
   ADD COLUMN commercial_origin ENUM('CONCESSION','EXTERNAL','UNKNOWN') NOT NULL DEFAULT 'UNKNOWN' AFTER supplier_id,
@@ -14,7 +16,7 @@ ALTER TABLE vehicles
     version_id IS NOT NULL OR
     (NULLIF(TRIM(identity_brand),'') IS NOT NULL AND NULLIF(TRIM(identity_model),'') IS NOT NULL)
   ),
-  ADD CONSTRAINT fk_vehicle_version FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+  ADD CONSTRAINT fk_vehicle_version_optional FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 CREATE TABLE customer_vehicles (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

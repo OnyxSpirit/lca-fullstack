@@ -774,9 +774,9 @@ CREATE TABLE vehicles (
     INDEX idx_vehicle_commercial_stock (is_commercial_stock, archived_at, status, agency_id),
     INDEX idx_vehicle_commercial_origin (commercial_origin, agency_id),
     CONSTRAINT chk_vehicle_identity_description CHECK (version_id IS NOT NULL OR (NULLIF(TRIM(identity_brand),'') IS NOT NULL AND NULLIF(TRIM(identity_model),'') IS NOT NULL)),
-    CONSTRAINT fk_vehicle_version
+    CONSTRAINT fk_vehicle_version_optional
         FOREIGN KEY (version_id) REFERENCES versions(id)
-        ON DELETE RESTRICT ON UPDATE CASCADE,
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT fk_vehicle_agency
         FOREIGN KEY (agency_id) REFERENCES agencies(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,

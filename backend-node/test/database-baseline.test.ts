@@ -96,6 +96,7 @@ test('BOOT-10 baseline 60 tolère une trace individuelle redondante',()=>{const 
 
 test('BOOTSTRAP-05/06/07 les protections checksum et DDL partielle restent actives',()=>{
   const runner=read('backend-node/src/scripts/mysql-migration-runner.ts'),bootstrap=read('backend-node/src/scripts/database-bootstrap.ts');
+  assert.match(runner,/DROP\\s\+FOREIGN\\s\+KEY/);
   assert.match(runner,/previous\.statement_checksum!==statementHash.*MIGRATION_CHECKSUM_MISMATCH/s);
   assert.match(runner,/previous\?\.status==='FAILED_PARTIAL'.*MIGRATION_FAILED_PARTIAL/s);
   assert.match(runner,/markFailed[\s\S]*MIGRATION_FAILED_PARTIAL/);

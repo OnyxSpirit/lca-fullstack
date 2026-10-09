@@ -27,7 +27,7 @@ test('VEH-02/03/04/13 : les clauses SQL suivent strictement AGENCY, CONCESSION e
   const concession=vehicleScope(request({'vehicles.view':'CONCESSION'}),'vehicles.view');
   assert.match(concession.sql,/concession_id/); assert.deepEqual(concession.params,['10']);
   assert.deepEqual(vehicleScope(request({'vehicles.view':'GLOBAL'}),'vehicles.view'),{sql:'1=1',params:[]});
-  assert.match(source,/WHERE v\.archived_at IS NULL AND \$\{scoped\.sql\}/);
+  assert.match(source,/WHERE \$\{commercialStockPredicate\(\)\} AND v\.archived_at IS NULL AND \$\{scoped\.sql\}/);
 });
 
 test('VEH-05 : OWN est explicitement refusé car un véhicule appartient au stock agence',()=>{

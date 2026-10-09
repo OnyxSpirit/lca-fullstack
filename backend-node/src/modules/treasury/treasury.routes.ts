@@ -1,5 +1,6 @@
 import{Router}from'express';import{asyncHandler}from'../../middleware/error-handler.js';import{requirePermission}from'../../middleware/require-permission.js';import*as s from'./treasury.service.js';
 import*as flow from'./treasury-flow.service.js';
+import*as coverage from'./treasury-coverage.service.js';
 export const treasuryRouter=Router();
 treasuryRouter.get('/treasury/accounts',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.listAccounts(r))));
 treasuryRouter.get('/treasury/accounts/:id',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.getAccount(r,r.params.id))));
@@ -13,6 +14,13 @@ treasuryRouter.patch('/treasury/categories/:id/status',requirePermission('treasu
 treasuryRouter.get('/treasury/journal',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.journal(r,r.query))));
 treasuryRouter.get('/treasury/journal/:id',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.movement(r,r.params.id))));
 treasuryRouter.get('/treasury/summary',requirePermission('treasury.view'),asyncHandler(async(r,res)=>res.json(await s.summary(r,r.query))));
+treasuryRouter.get('/treasury/coverage',requirePermission('treasury.coverage.view'),asyncHandler(async(r,res)=>res.json(await coverage.coverage(r))));
+treasuryRouter.get('/treasury/budget-indicators',requirePermission('treasury.coverage.view'),asyncHandler(async(r,res)=>res.json(await coverage.budgetIndicators(r))));
+treasuryRouter.get('/treasury/reservations',requirePermission('treasury.reservation.view'),asyncHandler(async(r,res)=>res.json(await coverage.listReservations(r))));
+treasuryRouter.post('/treasury/reservations',requirePermission('treasury.reservation.create'),asyncHandler(async(r,res)=>res.status(201).json(await coverage.createReservation(r,r.body))));
+treasuryRouter.patch('/treasury/reservations/:id',requirePermission('treasury.reservation.adjust'),asyncHandler(async(r,res)=>res.json(await coverage.adjustReservation(r,r.params.id,r.body))));
+treasuryRouter.post('/treasury/reservations/:id/release',requirePermission('treasury.reservation.release'),asyncHandler(async(r,res)=>res.json(await coverage.releaseReservation(r,r.params.id,r.body))));
+treasuryRouter.get('/treasury/reservations/:id/history',requirePermission('treasury.reservation.view'),asyncHandler(async(r,res)=>res.json(await coverage.reservationHistory(r,r.params.id))));
 treasuryRouter.get('/treasury/manual-options',requirePermission('treasury.view'),asyncHandler(async(_r,res)=>res.json(await s.manualOptions())));
 treasuryRouter.post('/treasury/transfers',requirePermission('treasury.transfer.create'),asyncHandler(async(r,res)=>res.status(201).json(await s.transfer(r,r.body))));
 treasuryRouter.post('/treasury/manual-receipts',requirePermission('treasury.receipt.create'),asyncHandler(async(r,res)=>res.status(201).json(await s.createManualReceipt(r,r.body))));

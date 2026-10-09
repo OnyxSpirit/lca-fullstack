@@ -31,6 +31,7 @@ import { saleRouter } from './modules/sales/sale.routes.js';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
 import { quotationRouter } from './modules/quotations/quotation.routes.js';
 import { hrRouter } from './modules/hr/hr.routes.js';
+import { hrRemunerationRouter } from './modules/hr/hr-remuneration.routes.js';
 import { hrContractRouter } from './modules/hr/hr-contract.routes.js';
 import { hrLeaveRouter } from './modules/hr/hr-leave.routes.js';
 import { hrBonusRouter } from './modules/hr/hr-bonus.routes.js';
@@ -52,7 +53,7 @@ export function createApp() {
   for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
   app.use('/api/auth',createAuthRouter());
-  app.use('/api',authenticate,enforceAgencyScope,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

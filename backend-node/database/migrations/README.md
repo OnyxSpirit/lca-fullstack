@@ -62,6 +62,28 @@ antérieures restent approuvées et engagées, sans approbateur ni date fabriqu�
 Les nouvelles dépenses ne consomment l’enveloppe qu’à leur approbation et seul
 leur décaissement effectif produit un mouvement Treasury.
 
+La migration `073_treasury_reservations_and_coverage.sql` ajoute des réservations
+de liquidités auditables, sans créer ni modifier de mouvement Treasury. Seuls les
+comptes actifs `CASH` et `BANK` sont éligibles ; `OTHER` est exclu. Les montants
+sont isolés par devise et périmètre. Une réservation active est bornée par le
+reste à payer de la dépense approuvée et par le solde courant non affecté du
+compte, avec verrouillage transactionnel du compte et de la dépense. Un
+décaissement explicitement lié la consomme partiellement ou totalement sans
+second mouvement. Une contrepassation ne la recrée pas automatiquement. Les
+sorties non liées restent compatibles avec les flux historiques : elles ne sont
+pas bloquées transversalement, mais la couverture signale toute insuffisance.
+Le scope `OWN` est refusé pour ces ressources financières collectives.
+
+La migration `074_hr_remunerations_financial_integration.sql` ajoute des dossiers
+de rémunération mensuels figés sans constituer un moteur de paie. Le salaire est
+celui de `salary_history` applicable à la fin de période et seules les primes
+`APPROVED` non encore liées sont snapshotées. Validation et paiement ont des
+états distincts. L'imputation crée une unique dépense FIN-02, puis les paiements
+réutilisent exclusivement le décaissement budgétaire Treasury et, lorsqu'elle
+est indiquée, la consommation de réservation FIN-03. Aucun backfill, cotisation,
+retenue, proratisation ou mouvement Treasury fictif n'est créé. Les montants
+restent protégés par les permissions `hr.remuneration.*` et les scopes RH.
+
 La migration `053_concession_document_identity.sql` complète l'identité légale
 canonique de la concession avec le RCCM, le RIB documentaire et le site web.
 Le NIU reste exclusivement porté par `concessions.tax_identifier`. Les champs

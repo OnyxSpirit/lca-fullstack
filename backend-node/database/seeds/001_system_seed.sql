@@ -202,6 +202,11 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ON DUPLICATE KEY UPDATE module=VALUES(module),action=VALUES(action),name=VALUES(name),group_name=VALUES(group_name),description=VALUES(description),is_active=TRUE;
 
 INSERT INTO permissions(module,action,code,name,group_name,description,is_active) VALUES
+('workshop','view','workshop.vehicles.view','Rechercher les véhicules Atelier','SAV & Atelier','Rechercher les véhicules accessibles avant création ou rattachement',TRUE),
+('workshop','create','workshop.external_vehicle.create','Créer un véhicule extérieur','SAV & Atelier','Créer dans le référentiel central un véhicule extérieur non commercial',TRUE),
+('workshop','create','workshop.vehicle.associations.create','Associer client et véhicule','SAV & Atelier','Créer une relation courante client-véhicule',TRUE),
+('workshop','view','workshop.vehicle.associations.view','Voir les associations client-véhicule','SAV & Atelier','Consulter les relations courantes et leur historique',TRUE),
+('workshop','update','workshop.vehicle.associations.close','Clôturer une association client-véhicule','SAV & Atelier','Clôturer une relation sans supprimer son historique',TRUE),
 ('workshop','update','workshop.plan','Planifier l’atelier','Atelier','Créer et modifier le planning atelier',TRUE),
 ('workshop','assign','workshop.assign_technician','Affecter un technicien','Atelier','Affecter ou réaffecter un technicien',TRUE),
 ('workshop','assign','workshop.assign_bay','Affecter un pont','Atelier','Affecter un pont ou une baie à un créneau',TRUE),

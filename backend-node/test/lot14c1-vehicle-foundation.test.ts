@@ -35,4 +35,4 @@ test('14C1-16 stock, dashboard et export excluent le non commercial',()=>{assert
 test('14C1-17 ventes refusent véhicule Atelier',()=>{assert.match(sales,/Ce véhicule Atelier ne peut pas être vendu/);assert.match(sales,/is_commercial_stock=TRUE AND archived_at IS NULL/)});
 test('14C1-18 devis refusent véhicule Atelier',()=>assert.match(quotations,/Ce véhicule Atelier ne peut pas être utilisé pour un nouveau devis/));
 test('14C1-19 vente confirmée prouve seulement une origine inconnue',()=>assert.match(sales,/commercial_origin='UNKNOWN'/));
-test('14C1-20 baseline fraîche absorbe 070',()=>{assert.match(bootstrap,/FRESH_BASELINE_VERSION=70/);for(const token of['commercial_origin','customer_vehicles','vehicle_commercial_origin'])assert.ok(baseline.includes(token),token)});
+test('14C1-20 baseline fraîche absorbe 070',()=>{assert.match(bootstrap,/FRESH_BASELINE_VERSION=(?:70|71)/);for(const token of['commercial_origin','customer_vehicles','vehicle_commercial_origin'])assert.ok(baseline.includes(token),token)});

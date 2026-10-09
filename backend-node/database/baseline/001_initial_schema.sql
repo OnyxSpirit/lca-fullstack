@@ -2564,4 +2564,4 @@ ALTER TABLE delivery_signatures
 
 -- Le baseline représente directement l'état consolidé au niveau 069.
 INSERT INTO schema_migrations(version,name,checksum)
-VALUES (70,'baseline_001_070',REPEAT('0',64));
+VALUES (71,'baseline_001_071',REPEAT('0',64));

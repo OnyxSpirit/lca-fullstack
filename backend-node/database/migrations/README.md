@@ -50,6 +50,11 @@ Une description marque/modèle hors catalogue est possible sans créer de fausse
 version commerciale. Cette phase ne livre aucune interface ni API de création
 de véhicule extérieur et n'attribue aucune permission supplémentaire.
 
+La migration `071_workshop_external_vehicle_permissions.sql` ajoute uniquement
+les cinq capacités RBAC nécessaires aux API Atelier de recherche, création de
+véhicule extérieur, association, consultation et clôture. Elle n'attribue ces
+permissions à aucun rôle : leur délégation et leur scope restent explicites.
+
 La migration `053_concession_document_identity.sql` complète l'identité légale
 canonique de la concession avec le RCCM, le RIB documentaire et le site web.
 Le NIU reste exclusivement porté par `concessions.tax_identifier`. Les champs

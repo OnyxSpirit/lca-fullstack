@@ -177,7 +177,7 @@ const requirePartsStockAccess=asyncHandler(async(r,_res,next)=>{
   if(!repairOrder||!await permissionCoversAgency(r,'parts.stock.adjust',String(repairOrder.agency_id)))throw new HttpError(403,'Périmètre Parts insuffisant pour cette agence');
   next();
 });
-const select = `SELECT ro.*,a.name agency_name,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone customer_phone,v.vin,v.registration_number,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) advisor_name FROM repair_orders ro JOIN agencies a ON a.id=ro.agency_id JOIN customers c ON c.id=ro.customer_id JOIN vehicles v ON v.id=ro.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=ro.advisor_id`;
+const select = `SELECT ro.*,a.name agency_name,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone customer_phone,v.vin,v.registration_number,COALESCE(CONCAT_WS(' ',b.name,m.name,ve.name),CONCAT_WS(' ',v.identity_brand,v.identity_model,v.identity_version)) vehicle_label,CONCAT_WS(' ',u.first_name,u.last_name) advisor_name FROM repair_orders ro JOIN agencies a ON a.id=ro.agency_id JOIN customers c ON c.id=ro.customer_id JOIN vehicles v ON v.id=ro.vehicle_id LEFT JOIN versions ve ON ve.id=v.version_id LEFT JOIN models m ON m.id=ve.model_id LEFT JOIN brands b ON b.id=m.brand_id LEFT JOIN users u ON u.id=ro.advisor_id`;
 async function one(id: string, r: Request): Promise<any> {
   const s = scope(r),
     [x] = await query<RowDataPacket[]>(`${select} WHERE ro.id=? AND ${s.sql}`, [

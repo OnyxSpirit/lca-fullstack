@@ -3,7 +3,7 @@ import{readFileSync}from'node:fs';
 import{test}from'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
-const route=read('../src/modules/billing/billing.routes.ts'),report=read('../src/modules/reports/report.routes.ts'),cancel=read('../src/modules/billing/invoice-cancellation.service.ts'),migration=read('../database/migrations/038_payment_refunds.sql');
+const route=read('../src/modules/billing/billing.routes.ts'),exportCsv=read('../src/modules/billing/billing-export.csv.ts'),report=read('../src/modules/reports/report.routes.ts'),cancel=read('../src/modules/billing/invoice-cancellation.service.ts'),migration=read('../database/migrations/038_payment_refunds.sql');
 
 test('AR-01..08 remboursement partiel central lié à un avoir et borné',()=>{
  assert.match(route,/creditNoteId=id\(r\.body\.creditNoteId\)/);
@@ -34,7 +34,8 @@ test('AR-16..23 recalcul, reporting, journal et legacy coexistent sans double co
  assert.match(route,/balance=Math\.max\(0,net-paid\)/);
  assert.match(route,/UPDATE sales SET deposit_amount=\?,balance_due=\?/);
  assert.match(report,/payment_refunds/);assert.match(report,/p\.status='refunded'/);
- assert.match(route,/for\(const x of refunds\)rows\.push\(\['BANQUE'/);
+ assert.match(route,/NOT EXISTS\(SELECT 1 FROM payment_refunds dedupe WHERE dedupe\.payment_id=p\.id\)/);
+ assert.match(exportCsv,/for\(const x of data\.refunds\)rows\.push\(\['Remboursement'/);
  assert.match(cancel,/refunded_amount/);
  assert.doesNotMatch(migration,/^\s*(DROP|TRUNCATE|DELETE)\b/im);
 });

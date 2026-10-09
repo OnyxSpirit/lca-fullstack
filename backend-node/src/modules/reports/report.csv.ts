@@ -1,5 +1,6 @@
 type Section = 'overview'|'sales'|'finance'|'vehicles'|'workshop'|'parts';
 type Column = readonly [key:string,label:string,kind:'number'|'text'];
+export type CsvValue=string|number|null|undefined;
 import type {WorkshopReportAggregate} from './workshop-report.service.js';
 export const reportFileNames:Record<Section,string>={overview:'synthese',sales:'ventes',finance:'finances',vehicles:'vehicules',workshop:'atelier',parts:'pieces'};
 
@@ -14,6 +15,9 @@ export const reportColumns:Record<Section,readonly Column[]>={
 
 const neutralize=(value:string)=>/^[\s\u0000-\u001f]*[=+\-@]/u.test(value)?`'${value}`:value;
 const cell=(value:string,protect=true)=>`"${(protect?neutralize(value):value).replaceAll('"','""')}"`;
+export function financialCsv(rows:readonly (readonly CsvValue[])[]){
+  return '\ufeff'+rows.map(row=>row.map(value=>cell(String(value??''),typeof value!=='number')).join(';')).join('\r\n')+'\r\n';
+}
 export function reportCsv(section:Section,data:Record<string,unknown>,from:string,to:string,agency:string){
   const date=(value:string)=>value.split('-').reverse().join('/');
   const snapshot=section==='vehicles'||section==='parts';

@@ -26,5 +26,5 @@ test('AVOIR-REMBOURSEMENT-02 MySQL 8.4 : partiels, idempotence, concurrence et j
  const split=await fixture();for(const amount of[100_000,150_000,250_000])assert.equal((await refund(split.payment,split.credit,amount)).status,201);assert.equal((await refund(split.payment,split.credit,1)).status,409);
  const concurrent=await fixture(300_000),responses=await Promise.all([refund(concurrent.payment,concurrent.credit,200_000),refund(concurrent.payment,concurrent.credit,200_000)]);assert.equal(responses.filter(x=>x.status===201).length,1);const[concurrentSum]=await query<RowDataPacket[]>('SELECT SUM(amount) amount FROM payment_refunds WHERE payment_id=?',[concurrent.payment]);assert.equal(Number(concurrentSum.amount),200_000);
 
- const csv=await auth(api.get('/api/invoices/export/accounting?from=2026-09-01&to=2026-09-30').query({agencyId:agency}));assert.equal(csv.status,200,JSON.stringify(csv.body));assert.match(csv.text,/REM-/);assert.match(csv.text,/refunded/);
+ const csv=await auth(api.get('/api/invoices/export/accounting?from=2026-09-01&to=2026-09-30').query({agencyId:agency}));assert.equal(csv.status,200,JSON.stringify(csv.body));assert.match(csv.text,/REM-/);assert.match(csv.text,/Remboursé/);assert.equal(csv.headers['content-disposition'],'attachment; filename="operations-facturation.csv"');
 });

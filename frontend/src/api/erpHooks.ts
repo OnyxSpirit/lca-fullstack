@@ -553,6 +553,7 @@ export const useSalesPageQuery=(filters:Record<string,string|number|undefined>,r
 export const useQuotationsQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.quotations,queryFn:()=>apiRequest<Quotation[]>('/quotations'),enabled:enabled()&&requestEnabled});
 export const useQuotationsPageQuery=(filters:Record<string,string|number|undefined>,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.quotations,'page',filters],queryFn:()=>apiRequest<PagedResult<Quotation>>(`/quotations?${pageParams(filters)}`),enabled:enabled()&&requestEnabled});
 export const useRepairOrdersQuery = (search="",status="",requestEnabled=true) => useQuery({queryKey:[...erpKeys.repairOrders,search,status],queryFn:async()=>{const p=new URLSearchParams();if(search)p.set('search',search);if(status)p.set('status',status);return(await apiRequest<any[]>(`/repair-orders?${p}`)).map(mapRepair)},enabled:enabled()&&requestEnabled});
+export const useActiveRepairOrdersQuery = (requestEnabled=true) => useQuery({queryKey:[...erpKeys.repairOrders,'active'],queryFn:async()=>(await apiRequest<any[]>('/repair-orders?active=true')).map(mapRepair),enabled:enabled()&&requestEnabled});
 export const useRepairOrdersPageQuery=(filters:Record<string,string|number|undefined>,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.repairOrders,'page',filters],queryFn:async()=>{const normalized={...filters,status:filters.status?repairOrderStatusToDb[filters.status as keyof typeof repairOrderStatusToDb]??filters.status:undefined};const data=await apiRequest<PagedResult<any>>(`/repair-orders?${pageParams(normalized)}`);return{...data,items:data.items.map(mapRepair)}},enabled:enabled()&&requestEnabled});
 export interface RepairOrderStats {total:number;inWorkshop:number;in_progress:number;warranty:number;revenue:number;baysTotal:number;baysOccupied:number}
 export const useRepairStatsQuery = () => useQuery({queryKey:["repair-orders","stats"],queryFn:()=>apiRequest<RepairOrderStats>("/repair-orders/stats"),enabled:enabled()});
@@ -575,14 +576,14 @@ export const useSupplierInvoiceDetail=(id?:string,requestEnabled=true)=>useQuery
 export const useSupplierInvoiceActions=()=>{const qc=useQueryClient(),done=()=>void qc.invalidateQueries({queryKey:['supplier-invoices']});return{create:useMutation({mutationFn:(body:any)=>apiRequest<any>('/supplier-invoices',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),transition:useMutation({mutationFn:({id,action,...body}:any)=>apiRequest(`/supplier-invoices/${id}/${action}`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),budget:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/supplier-invoices/${id}/budget-link`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),payment:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/supplier-invoices/${id}/payments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),credit:useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/supplier-invoices/${id}/credits`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),creditTransition:useMutation({mutationFn:({id,action,...body}:any)=>apiRequest(`/supplier-credits/${id}/${action}`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done})}};
 export const usePurchaseOrderDetailQuery=(id?:string,agencyId?:string)=>useQuery({queryKey:['purchase-orders',id,agencyId],queryFn:()=>apiRequest<any>(`/purchase-orders/${id}?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&Boolean(id)&&Boolean(agencyId)});
 export const useDeliveriesQuery = (
-  filters: { search?: string; status?: string; dateFrom?: string; dateTo?: string; assignedUserId?: string } = {},
+  filters: { search?: string; status?: string; dateFrom?: string; dateTo?: string; assignedUserId?: string; active?: boolean } = {},
   requestEnabled = true,
 ) =>
   useQuery({
     queryKey: [...erpKeys.deliveries, filters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+      Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, String(value)); });
       return (await apiRequest<any[]>(`/deliveries?${params}`)).map(mapDelivery);
     },
     enabled: enabled() && requestEnabled,

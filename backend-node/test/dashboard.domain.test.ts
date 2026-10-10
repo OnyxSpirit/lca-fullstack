@@ -10,3 +10,10 @@ test('la comparaison Dashboard calcule delta et pourcentage réels', () => {
 test('une période précédente vide ne produit jamais Infinity ou NaN', () => {
   assert.deepEqual(dashboardComparison(25,0),{current:25,previous:0,delta:25,deltaPercent:null});
 });
+
+test('les quatre combinaisons de semaines vides et non vides restent définies', () => {
+  assert.deepEqual(dashboardComparison(25,10),{current:25,previous:10,delta:15,deltaPercent:150});
+  assert.deepEqual(dashboardComparison(25,0),{current:25,previous:0,delta:25,deltaPercent:null});
+  assert.deepEqual(dashboardComparison(0,10),{current:0,previous:10,delta:-10,deltaPercent:-100});
+  assert.deepEqual(dashboardComparison(0,0),{current:0,previous:0,delta:0,deltaPercent:null});
+});

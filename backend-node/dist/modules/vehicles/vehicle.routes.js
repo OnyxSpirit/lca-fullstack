@@ -59,18 +59,6 @@ export function vehicleInventoryViewSql(view) { if (view === 'active')
     return " AND v.status NOT IN('sold','delivered')"; if (view === 'sold')
     return " AND v.status IN('sold','delivered')"; if (view === 'all')
     return ''; throw new HttpError(400, 'Vue de stock invalide'); }
-vehicleRouter.use('/vehicles', (request, _response, next) => {
-    if (request.method !== 'POST' || request.path !== '/')
-        return next();
-    const vin = txt(request.body?.vin, 40).toUpperCase();
-    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))
-        return next(new HttpError(400, 'Le VIN doit comporter exactement 17 caractères valides.'));
-    const initialStatus = txt(request.body?.status) || 'received';
-    if (!ADMINISTRABLE_VEHICLE_STATUSES.includes(initialStatus))
-        return next(new HttpError(409, 'Le statut initial doit être Commandé, En transit, Réceptionné, En préparation ou Disponible.'));
-    request.body.vin = vin;
-    next();
-});
 const locationScope = (request, permission, alias = 'vl', requested = request.query.agencyId) => vehicleScope(request, permission, alias, requested);
 const locationDto = (row) => ({ id: String(row.id), agencyId: String(row.agency_id), agencyName: row.agency_name, name: String(row.name), type: String(row.type), isActive: Boolean(row.is_active), createdAt: row.created_at, updatedAt: row.updated_at });
 vehicleRouter.get('/vehicle-locations', requirePermission('vehicles.assignments.view'), asyncHandler(async (request, response) => {

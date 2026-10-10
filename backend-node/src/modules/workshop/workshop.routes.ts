@@ -374,7 +374,10 @@ workshopRouter.get(
     const s = scope(r),
       where = [s.sql],
       p: any[] = [...s.p];
-    if (r.query.status) {
+    if (r.query.active === 'true') {
+      where.push(`ro.status IN(${REPAIR_ORDER_IN_WORKSHOP_STATUSES.map(()=>'?').join(',')})`);
+      p.push(...REPAIR_ORDER_IN_WORKSHOP_STATUSES);
+    } else if (r.query.status) {
       where.push("ro.status=?");
       p.push(r.query.status);
     }

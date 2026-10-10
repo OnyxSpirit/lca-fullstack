@@ -6,7 +6,7 @@ test('DASH-03 aucun rôle historique ne gouverne le runtime',()=>assert.doesNotM
 test('DASH-04 scopes AGENCY CONCESSION GLOBAL sont distincts',()=>{assert.match(runtime,/s==='GLOBAL'/);assert.match(runtime,/s==='CONCESSION'/);assert.match(runtime,/s==='AGENCY'/)});
 test('DASH-05 OWN exige une vraie colonne owner',()=>{assert.match(runtime,/s==='OWN'&&owner/);assert.match(runtime,/salesperson_id/);assert.match(runtime,/assigned_user_id/);assert.match(runtime,/advisor_id/)});
 test('DASH-06 delta zéro reste neutre',()=>{assert.equal(dashboardComparison(10,0).deltaPercent,null);assert.equal(dashboardComparison(0,0).deltaPercent,null);assert.equal(dashboardComparison(15,10).deltaPercent,50)});
-test('DASH-07 montants ne sont pas multipliés par les avoirs',()=>assert.match(runtime,/LEFT JOIN\(SELECT invoice_id,SUM\(amount\).*GROUP BY invoice_id/));
+test('DASH-07 montants ne sont pas multipliés par les avoirs',()=>{assert.match(runtime,/UNION ALL SELECT DATE\(cn\.issue_date\) day,-cn\.amount/);assert.doesNotMatch(runtime,/JOIN credit_notes cn[\s\S]{0,200}SUM\(i\.total-cn\.amount\)/)});
 test('DASH-08 marge exige la permission financière véhicule',()=>assert.match(runtime,/vehicles\.financials\.view/));
 test('DASH-09 KPI sans données utilisent null ou zéro SQL',()=>{assert.match(runtime,/COALESCE\(SUM/);assert.match(runtime,/revenue:revenue\?/)});
 test('DASH-10 aucun ancien KPI fictif',()=>assert.doesNotMatch(runtime,/\+14%|12[.,]5%|4 essais|8 actifs|20 véhicules|3 visiteurs|2 prévus|3 en cours/));

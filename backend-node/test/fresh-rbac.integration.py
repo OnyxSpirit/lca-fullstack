@@ -11,7 +11,9 @@ def call(path, token=None, body=None, method=None, status=200):
 admin=call('/auth/login',body={'email':'admin@rbac.test','password':'Disposable-Rbac-Admin-2026!'})
 a=admin['accessToken']; agency=admin['user']['agencyId']
 roles=call('/roles',a); assert len(roles)==1 and roles[0]['code']=='SUPER_ADMIN'
-perms=call('/permissions',a); assert len(perms)==171
+perms=call('/permissions',a)
+assert perms and len({str(p['id']) for p in perms})==len(perms)
+assert len(perms)==len(admin['user']['permissions'])
 assign=[{'permissionId':str(p['id']),'scope':'OWN'} for p in perms if p['code'] in ['dashboard.view','crm.prospect.view','crm.prospect.create']]
 r=call('/roles',a,{'name':'Test Commercial Dynamic','code':'TEST_COMMERCIAL_DYNAMIC','permissions':assign},status=201)
 rid=str(r['id'])

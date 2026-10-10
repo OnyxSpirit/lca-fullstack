@@ -8,8 +8,8 @@ test('DASH-FE-05 aucun KPI fictif historique',()=>assert.doesNotMatch(dashboard,
 test('NAV-FE-01 Sidebar et Portal partagent la politique centrale',()=>{assert.match(sidebar,/canNavigateWithPermissions/);assert.match(portal,/canNavigateWithPermissions/);assert.doesNotMatch(sidebar,/hasPermission\('view'/);assert.doesNotMatch(portal,/hasPermission\('view'/)});
 test('NAV-FE-02 aucun nom de rôle ne gouverne ces écrans',()=>{for(const s of [dashboard,sidebar,portal,search])assert.doesNotMatch(s,/DIRECTOR|DIRECTION|ACCOUNTANT|RECEPTIONIST|roles\.includes/)});
 test('SEARCH-FE-01 une seule query serveur remplace les listes complètes',()=>{assert.match(search,/useGlobalSearchQuery/);assert.doesNotMatch(search,/useCustomersQuery|useInvoicesQuery|useVehiclesQuery|usePartsQuery/)});
-test('SEARCH-FE-02 query inactive modale fermée et avant deux caractères',()=>{assert.match(hooks,/requestEnabled&&q\.length>=2/);assert.match(search,/useGlobalSearchQuery\(debounced,globalSearchOpen\)/)});
-test('SEARCH-FE-03 debounce et AbortSignal évitent les courses',()=>{assert.match(search,/setTimeout\(\(\)=>setDebounced/);assert.match(hooks,/queryFn:\(\{signal\}\)/)});
+test('SEARCH-FE-02 query inactive modale fermée et avant deux caractères',()=>{assert.match(hooks,/requestEnabled&&q\.length>=2/);assert.match(search,/useGlobalSearchQuery\(\s*debounced\s*,\s*globalSearchOpen\s*\)/)});
+test('SEARCH-FE-03 debounce et AbortSignal évitent les courses',()=>{assert.match(search,/setTimeout\(\s*\(\)\s*=>\s*setDebounced/);assert.match(hooks,/queryFn:\(\{signal\}\)/)});
 test('SEARCH-FE-04 cache isolé utilisateur agence requête',()=>assert.match(hooks,/\['global-search',auth\.currentUser\?\.id,auth\.currentAgency\?\.id,q\]/));
 test('SEARCH-FE-05 loading empty erreur et navigation sont explicites',()=>{for(const x of ['Recherche en cours','Aucun résultat','Recherche indisponible','navigate(route)'])assert.match(search,new RegExp(x.replace(/[()]/g,'\\$&')))});
 test('SEARCH-FE-06 rendu texte sans XSS',()=>{assert.doesNotMatch(search,/dangerouslySetInnerHTML|innerHTML/);assert.match(search,/\{item\.label\}/)});

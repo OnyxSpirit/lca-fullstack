@@ -33,7 +33,7 @@ import {
   Legend,
 } from 'recharts';
 import { useAuthStore } from '../../stores/authStore';
-import { useDeliveriesQuery, useRepairOrdersQuery } from '../../api/erpHooks';
+import { useActiveRepairOrdersQuery, useDeliveriesQuery } from '../../api/erpHooks';
 import { useNotificationActions, useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { StatCard } from '../../components/common/StatCard';
@@ -51,7 +51,8 @@ export const DashboardPage: React.FC = () => {
   const canViewBilling=can('billing.view'),canViewSales=can('sales.view'),canViewMargin=can('vehicles.financials.view')&&canViewSales;
   const canViewCrm=can('crm.prospect.view'),canViewVehicles=can('vehicles.view'),canViewShowroom=can('showroom.view');
   const canViewReports=can('reporting.view'),canUpdateNotifications=can('notifications.update');
-  const repairOrders=useRepairOrdersQuery('','',canViewService).data??[],deliveries=useDeliveriesQuery({},canViewDeliveries).data??[];
+  const repairOrdersQuery=useActiveRepairOrdersQuery(canViewService),deliveriesQuery=useDeliveriesQuery({active:true},canViewDeliveries);
+  const repairOrders=repairOrdersQuery.data??[],deliveries=deliveriesQuery.data??[];
   const overviewQuery=useDashboardOverviewQuery(),overview=overviewQuery.data;
   const notificationsQuery=useNotificationsQuery({page:1,pageSize:4},can('notifications.view')),notifications=notificationsQuery.data?.items??[],notificationActions=useNotificationActions();
   const { setActiveQuickActionModal } = useUiStore();
@@ -63,14 +64,18 @@ export const DashboardPage: React.FC = () => {
   const weeklyData=(overview?.weeklySeries??[]).map(item=>({day:new Intl.DateTimeFormat('fr-CG',{weekday:'short',timeZone:'UTC'}).format(new Date(`${item.day}T00:00:00Z`)).slice(0,3).toUpperCase(),ca:item.revenue,height:`${weeklyMax?Math.max(4,item.revenue/weeklyMax*100):4}%`}));
   const revenueTrendData=(overview?.revenueTrend??[]).map(item=>({...item,month:new Intl.DateTimeFormat('fr-CG',{month:'short',timeZone:'UTC'}).format(new Date(`${item.month}-01T00:00:00Z`))}));
 
+  const revenueDelta=overview?.revenue?.deltaPercent;
+  const revenueDeltaClass=revenueDelta==null?'text-zinc-400':revenueDelta<0?'text-red-400':'text-emerald-500';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 overflow-x-hidden">
+      {overviewQuery.isError&&<div role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800"><strong>Dashboard indisponible.</strong> Les indicateurs n’ont pas pu être chargés. <button type="button" className="ml-2 underline font-semibold" onClick={()=>void overviewQuery.refetch()}>Réessayer</button></div>}
       {/* High Density Top Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[#d5d1cc]">
-        <div>
+        <div className="min-w-0">
           <div className="text-[10px] font-black tracking-[0.22em] uppercase text-[#8f1722] mb-2">Pilotage concession</div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-[30px] font-bold text-[#111113] tracking-[-0.035em]">Tableau de bord</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-[28px] sm:text-[30px] font-bold text-[#111113] tracking-[-0.035em]">Tableau de bord</h2>
             <span className="text-[10px] px-2 py-1 rounded-sm bg-white text-[#8f1722] font-bold uppercase tracking-wider border border-[#d7b0b4]">
               {currentAgency.name}
             </span>
@@ -80,7 +85,7 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           {canCreateSale&&<button
             onClick={() => setActiveQuickActionModal('sale')}
             className="bg-[#8f1722] hover:bg-[#6f1019] text-white px-4 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer"
@@ -97,28 +102,28 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* 4 High Density Primary Stat Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+      <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 shrink-0">
         {/* Metric 1: CA */}
-        {canViewBilling&&<div
-          onClick={() => navigate('/billing')}
-          className="bg-[#151517] text-white p-5 rounded-md border border-black cursor-pointer hover:bg-black transition-all"
+        {canViewBilling&&<Link
+          to="/billing"
+          className="block min-w-0 bg-[#151517] text-white p-5 rounded-md border border-black cursor-pointer hover:bg-black transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8f1722]"
         >
           <div className="flex justify-between items-start mb-1">
             <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.14em]">
               Chiffre d'Affaires
             </span>
-            <span className="text-emerald-500 text-xs font-bold">{formatDeltaPercent(overview?.revenue?.deltaPercent)}</span>
+            <span className={`${revenueDeltaClass} text-xs font-bold`}>{formatDeltaPercent(revenueDelta)}</span>
           </div>
-          <div className="text-2xl font-bold text-white tracking-tight">
+          <div className="text-xl 2xl:text-2xl font-bold text-white tracking-tight break-words">
             {overview?.revenue?formatCurrency(overview.revenue.current):loadingValue}
           </div>
           {canViewMargin&&<div className="text-xs text-zinc-400 mt-1">Marge {overview?.grossMargin?.costSource==='CURRENT_COST_FALLBACK'?'indicative':'historisée'} : {overview?.grossMargin?formatCurrency(overview.grossMargin.current):loadingValue}</div>}
-        </div>}
+        </Link>}
 
         {/* Metric 2: Ventes du Mois */}
-        {canViewSales&&<div
-          onClick={() => navigate('/sales')}
-          className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"
+        {canViewSales&&<Link
+          to="/sales"
+          className="block min-w-0 bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8f1722]"
         >
           <div className="flex justify-between items-start mb-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -129,13 +134,13 @@ export const DashboardPage: React.FC = () => {
             </span>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight">{overview?.sales?`${overview.sales.currentMonth} véhicule${overview.sales.currentMonth>1?'s':''}`:loadingValue}</div>
-          <div className="text-xs text-slate-400 mt-1">Dossiers non annulés enregistrés ce mois</div>
-        </div>}
+          <div className="text-xs text-slate-400 mt-1">Véhicules vendus ce mois</div>
+        </Link>}
 
         {/* Metric 3: Prospects Actifs */}
-        {canViewCrm&&<div
-          onClick={() => navigate('/crm')}
-          className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"
+        {canViewCrm&&<Link
+          to="/crm"
+          className="block min-w-0 bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8f1722]"
         >
           <div className="flex justify-between items-start mb-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -145,12 +150,12 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight">{overview?.crm?.activeLeads??loadingValue}</div>
           <div className="text-xs text-slate-400 mt-1">{overview?.crm?`${overview.crm.scheduledTestDrivesThisWeek} essais prévus cette semaine`:loadingValue}</div>
-        </div>}
+        </Link>}
 
         {/* Metric 4: Stock Disponible */}
-        {canViewVehicles&&<div
-          onClick={() => navigate('/vehicles')}
-          className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"
+        {canViewVehicles&&<Link
+          to="/vehicles"
+          className="block min-w-0 bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8f1722]"
         >
           <div className="flex justify-between items-start mb-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -162,14 +167,14 @@ export const DashboardPage: React.FC = () => {
             {overview?.vehicles?`${overview.vehicles.available} véhicules`:loadingValue}
           </div>
           <div className="text-xs text-slate-400 mt-1">{overview?.vehicles?`${overview.vehicles.dormant} âgés de > 60 jours`:loadingValue}</div>
-        </div>}
-        {canViewShowroom&&<div onClick={()=>navigate('/showroom')} className="bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all"><span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Visiteurs aujourd’hui</span><div className="text-2xl font-bold text-slate-900 mt-1">{overview?.showroom?.todayVisitors??loadingValue}</div><div className="text-xs text-slate-400 mt-1">{overview?.showroom?`${overview.showroom.waiting} en attente · ${overview.showroom.inProgress} pris en charge`:loadingValue}</div></div>}
+        </Link>}
+        {canViewShowroom&&<Link to="/showroom" className="block min-w-0 bg-white p-5 rounded-md border border-[#dedbd7] cursor-pointer hover:border-[#8f1722] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8f1722]"><span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Visiteurs aujourd’hui</span><div className="text-2xl font-bold text-slate-900 mt-1">{overview?.showroom?.todayVisitors??loadingValue}</div><div className="text-xs text-slate-400 mt-1">{overview?.showroom?`${overview.showroom.waiting} en attente · ${overview.showroom.inProgress} pris en charge`:loadingValue}</div></Link>}
       </div>
 
       {/* Main Section: Chart & Weekly Evolution + Dark Alert Panel & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Weekly & Monthly Charts (2 cols) */}
-        {canViewReports&&<div className="lg:col-span-2 space-y-6">
+        {canViewBilling&&<div className="min-w-0 lg:col-span-2 space-y-6">
           {/* Weekly CA Evolution Chart Card */}
           <div className="bg-white border border-[#dedbd7] rounded-md flex flex-col p-5">
             <div className="flex justify-between items-center mb-6">
@@ -213,7 +218,7 @@ export const DashboardPage: React.FC = () => {
 
             <div className="flex items-center justify-between pt-3 text-xs text-slate-500">
               <span>Pic d'activité : <strong>{overview?.weeklyRevenue?.peakDay?new Intl.DateTimeFormat('fr-CG',{weekday:'long',timeZone:'UTC'}).format(new Date(`${overview.weeklyRevenue.peakDay}T00:00:00Z`)):'Aucune activité'}</strong></span>
-              <span className="text-emerald-600 font-semibold">{formatDeltaPercent(overview?.weeklyRevenue?.deltaPercent)} vs semaine précédente</span>
+              <span className={`${overview?.weeklyRevenue?.deltaPercent==null?'text-slate-500':overview.weeklyRevenue.deltaPercent<0?'text-red-600':'text-emerald-600'} font-semibold`}>{formatDeltaPercent(overview?.weeklyRevenue?.deltaPercent)} vs semaine précédente</span>
             </div>
           </div>
 
@@ -344,9 +349,9 @@ export const DashboardPage: React.FC = () => {
           </CardHeader>
           <div className="divide-y divide-slate-100">
             {repairOrders.slice(0, 4).map((order) => (
-              <div
+              <Link
                 key={order.id}
-                onClick={() => navigate(`/service/repair-orders/${order.id}`)}
+                to={`/service/repair-orders/${order.id}`}
                 className="py-2.5 flex items-center justify-between hover:bg-slate-50 rounded-lg px-2 cursor-pointer transition-colors"
               >
                 <div>
@@ -363,8 +368,10 @@ export const DashboardPage: React.FC = () => {
                   <StatusBadge status={order.status} type="or" />
                   <div className="text-[10px] text-slate-400 mt-1">{order.promisedCompletionDate}</div>
                 </div>
-              </div>
+              </Link>
             ))}
+            {repairOrdersQuery.isError&&<p className="p-3 text-xs text-red-700">Ordres de réparation indisponibles.</p>}
+            {repairOrdersQuery.isSuccess&&!repairOrders.length&&<p className="p-3 text-xs text-slate-500">Aucun ordre de réparation en cours.</p>}
           </div>
         </Card>}
 
@@ -384,9 +391,9 @@ export const DashboardPage: React.FC = () => {
           </CardHeader>
           <div className="divide-y divide-slate-100">
             {deliveries.slice(0, 4).map((del) => (
-              <div
+              <Link
                 key={del.id}
-                onClick={() => navigate(`/deliveries/${del.id}`)}
+                to={`/deliveries/${del.id}`}
                 className="py-2.5 flex items-center justify-between hover:bg-slate-50 rounded-lg px-2 cursor-pointer transition-colors"
               >
                 <div>
@@ -404,8 +411,10 @@ export const DashboardPage: React.FC = () => {
                     {del.deliveryDate} ({del.deliveryTimeSlot})
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
+            {deliveriesQuery.isError&&<p className="p-3 text-xs text-red-700">Livraisons indisponibles.</p>}
+            {deliveriesQuery.isSuccess&&!deliveries.length&&<p className="p-3 text-xs text-slate-500">Aucune livraison prévue ou en préparation.</p>}
           </div>
         </Card>}
       </div>

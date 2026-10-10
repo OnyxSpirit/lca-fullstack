@@ -33,16 +33,6 @@ const hasFinancialPayload=(body:Record<string,unknown>)=>VEHICLE_FINANCIAL_FIELD
 const jsonField=<T>(value:unknown,fallback:T):T=>{if(value==null||value==='')return fallback;if(typeof value!=='string')return value as T;try{return JSON.parse(value) as T}catch{throw new HttpError(400,'Champ JSON invalide')}};
 export function vehicleInventoryViewSql(view:string){if(view==='active')return " AND v.status NOT IN('sold','delivered')";if(view==='sold')return " AND v.status IN('sold','delivered')";if(view==='all')return'';throw new HttpError(400,'Vue de stock invalide')}
 
-vehicleRouter.use('/vehicles',(request,_response,next)=>{
-  if(request.method!=='POST'||request.path!=='/')return next();
-  const vin=txt(request.body?.vin,40).toUpperCase();
-  if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin))return next(new HttpError(400,'Le VIN doit comporter exactement 17 caractères valides.'));
-  const initialStatus=txt(request.body?.status)||'received';
-  if(!ADMINISTRABLE_VEHICLE_STATUSES.includes(initialStatus as never))return next(new HttpError(409,'Le statut initial doit être Commandé, En transit, Réceptionné, En préparation ou Disponible.'));
-  request.body.vin=vin;
-  next();
-});
-
 const locationScope=(request:Request,permission:string,alias='vl',requested:unknown=request.query.agencyId)=>vehicleScope(request,permission,alias,requested);
 const locationDto=(row:RowDataPacket)=>({id:String(row.id),agencyId:String(row.agency_id),agencyName:row.agency_name,name:String(row.name),type:String(row.type),isActive:Boolean(row.is_active),createdAt:row.created_at,updatedAt:row.updated_at});
 

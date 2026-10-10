@@ -143,7 +143,9 @@ deliveryRouter.get(
     const scoped = scope(request,'delivery.view'),
       conditions = [scoped.sql],
       params = [...scoped.params];
-    if (typeof request.query.status === "string" && request.query.status) {
+    if (request.query.active === 'true') {
+      conditions.push("d.status IN('planned','preparing','quality_control','ready') AND (d.status<>'planned' OR d.scheduled_at IS NULL OR d.scheduled_at>=NOW())");
+    } else if (typeof request.query.status === "string" && request.query.status) {
       if (!STATUSES.includes(request.query.status))
         throw new HttpError(400, "Statut invalide");
       conditions.push("d.status=?");

@@ -38,6 +38,7 @@ import { hrContractRouter } from './modules/hr/hr-contract.routes.js';
 import { hrLeaveRouter } from './modules/hr/hr-leave.routes.js';
 import { hrBonusRouter } from './modules/hr/hr-bonus.routes.js';
 import { treasuryRouter } from './modules/treasury/treasury.routes.js';
+import { bankReconciliationRouter } from './modules/treasury/bank-reconciliation.routes.js';
 import { vehicleReturnRouter } from './modules/vehicle-returns/vehicle-return.routes.js';
 import { activityRouter } from './modules/activity/activity.routes.js';
 import { documentMarkRouter } from './modules/document-marks/document-mark.routes.js';
@@ -55,7 +56,7 @@ export function createApp() {
   for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
   app.use('/api/auth',createAuthRouter());
-  app.use('/api',authenticate,enforceAgencyScope,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrRouter,bankReconciliationRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

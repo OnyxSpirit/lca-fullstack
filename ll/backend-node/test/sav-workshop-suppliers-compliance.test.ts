@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';import{readFileSync}from'node:fs';import test from'node:test';import{assertFinanciallySettled}from'../src/modules/billing/payment.domain.js';
+const source=(p:string)=>readFileSync(new URL(`../${p}`,import.meta.url),'utf8'),workshop=source('src/modules/workshop/workshop.routes.ts'),parts=source('src/modules/parts/part.routes.ts');
+test('SAV-TEST-01/02 remise refusée si facture impayée ou partielle',()=>{for(const balance of[100000,1])assert.throws(()=>assertFinanciallySettled(balance,'atelier'),/ne peut pas être remis/)});
+test('SAV-TEST-03 remise autorisée si facture soldée',()=>assert.doesNotThrow(()=>assertFinanciallySettled(0,'atelier')));
+test('SAV-TEST-04/05 kilométrage inférieur refusé et égal autorisé',()=>{assert.match(workshop,/mileage<Number\(ro\.mileage_in/);assert.match(workshop,/supérieur ou égal/)});
+test('SAV-TEST-06 contrôle qualité valide obligatoire',()=>assert.match(workshop,/Contrôle qualité validé obligatoire/));
+test('ATELIER-TEST-01/02 collisions technicien et pont',()=>{assert.match(workshop,/Technicien déjà occupé sur ce créneau/);assert.match(workshop,/Capacité du pont atteinte sur ce créneau/)});
+test('ATELIER-TEST-03 pont optionnel',()=>assert.match(workshop,/bay=r\.body\.bayId\?idOf\(r\.body\.bayId\):null/));
+test('ATELIER-TEST-04/05 pont inactif exclu mais historique joint',()=>{assert.match(workshop,/b\.status='available'/);assert.match(workshop,/LEFT JOIN workshop_bays/);assert.match(workshop,/Un pont occupé ne peut pas être désactivé/)});
+test('SUP-TEST-01..09 CRUD central, actif et historique',()=>{assert.match(parts,/post\('\/suppliers'/);assert.match(parts,/patch\('\/suppliers\/:id\/status'/);assert.match(parts,/FROM suppliers WHERE is_active=TRUE/);assert.match(parts,/LEFT JOIN suppliers/);assert.match(parts,/PARTS_MANAGER/);assert.doesNotMatch(parts,/CATALOG=\[[^\]]*WAREHOUSE_CLERK/)});
+test('PARTS-TEST-01..06 stock, réservations et réception idempotente',()=>{assert.match(parts,/reserved_stock/);assert.match(parts,/Stock disponible insuffisant/);assert.match(parts,/idempotencyKey/);assert.match(parts,/quantity_received/);assert.match(parts,/part_movements/)});

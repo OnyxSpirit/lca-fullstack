@@ -1,0 +1,63 @@
+import cors from 'cors';
+import express from 'express';
+import path from 'node:path';
+import helmet from 'helmet';
+import { pool } from './config/database.js';
+import { env } from './config/env.js';
+import { authenticate } from './middleware/authenticate.js';
+import { enforceAgencyScope } from './middleware/agency-scope.js';
+import { asyncHandler, errorHandler, notFound } from './middleware/error-handler.js';
+import { createAuthRouter } from './modules/auth/auth.routes.js';
+import { coreRouter } from './modules/core/core.routes.js';
+import { crmRouter } from './modules/crm/crm.routes.js';
+import { notificationRouter } from './modules/notifications/notification.routes.js';
+import { customerRouter } from './modules/customers/customer.routes.js';
+import { vehicleRouter } from './modules/vehicles/vehicle.routes.js';
+import { showroomRouter } from './modules/showroom/showroom.routes.js';
+import { deliveryRouter } from './modules/deliveries/delivery.routes.js';
+import { deliveryServiceRouter } from './modules/deliveries/delivery-service.routes.js';
+import { deliveryChecklistRouter } from './modules/deliveries/delivery-checklist.routes.js';
+import { workshopRouter } from './modules/workshop/workshop.routes.js';
+import { workshopVehicleRouter } from './modules/workshop/workshop-vehicle.routes.js';
+import { warrantyRouter } from './modules/workshop/warranty.routes.js';
+import { partRouter } from './modules/parts/part.routes.js';
+import { supplierFinanceRouter } from './modules/parts/supplier-finance.routes.js';
+import { billingRouter } from './modules/billing/billing.routes.js';
+import { reportRouter } from './modules/reports/report.routes.js';
+import { extendedReportRouter } from './modules/reports/extended-report.routes.js';
+import { financialReportRouter } from './modules/reports/financial-report.routes.js';
+import { documentRouter } from './modules/documents/document.routes.js';
+import { userRouter } from './modules/users/user.routes.js';
+import { settingRouter } from './modules/settings/setting.routes.js';
+import { saleRouter } from './modules/sales/sale.routes.js';
+import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
+import { quotationRouter } from './modules/quotations/quotation.routes.js';
+import { hrRouter } from './modules/hr/hr.routes.js';
+import { hrRemunerationRouter } from './modules/hr/hr-remuneration.routes.js';
+import { hrContractRouter } from './modules/hr/hr-contract.routes.js';
+import { hrLeaveRouter } from './modules/hr/hr-leave.routes.js';
+import { hrBonusRouter } from './modules/hr/hr-bonus.routes.js';
+import { treasuryRouter } from './modules/treasury/treasury.routes.js';
+import { bankReconciliationRouter } from './modules/treasury/bank-reconciliation.routes.js';
+import { vehicleReturnRouter } from './modules/vehicle-returns/vehicle-return.routes.js';
+import { activityRouter } from './modules/activity/activity.routes.js';
+import { documentMarkRouter } from './modules/document-marks/document-mark.routes.js';
+
+export function createApp() {
+  const app=express();
+  app.disable('x-powered-by');
+  app.set('trust proxy',env.trustProxyHops);
+  app.use(helmet());
+  app.use(cors({origin:env.frontendUrl,credentials:true}));
+  app.use(express.json({limit:'50mb'}));
+  const publicUploadRoot=path.resolve(process.env.UPLOAD_DIR??'uploads');
+  // La GED est privée et n'est jamais exposée par express.static. Seuls les
+  // espaces explicitement publics/compatibles conservent leurs URLs historiques.
+  for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
+  app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
+  app.use('/api/auth',createAuthRouter());
+  app.use('/api',authenticate,enforceAgencyScope,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrRouter,bankReconciliationRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use(notFound);
+  app.use(errorHandler);
+  return app;
+}

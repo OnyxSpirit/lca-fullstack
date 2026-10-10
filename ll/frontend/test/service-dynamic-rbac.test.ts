@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
+const detail=read('src/modules/service/RepairOrderDetailPage.tsx'),quick=read('src/components/layout/QuickActionModal.tsx'),app=read('src/App.tsx');
+for(const permission of ['service.order.receive','service.order.diagnose','service.order.approve','service.order.quality_control','service.order.ready','service.order.invoice','service.order.handover','service.order.close','service.order.cancel','service.order.assign_technician','service.documents.view'])test(`action masquée sans ${permission}`,()=>assert.match(detail,new RegExp(permission.replaceAll('.','\\.'))));
+test('facturation exige Billing create et issue',()=>{assert.match(detail,/billing\.invoice\.create/);assert.match(detail,/billing\.invoice\.issue/)});
+test('pièces exigent Parts',()=>assert.match(detail,/parts\.stock\.adjust/));
+test('restitution utilise le booléen financier minimal',()=>assert.match(detail,/financiallyCleared/));
+test('Quick Action OR exacte',()=>{assert.match(quick,/service\.order\.create/);assert.doesNotMatch(quick,/service\.create/)});
+test('module SAV exact',()=>assert.match(app,/service:'service\.order\.view'/));
+test('aucun rôle ne pilote le détail SAV',()=>assert.doesNotMatch(detail,/SERVICE_ADVISOR|SERVICE_MANAGER|WORKSHOP_MANAGER|TECHNICIAN|DIRECTOR|roles\.includes/));

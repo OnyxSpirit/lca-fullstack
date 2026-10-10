@@ -1,0 +1,160 @@
+# Inventaire des échecs des suites exploratoires
+
+Exécution du 15 septembre 2026. Voir FRESH_RBAC_VALIDATION.md pour le classement A–D.
+
+Ces résultats ne sont pas ceux des tests ciblés de la mission, qui passent.
+
+## backend
+
+- `test/app.test.ts:16:1` — le CRM refuse un rôle sans permission
+- `test/app.test.ts:17:1` — la création CRM valide le corps avant MySQL
+- `test/app.test.ts:18:1` — le CRM refuse une priorité inconnue avant MySQL
+- `test/app.test.ts:20:1` — un réceptionniste ne peut pas changer une étape commerciale
+- `test/app.test.ts:21:1` — un réceptionniste ne peut pas alimenter le journal commercial
+- `test/app.test.ts:22:1` — la création d’activité exige un prospect
+- `test/app.test.ts:23:1` — les identifiants CRM sont strictement numériques
+- `test/app.test.ts:25:1` — le module clients refuse un rôle sans accès
+- `test/app.test.ts:26:1` — la création client valide le métier avant MySQL
+- `test/app.test.ts:27:1` — les identifiants clients sont strictement numériques
+- `test/app.test.ts:28:1` — Clients valide email et téléphone sans imposer un format français
+- `test/app.test.ts:30:1` — la sous-requête véhicules Client 360 utilise EXISTS sans DISTINCT incompatible
+- `test/app.test.ts:33:1` — le stock refuse un rôle sans permission
+- `test/app.test.ts:34:1` — un réceptionniste ne peut pas créer un véhicule
+- `test/app.test.ts:35:1` — un réceptionniste ne peut modifier ni statut ni images véhicule
+- `test/app.test.ts:36:1` — la création véhicule valide le VIN avant MySQL
+- `test/app.test.ts:37:1` — une photo catalogue est obligatoire
+- `test/app.test.ts:38:1` — les identifiants véhicules sont strictement numériques
+- `test/app.test.ts:39:1` — le showroom refuse un rôle sans permission
+- `test/app.test.ts:40:1` — la réception valide un visiteur avant MySQL
+- `test/app.test.ts:41:1` — seul un rôle commercial peut démarrer un essai
+- `test/app.test.ts:42:1` — la réception ne peut ni prendre en charge ni clôturer commercialement
+- `test/app.test.ts:43:1` — la réception ne peut pas créer une vente
+- `test/app.test.ts:44:1` — les identifiants showroom sont strictement numériques
+- `test/app.test.ts:45:1` — les livraisons refusent un rôle atelier
+- `test/app.test.ts:46:1` — la réception ne peut pas planifier une livraison
+- `test/app.test.ts:47:1` — la planification valide la vente avant MySQL
+- `test/app.test.ts:48:1` — les identifiants livraison sont strictement numériques
+- `test/app.test.ts:49:1` — le planning PDF valide sa date avant MySQL
+- `test/app.test.ts:50:1` — le SAV refuse un rôle sans accès atelier
+- `test/app.test.ts:51:1` — la création OR valide les identifiants
+- `test/app.test.ts:52:1` — les identifiants OR sont strictement numériques
+- `test/app.test.ts:53:1` — un réceptionniste ne peut pas affecter un technicien
+- `test/app.test.ts:54:1` — un rendez-vous SAV exige client et véhicule
+- `test/app.test.ts:55:1` — une intervention refuse un identifiant OR invalide
+- `test/app.test.ts:56:1` — la réservation de pièce est refusée au réceptionniste
+- `test/app.test.ts:57:1` — la facturation atelier est réservée aux managers
+- `test/app.test.ts:58:1` — un technicien ne peut pas administrer les ponts
+- `test/app.test.ts:59:1` — le planning refuse une date invalide avant MySQL
+- `test/app.test.ts:60:1` — les KPI atelier refusent une période invalide
+- `test/app.test.ts:61:1` — le pointage exige un OR numérique
+- `test/app.test.ts:62:1` — le stock PR refuse un rôle sans accès
+- `test/app.test.ts:63:1` — un technicien ne peut pas enregistrer un mouvement manuel PR
+- `test/app.test.ts:64:1` — la création PR valide le catalogue avant MySQL
+- `test/app.test.ts:65:1` — une route générique ne peut pas contourner les workflows PR
+- `test/app.test.ts:66:1` — un magasinier ne peut pas cibler une autre agence
+- `test/app.test.ts:67:1` — un inventaire exige un motif avant MySQL
+- `test/app.test.ts:68:1` — un ajustement nul est refusé avant MySQL
+- `test/app.test.ts:69:1` — une réception exige une clé idempotente
+- `test/app.test.ts:70:1` — une commande fournisseur exige une ligne
+- `test/app.test.ts:71:1` — un technicien ne peut pas créer une commande fournisseur
+- `test/app.test.ts:72:1` — une création OR sous garantie exige sa référence avant MySQL
+- `test/app.test.ts:73:1` — une inspection OR refuse un identifiant invalide avant MySQL
+- `test/app.test.ts:74:1` — un technicien ne peut pas enregistrer la remise véhicule
+- `test/app.test.ts:75:1` — un conseiller SAV ne peut pas valider le contrôle qualité manager
+- `test/app.test.ts:76:1` — une correction de ligne OR exige un identifiant numérique
+- `test/app.test.ts:77:1` — la facturation refuse un rôle sans accès financier
+- `test/app.test.ts:78:1` — une facture manuelle exige au moins une ligne
+- `test/app.test.ts:79:1` — une ligne de facture refuse une remise supérieure au brut
+- `test/app.test.ts:80:1` — une échéance antérieure à émission est refusée
+- `test/app.test.ts:81:1` — un paiement exige une clé idempotente avant MySQL
+- `test/app.test.ts:82:1` — un avoir exige un motif avant MySQL
+- `test/app.test.ts:83:1` — un remboursement exige un motif avant MySQL
+- `test/app.test.ts:84:1` — Billing ne plante plus quand le body est absent sur GET
+- `test/app.test.ts:85:1` — les rôles pièces ne peuvent pas ouvrir Billing
+- `test/app.test.ts:86:1` — un conseiller SAV ne peut pas rembourser un paiement
+- `test/app.test.ts:87:1` — le reporting exige une période complète
+- `test/app.test.ts:88:1` — le reporting refuse une période inversée
+- `test/app.test.ts:89:1` — le reporting refuse une granularité inconnue
+- `test/app.test.ts:90:1` — un utilisateur agence ne peut pas analyser une autre agence
+- `test/app.test.ts:91:1` — un technicien ne peut pas accéder au reporting direction
+- `test/app.test.ts:93:1` — le dashboard refuse une agence invalide avant MySQL
+- `test/app.test.ts:94:1` — le dashboard interdit une autre agence à un rôle local
+- `test/app.test.ts:95:1` — un responsable SAV ne peut pas lire la performance commerciale
+- `test/app.test.ts:96:1` — un export reporting refuse une section inconnue avant MySQL
+- `test/app.test.ts:97:1` — un responsable pièces ne peut pas exporter les données financières
+- `test/app.test.ts:99:1` — un rôle sans accès GED est refusé
+- `test/app.test.ts:100:1` — la GED refuse un type d’entité inconnu avant MySQL
+- `test/app.test.ts:101:1` — un upload GED exige multipart/form-data
+- `test/app.test.ts:102:1` — la GED refuse un format exécutable avant accès MySQL
+- `test/app.test.ts:103:1` — la GED refuse un fichier supérieur à 15 Mo
+- `test/app.test.ts:104:1` — un lecteur GED ne peut pas demander les archives
+- `test/app.test.ts:105:1` — un identifiant notification invalide est refusé avant MySQL
+- `test/app.test.ts:107:1` — la sécurité Users protège agence, sessions et dernier SUPER_ADMIN
+- `test/app.test.ts:112:1` — les paramètres concession refusent les rôles non administratifs
+- `test/app.test.ts:113:1` — la mise à jour des paramètres valide les taux avant MySQL
+- `test/app.test.ts:114:1` — la création agence valide nom et code avant MySQL
+- `test/app.test.ts:117:1` — la suppression physique des agences est absente et la portée concession est contrôlée
+- `test/app.test.ts:121:1` — Sales refuse un rôle non commercial
+- `test/app.test.ts:122:1` — Sales valide la clé idempotente avant MySQL
+- `test/app.test.ts:123:1` — Sales refuse un identifiant de détail invalide avant MySQL
+- `test/app.test.ts:124:1` — CRM refuse une étape initiale inconnue avant MySQL
+- `test/app.test.ts:126:1` — CRM valide email et téléphone sans format français exclusif
+- `test/app.test.ts:127:1` — Vehicles refuse un VIN trop long ou contenant I O Q avant MySQL
+- `test/commercial-final-workflow.test.ts:9:1` — DEVIS-05/06/07 protège prérequis, propriétaire et agence par erreurs métier
+- `test/commercial-residuals.test.ts:52:1` — B1/B2 le propriétaire lit et modifie un devis créé par son manager
+- `test/commercial-residuals.test.ts:53:1` — B3 un autre commercial de la même agence est refusé en lecture et modification
+- `test/commercial-residuals.test.ts:54:1` — B3 la liste SALES_AGENT suit opportunity.assigned_user_id
+- `test/commercial-residuals.test.ts:55:1` — B4 le manager de la même agence accède au devis
+- `test/commercial-residuals.test.ts:56:1` — B4 un manager d’une autre agence est refusé
+- `test/commercial-residuals.test.ts:57:1` — B5 une transformation par le manager conserve le propriétaire de l’opportunité
+- `test/commercial-residuals.test.ts:58:1` — le manager valide le devis sans devenir propriétaire et l’action est auditée
+- `test/commercial-residuals.test.ts:59:1` — le commercial propriétaire peut émettre son devis sans validation hiérarchique
+- `test/commercial-residuals.test.ts:60:1` — un autre commercial ne peut pas émettre le devis
+- `test/commercial-residuals.test.ts:61:1` — le propriétaire peut produire le PDF réel de son devis
+- `test/commercial-residuals.test.ts:62:1` — le commercial ne voit que ses ventes, le manager voit celles de son agence
+- `test/commercial-residuals.test.ts:63:1` — la réaffectation post-vente est refusée même au manager sans règle métier explicite
+- `test/commercial-transversal-routes.test.ts:13:1` — DELIVERY-01/02/03 le handoff expose au commercial propriétaire le bon dossier complet
+- `test/commercial-transversal-routes.test.ts:14:1` — la liste financière accepte le filtre saleId et conserve le scope agence
+- `test/commercial-workflow.test.ts:12:1` — SALES_AGENT ne peut pas attribuer sa vente à autrui et seuls les rôles commerciaux sont éligibles
+- `test/crm-appointment-endpoint.test.ts:25:1` — qualified crée le vrai rendez-vous, son activité et passe l’opportunité à appointment
+- `test/crm-appointment-endpoint.test.ts:36:1` — qualified ne peut toujours pas passer manuellement à test_drive
+- `test/crm-appointment-endpoint.test.ts:43:1` — new ne peut pas créer arbitrairement un rendez-vous
+- `test/crm-assignment-endpoint.test.ts:34:1` — RECEPTIONIST crée sans commercial et reste distinct du propriétaire
+- `test/crm-assignment-endpoint.test.ts:40:1` — RECEPTIONIST peut choisir un SALES_AGENT actif de la même agence
+- `test/crm-assignment-endpoint.test.ts:46:1` — RECEPTIONIST peut choisir un SALES_MANAGER actif de la même agence
+- `test/crm-assignment-endpoint.test.ts:52:1` — un utilisateur non commercial ne peut pas recevoir un prospect
+- `test/crm-assignment-endpoint.test.ts:56:1` — un commercial inactif est refusé
+- `test/crm-assignment-endpoint.test.ts:57:1` — un commercial d’une autre agence est refusé
+- `test/crm-assignment-endpoint.test.ts:59:51` — SALES_AGENT devient propriétaire de son prospect sans choix explicite
+- `test/crm-assignment-endpoint.test.ts:59:51` — SALES_MANAGER devient propriétaire de son prospect sans choix explicite
+- `test/crm-assignment-endpoint.test.ts:60:46` — DIRECTOR ne devient pas propriétaire par défaut
+- `test/crm-assignment-endpoint.test.ts:60:46` — SUPER_ADMIN ne devient pas propriétaire par défaut
+- `test/crm-assignment-endpoint.test.ts:62:1` — liste et détail supportent assigned_user_id NULL
+- `test/crm-reassignment-endpoint.test.ts:15:1` — REASSIGN-01 un commercial ne peut pas transférer son prospect à Carlos
+- `test/crm-reassignment-endpoint.test.ts:16:1` — REASSIGN-02/05 Malik réaffecte Elion vers Carlos avec historique
+- `test/crm-reassignment-endpoint.test.ts:17:1` — REASSIGN-03 Malik ne peut pas cibler un commercial d’une autre agence
+- `test/crm-reassignment-endpoint.test.ts:18:1` — REASSIGN-04 Malik ne peut cibler ni utilisateur inactif ni utilisateur sans capacité commerciale
+- `test/crm-reassignment-endpoint.test.ts:19:1` — REC-CRM-10 le Réceptionniste affecte un prospect Nouveau non pris en charge
+- `test/crm-reassignment-endpoint.test.ts:20:1` — crm.prospect.assign AGENCY autorise la réaffectation sans dépendre du nom du rôle
+- `test/crm-reassignment-endpoint.test.ts:21:1` — le Réceptionniste ne peut pas modifier les données commerciales du prospect
+- `test/customers360-endpoint.test.ts:45:1` — GET /customers/:id/360 renvoie 200 et des collections vides pour un particulier neuf
+- `test/customers360-endpoint.test.ts:52:1` — GET /customers/:id/360 ouvre aussi une entreprise sans historique
+- `test/customers360-endpoint.test.ts:59:1` — GET /customers/:id/360 renvoie 404 pour un client absent
+- `test/customers360-endpoint.test.ts:65:1` — GET /customers/:id/360 ne révèle pas un client hors agence
+- `test/customers360-endpoint.test.ts:73:1` — la vue 360 renvoie un véhicule lié à une vente sans doublon
+- `test/customers360-endpoint.test.ts:80:1` — la vue 360 renvoie un véhicule lié à un OR sans doublon
+- `test/customers360-endpoint.test.ts:87:1` — un véhicule relié simultanément à une vente et un OR reste unique
+- `test/sav-workshop-suppliers-compliance.test.ts:10:1` — SUP-TEST-01..09 CRUD central, actif et historique
+- `test/test-drive-return-gate.test.ts:40:1` — TEST-DRIVE-08 le commercial simple ne peut pas confirmer lui-même le retour physique
+
+## frontend
+
+- `test/commercial-workflow.test.ts:6:1` — COM-01 Perdu utilise une modale contrôlée et non window.prompt
+- `test/commercial-workflow.test.ts:9:1` — COM-04 le SALES_AGENT ne voit pas le sélecteur et la liste exclut direction/admin
+- `test/commercial-workflow.test.ts:12:1` — COM-09 la GED filtre les entités et types documentaires avec une politique partagée
+- `test/concession-workflow-conformity.test.ts:21:1` — Commercial, Responsable commercial et Comptable voient les actions conformes
+- `test/crm-dynamic-rbac.test.ts:7:1` — CRM affiche les actions avec les permissions dynamiques
+- `test/sale-wizard.behavior.test.ts:46:1` — SALE-DETAIL-04 sans billing.payment.collect la consultation reste disponible sans action interdite
+- `test/service-dynamic-rbac.test.ts:6:331` — action masquée sans service.order.advance
+- `test/test-drive-return-gate.test.ts:7:1` — TEST-DRIVE-03 le CRM affiche l’essai en cours et désactive le devis avec explication
+- `test/test-drive-return-gate.test.ts:25:1` — TEST-DRIVE-08 départ commercial et confirmation physique du retour utilisent des permissions distinctes

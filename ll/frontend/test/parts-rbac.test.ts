@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
+const list=source('src/modules/parts/SparePartsPage.tsx'),detail=source('src/modules/parts/SparePartDetailPage.tsx'),hooks=source('src/api/erpHooks.ts'),workshop=source('src/modules/service/RepairOrderDetailPage.tsx');
+test('PARTS-FE-01 catalogue ne charge pas sans permission',()=>assert.match(list,/usePartsQuery\([^;]+canViewCatalog\)/));
+test('PARTS-FE-02 commandes ne chargent pas sans permission',()=>assert.match(list,/usePurchaseOrdersQuery\(agency\?\.id,canViewOrders\)/));
+test('PARTS-FE-03 mouvements ne chargent pas sans stock.view',()=>assert.match(detail,/usePartMovementsQuery\([^;]+canViewStock\)/));
+test('PARTS-FE-04 inventaire utilise inventory.manage',()=>assert.match(detail,/canInventory=can\('parts\.inventory\.manage'\)/));
+test('PARTS-FE-05 ajustement utilise stock.adjust',()=>assert.match(detail,/canAdjust=can\('parts\.stock\.adjust'\)/));
+test('PARTS-FE-06 retour utilise stock.adjust séparément',()=>assert.match(detail,/canReturn=can\('parts\.stock\.adjust'\)/));
+test('PARTS-FE-07 transfert utilise stock.move',()=>assert.match(detail,/canTransfer=can\('parts\.stock\.move'\)/));
+test('PARTS-FE-08 approvisionnements nécessitent purchase_order.view',()=>assert.match(detail,/canViewOrders&&<Card><h2[^>]*>Approvisionnement récent/));
+test('PARTS-FE-09 réservations utilisent les quatre permissions dédiées',()=>{for(const code of ['parts.reservation.view','parts.reservation.create','parts.reservation.release','parts.reservation.consume'])assert.match(workshop,new RegExp(code.replaceAll('.','\\.')))});
+test('PARTS-FE-10 les hooks Parts acceptent requestEnabled',()=>{assert.match(hooks,/usePurchaseOrdersQuery=.*requestEnabled/);assert.match(hooks,/usePartMovementsQuery=.*requestEnabled/)});

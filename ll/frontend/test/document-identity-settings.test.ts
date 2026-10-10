@@ -1,0 +1,6 @@
+import assert from'node:assert/strict';import{readFileSync}from'node:fs';import test from'node:test';
+const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),page=source('src/modules/settings/SettingsPage.tsx'),hooks=source('src/api/settingHooks.ts');
+test('UI-ID-01..06 RCCM, RIB et site web sont affichés, éditables et typés',()=>{for(const label of['RCCM','Site web'])assert.match(page,new RegExp(`['"]${label}['"]`));assert.match(page,/>RIB<input/);for(const field of['rccm','rib','website']){assert.match(page,new RegExp(`concession\\.data\\.${field}`));assert.match(hooks,new RegExp(`${field}:string\\|null`))}});
+test('UI-ID-07/08 le NIU canonique reste présent sans libellé NIF',()=>{assert.match(page,/\['taxIdentifier','NIU'\]/);assert.doesNotMatch(page,/\bNIF\b/);assert.match(hooks,/taxIdentifier/)});
+test('UI-ID-09 validation et erreurs restent explicites',()=>{assert.match(page,/inputMode=\{key==='website'\?'url':undefined\}/);assert.match(page,/Opération impossible/);assert.match(page,/error instanceof Error \? error\.message/)});
+test('UI-ID-10 utilisateur sans settings.update reste en lecture seule',()=>{assert.match(page,/admin=can\('settings\.update'\)/);assert.match(page,/disabled=\{!admin\}/);assert.match(page,/\{admin&&<div className="flex items-end gap-2"/)});

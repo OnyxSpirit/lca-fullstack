@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
+const page=source('src/modules/workshop/WorkshopPlanningPage.tsx'),hooks=source('src/api/erpHooks.ts'),detail=source('src/modules/service/RepairOrderDetailPage.tsx');
+test('planning exige workshop.view avant ses requêtes',()=>{assert.match(page,/canView=can\('workshop\.view'\)/);assert.match(page,/canViewPlanning/)});
+test('édition planning exige workshop.plan',()=>assert.match(page,/canPlan=can\('workshop\.plan'\)/));
+test('sélecteur technicien dépend de assign_technician',()=>assert.match(page,/canAssignTechnician=can\('workshop\.assign_technician'\)/));
+test('sélecteur pont dépend de assign_bay',()=>assert.match(page,/canAssignBay=can\('workshop\.assign_bay'\)/));
+test('productivité non autorisée ne lance pas de requête',()=>{assert.match(page,/useWorkshopStatsQuery\([^;]+canView&&canViewProductivity\)/);assert.match(hooks,/requestEnabled&&Boolean\(agencyId&&from&&to\)/)});
+test('KPI productivité sont masqués sans permission',()=>assert.match(page,/canViewProductivity&&<div className="grid grid-cols-2 lg:grid-cols-5 gap-3">/));
+test('requêtes de ressources sont conditionnelles',()=>{assert.match(page,/useTechniciansQuery\(agency\?\.id,canView&&canViewTechnicians\)/);assert.match(page,/useWorkshopBaysQuery\(agency\?\.id,canView&&canViewBays\)/)});
+test('commandes session sont pilotées par session.track',()=>assert.match(detail,/can\('workshop\.session\.track'\)/));

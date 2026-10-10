@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {after,test} from 'node:test';
+import supertest from 'supertest';
+import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
+import {createApp} from '../src/app.js';
+import {pool,query} from '../src/config/database.js';
+
+const enabled=process.env.LCA_PR04_DB_TEST==='1';
+if(enabled)after(async()=>pool.end());
+const rows=(sql:string,params:unknown[]=[])=>query<RowDataPacket[]>(sql,params);
+const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
+
+test('PR-04 restitue les emplacements de stock dans la liste sans fuite multi-agence',{skip:!enabled},async()=>{
+  const api=supertest(createApp()),suffix=randomUUID().slice(0,8),password=process.env.ADMIN_PASSWORD!;
+  const adminLogin=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password});assert.equal(adminLogin.status,200,JSON.stringify(adminLogin.body));
+  const [admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);
+  const [home]=await rows('SELECT concession_id FROM agencies WHERE id=?',[admin.agency_id]),agencyA=String(admin.agency_id);
+  const agencyB=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[home.concession_id,`Agence B ${suffix}`,`PR04_B_${suffix}`]);
+  const concessionC=await insert('INSERT INTO concessions(name,code) VALUES(?,?)',[`Concession C ${suffix}`,`PR04_C_${suffix}`]);
+  const agencyC=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concessionC,`Agence C ${suffix}`,`PR04_AC_${suffix}`]);
+  const makeRole=async(label:string,scope:'AGENCY'|'CONCESSION'|'GLOBAL'|null)=>{const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`PR04_${label}_${suffix}`,`PR04 ${label} ${suffix}`]);if(scope)for(const code of ['parts.catalog.view','parts.stock.view']){const[permission]=await rows('SELECT id FROM permissions WHERE code=?',[code]);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);}return role;};
+  const makeUser=async(label:string,agency:string,role:string)=>{const email=`pr04-${label}-${suffix}@test.local`,user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'PR04',label,email,admin.password_hash]);await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);const login=await api.post('/api/auth/login').send({email,password});assert.equal(login.status,200,JSON.stringify(login.body));return login.body.accessToken as string;};
+  const agencyToken=await makeUser('agency',agencyA,await makeRole('AGENCY','AGENCY')),concessionToken=await makeUser('concession',agencyB,await makeRole('CONCESSION','CONCESSION')),globalToken=await makeUser('global',agencyC,await makeRole('GLOBAL','GLOBAL')),deniedToken=await makeUser('denied',agencyA,await makeRole('DENIED',null));
+  const locationMain=await insert("INSERT INTO locations(agency_id,name,type,is_active) VALUES(?,?,'warehouse',TRUE)",[agencyA,'Magasin principal']),locationRay=await insert("INSERT INTO locations(agency_id,name,type,is_active) VALUES(?,?,'warehouse',FALSE)",[agencyA,'Rayon B']),locationB=await insert("INSERT INTO locations(agency_id,name,type,is_active) VALUES(?,?,'warehouse',TRUE)",[agencyB,'Magasin B / Rayon 4']),locationC=await insert("INSERT INTO locations(agency_id,name,type,is_active) VALUES(?,?,'warehouse',TRUE)",[agencyC,'Magasin C']);
+  const makePart=(label:string)=>insert('INSERT INTO parts(reference,name,is_active) VALUES(?,?,TRUE)',[`PR04-${label}-${suffix}`,`Pièce ${label}`]);
+  const partA=await makePart('A'),partB=await makePart('B'),partC=await makePart('C'),partD=await makePart('D');
+  await pool.execute('INSERT INTO part_stocks(part_id,agency_id,location_id,current_stock) VALUES(?,?,?,8),(?,?,NULL,3),(?,?,?,8),(?,?,?,4),(?,?,?,5),(?,?,?,7)',[partA,agencyA,locationMain,partB,agencyA,partC,agencyA,locationMain,partC,agencyA,locationRay,partD,agencyA,locationMain,partD,agencyB,locationB]);
+  await pool.execute('INSERT INTO part_stocks(part_id,agency_id,location_id,current_stock) VALUES(?,?,?,1)',[partA,agencyC,locationC]);
+  const auth=(token:string,path:string)=>api.get(path).set('Authorization',`Bearer ${token}`),byId=(body:any[],id:string)=>body.find(row=>String(row.id)===id);
+  const listA=await auth(agencyToken,`/api/parts?agencyId=${agencyA}`);assert.equal(listA.status,200,JSON.stringify(listA.body));
+  const a=byId(listA.body,partA),b=byId(listA.body,partB),c=byId(listA.body,partC),d=byId(listA.body,partD);
+  assert.deepEqual(a.stocks.map((stock:{location_name:string})=>stock.location_name),['Magasin principal']);
+  assert.deepEqual(b.stocks,[]);
+  assert.deepEqual(c.stocks.map((stock:{location_name:string})=>stock.location_name),['Magasin principal','Rayon B']);
+  assert.deepEqual(d.stocks.map((stock:{location_name:string})=>stock.location_name),['Magasin principal']);
+  assert.ok(!JSON.stringify(listA.body).includes('Magasin B / Rayon 4'));assert.ok(!JSON.stringify(listA.body).includes('Magasin C'));
+  const detailA=await auth(agencyToken,`/api/parts/${partA}?agencyId=${agencyA}`);assert.equal(detailA.status,200);assert.deepEqual(a.stocks.map((stock:{location_name:string})=>stock.location_name),detailA.body.stocks.map((stock:{location_name:string})=>stock.location_name));
+  assert.equal((await auth(deniedToken,`/api/parts?agencyId=${agencyA}`)).status,403);
+  assert.equal((await auth(agencyToken,`/api/parts?agencyId=${agencyB}`)).status,403);
+  const listBConcession=await auth(concessionToken,`/api/parts?agencyId=${agencyB}`);assert.equal(listBConcession.status,200,JSON.stringify(listBConcession.body));assert.deepEqual(byId(listBConcession.body,partD).stocks.map((stock:{location_name:string})=>stock.location_name),['Magasin B / Rayon 4']);assert.equal((await auth(concessionToken,`/api/parts?agencyId=${agencyC}`)).status,403);
+  const listCGlobal=await auth(globalToken,`/api/parts?agencyId=${agencyC}`);assert.equal(listCGlobal.status,200);assert.deepEqual(byId(listCGlobal.body,partA).stocks.map((stock:{location_name:string})=>stock.location_name),['Magasin C']);
+  console.log('PR04_API_EVIDENCE',JSON.stringify({pieceA:a.stocks.map((x:{location_name:string})=>x.location_name),pieceB:b.stocks,pieceC:c.stocks.map((x:{location_name:string})=>x.location_name),pieceDAgencyA:d.stocks.map((x:{location_name:string})=>x.location_name),pieceDAgencyB:byId(listBConcession.body,partD).stocks.map((x:{location_name:string})=>x.location_name)}));
+});

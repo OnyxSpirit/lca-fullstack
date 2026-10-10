@@ -1,0 +1,4 @@
+import assert from'node:assert/strict';import test from'node:test';import{readFileSync}from'node:fs';const read=(p:string)=>readFileSync(new URL(p,import.meta.url),'utf8');
+test('devis expose régime et mode avec permission dynamique',()=>{const x=read('../src/modules/crm/QuotationModal.tsx');assert.match(x,/sales\.tax\.override/);assert.match(x,/Soumis à TVA/);assert.match(x,/Sans TVA/);assert.match(x,/Prix HT/);assert.match(x,/Prix TTC/)});
+test('facture expose les contrôles fiscaux et conserve le workflow',()=>{const x=read('../src/modules/billing/NewInvoiceModal.tsx');assert.match(x,/Régime fiscal/);assert.match(x,/Mode de saisie/);assert.match(x,/form\.invoiceType==='vehicle'/);assert.match(x,/useCreateInvoice/)});
+test('paramètres proposent un logo commercial borné',()=>{const x=read('../src/modules/settings/SettingsPage.tsx');assert.match(x,/Logo des documents commerciaux/);assert.match(x,/image\/png,image\/jpeg/);assert.match(x,/2\*1024\*1024/)});

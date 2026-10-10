@@ -1,0 +1,74 @@
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { erpKeys, useAgenciesQuery, useUsersQuery } from '../api/erpHooks';
+import { connectRealtime, disconnectRealtime } from '../services/realtime';
+import { createCrmRefreshScheduler } from '../services/crmRealtime';
+import { useAuthStore } from '../stores/authStore';
+import { dashboardOverviewKey } from '../api/dashboardHooks';
+import { armNotificationSound, notificationSignal } from '../services/notificationSound';
+import { isDefinitiveAuthenticationFailure, waitForActiveRefresh } from '../services/apiClient';
+
+const eventKeys: Record<string, readonly string[]> = {
+  'sales:created': erpKeys.sales, 'sales:status': erpKeys.sales,
+  'reservations:created': erpKeys.vehicles, 'reservations:cancelled': erpKeys.vehicles,
+  'vehicles:created': erpKeys.vehicles, 'vehicles:updated': erpKeys.vehicles, 'vehicles:status-changed': erpKeys.vehicles, 'vehicles:transferred': erpKeys.vehicles, 'vehicles:image-added': erpKeys.vehicles,
+  'workshop:repair-order-created': erpKeys.repairOrders, 'workshop:status': erpKeys.repairOrders,
+  'workshop:repair-order-updated': erpKeys.repairOrders, 'workshop:invoiced': erpKeys.repairOrders,
+  'parts:stock-changed': erpKeys.parts,
+  'deliveries:created': erpKeys.deliveries, 'deliveries:checklist': erpKeys.deliveries, 'deliveries:delivered': erpKeys.deliveries,
+  'deliveries:status': erpKeys.deliveries, 'deliveries:rescheduled': erpKeys.deliveries, 'deliveries:document': erpKeys.deliveries,
+  'billing:invoice-created': erpKeys.invoices, 'billing:payment': erpKeys.invoices,
+  'billing:invoice-updated': erpKeys.invoices, 'billing:credit-note': erpKeys.invoices, 'billing:payment-refunded': erpKeys.invoices,
+  'showroom:visitor-created': ['showroom'], 'showroom:assigned': ['showroom'], 'showroom:takeover': ['showroom'],
+  'showroom:completed': ['showroom'], 'showroom:cancelled': ['showroom'], 'showroom:converted': ['showroom'],
+  'showroom:test-drive-started': ['showroom'], 'showroom:test-drive-completed': ['showroom'], 'showroom:test-drive-cancelled': ['showroom'],
+  'documents:created':['documents'],'documents:archived':['documents'],'documents:restored':['documents'],'documents:versioned':['documents'],
+  'users:created':['users'],'users:updated':['users'],'users:status-changed':['users'],
+  'settings:updated':['settings'],'agencies:updated':['agencies'],
+};
+const planningEvents=['workshop:assigned','workshop:schedule-updated','workshop:schedule-cancelled','workshop:session-started','workshop:session-stopped','workshop:resources-changed'];
+
+async function synchronizePermissions(refreshPermissions:()=>Promise<void>,logout:()=>void){
+  try{await refreshPermissions();return}catch{/* A concurrent refresh may still make the session usable. */}
+  try{await waitForActiveRefresh()}catch{/* Session expiry is handled centrally by apiClient. */}
+  if(!useAuthStore.getState().isAuthenticated||!localStorage.getItem('lca-access-token'))return;
+  try{await refreshPermissions()}catch(error){if(isDefinitiveAuthenticationFailure(error))logout()}
+}
+
+export function AppBootstrap() {
+  const authenticated = useAuthStore((s) => s.isAuthenticated);
+  const setDirectory = useAuthStore((s) => s.setDirectory);
+  const logout = useAuthStore((s) => s.logout);
+  const refreshPermissions = useAuthStore((s) => s.refreshPermissions);
+  const users = useUsersQuery(); const agencies = useAgenciesQuery(); const qc = useQueryClient();
+  useEffect(() => { if (users.data && agencies.data) setDirectory(users.data, agencies.data); }, [users.data, agencies.data, setDirectory]);
+  useEffect(() => {
+    if (!authenticated || !localStorage.getItem('lca-access-token')) return;
+    void synchronizePermissions(refreshPermissions,logout);
+  }, [authenticated, refreshPermissions, logout]);
+  useEffect(() => {
+    const token = localStorage.getItem('lca-access-token'); if (!authenticated || !token) return;
+    let disposed=false,disposeListeners=()=>{};
+    void (async()=>{
+      let activeToken=token,socket=await connectRealtime(activeToken);
+      while(socket&&!disposed&&useAuthStore.getState().isAuthenticated){
+        const currentToken=localStorage.getItem('lca-access-token');
+        if(!currentToken){disconnectRealtime(socket);return}
+        if(currentToken===activeToken)break;
+        disconnectRealtime(socket);activeToken=currentToken;socket=await connectRealtime(activeToken);
+      }
+      if(!socket||disposed||!useAuthStore.getState().isAuthenticated){if(socket)disconnectRealtime(socket);return}
+      const crmRefresh=createCrmRefreshScheduler(customerChanged=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:dashboardOverviewKey});if(customerChanged)void qc.invalidateQueries({queryKey:erpKeys.customers})});
+      const crmLeadUpdated=crmRefresh.receive;socket.on('crm:lead-updated',crmLeadUpdated);
+      const armAudio=()=>armNotificationSound();window.addEventListener('pointerdown',armAudio,{once:true});window.addEventListener('keydown',armAudio,{once:true});
+      const notificationCreated=(payload:{id?:string})=>{notificationSignal.receive(payload);void qc.invalidateQueries({queryKey:['notifications']});void qc.invalidateQueries({queryKey:dashboardOverviewKey})};socket.on('notifications:created',notificationCreated);
+      const eventHandlers=new Map<string,()=>void>();Object.entries(eventKeys).forEach(([event,key]) => {const handler=()=>{void qc.invalidateQueries({ queryKey: key });void qc.invalidateQueries({queryKey:dashboardOverviewKey}); if(event==='showroom:test-drive-completed'||event==='sales:created'||event==='sales:status'){void qc.invalidateQueries({queryKey:erpKeys.vehicles});} if(event==='showroom:test-drive-completed'){void qc.invalidateQueries({queryKey:erpKeys.leads});} if(event==='parts:stock-changed'){void qc.invalidateQueries({queryKey:['purchase-orders']});void qc.invalidateQueries({queryKey:['parts']});} if(event==='settings:updated'){void qc.invalidateQueries({queryKey:['concession-current']});void qc.invalidateQueries({queryKey:['billing-config']});void qc.invalidateQueries({queryKey:['workshop-config']});}};eventHandlers.set(event,handler);socket.on(event,handler)});
+      const planningHandlers=new Map<string,()=>void>();planningEvents.forEach(event=>{const handler=()=>{void qc.invalidateQueries({queryKey:['workshop-planning']});void qc.invalidateQueries({queryKey:['workshop-stats']});void qc.invalidateQueries({queryKey:['workshop-bays']});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['workshop-unavailabilities']});void qc.invalidateQueries({queryKey:dashboardOverviewKey});};planningHandlers.set(event,handler);socket.on(event,handler)});
+      const rbacUpdated=()=>{void synchronizePermissions(refreshPermissions,logout).then(()=>{if(useAuthStore.getState().isAuthenticated)void qc.invalidateQueries();})};socket.on('rbac:updated',rbacUpdated);
+      disposeListeners=()=>{crmRefresh.dispose();window.removeEventListener('pointerdown',armAudio);window.removeEventListener('keydown',armAudio);socket.off('crm:lead-updated',crmLeadUpdated);socket.off('notifications:created',notificationCreated);eventHandlers.forEach((handler,event)=>socket.off(event,handler));planningHandlers.forEach((handler,event)=>socket.off(event,handler));socket.off('rbac:updated',rbacUpdated);disconnectRealtime(socket)};
+      if(disposed)disposeListeners();
+    })();
+    return () => {disposed=true;disposeListeners();qc.removeQueries({queryKey:['notifications']});disconnectRealtime()};
+  }, [authenticated, qc, refreshPermissions, logout]);
+  return null;
+}

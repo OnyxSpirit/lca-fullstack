@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {after,test} from 'node:test';
+import supertest from 'supertest';
+import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
+import {createApp} from '../src/app.js';
+import {pool,query} from '../src/config/database.js';
+
+const enabled=process.env.LCA_SAV20_DB_TEST==='1';
+if(enabled)after(async()=>pool.end());
+const rows=(sql:string,params:unknown[]=[])=>query<RowDataPacket[]>(sql,params);
+const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
+
+test('SAV-OR-20 chiffre côté serveur avant décision sans toucher au stock',{skip:!enabled},async()=>{
+  const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
+  const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200,JSON.stringify(login.body));
+  const token=login.body.accessToken as string,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
+  const[admin]=await rows('SELECT id,agency_id,password_hash FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
+  await pool.execute("INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,updated_by) VALUES('agency',?,'workshop.rate_t1',JSON_ARRAY(?),?) ON DUPLICATE KEY UPDATE setting_value=JSON_ARRAY(?)",[agency,25000,admin.id,25000]);
+  await pool.execute("INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,updated_by) VALUES('agency',?,'billing.default_vat_rate',JSON_ARRAY(?),?) ON DUPLICATE KEY UPDATE setting_value=JSON_ARRAY(?)",[agency,0,admin.id,0]);
+  const brand=await insert('INSERT INTO brands(name,code) VALUES(?,?)',[`SAV20 ${suffix}`,`S20B_${suffix}`]),model=await insert('INSERT INTO models(brand_id,name) VALUES(?,?)',[brand,'Modèle']),version=await insert('INSERT INTO versions(model_id,name) VALUES(?,?)',[model,'Version']);
+  const customer=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name) VALUES(?,?,?,?)',[`S20C_${suffix}`,agency,'Client','Chiffrage']),vehicle=await insert('INSERT INTO vehicles(version_id,agency_id,vin) VALUES(?,?,?)',[version,agency,`S20${suffix}VIN`]);
+  const order=await insert("INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,status,created_by) VALUES(?,?,?,?,?,'diagnosis',?)",[`OR-S20-${suffix}`,customer,vehicle,agency,admin.id,admin.id]);
+  await pool.execute("INSERT INTO diagnostics(repair_order_id,diagnosis,estimated_hours) VALUES(?,'Diagnostic SAV-OR-20',3)",[order]);
+  const location=await insert("INSERT INTO locations(agency_id,name,type,is_active) VALUES(?,?,'warehouse',TRUE)",[agency,`Magasin S20 ${suffix}`]),part=await insert('INSERT INTO parts(reference,name,sale_price) VALUES(?,?,120000)',[`S20P-${suffix}`,'Pièce prévue']),stock=await insert('INSERT INTO part_stocks(part_id,agency_id,location_id,current_stock,reserved_stock) VALUES(?,?,?,10,0)',[part,agency,location]);
+  const route=(tail:string)=>`/api/repair-orders/${order}${tail}`;
+  const prematureIntervention=await insert("INSERT INTO interventions(repair_order_id,description,planned_hours,status) VALUES(?,'Préparation',3,'planned')",[order]);assert.equal((await auth(api.post(route('/sessions/start'))).send({technicianId:'1',interventionId:prematureIntervention})).status,409);
+  const laborKey=randomUUID(),labor=await auth(api.post(route('/estimate-items'))).send({itemType:'labor',description:'Travail prévu',quantity:3,rateCode:'T1',unitPrice:1,requestKey:laborKey});assert.equal(labor.status,201,JSON.stringify(labor.body));
+  assert.equal(labor.body.estimateSummary.byType.labor.total,75000);
+  const laborRetry=await auth(api.post(route('/estimate-items'))).send({itemType:'labor',description:'Travail prévu',quantity:3,rateCode:'T1',unitPrice:999999,requestKey:laborKey});assert.equal(laborRetry.status,201);assert.equal(laborRetry.body.estimateItems.filter((x:{request_key:string})=>x.request_key===laborKey).length,1);
+  const partEstimate=await auth(api.post(route('/estimate-items'))).send({itemType:'part',partId:part,quantity:1,unitPrice:1,requestKey:randomUUID()});assert.equal(partEstimate.status,201,JSON.stringify(partEstimate.body));assert.equal(partEstimate.body.estimateSummary.byType.part.total,120000);assert.equal(partEstimate.body.estimateSummary.total,195000);
+  const[stockAfterEstimate]=await rows('SELECT current_stock,reserved_stock FROM part_stocks WHERE id=?',[stock]);const[movementsAfterEstimate]=await rows("SELECT COUNT(*) total FROM part_movements WHERE reference_type='repair_order' AND reference_id=?",[order]);assert.equal(Number(stockAfterEstimate.current_stock),10);assert.equal(Number(stockAfterEstimate.reserved_stock),0);assert.equal(Number(movementsAfterEstimate.total),0);
+  const waiting=await auth(api.patch(route('/status'))).send({status:'waiting_approval'});assert.equal(waiting.status,200,JSON.stringify(waiting.body));
+  const decisionRace=await Promise.all([auth(api.post(route('/approval'))).send({approved:true,approvedAmount:10000,customerName:'Client Chiffrage'}),auth(api.post(route('/approval'))).send({approved:true,approvedAmount:1,customerName:'Retry'})]);
+  assert.deepEqual(decisionRace.map(response=>response.status).sort(),[201,409]);
+  const decisionResponses=await rows('SELECT approved,approved_amount FROM repair_approvals WHERE repair_order_id=?',[order]);assert.equal(decisionResponses.length,1);assert.equal(Number(decisionResponses[0].approved_amount),195000);
+  assert.equal((await auth(api.post(route('/estimate-items'))).send({itemType:'labor',description:'Altération',quantity:1,rateCode:'T1'})).status,409);
+  await pool.execute("INSERT INTO repair_order_items(repair_order_id,item_type,description,quantity,unit_price,tax_rate,line_total) VALUES(?,'labor','Temps facturable distinct',2,25000,0,50000)",[order]);
+  const[snapshot]=await rows('SELECT approved_amount FROM repair_approvals WHERE repair_order_id=?',[order]);assert.equal(Number(snapshot.approved_amount),195000);
+  const refusedOrder=await insert("INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,status,created_by,estimated_total) VALUES(?,?,?,?,?,'waiting_approval',?,195000)",[ `OR-S20-REF-${suffix}`,customer,vehicle,agency,admin.id,admin.id]);await pool.execute("INSERT INTO repair_order_estimate_items(repair_order_id,item_type,description,quantity,unit_price,tax_rate,line_total,created_by) VALUES(?,'labor','Travail refusé',3,25000,0,75000,?),(?,'part','Pièce refusée',1,120000,0,120000,?)",[refusedOrder,admin.id,refusedOrder,admin.id]);const refusal=await auth(api.post(`/api/repair-orders/${refusedOrder}/approval`)).send({approved:false,approvedAmount:2,customerName:'Client Refus'});assert.equal(refusal.status,201,JSON.stringify(refusal.body));const[refusedSnapshot]=await rows('SELECT approved,approved_amount FROM repair_approvals WHERE repair_order_id=?',[refusedOrder]);assert.equal(Boolean(refusedSnapshot.approved),false);assert.equal(Number(refusedSnapshot.approved_amount),195000);
+  const deniedUser=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'Sans','Permission',`sans-${suffix}@test.local`,admin.password_hash]),deniedRole=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`S20_DENY_${suffix}`,`Sans permission ${suffix}`]);await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[deniedUser,deniedRole]);
+  const deniedLogin=await api.post('/api/auth/login').send({email:`sans-${suffix}@test.local`,password:process.env.ADMIN_PASSWORD});assert.equal(deniedLogin.status,200);assert.equal((await api.post(route('/estimate-items')).set('Authorization',`Bearer ${deniedLogin.body.accessToken}`).send({itemType:'labor',description:'Interdit',quantity:1,rateCode:'T1'})).status,403);
+  console.log('SAV_OR20_EVIDENCE',JSON.stringify({labor:75000,parts:120000,total:195000,submittedSnapshot:Number(snapshot.approved_amount),refusedSnapshot:Number(refusedSnapshot.approved_amount),stock:Number(stockAfterEstimate.current_stock),reserved:Number(stockAfterEstimate.reserved_stock),movements:Number(movementsAfterEstimate.total),actualBillableHours:2,prematureSessionHttp:409}));
+});

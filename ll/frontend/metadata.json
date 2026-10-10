@@ -1,0 +1,6 @@
+{
+  "name": "AutoCore ERP - Concession Automobile",
+  "description": "Portail intégré de gestion ERP/CRM pour concession automobile : CRM, stock véhicules, ventes, showroom, SAV, atelier, pièces de rechange, livraisons, facturation et pilotage BI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

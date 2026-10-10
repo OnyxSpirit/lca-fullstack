@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import type{DocumentReferences}from'../types/documents';
 
 export interface ConcessionIdentity { id?: string; concessionId?:string; name?:string; tradeName?:string; legalName: string | null; taxIdentifier: string | null; rccm:string|null;rib:string|null;website:string|null; address?: string | null; concessionAddress?:string|null; city?: string | null; concessionCity?:string|null; country: string | null; currencyCode: string; timezone: string; logoMime?:string|null;logoBase64?:string|null }
-export interface ConcessionSettings { concession: ConcessionIdentity; billing: { defaultVatRate: number }; crm:{defaultAppointmentDurationMinutes:number}; workshop: { rates: Record<string,number> } }
+export interface ConcessionSettings { concession: ConcessionIdentity; billing: { defaultVatRate: number }; crm:{defaultAppointmentDurationMinutes:number;defaultTestDriveDurationMinutes:number}; workshop: { rates: Record<string,number> } }
 export interface SettingsAgency { id: string; concessionId: string; name: string; code: string; address: string | null; city: string | null; phone: string | null; email: string | null; isActive: boolean }
 export interface WorkshopLaborRate {id:string;code:string;label:string;concessionHourlyRate:number;isActive:boolean;displayOrder:number;agencyOverride:{id:string;hourlyRate:number;isActive:boolean}|null;effectiveHourlyRate:number;effectiveIsActive:boolean;source:'concession'|'agency'}
 export interface WorkshopLaborRatesResponse {agencyId:string;rates:WorkshopLaborRate[]}

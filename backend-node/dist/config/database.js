@@ -29,3 +29,15 @@ export async function transaction(work) {
         connection.release();
     }
 }
+export async function transactionWithDeadlockRetry(work, maxAttempts = 3) {
+    for (let attempt = 1;; attempt++) {
+        try {
+            return await transaction(work);
+        }
+        catch (error) {
+            const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+            if (code !== 'ER_LOCK_DEADLOCK' || attempt >= maxAttempts)
+                throw error;
+        }
+    }
+}

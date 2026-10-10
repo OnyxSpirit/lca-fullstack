@@ -479,7 +479,7 @@ export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutat
 export const useCancelQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,status='cancelled',reason}:{id:string;status?:'cancelled'|'rejected';reason:string})=>apiRequest<Quotation>(`/quotations/${id}/cancel`,{method:'POST',body:JSON.stringify({status,reason})}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:Record<string,unknown>&{id:string})=>apiRequest(`/leads/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.leads})})};
 export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;durationMinutes?:number;subject?:string;description?:string;overrideConflict?:boolean;overrideReason?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
-export const useCreateCrmTestDrive=()=>{const qc=useQueryClient();return useMutation({mutationFn:({leadId,...body}:{leadId:string;vehicleId:string;licenseNumber:string;mileageOut:number})=>apiRequest<{id:string;visitId:string;opportunityId:string;leadId:string;stage:string}>(`/showroom/crm/leads/${leadId}/test-drives`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.leadId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['showroom']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
+export const useCreateCrmTestDrive=()=>{const qc=useQueryClient();return useMutation({mutationFn:({leadId,...body}:{leadId:string;vehicleId:string;licenseNumber:string;mileageOut:number;scheduledAt:string;durationMinutes:number})=>apiRequest<{id:string;visitId:string;opportunityId:string;leadId:string;stage:string;status:string}>(`/showroom/crm/leads/${leadId}/test-drives`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.leadId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['showroom']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
 export interface VehicleFilters {
   view?: 'active' | 'sold' | 'all';
   agencyId?: string;
@@ -945,6 +945,7 @@ export function useCreateShowroomVisit() {
   });
 }
 export const useShowroomVisitQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['showroom','visit',id],queryFn:async()=>{const data=await apiRequest<{visit:any;testDrives:any[]}>(`/showroom/${id}`);return{...data,visit:mapShowroom(data.visit)}},enabled:enabled()&&requestEnabled&&Boolean(id)});
+export const useTestDriveConfigQuery=(requestEnabled=true)=>useQuery({queryKey:['showroom','test-drive-config'],queryFn:()=>apiRequest<{defaultDurationMinutes:number}>('/showroom/test-drive-config'),enabled:enabled()&&requestEnabled});
 export function useShowroomActions() {
   const qc = useQueryClient(),
     done = () => qc.invalidateQueries({ queryKey: ["showroom"] });
@@ -1016,6 +1017,8 @@ export function useShowroomActions() {
         }),
       onSuccess: done,
     }),
+    updateDrive: useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/showroom/test-drives/${id}/schedule`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
+    startPlannedDrive: useMutation({mutationFn:(id:string)=>apiRequest(`/showroom/test-drives/${id}/start`,{method:'PATCH'}),onSuccess:done}),
   };
 }
 export interface ShowroomDuplicateMatch {id:string;visitorName:string;phone:string|null;status:string;arrivalAt:string;assignedUserName:string|null;agencyId:string;phoneMatch:boolean;nameMatch:boolean;strength:'strong'|'potential'}

@@ -73,10 +73,11 @@ test('BASELINE-06B fresh saute 034–069 mais une base historique 046 conserve l
   assert.equal(shouldApplyMigration(34,new Set([33]),null),true);
 });
 
-test('BOOTSTRAP-10 la baseline 071 absorbe explicitement toutes les migrations 034–071',()=>{
+test('BOOTSTRAP-10 la baseline 071 et ses migrations additives forment une séquence continue',()=>{
   for(const token of ['warranty_available','default_warranty_months','default_mileage_limit','warranty_provider_id','vehicle_warranty_contracts'])assert.match(baseline,new RegExp(token));
   const migrationVersions=futureMigrationNames(readdirSync(resolve(root,'backend-node/database/migrations'))).map(name=>Number(name.slice(0,3)));
-  assert.deepEqual(migrationVersions,Array.from({length:38},(_,index)=>index+34));
+  const latestMigration=Math.max(...migrationVersions);
+  assert.deepEqual(migrationVersions,Array.from({length:latestMigration-33},(_,index)=>index+34));
   for(const token of ['CREATE TABLE document_categories','CREATE TABLE document_types','document_type_id','idx_documents_category_type','fk_documents_type'])assert.match(baseline,new RegExp(token));
   for(const token of ['vehicle_locations','vehicle_location_id','from_vehicle_location_id','purchase_price_snapshot','total_cost_snapshot'])assert.match(baseline,new RegExp(token));
 });

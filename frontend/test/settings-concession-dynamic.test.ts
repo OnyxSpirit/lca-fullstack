@@ -62,5 +62,5 @@ test('SETTINGS-FE-08 aucune autorisation par rôle ni rendu HTML dangereux',()=>
 test('SETTINGS-FE-09 la durée CRM est chargée et sauvegardée avec les paramètres',()=>{
   assert.match(page,/defaultAppointmentDurationMinutes/);
   assert.match(page,/Durée par défaut d’un rendez-vous/);
-  assert.match(hooks,/crm:\{defaultAppointmentDurationMinutes:number\}/);
+  assert.match(hooks,/crm:\{defaultAppointmentDurationMinutes:number;defaultTestDriveDurationMinutes:number\}/);
 });

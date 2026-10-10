@@ -13,7 +13,7 @@ localStorage.setItem('lca-access-token','test-token');
 
 const calls:string[]=[];
 const prospect={id:'1',firstName:'Awa',lastName:'Diop',phone:'+242060000001',source:'Passage Showroom',stage:'new',title:'SUV',priority:'medium',assignedUserId:'2',assignedUserName:'Commercial Test',agencyId:'1'};
-globalThis.fetch=(async(input:RequestInfo|URL)=>{const url=String(input);calls.push(url);const search=new URL(url,'http://localhost').searchParams.get('search')??'';return new Response(JSON.stringify(search==='AUCUN-PROSPECT-XYZ'?[]:[prospect]),{status:200,headers:{'Content-Type':'application/json'}})}) as typeof fetch;
+globalThis.fetch=(async(input:RequestInfo|URL)=>{const url=String(input);calls.push(url);const search=new URL(url,'http://localhost').searchParams.get('search')??'',items=search==='AUCUN-PROSPECT-XYZ'?[]:[prospect];return new Response(JSON.stringify({items,page:1,pageSize:7,total:items.length,totalPages:items.length?1:0,stageSummary:{}}),{status:200,headers:{'Content-Type':'application/json'}})}) as typeof fetch;
 after(()=>dom.window.close());
 
 test('REC-05 la recherche CRM envoie le terme exact et remplace la liste par l’état vide',async()=>{

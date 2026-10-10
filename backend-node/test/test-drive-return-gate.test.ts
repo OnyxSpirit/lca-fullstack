@@ -16,7 +16,8 @@ after(()=>restorePool());
 
 test('TEST-DRIVE-01/02 un essai démarré reste en cours et bloque le devis avec une erreur métier',()=>{
   const showroom=read('../src/modules/showroom/showroom.routes.ts');
-  assert.match(showroom,/status,started_at,created_by\) VALUES[\s\S]*'in_progress',NOW\(\)/);
+  assert.match(showroom,/period\.status==='in_progress'\?new Date\(\):null/);
+  assert.match(showroom,/if\(period\.status==='in_progress'\)await markCrmTestDriveStarted/);
   assert.throws(()=>assertTestDriveReturned(row('in_progress',null)),error=>Boolean(error&&typeof error==='object'&&'status'in error&&(error as any).status===409&&/retour du véhicule doit être enregistré/.test((error as Error).message)));
 });
 
@@ -36,9 +37,9 @@ test('TEST-DRIVE-06 aucun essai terminé ne permet de créer un devis',()=>{
 });
 
 test('TEST-DRIVE-07 un véhicule vendu reste refusé au lancement',()=>{
-  const showroom=read('../src/modules/showroom/showroom.routes.ts');
-  assert.match(showroom,/vehicle\.status!=='available'/);
-  assert.match(showroom,/Véhicule indisponible pour un essai/);
+  const policy=read('../src/modules/showroom/showroom-test-drive.ts');
+  assert.match(policy,/vehicle\.status!=='available'/);
+  assert.match(policy,/Véhicule indisponible pour un essai/);
 });
 
 test('TEST-DRIVE-08 le commercial simple ne peut pas confirmer lui-même le retour physique',async()=>{

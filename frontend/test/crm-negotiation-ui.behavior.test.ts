@@ -16,7 +16,7 @@ const quotation={id:'501',quotationNumber:'DEV-CRM-NEG-UI',opportunityId:'201',c
 
 globalThis.fetch=(async(input:RequestInfo|URL)=>{
   const url=String(input);
-  const body=url.includes('/auth/me')?{user:{id:'401',firstName:'Rôle',lastName:'dynamique CRM',email:'crm.role@test.local',agencyId:'1',agencyName:'Agence test',agencyCode:'AG1',avatar:null,roles:['CRM_RECETTE'],role:{id:'701',code:'CRM_RECETTE',isSystemSuperAdmin:false},permissions:Object.entries(permissions('AGENCY')).map(([code,scope])=>({code,scope}))}}:url.includes('/quotations/opportunity/201')?[quotation]:url.includes('/activities')||url.includes('/crm/team-members')?[]:[opportunity];
+  const body=url.includes('/auth/me')?{user:{id:'401',firstName:'Rôle',lastName:'dynamique CRM',email:'crm.role@test.local',agencyId:'1',agencyName:'Agence test',agencyCode:'AG1',avatar:null,roles:['CRM_RECETTE'],role:{id:'701',code:'CRM_RECETTE',isSystemSuperAdmin:false},permissions:Object.entries(permissions('AGENCY')).map(([code,scope])=>({code,scope}))}}:url.includes('/quotations/opportunity/201')?[quotation]:url.includes('/activities')||url.includes('/crm/team-members')?[]:{items:[opportunity],page:1,pageSize:50,total:1,totalPages:1,stageSummary:{}};
   return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
 }) as typeof fetch;
 

@@ -14,7 +14,9 @@ test('CRM-NEG-09 Pipeline reflète Gagné et Perdu',()=>{
 });
 
 test('CRM-NEG-10 la fiche et la vue Liste utilisent la même source autoritaire',()=>{
-  assert.match(page,/const leadsQuery=viewMode==='kanban'\?pipelineQuery:listQuery/);
+  assert.match(page,/const leadsQuery=useLeadsPageQuery\(/);
+  assert.match(page,/pageSize:viewMode==='kanban'\?50:7/);
+  assert.match(page,/const filteredLeads = leads/);
   assert.match(page,/setSelectedLead\(lead\)/);
   assert.match(page,/Transformer en Vente \/ Bon de Commande/);
   assert.match(page,/Marquer comme perdu/);
@@ -28,7 +30,8 @@ test('CRM-NEG-11 les query keys paginées restent invalidées par préfixe',()=>
 test('CRM-NEG-12 realtime recharge sans réinjecter un ancien état',()=>{
   assert.match(bootstrap,/crm:lead-updated/);
   assert.match(bootstrap,/invalidateQueries\(\{queryKey:erpKeys\.leads\}\)/);
-  assert.match(bootstrap,/refreshPermissions\(\)\.catch\(\(\) => logout\(\)\)/);
+  assert.match(bootstrap,/synchronizePermissions\(refreshPermissions,logout\)/);
+  assert.match(bootstrap,/isDefinitiveAuthenticationFailure\(error\)/);
   assert.doesNotMatch(bootstrap,/setQueryData[\s\S]{0,200}crm:lead-updated/);
 });
 

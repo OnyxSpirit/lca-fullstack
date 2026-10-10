@@ -23,3 +23,12 @@ export async function transaction<T>(work: (connection: PoolConnection) => Promi
   catch (error) { await connection.rollback(); throw error; }
   finally { connection.release(); }
 }
+
+export async function transactionWithDeadlockRetry<T>(work:(connection:PoolConnection)=>Promise<T>,maxAttempts=3):Promise<T>{
+  for(let attempt=1;;attempt++){
+    try{return await transaction(work)}catch(error){
+      const code=error&&typeof error==='object'&&'code'in error?String(error.code):'';
+      if(code!=='ER_LOCK_DEADLOCK'||attempt>=maxAttempts)throw error;
+    }
+  }
+}

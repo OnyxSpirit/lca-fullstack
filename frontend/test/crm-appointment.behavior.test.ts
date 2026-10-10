@@ -17,7 +17,7 @@ globalThis.fetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
   if(url.includes('/appointments')&&init?.method==='POST'){appointmentPayload=JSON.parse(String(init.body));leadStage='appointment';return new Response(JSON.stringify({id:'501',leadId:'10',stage:'appointment',scheduledAt:appointmentPayload?.scheduledAt}),{status:201,headers:{'Content-Type':'application/json'}})}
   if(url.includes('/leads')&&!url.includes('/activities')&&!url.includes('/quotations'))leadReads++;
-  const body=url.includes('/quotations/opportunity/')||url.includes('/activities')||url.includes('/crm/team-members')?[]:[{...qualifiedLead,stage:leadStage}];
+  const body=url.includes('/quotations/opportunity/')||url.includes('/activities')||url.includes('/crm/team-members')?[]:{items:[{...qualifiedLead,stage:leadStage}],page:1,pageSize:50,total:1,totalPages:1,stageSummary:{qualified:{count:1,budget:15000000}}};
   return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
 }) as typeof fetch;
 after(()=>dom.window.close());
@@ -46,6 +46,7 @@ test('RDV-01/02/05/06 utilise le vrai datetime-local, active le bouton puis exé
   fireEvent.click(submit);
   await waitFor(()=>assert.ok(appointmentPayload));
   assert.equal(appointmentPayload?.scheduledAt,new Date(2099,8,11,10,0).toISOString());
+  assert.equal(appointmentPayload?.durationMinutes,30);
   await waitFor(()=>assert.equal(screen.queryByText('Planifier un rendez-vous commercial'),null));
   assert.ok(leadReads>=2);
   cleanup();client.clear();

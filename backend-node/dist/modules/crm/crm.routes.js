@@ -60,6 +60,21 @@ async function accessibleLead(id, request, permission = 'crm.prospect.view') { c
     throw new HttpError(404, 'Prospect introuvable'); return row; }
 async function leadById(id) { const [row] = await query(`${leadSelect} WHERE l.id=?`, [id]); if (!row)
     throw new HttpError(404, 'Prospect introuvable'); return row; }
+async function assertLeadPermissionScope(request, permission, lead) { const granted = await assertPermission(request, permission); if (granted === 'GLOBAL')
+    return; if (granted === 'OWN') {
+    if (String(lead.assigned_user_id ?? '') === request.user.sub)
+        return;
+    throw new HttpError(403, `Prospect hors du scope OWN de ${permission}`);
+} const actorAgency = String(request.user.agencyId ?? ''), targetAgency = String(lead.agency_id ?? ''); if (granted === 'AGENCY') {
+    if (actorAgency === targetAgency)
+        return;
+    throw new HttpError(403, `Prospect hors du scope AGENCY de ${permission}`);
+} if (granted === 'CONCESSION') {
+    const [match] = await query('SELECT target.id FROM agencies target JOIN agencies actor ON actor.concession_id=target.concession_id WHERE actor.id=? AND target.id=?', [actorAgency, targetAgency]);
+    if (match)
+        return;
+    throw new HttpError(403, `Prospect hors du scope CONCESSION de ${permission}`);
+} throw new HttpError(403, `Scope invalide pour ${permission}`); }
 crmRouter.get('/crm/team-members', requirePermission('crm.prospect.assign'), asyncHandler(async (request, response) => response.json(await listCrmTeamMembers(request))));
 crmRouter.get('/leads/duplicates', requirePermission('crm.prospect.view'), asyncHandler(async (request, response) => {
     const scoped = crmLeadScope(request, 'crm.prospect.view', leadAgencySql);
@@ -249,6 +264,8 @@ crmRouter.post('/leads/:id/appointments', requirePermission('crm.appointment.cre
     if (!Number.isInteger(duration) || duration < 1 || duration > 1440)
         throw new HttpError(400, 'La durée du rendez-vous est invalide');
     const endsAt = new Date(parsed.getTime() + duration * 60000), subject = text(request.body?.subject, 'subject', 255) ?? 'Rendez-vous commercial', description = text(request.body?.description, 'description', 10000), override = Boolean(request.body?.overrideConflict), overrideReason = text(request.body?.overrideReason, 'overrideReason', 1000);
+    if (override)
+        await assertLeadPermissionScope(request, 'crm.appointment.override_conflict', current);
     const activityId = await transaction(async (connection) => { await connection.execute('SELECT id FROM users WHERE id=? FOR UPDATE', [current.assigned_user_id]); const [conflicts] = await connection.execute(`SELECT f.id,f.activity_id,f.scheduled_at,f.duration_minutes FROM follow_ups f WHERE f.assigned_user_id=? AND f.status='pending' AND f.scheduled_at<? AND DATE_ADD(f.scheduled_at,INTERVAL COALESCE(f.duration_minutes,30) MINUTE)>? FOR UPDATE`, [current.assigned_user_id, endsAt, parsed]); if (conflicts.length) {
         if (!override)
             throw new HttpError(409, 'Ce commercial a déjà un rendez-vous sur ce créneau', { code: 'CRM_APPOINTMENT_CONFLICT', conflicts: conflicts.map(row => ({ id: String(row.id), scheduledAt: row.scheduled_at, durationMinutes: Number(row.duration_minutes ?? 30) })) });

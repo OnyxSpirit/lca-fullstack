@@ -16,7 +16,7 @@ test('SETTINGS-FE-01 accès et queries reposent sur settings.view',()=>{
 });
 
 test('SETTINGS-FE-02 lecture seule conserve les onglets et désactive les champs',()=>{
-  assert.match(page,/tabs:Tab\[]=\['general','workshop'/);
+  assert.match(page,/tabs:Tab\[]=\['general','documents'/);
   assert.match(page,/disabled=\{!admin\}/);
   assert.match(page,/\{admin&&<div className="flex items-end gap-2"/);
 });
@@ -57,4 +57,10 @@ test('SETTINGS-FE-08 aucune autorisation par rôle ni rendu HTML dangereux',()=>
   for(const role of ['DIRECTOR','DIRECTION','MANAGER','ADMIN','ACCOUNTANT'])assert.doesNotMatch(page,new RegExp(`role.*${role}|${role}.*role`,'i'));
   assert.doesNotMatch(page,/dangerouslySetInnerHTML/);
   assert.doesNotMatch(resources,/dangerouslySetInnerHTML/);
+});
+
+test('SETTINGS-FE-09 la durée CRM est chargée et sauvegardée avec les paramètres',()=>{
+  assert.match(page,/defaultAppointmentDurationMinutes/);
+  assert.match(page,/Durée par défaut d’un rendez-vous/);
+  assert.match(hooks,/crm:\{defaultAppointmentDurationMinutes:number\}/);
 });

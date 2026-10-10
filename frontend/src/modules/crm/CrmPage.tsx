@@ -499,7 +499,7 @@ export const CrmPage: React.FC = () => {
               {/* Timeline feed */}
               <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-slate-100 pr-1">
                 {activitiesQuery.isLoading&&<div className="py-3 text-xs text-slate-500">Chargement de l’historique…</div>}
-                {activitiesQuery.data?.map(activity=><div key={activity.id} className="pt-2 text-xs"><div className="flex justify-between gap-2"><b>{activity.subject}</b><span className="text-[10px] text-slate-400">{formatDate(activity.createdAt)}</span></div><div className="text-[10px] text-slate-500">{activity.type} · {activity.assignedUserName||'Système'} · {activity.status}</div>{activity.description&&<p className="mt-1 whitespace-pre-wrap text-[11px] text-slate-600">{activity.description}</p>}</div>)}
+                {activitiesQuery.data?.map(activity=><div key={activity.id} className="pt-2 text-xs"><div className="flex justify-between gap-2"><b>{activity.subject}</b><span className="text-[10px] text-slate-400">{formatDate(activity.createdAt)}</span></div><div className="text-[10px] text-slate-500">{activity.type} · Auteur : {activity.createdByName||'Auteur non renseigné'} · Responsable : {activity.assignedUserName||'Non affecté'} · {activity.status}</div>{activity.description&&<p className="mt-1 whitespace-pre-wrap text-[11px] text-slate-600">{activity.description}</p>}</div>)}
                 <div className="pt-2 text-xs">
                   <div className="text-slate-500 mb-0.5 font-semibold">Notes initiales :</div>
                   <pre className="text-slate-600 text-[11px] font-sans whitespace-pre-wrap leading-relaxed">{selectedLead.notes || 'Aucune note.'}</pre>

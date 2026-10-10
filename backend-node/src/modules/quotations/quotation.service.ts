@@ -39,7 +39,7 @@ export async function ensureCustomer(connection:PoolConnection,opportunity:RowDa
   let customerId=resolveUnambiguousCustomer(await findCustomerIdentityMatches(connection,agencyId,email,phone));
   if(!customerId){
     try{
-      const temporary=`TMP-${randomUUID()}`,[created]=await connection.execute<ResultSetHeader>(`INSERT INTO customers(customer_code,customer_type,agency_id,first_name,last_name,company_name,email,phone,source,assigned_user_id,created_by) VALUES(?,'individual',?,?,?,?,?,?,'CRM',?,?)`,[temporary,agencyId,opportunity.first_name,opportunity.last_name||opportunity.company_name||'Prospect',opportunity.company_name,email,phone,opportunity.assigned_user_id,request.user!.sub]);
+      const temporary=`TMP-${randomUUID()}`,customerType=opportunity.company_name?'company':'individual',[created]=await connection.execute<ResultSetHeader>(`INSERT INTO customers(customer_code,customer_type,agency_id,first_name,last_name,company_name,email,phone,source,assigned_user_id,created_by) VALUES(?,?,?,?,?,?,?,?, 'CRM',?,?)`,[temporary,customerType,agencyId,opportunity.first_name,customerType==='individual'?opportunity.last_name:null,opportunity.company_name,email,phone,opportunity.assigned_user_id,request.user!.sub]);
       customerId=String(created.insertId);
       await connection.execute('UPDATE customers SET customer_code=? WHERE id=?',[`CLI-${customerId.padStart(6,'0')}`,customerId]);
     }catch(error){

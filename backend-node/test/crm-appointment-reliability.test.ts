@@ -18,6 +18,14 @@ test('CRM-04 exige permission et motif pour forcer un conflit',()=>{
   assert.match(migration,/conflict_snapshot JSON/);
 });
 
+test('CRM-04 applique aussi le scope OWN/AGENCY/CONCESSION/GLOBAL de la dérogation',()=>{
+  assert.match(crm,/if\(override\)await assertLeadPermissionScope\(request,'crm\.appointment\.override_conflict',current\)/);
+  assert.match(crm,/granted==='OWN'/);
+  assert.match(crm,/granted==='AGENCY'/);
+  assert.match(crm,/granted==='CONCESSION'/);
+  assert.match(crm,/granted==='GLOBAL'/);
+});
+
 test('CRM-05 sépare auteur et responsable sans réécrire l’historique',()=>{
   assert.match(migration,/ADD COLUMN created_by BIGINT UNSIGNED NULL/);
   assert.doesNotMatch(migration,/UPDATE activities/);

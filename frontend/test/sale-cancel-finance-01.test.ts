@@ -27,3 +27,7 @@ test('SCF-04/22/23 présente le verrou sans exception de rôle ou permission',()
  assert.match(page,/cancellationBlocked=financialRegularizationRequired\|\|/);
  assert.doesNotMatch(page,/SUPER_ADMIN|isSuperAdmin/);
 });
+
+test('VENTE-01 masque toute nouvelle autorisation de livraison après annulation',()=>{
+ assert.match(page,/sale\.status!==['"]ANNULE['"]&&<DeliveryFinancialAuthorizationPanel/);
+});

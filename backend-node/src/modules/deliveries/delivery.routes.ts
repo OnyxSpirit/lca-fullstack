@@ -263,8 +263,9 @@ deliveryRouter.post('/delivery/financial-authorizations',requirePermission('deli
   if(payload.balanceDueDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(payload.balanceDueDate)||payload.balanceDueDate<new Date().toISOString().slice(0,10)))throw new HttpError(400,"L’échéance du solde ne peut pas être passée");
   const scoped=authorizationScope(request,'s');
   const outcome=await transaction(async connection=>{
-    const[sales]=await connection.execute<RowDataPacket[]>(`SELECT s.id,s.agency_id,a.concession_id FROM sales s JOIN agencies a ON a.id=s.agency_id WHERE s.id=? AND ${scoped.sql} FOR UPDATE`,[saleId,...scoped.params] as any[]),sale=sales[0];
+    const[sales]=await connection.execute<RowDataPacket[]>(`SELECT s.id,s.agency_id,s.status,a.concession_id FROM sales s JOIN agencies a ON a.id=s.agency_id WHERE s.id=? AND ${scoped.sql} FOR UPDATE`,[saleId,...scoped.params] as any[]),sale=sales[0];
     if(!sale)throw new HttpError(404,'Vente introuvable dans votre périmètre');
+    if(sale.status==='cancelled')throw new HttpError(409,'Une vente annulée est terminale et ne peut pas recevoir d’autorisation de livraison');
     const[retryRows]=await connection.execute<RowDataPacket[]>('SELECT * FROM delivery_financial_authorizations WHERE created_by=? AND client_request_id=?',[request.user!.sub,clientRequestId]);
     if(retryRows[0]){if(JSON.stringify(authorizationPayload(retryRows[0]))!==JSON.stringify(payload)||String(retryRows[0].sale_id)!==saleId)throw new HttpError(409,'Ce clientRequestId a déjà été utilisé avec une autre intention');return{id:String(retryRows[0].id),created:false};}
     const[invoices]=await connection.execute<RowDataPacket[]>("SELECT id,status,total,amount_paid,balance_due,currency_code,invoice_type FROM invoices WHERE sale_id=? AND status<>'cancelled' ORDER BY id FOR UPDATE",[saleId]),invoice=invoices.find(row=>row.invoice_type==='vehicle'),billable=invoices.filter(row=>row.status!=='draft');

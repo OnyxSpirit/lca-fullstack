@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { query, transaction } from '../../config/database.js';
+import { query, transaction, transactionWithDeadlockRetry } from '../../config/database.js';
 import { emitToAgency } from '../../realtime/socket.js';
 import { HttpError } from '../../shared/http-error.js';
 import { archiveSaleOrder, requireBusinessArchive, requiredHistoricalBusinessPdf } from '../documents/business-document.service.js';
@@ -68,7 +68,7 @@ export async function create(body:unknown,request:Request){
   let requestedSalesperson=input.salespersonId??request.user!.sub;
   if(createScope==='OWN'&&requestedSalesperson!==request.user!.sub)throw new HttpError(403,'Le scope OWN impose le commercial connecté');
   if(requestedSalesperson!==request.user!.sub)await assertCanAssign(request);
-  const result=await transaction(async connection=>{
+  const result=await transactionWithDeadlockRetry(async connection=>{
     const[duplicate]=await connection.execute<RowDataPacket[]>('SELECT id,agency_id FROM sales WHERE idempotency_key=? FOR UPDATE',[input.idempotencyKey]);if(duplicate[0])return{saleId:String(duplicate[0].id),duplicate:true,agencyId:String(duplicate[0].agency_id),opportunityId:null};
     const[agencyRows]=await connection.execute<RowDataPacket[]>('SELECT id FROM agencies WHERE id=? AND is_active=TRUE FOR UPDATE',[agencyId]);if(!agencyRows[0])throw new HttpError(400,'Agence inexistante ou inactive');
     const[customers]=await connection.execute<RowDataPacket[]>('SELECT id,agency_id FROM customers WHERE id=? FOR UPDATE',[input.customerId]);if(!customers[0])throw new HttpError(404,'Client introuvable');if(String(customers[0].agency_id)!==agencyId)throw new HttpError(403,'Client hors périmètre de la vente');

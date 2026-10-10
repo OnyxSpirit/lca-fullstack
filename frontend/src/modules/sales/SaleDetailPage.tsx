@@ -207,7 +207,7 @@ export const SaleDetailPage: React.FC = () => {
               )}
             </div>
           </Card>
-          <DeliveryFinancialAuthorizationPanel saleId={sale.id} total={Number(invoice?.amountTTC??sale.totalSaleTTC)} paid={Number(invoice?.paidAmountTTC??sale.depositPaidTTC)} balance={currentBalance}/>
+          {sale.status!=='ANNULE'&&<DeliveryFinancialAuthorizationPanel saleId={sale.id} total={Number(invoice?.amountTTC??sale.totalSaleTTC)} paid={Number(invoice?.paidAmountTTC??sale.depositPaidTTC)} balance={currentBalance}/>}
         </div>
 
         {/* Right Column: Financing & Payment Status */}

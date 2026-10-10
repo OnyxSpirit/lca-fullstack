@@ -34,7 +34,7 @@ test('COM-SALE-BUDGET le montant du wizard dépend du véhicule, du devis et de 
   const{readFile}=await import('node:fs/promises'),source=await readFile(new URL('../src/modules/sales/SaleWizardModal.tsx',import.meta.url),'utf8');
   assert.doesNotMatch(source,/setDepositAmount/);
   assert.doesNotMatch(source,/lead\.budget|prospect.*budget/i);
-  assert.match(source,/vehicle\?\.sellingPriceTTC/);
+  assert.match(source,/vehicle\?\.sellingPriceHT/);
   assert.match(source,/initialDiscount/);
   assert.match(source,/quotationId:initialQuotationId/);
   assert.match(source,/opportunityId:initialOpportunityId/);

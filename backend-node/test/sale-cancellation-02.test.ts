@@ -35,6 +35,12 @@ test('VENTE-ANNULATION-02 recharge Vente, véhicule et facture après succès',(
  for(const key of['erpKeys.sales','erpKeys.vehicles','erpKeys.invoices'])assert.match(mutation,new RegExp(key.replace('.','\\.')));
 });
 
+test('VENTE-ANNULATION-02 refuse une autorisation financière de livraison après annulation',()=>{
+ const delivery=read('src/modules/deliveries/delivery.routes.ts');
+ assert.match(delivery,/SELECT s\.id,s\.agency_id,s\.status,a\.concession_id/);
+ assert.match(delivery,/sale\.status==='cancelled'.*vente annulée est terminale/s);
+});
+
 test('VENTE-ANNULATION-02 refuse une facture avec paiement confirmé sans mutation',async()=>{
  const statements:string[]=[];
  const connection={execute:async(sql:string)=>{statements.push(sql);if(sql.startsWith('SELECT id,status'))return[[{id:1,status:'partially_paid',amount_paid:5_000_000}],[]];if(sql.includes('FROM payments p'))return[[{id:1,amount:5_000_000,refunded_amount:0}],[]];throw new Error('mutation inattendue')}};

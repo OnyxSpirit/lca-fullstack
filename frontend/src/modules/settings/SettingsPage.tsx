@@ -37,6 +37,7 @@ export const SettingsPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('general');
   const [identity, setIdentity] = useState(emptyIdentity);
   const [vat, setVat] = useState(18.9);
+  const [appointmentDuration,setAppointmentDuration]=useState(30);
   const [agencyForm, setAgencyForm] = useState<AgencyInput>(emptyAgency);
   const [editedAgency, setEditedAgency] = useState<SettingsAgency | null>(null);
   const settings = useSettingsQuery(canView), concession = useCurrentConcessionQuery(canView), agencies = useSettingsAgenciesQuery(canView);
@@ -44,11 +45,11 @@ export const SettingsPage: React.FC = () => {
   const addToast = useUiStore(s => s.addToast);
 
   useEffect(() => { if (concession.data) setIdentity({ name: concession.data.tradeName??concession.data.name??'', legalName: concession.data.legalName, taxIdentifier: concession.data.taxIdentifier, rccm:concession.data.rccm, rib:concession.data.rib, website:concession.data.website, address: concession.data.concessionAddress??concession.data.address, city: concession.data.concessionCity??concession.data.city, country: concession.data.country, currencyCode: concession.data.currencyCode, timezone: concession.data.timezone }) }, [concession.data]);
-  useEffect(() => { if (settings.data) setVat(settings.data.billing.defaultVatRate); }, [settings.data]);
+  useEffect(() => { if (settings.data) {setVat(settings.data.billing.defaultVatRate);setAppointmentDuration(settings.data.crm.defaultAppointmentDurationMinutes)} }, [settings.data]);
   const notify = (title: string) => addToast({ type: 'success', title });
   const fail = (error: unknown) => addToast({ type: 'error', title: 'Opération impossible', description: error instanceof Error ? error.message : 'Erreur API' });
   const saveIdentity = async (e: React.FormEvent) => { e.preventDefault(); try { await updateConcession.mutateAsync(identity); notify('Identité de la concession enregistrée'); } catch (error) { fail(error); } };
-  const saveBusiness = async (e: React.FormEvent) => { e.preventDefault(); try { await updateSettings.mutateAsync({ billing: { defaultVatRate: vat } }); notify('TVA enregistrée'); } catch (error) { fail(error); } };
+  const saveBusiness = async (e: React.FormEvent) => { e.preventDefault(); try { await updateSettings.mutateAsync({ billing: { defaultVatRate: vat },crm:{defaultAppointmentDurationMinutes:appointmentDuration} }); notify('Paramètres métier enregistrés'); } catch (error) { fail(error); } };
   const createAgency = async (e: React.FormEvent) => { e.preventDefault(); try { await agencyActions.create.mutateAsync(agencyForm); setAgencyForm(emptyAgency); notify('Agence créée'); } catch (error) { fail(error); } };
   const saveAgency = async (e: React.FormEvent) => { e.preventDefault(); if (!editedAgency) return; try { await agencyActions.update.mutateAsync(editedAgency); setEditedAgency(null); notify('Agence mise à jour'); } catch (error) { fail(error); } };
   const toggleAgency = async (agency: SettingsAgency) => { try { await agencyActions.status.mutateAsync({ id: agency.id, isActive: !agency.isActive }); notify(agency.isActive ? 'Agence désactivée' : 'Agence réactivée'); } catch (error) { fail(error); } };
@@ -68,6 +69,7 @@ export const SettingsPage: React.FC = () => {
       <label className="md:col-span-2 text-xs font-semibold text-slate-700">RIB<input disabled={!admin} maxLength={500} className={`${field} mt-1 disabled:bg-slate-100`} value={identity.rib??''} onChange={e => updateIdentity('rib',e.target.value)} /></label>
       {[['currencyCode','Devise ISO'],['timezone','Fuseau horaire']].map(([key,label]) => <label key={key} className="text-xs font-semibold text-slate-700">{label}<input disabled={!admin} required className={`${field} mt-1 disabled:bg-slate-100`} value={String(identity[key as keyof typeof identity] ?? '')} onChange={e => updateIdentity(key as keyof typeof identity, e.target.value)} /></label>)}
       <label className="text-xs font-semibold text-slate-700">TVA par défaut (%)<input disabled={!admin} className={`${field} mt-1 disabled:bg-slate-100`} type="number" min="0" max="100" step="0.01" value={vat} onChange={e => setVat(Number(e.target.value))} /></label>
+      <label className="text-xs font-semibold text-slate-700">Durée par défaut d’un rendez-vous (minutes)<input disabled={!admin} className={`${field} mt-1 disabled:bg-slate-100`} type="number" min="1" max="1440" step="1" value={appointmentDuration} onChange={e=>setAppointmentDuration(Number(e.target.value))}/></label>
       {admin&&<div className="flex items-end gap-2"><Button type="submit" icon={<Save className="h-4 w-4" />} loading={updateConcession.isPending}>Enregistrer l’identité</Button><Button type="button" variant="outline" onClick={saveBusiness} loading={updateSettings.isPending}>Enregistrer la TVA</Button></div>}
     </form></Card>}
 

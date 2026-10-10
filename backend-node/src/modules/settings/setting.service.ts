@@ -11,6 +11,7 @@ import {
   emitToAgencyAndGlobals,
 } from "../../realtime/socket.js";
 import {
+  getDefaultAppointmentDuration,
   getBusinessIdentity,
   getEffectiveBusinessSettings,
 } from "./setting-resolver.js";
@@ -144,6 +145,7 @@ export async function get(r: Request, enforceRead = true) {
       timezone: c.timezone,
     },
     billing: { defaultVatRate: settings.vatRate },
+    crm: { defaultAppointmentDurationMinutes: await getDefaultAppointmentDuration(r.user!.agencyId!) },
     workshop: { rates: settings.rates },
   };
 }
@@ -152,9 +154,12 @@ export function validateSettings(body: unknown): UpdateSettingsPayload {
     throw new HttpError(400, "Configuration invalide");
   const b = body as Partial<UpdateSettingsPayload>,
     vat = number(b.billing?.defaultVatRate, "TVA", 100),
-    rates = b.workshop?.rates;
+    rates = b.workshop?.rates,
+    appointmentDuration=b.crm?.defaultAppointmentDurationMinutes;
+  if(appointmentDuration!=null&&(!Number.isInteger(appointmentDuration)||appointmentDuration<1||appointmentDuration>1440))throw new HttpError(400,'Durée de rendez-vous invalide');
   return {
     billing: { defaultVatRate: vat },
+    ...(appointmentDuration==null?{}:{crm:{defaultAppointmentDurationMinutes:number(appointmentDuration,'Durée de rendez-vous',1440)}}),
     ...(rates?{workshop: {
       rates: {
         T1: number(rates.T1, "Tarif T1"),
@@ -171,6 +176,7 @@ export async function update(body: unknown, r: Request) {
     concessionId = await currentConcessionId(r),
     entries = [
       [SETTING_KEYS.vat, value.billing.defaultVatRate],
+      ...(value.crm?[[SETTING_KEYS.appointmentDuration,value.crm.defaultAppointmentDurationMinutes]] as const:[]),
       ...(value.workshop?[
         [SETTING_KEYS.T1, value.workshop.rates.T1],
         [SETTING_KEYS.T2, value.workshop.rates.T2],

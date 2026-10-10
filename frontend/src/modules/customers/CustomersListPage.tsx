@@ -163,7 +163,9 @@ export const CustomersListPage: React.FC = () => {
                 <tr
                   key={c.id}
                   onClick={() => navigate(`/customers/${c.id}`)}
-                  className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                  onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(`/customers/${c.id}`)}}}
+                  role="link" tabIndex={0} aria-label={`Ouvrir la fiche 360° de ${c.company||`${c.firstName} ${c.lastName}`}`}
+                  className="hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 cursor-pointer transition-colors"
                 >
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">

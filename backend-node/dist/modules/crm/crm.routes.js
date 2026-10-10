@@ -12,6 +12,18 @@ import { pageMeta, pageRequest, paged } from '../../shared/pagination.js';
 export { crmLeadScope } from './crm-visibility.js';
 export const crmRouter = Router();
 const stages = ['new', 'contacted', 'qualified', 'appointment', 'test_drive', 'offer', 'negotiation', 'won', 'lost'];
+export const CRM_STAGE_TRANSITIONS = {
+    new: ['contacted', 'lost'],
+    contacted: ['qualified', 'lost'],
+    qualified: ['lost'],
+    appointment: ['lost'],
+    test_drive: ['lost'],
+    offer: ['negotiation', 'lost'],
+    negotiation: ['lost'],
+    won: [],
+    lost: [],
+};
+export const isCrmStageTransitionAllowed = (source, target) => CRM_STAGE_TRANSITIONS[source]?.includes(target) ?? false;
 const activityTypes = ['call', 'email', 'task', 'appointment', 'test_drive', 'note', 'other'];
 const activityStatuses = ['planned', 'completed', 'cancelled'];
 const leadSources = ['Passage Showroom', 'Web', 'Téléphone', 'LeBonCoin', 'Parrainage', 'Campagne Marketing'];
@@ -48,6 +60,15 @@ async function accessibleLead(id, request, permission = 'crm.prospect.view') { c
 async function leadById(id) { const [row] = await query(`${leadSelect} WHERE l.id=?`, [id]); if (!row)
     throw new HttpError(404, 'Prospect introuvable'); return row; }
 crmRouter.get('/crm/team-members', requirePermission('crm.prospect.assign'), asyncHandler(async (request, response) => response.json(await listCrmTeamMembers(request))));
+crmRouter.get('/leads/duplicates', requirePermission('crm.prospect.view'), asyncHandler(async (request, response) => {
+    const scoped = crmLeadScope(request, 'crm.prospect.view', leadAgencySql);
+    const email = typeof request.query.email === 'string' ? request.query.email.trim().toLowerCase() : '';
+    const phone = typeof request.query.phone === 'string' ? request.query.phone.replace(/\D/g, '') : '';
+    if (!email && phone.length < 6)
+        return response.json([]);
+    const rows = await query(`SELECT l.id,l.first_name,l.last_name,l.company_name,(?<>'' AND LOWER(TRIM(l.email))=?) email_match,(?<>'' AND REGEXP_REPLACE(l.phone,'[^0-9]','')=?) phone_match FROM leads l JOIN opportunities o ON o.lead_id=l.id LEFT JOIN users u ON u.id=${CRM_LEAD_OWNER_SQL} LEFT JOIN users creator ON creator.id=l.created_by WHERE ${scoped.sql} AND ((?<>'' AND LOWER(TRIM(l.email))=?) OR (?<>'' AND REGEXP_REPLACE(l.phone,'[^0-9]','')=?)) ORDER BY l.updated_at DESC,l.id DESC LIMIT 10`, [email, email, phone, phone, ...scoped.params, email, email, phone, phone]);
+    response.json(rows.map(row => ({ id: String(row.id), displayName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(' '), emailMatch: Boolean(row.email_match), phoneMatch: Boolean(row.phone_match) })));
+}));
 crmRouter.get('/leads', requirePermission('crm.prospect.view'), asyncHandler(async (request, response) => {
     const scoped = crmLeadScope(request, 'crm.prospect.view', leadAgencySql, true);
     const search = typeof request.query.search === 'string' ? request.query.search.trim() : '';
@@ -60,15 +81,18 @@ crmRouter.get('/leads', requirePermission('crm.prospect.view'), asyncHandler(asy
     const priority = typeof request.query.priority === 'string' ? request.query.priority : null;
     if (priority && !priorities.includes(priority))
         throw new HttpError(400, 'Priorité CRM invalide');
-    const where = `${scoped.sql} AND (?='' OR l.first_name LIKE ? OR l.last_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR o.title LIKE ? OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) AND (? IS NULL OR o.stage=?) AND (? IS NULL OR l.priority=?)`, params = [...scoped.params, search, term, term, term, term, term, normalizedPhone, phoneTerm, stage, stage, priority, priority], paginationRequested = request.query.page != null || request.query.pageSize != null;
+    const where = `${scoped.sql} AND (?='' OR CAST(l.id AS CHAR) LIKE ? OR l.first_name LIKE ? OR l.last_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR o.title LIKE ? OR (?<>'' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(l.phone,' ',''),'-',''),'.',''),'(',''),')','') LIKE ?)) AND (? IS NULL OR o.stage=?) AND (? IS NULL OR l.priority=?)`, params = [...scoped.params, search, term, term, term, term, term, term, normalizedPhone, phoneTerm, stage, stage, priority, priority], paginationRequested = request.query.page != null || request.query.pageSize != null;
     if (!paginationRequested) {
         const rows = await query(`${leadSelect} WHERE ${where} ORDER BY l.updated_at DESC,l.id DESC LIMIT 200`, params);
         response.json(rows.map(mapLead));
         return;
     }
-    const [count] = await query(`SELECT COUNT(*) total FROM leads l JOIN opportunities o ON o.lead_id=l.id LEFT JOIN users u ON u.id=${CRM_LEAD_OWNER_SQL} LEFT JOIN users creator ON creator.id=l.created_by WHERE ${where}`, params), meta = pageMeta(count?.total, pageRequest(request.query));
-    const rows = await query(`${leadSelect} WHERE ${where} ORDER BY l.updated_at DESC,l.id DESC LIMIT ? OFFSET ?`, [...params, meta.pageSize, meta.offset]);
-    response.json(paged(rows.map(mapLead), count?.total, meta));
+    const summaryRows = await query(`SELECT o.stage,COUNT(*) count,COALESCE(SUM(o.expected_value),0) budget FROM leads l JOIN opportunities o ON o.lead_id=l.id LEFT JOIN users u ON u.id=${CRM_LEAD_OWNER_SQL} LEFT JOIN users creator ON creator.id=l.created_by WHERE ${where} GROUP BY o.stage`, params), total = summaryRows.reduce((sum, row) => sum + Number(row.count), 0), meta = pageMeta(total, pageRequest(request.query));
+    const rows = await query(`${leadSelect} WHERE ${where} ORDER BY l.updated_at DESC,l.id DESC LIMIT ? OFFSET ?`, [...params, meta.pageSize, meta.offset]), stageSummary = Object.fromEntries(stages.map(value => [value, { count: 0, budget: 0 }]));
+    for (const row of summaryRows)
+        if (stageSummary[row.stage])
+            stageSummary[row.stage] = { count: Number(row.count), budget: Number(row.budget) };
+    response.json(paged(rows.map(mapLead), total, meta, { stageSummary }));
 }));
 crmRouter.get('/leads/:id', requirePermission('crm.prospect.view'), asyncHandler(async (request, response) => { response.json(mapLead(await accessibleLead(routeId(request.params.id), request))); }));
 crmRouter.post('/leads', requirePermission('crm.prospect.create'), asyncHandler(async (request, response) => {
@@ -171,6 +195,8 @@ crmRouter.patch('/leads/:id/stage', requirePermission('crm.pipeline.advance'), a
     const lostReason = text(request.body?.lostReason, 'lostReason', 255);
     if (stage === 'lost' && !lostReason)
         throw new HttpError(400, 'Le motif de perte est obligatoire');
+    if (!isCrmStageTransitionAllowed(current.stage, stage))
+        throw new HttpError(409, `Transition CRM interdite : ${current.stage} → ${stage}`);
     if (['appointment', 'test_drive', 'offer', 'won'].includes(stage))
         throw new HttpError(409, 'Cette étape doit être produite par son action métier');
     if (stage === 'contacted' && current.stage !== 'new')

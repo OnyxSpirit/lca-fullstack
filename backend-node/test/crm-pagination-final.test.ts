@@ -10,12 +10,12 @@ test('CRM-PAG-01..08 calcule correctement les pages de sept éléments',()=>{
  assert.deepEqual(paged(Array(5).fill('prospect'),12,second),{items:Array(5).fill('prospect'),total:12,page:2,pageSize:7,totalPages:2});
 });
 
-test('CRM-PAG-13..15 applique scope et filtres avant COUNT puis un tri stable',()=>{
+test('CRM-PAG-13..15 applique scope et filtres avant agrégats puis un tri stable',()=>{
  const source=readFileSync(new URL('../src/modules/crm/crm.routes.ts',import.meta.url),'utf8'),route=source.slice(source.indexOf("crmRouter.get('/leads'"),source.indexOf("crmRouter.get('/leads/:id'"));
- assert.ok(route.indexOf('crmLeadScope')<route.indexOf('SELECT COUNT(*) total'));
- assert.ok(route.indexOf('const where=')<route.indexOf('SELECT COUNT(*) total'));
+ assert.ok(route.indexOf('crmLeadScope')<route.indexOf('SELECT o.stage,COUNT(*) count'));
+ assert.ok(route.indexOf('const where=')<route.indexOf('SELECT o.stage,COUNT(*) count'));
  assert.match(route,/ORDER BY l\.updated_at DESC,l\.id DESC LIMIT \? OFFSET \?/);
- assert.match(route,/response\.json\(paged\(rows\.map\(mapLead\),count\?\.total,meta\)\)/);
+ assert.match(route,/response\.json\(paged\(rows\.map\(mapLead\),total,meta,\{stageSummary\}\)\)/);
 });
 
 test('le contrat historique du pipeline reste un tableau limité comme avant',()=>{

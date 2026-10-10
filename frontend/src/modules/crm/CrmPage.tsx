@@ -18,7 +18,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCrmTeamMembersQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useLeadsQuery, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
+import { useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCrmTeamMembersQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -60,8 +60,7 @@ export const CrmPage: React.FC = () => {
   const canViewQuotations=can('quotations.view'),canCreateQuotation=can('quotations.create'),canUpdateQuotation=can('quotations.update'),canValidateQuotation=can('quotations.validate'),canCancelQuotation=can('quotations.cancel'),canConvertQuotation=can('quotations.convert')&&can('sales.create');
   const salesUsers=useCrmTeamMembersQuery(canAssignLead).data??[];
   const priority=selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority];
-  const pipelineQuery=useLeadsQuery(debouncedSearch,priority,viewMode==='kanban',selectedStage,selectedCommercial),listQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,page,pageSize:7},viewMode==='list');
-  const leadsQuery=viewMode==='kanban'?pipelineQuery:listQuery,leads=viewMode==='kanban'?(pipelineQuery.data??[]):(listQuery.data?.items??[]),leadTotal=viewMode==='list'?(listQuery.data?.total??0):leads.length;
+  const leadsQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,page,pageSize:viewMode==='kanban'?50:7}),leads=leadsQuery.data?.items??[],leadTotal=leadsQuery.data?.total??0;
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
   const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment(),updateQuotation=useUpdateQuotation(),validateQuotation=useValidateQuotation(),cancelQuotation=useCancelQuotation();
@@ -77,7 +76,8 @@ export const CrmPage: React.FC = () => {
     return()=>window.clearTimeout(timer);
   },[searchQuery]);
   useEffect(()=>setPage(1),[debouncedSearch,selectedPriority,selectedStage,selectedCommercial]);
-  useEffect(()=>{if(listQuery.data&&page>Math.max(1,listQuery.data.totalPages))setPage(Math.max(1,listQuery.data.totalPages))},[listQuery.data,page]);
+  useEffect(()=>{if(leadsQuery.data&&page>Math.max(1,leadsQuery.data.totalPages))setPage(Math.max(1,leadsQuery.data.totalPages))},[leadsQuery.data,page]);
+  useEffect(()=>setPage(1),[viewMode]);
 
   const stages: { stage: LeadStage; label: string; color: string }[] = [
     { stage: 'NOUVEAU', label: 'Nouveaux', color: 'border-blue-400 bg-blue-50/50' },
@@ -207,7 +207,7 @@ export const CrmPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-4">
           {stages.map(({ stage, label, color }) => {
             const stageLeads = filteredLeads.filter((l) => l.stage === stage);
-            const stageTotalBudget = stageLeads.reduce((acc, l) => acc + l.targetBudget, 0);
+            const aggregate=leadsQuery.data?.stageSummary?.[opportunityStageToDb[stage]],stageTotalBudget=aggregate?.budget??0;
 
             return (
               <div key={stage} className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]">
@@ -216,7 +216,7 @@ export const CrmPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-xs text-slate-800">{label}</span>
                     <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-200 text-slate-700">
-                      {stageLeads.length}
+                      {aggregate?.count??0}
                     </span>
                   </div>
                   <span className="text-[10px] font-semibold text-slate-500">
@@ -230,7 +230,11 @@ export const CrmPage: React.FC = () => {
                     <div
                       key={lead.id}
                       onClick={() => setSelectedLead(lead)}
-                      className="bg-white rounded-xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 transition-all cursor-pointer space-y-2.5 group"
+                      onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setSelectedLead(lead)}}}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Ouvrir le prospect ${lead.firstName} ${lead.lastName}`}
+                      className="bg-white rounded-xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all cursor-pointer space-y-2.5 group"
                     >
                       <div className="flex items-start justify-between gap-1.5">
                         <div>
@@ -312,6 +316,7 @@ export const CrmPage: React.FC = () => {
           })}
         </div>
       )}
+      {viewMode==='kanban'&&<div className="flex items-center justify-between rounded-xl border bg-white p-3 text-xs"><span>{leadTotal} prospect(s) — page de 50</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button><span>Page {page} / {Math.max(1,leadsQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(leadsQuery.data?.totalPages??1)} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>}
 
       {/* TABLE / LIST VIEW */}
       {viewMode === 'list' && (
@@ -344,7 +349,9 @@ export const CrmPage: React.FC = () => {
                   <tr
                     key={lead.id}
                     onClick={() => setSelectedLead(lead)}
-                    className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                    onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setSelectedLead(lead)}}}
+                    role="link" tabIndex={0} aria-label={`Ouvrir le prospect ${lead.firstName} ${lead.lastName}`}
+                    className="hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 cursor-pointer transition-colors"
                   >
                     <td className="py-3 px-4 font-bold text-slate-900">
                       {lead.civility} {lead.firstName} {lead.lastName}
@@ -388,7 +395,7 @@ export const CrmPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <div className="flex items-center justify-between border-t p-3 text-xs"><span>{listQuery.data?.total??0} prospect(s)</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button><span>Page {page} / {Math.max(1,listQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(listQuery.data?.totalPages??1)} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>
+          <div className="flex items-center justify-between border-t p-3 text-xs"><span>{leadsQuery.data?.total??0} prospect(s)</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button><span>Page {page} / {Math.max(1,leadsQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(leadsQuery.data?.totalPages??1)} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>
         </Card>
       )}
 

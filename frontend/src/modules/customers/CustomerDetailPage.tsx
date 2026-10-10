@@ -258,7 +258,7 @@ export const CustomerDetailPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {customerSales.map((s) => (
-                  <tr key={s.id} onClick={() => navigate(`/sales/${s.id}`)} className="hover:bg-slate-50 cursor-pointer">
+                  <tr key={s.id} onClick={() => navigate(`/sales/${s.id}`)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(`/sales/${s.id}`)}}} role="link" tabIndex={0} aria-label={`Ouvrir la vente ${s.saleNumber}`} className="hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 cursor-pointer">
                     <td className="py-2.5 px-4 font-bold text-blue-700">{s.saleNumber}</td>
                     <td className="py-2.5 px-4 font-semibold text-slate-800">{s.vehicleLabel}</td>
                     <td className="py-2.5 px-4 font-bold">{formatCurrency(s.totalSaleTTC)}</td>
@@ -292,7 +292,7 @@ export const CustomerDetailPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {customerORs.map((orItem) => (
-                  <tr key={orItem.id} onClick={() => navigate(`/service/repair-orders/${orItem.id}`)} className="hover:bg-slate-50 cursor-pointer">
+                  <tr key={orItem.id} onClick={() => navigate(`/service/repair-orders/${orItem.id}`)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(`/service/repair-orders/${orItem.id}`)}}} role="link" tabIndex={0} aria-label={`Ouvrir l’ordre de réparation ${orItem.orNumber}`} className="hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 cursor-pointer">
                     <td className="py-2.5 px-4 font-bold text-blue-700">{orItem.orNumber}</td>
                     <td className="py-2.5 px-4 font-semibold text-slate-800">{orItem.vehicleModel} ({orItem.vehiclePlate})</td>
                     <td className="py-2.5 px-4 text-slate-600 truncate max-w-xs">{orItem.symptomsReported}</td>

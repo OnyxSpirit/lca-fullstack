@@ -10,6 +10,7 @@ import { customerIdentityConflict, findCustomerIdentityMatches, normalizeCustome
 import { pageMeta, pageRequest, paged } from '../../shared/pagination.js';
 import { permissionScopePredicate } from '../rbac/scope-intersection.js';
 import { crmLeadScope } from '../crm/crm-visibility.js';
+import { documentAccessPredicate } from '../documents/document-access.js';
 export const customerRouter = Router();
 const classifications = ['occasional', 'regular', 'vip', 'at_risk'];
 const customerTypes = ['individual', 'company'];
@@ -57,6 +58,11 @@ catch (error) {
 const customer360Collection = async (name, customerId, sql, params, request) => { const pageKey = `${name}Page`, requested = request.query[pageKey] != null; if (!requested)
     return { rows: await customer360Query(name, customerId, sql, params), meta: null, total: 0 }; const requestedPage = pageRequest({ page: request.query[pageKey], pageSize: request.query.pageSize ?? 7 }); const [count] = await customer360Query(`${name}Count`, customerId, `SELECT COUNT(*) total FROM (${sql}) customer_360_collection`, params); const meta = pageMeta(count?.total, requestedPage); return { rows: await customer360Query(name, customerId, `${sql} LIMIT ? OFFSET ?`, [...params, meta.pageSize, meta.offset]), meta, total: Number(count?.total ?? 0) }; };
 const customer360Result = (items, collection) => collection.meta ? paged(items, collection.total, collection.meta) : items;
+const showroomTimelineScope = (request) => { const level = request.rbac?.permissions.get('showroom.view'); if (level === 'GLOBAL')
+    return { sql: '1=1', params: [] }; if (level === 'CONCESSION')
+    return { sql: 'sv.agency_id IN (SELECT scoped_agency.id FROM agencies scoped_agency WHERE scoped_agency.concession_id=(SELECT actor_agency.concession_id FROM agencies actor_agency WHERE actor_agency.id=?))', params: [request.user.agencyId] }; if (level === 'AGENCY')
+    return { sql: 'sv.agency_id=?', params: [request.user.agencyId] }; if (level === 'OWN')
+    return { sql: 'sv.agency_id=? AND (sv.assigned_user_id=? OR (sv.assigned_user_id IS NULL AND sv.greeted_by=?))', params: [request.user.agencyId, request.user.sub, request.user.sub] }; return null; };
 const customerSelect = `SELECT c.*,a.name agency_name,CONCAT_WS(' ',assigned.first_name,assigned.last_name) assigned_user_name,CONCAT_WS(' ',creator.first_name,creator.last_name) created_by_name FROM customers c JOIN agencies a ON a.id=c.agency_id LEFT JOIN users assigned ON assigned.id=c.assigned_user_id LEFT JOIN users creator ON creator.id=c.created_by`;
 const mapCustomer = (row) => ({ id: String(row.id), customerCode: row.customer_code, customerType: row.customer_type, civility: row.civility, firstName: row.first_name ?? '', lastName: row.last_name ?? '', companyName: row.company_name ?? '', email: row.email ?? '', phone: row.phone ?? '', secondaryPhone: row.secondary_phone ?? '', address: row.address ?? '', postalCode: row.postal_code ?? '', city: row.city ?? '', country: row.country ?? '', taxIdentifier: row.tax_identifier ?? '', source: row.source ?? '', segment: row.segment ?? '', score: Number(row.score ?? 0), classification: row.classification, notes: row.notes ?? '', agencyId: String(row.agency_id), agencyName: row.agency_name, assignedUserId: row.assigned_user_id == null ? null : String(row.assigned_user_id), assignedUserName: row.assigned_user_name ?? '', createdById: row.created_by == null ? null : String(row.created_by), createdByName: row.created_by_name ?? '', totalRevenue: Number(row.total_revenue ?? 0), openBalance: Number(row.open_balance ?? 0), createdAt: row.created_at, updatedAt: row.updated_at });
 export function customerScope(request, permission, alias = 'c', applyFilters = false) {
@@ -225,17 +231,18 @@ customerRouter.get('/customers/:id/360', requirePermission('customers.view'), as
         timelineParts.push(`SELECT 'payment',p.id,CONCAT('Paiement ',p.payment_number,' — ',p.status),CONCAT(p.amount,' XAF'),p.payment_date FROM payments p JOIN invoices i ON i.id=p.invoice_id WHERE p.customer_id=? AND i.agency_id=? AND ${paymentInvoiceScope.sql}`);
         timelineParams.push(id, agencyId, ...paymentInvoiceScope.params);
     }
-    if (can(context, 'delivery.view')) {
-        timelineParts.push("SELECT 'delivery',d.id,CONCAT('Livraison ',d.delivery_number,' — ',d.status),d.customer_notes,d.created_at FROM deliveries d WHERE d.customer_id=?");
-        timelineParams.push(id);
+    const deliveryTimelineScope = permissionScopePredicate(request, 'delivery.view', { agency: 'd.agency_id', owner: 'd.delivery_specialist_id' }), showroomScope = showroomTimelineScope(request), documentScope = can(context, 'ged.view') ? documentAccessPredicate(request, 'ged.view') : null;
+    if (deliveryTimelineScope) {
+        timelineParts.push(`SELECT 'delivery',d.id,CONCAT('Livraison ',d.delivery_number,' — ',d.status),d.customer_notes,d.created_at FROM deliveries d WHERE d.customer_id=? AND ${deliveryTimelineScope.sql}`);
+        timelineParams.push(id, ...deliveryTimelineScope.params);
     }
-    if (can(context, 'showroom.view')) {
-        timelineParts.push("SELECT 'showroom',sv.id,CONCAT('Visite showroom — ',sv.status),sv.reason,sv.arrival_at FROM showroom_visits sv WHERE sv.customer_id=?");
-        timelineParams.push(id);
+    if (showroomScope) {
+        timelineParts.push(`SELECT 'showroom',sv.id,CONCAT('Visite showroom — ',sv.status),sv.reason,sv.arrival_at FROM showroom_visits sv WHERE sv.customer_id=? AND ${showroomScope.sql}`);
+        timelineParams.push(id, ...showroomScope.params);
     }
-    if (can(context, 'ged.view')) {
-        timelineParts.push("SELECT 'document',d.id,d.file_name,d.document_type,d.created_at FROM documents d WHERE d.entity_type='customer' AND d.entity_id=? AND d.is_archived=FALSE");
-        timelineParams.push(id);
+    if (documentScope) {
+        timelineParts.push(`SELECT 'document',d.id,d.file_name,d.document_type,d.created_at FROM documents d WHERE d.entity_type='customer' AND d.entity_id=? AND d.is_archived=FALSE AND ${documentScope.clause}`);
+        timelineParams.push(id, ...documentScope.params);
     }
     const timeline = sections.history ? await customer360Collection('timeline', id, `SELECT * FROM (${timelineParts.join(' UNION ALL ')}) events ORDER BY event_at DESC,reference_id DESC`, timelineParams, request) : empty;
     response.json({ customer: mapCustomer(customer), sections, contacts, opportunities: customer360Result(opportunities.rows.map(r => ({ id: String(r.id), title: r.title, stage: r.stage, expectedValue: Number(r.expected_value ?? 0), probability: Number(r.probability ?? 0), expectedCloseDate: r.expected_close_date, lostReason: r.lost_reason, createdAt: r.created_at })), opportunities), vehicles: customer360Result(vehicles.rows.map(r => ({ id: String(r.id), vin: r.vin, registrationNumber: r.registration_number ?? '', brand: r.brand, model: r.model, version: r.version, year: r.year, mileage: Number(r.mileage ?? 0), status: r.status })), vehicles), sales: customer360Result(sales.rows.map(r => ({ id: String(r.id), saleNumber: r.sale_number, status: r.status, totalSaleTTC: Number(r.total ?? 0), paidAmountTTC: Number(r.amount_paid ?? 0), remainingBalanceTTC: Number(r.balance_due ?? 0), financialStatus: r.financial_status, vehicleId: r.vehicle_id == null ? '' : String(r.vehicle_id), vehicleLabel: r.vehicle_label ?? '', createdAt: r.created_at })), sales), quotations: customer360Result(quotations.rows.map(r => ({ id: String(r.id), quotationNumber: r.quotation_number, status: r.status, total: Number(r.total ?? 0), salespersonId: r.assigned_user_id == null ? null : String(r.assigned_user_id), salespersonName: r.salesperson_name ?? '', createdByName: r.created_by_name ?? '', vehicleId: r.vehicle_id == null ? '' : String(r.vehicle_id), vehicleLabel: r.vehicle_label ?? '', createdAt: r.created_at })), quotations), repairOrders: customer360Result(repairOrders.rows.map(r => ({ id: String(r.id), orNumber: r.order_number, status: r.status, symptomsReported: r.complaint ?? '', finalTotalTTC: Number(r.actual_total ?? 0), vehicleId: String(r.vehicle_id), vehicleModel: r.vehicle_label, vehiclePlate: r.registration_number ?? '', createdAt: r.created_at })), repairOrders), invoices: customer360Result(invoices.rows.map(r => ({ id: String(r.id), invoiceNumber: r.invoice_number, status: r.status, issueDate: r.issue_date, dueDate: r.due_date, amountTTC: Number(r.total ?? 0), paidAmountTTC: Number(r.amount_paid ?? 0), remainingAmountTTC: Number(r.balance_due ?? 0), type: r.invoice_type, createdAt: r.created_at })), invoices), timeline: customer360Result(timeline.rows, timeline) });

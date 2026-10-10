@@ -20,3 +20,5 @@ export interface BudgetConsolidatedReport{allocated:number;consumed:number;remai
 export interface HrConsolidatedReport{active_employees:number;with_erp_account:number;without_erp_account:number;current_salary_mass:number;current_contracts:number;scheduled_contracts:number;contracts_expiring:number;pending_leaves:number;approved_leaves_in_period:number;approved_bonuses:number;approved_bonus_amount:number}
 export interface ActivityConsolidatedReport{events:number;active_users:number;active_modules:number;byModule:Array<{module:string;events:number}>}
 export interface ReturnConsolidatedReport{returns:number;closed_returns:number;credited_amount:number;refunded_amount:number;returned_to_stock:number}
+export type FinancialReportSection='treasury'|'customers'|'budgets'|'suppliers'|'remunerations'|'coverage';
+export interface FinancialReportResponse{meta:{section:FinancialReportSection;from:string;to:string;asOf:string;scope:string;agencyId:string|null;currency:string|null;periodConvention:string;currenciesSeparated:boolean;historicalLimitations:string[]};rows:Array<Record<string,string|number|null>>}

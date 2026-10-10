@@ -25,6 +25,7 @@ import { supplierFinanceRouter } from './modules/parts/supplier-finance.routes.j
 import { billingRouter } from './modules/billing/billing.routes.js';
 import { reportRouter } from './modules/reports/report.routes.js';
 import { extendedReportRouter } from './modules/reports/extended-report.routes.js';
+import { financialReportRouter } from './modules/reports/financial-report.routes.js';
 import { documentRouter } from './modules/documents/document.routes.js';
 import { userRouter } from './modules/users/user.routes.js';
 import { settingRouter } from './modules/settings/setting.routes.js';
@@ -54,7 +55,7 @@ export function createApp() {
   for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',asyncHandler(async(_request,response)=>{await pool.query('SELECT 1');response.json({status:'ok',service:'lca-backend-node'});}));
   app.use('/api/auth',createAuthRouter());
-  app.use('/api',authenticate,enforceAgencyScope,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,vehicleRouter,showroomRouter,quotationRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

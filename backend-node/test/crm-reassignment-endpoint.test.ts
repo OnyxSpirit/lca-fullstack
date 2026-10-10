@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import {after,before,beforeEach,test} from 'node:test';
-import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import {createApp} from '../src/app.js';
 import {env} from '../src/config/env.js';
 import {pool} from '../src/config/database.js';
+import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
 const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConnection.bind(pool);
 let ownerId:string|null='100',leadStage='qualified',target={id:'101',agency_id:'1',concession_id:'1',is_active:1,eligible:1},writes:{sql:string;params:unknown[]}[]=[];
 const lead=()=>({lead_id:'10',opportunity_id:'20',customer_id:null,first_name:'Koffi',last_name:'Test',company_name:null,email:'koffi@test.local',phone:'+242060000001',source:'Web',lead_status:leadStage,priority:'medium',assigned_user_id:ownerId,created_by:'200',title:'SUV',stage:leadStage,expected_value:15000000,probability:60,expected_close_date:null,lost_reason:null,notes:null,assigned_user_name:ownerId==='101'?'Carlos':ownerId?'Elion':'',created_by_name:'Malik',agency_id:'1',agency_name:'Agence principale',created_at:'2026-09-08',updated_at:'2026-09-08'});
-const token=(role:string,id:string)=>jwt.sign({sub:id,email:`${id}@lca.cg`,roles:[role],agencyId:'1'},env.jwt.accessSecret,{expiresIn:'5m'});
+const token=(role:string,id:string)=>issueTestAccessToken({userId:id,email:`${id}@lca.cg`,roles:[role],agencyId:'1'});
 before(()=>{(pool as any).execute=async(sql:string,params:unknown[]=[])=>{if(sql.includes('FROM leads l JOIN opportunities o'))return[[lead()],[]];if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:`role-${params[0]}`,code:'CRM_TEST_DYNAMIC',is_system:0}],[]];if(sql.includes('SELECT p.code,rp.scope')){const actor=String(params[0]).replace('role-','');return[actor==='100'?[{code:'crm.prospect.update',scope:'OWN'}]:['200','300'].includes(actor)?[{code:'crm.prospect.assign',scope:'AGENCY'}]:[],[]]}if(sql.includes("p.code IN('sales.create','crm.prospect.update')"))return[[target],[]];return[[],[]]};(pool as any).getConnection=async()=>({beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},execute:async(sql:string,params:unknown[]=[])=>{writes.push({sql,params});if(sql.startsWith('UPDATE leads SET')&&sql.includes('assigned_user_id'))ownerId=String(params[0]);return[{affectedRows:1},[]]}})});
 after(()=>{(pool as any).execute=originalExecute;(pool as any).getConnection=originalGetConnection});beforeEach(()=>{ownerId='100';leadStage='qualified';target={id:'101',agency_id:'1',concession_id:'1',is_active:1,eligible:1};writes=[]});
 test('REASSIGN-01 un commercial ne peut pas transférer son prospect à Carlos',async()=>{const response=await request(createApp()).patch('/api/leads/10').set('Authorization',`Bearer ${token('SALES_AGENT','100')}`).send({assignedUserId:'101'});assert.equal(response.status,403);assert.equal(ownerId,'100');assert.equal(writes.length,0)});

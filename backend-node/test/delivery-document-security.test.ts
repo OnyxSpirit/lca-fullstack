@@ -3,8 +3,8 @@ import {mkdtemp,mkdir,rm,writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {after,before,test} from 'node:test';
-import jwt from 'jsonwebtoken';
 import supertest from 'supertest';
+import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
 const root=await mkdtemp(path.join(os.tmpdir(),'lca-delivery-doc-'));
 process.env.GED_STORAGE_DIR=path.join(root,'private');
@@ -22,7 +22,8 @@ const actors:Record<string,Actor>={
   global:{permissions:{'delivery.documents.view':'GLOBAL'},allow:true},fake:{permissions:{},allow:false,code:'SUPER_ADMIN',system:false},
   system:{permissions:{},allow:true,code:'SUPER_ADMIN',system:true},manageDenied:{permissions:{'delivery.checklist.manage':'AGENCY'},allow:false},
 };
-const token=(sub:string)=>jwt.sign({sub,email:`${sub}@test.local`,roles:[],agencyId:'1'},env.jwt.accessSecret,{expiresIn:'5m'});
+let activeActor='none';
+const token=(sub:string)=>{activeActor=sub;return issueTestAccessToken({userId:sub,email:`${sub}@test.local`,agencyId:'1'})};
 const original=pool.execute.bind(pool);
 
 before(async()=>{
@@ -33,7 +34,7 @@ before(async()=>{
     if(sql.includes('FROM users u JOIN user_roles')){const actor=actors[String(params[0])]!;return[[{id:`role-${params[0]}`,code:actor.code??'CUSTOM',is_system:Boolean(actor.system)}],[]]}
     if(sql.includes('FROM role_permissions')){const sub=String(params[0]).replace(/^role-/,'');return[Object.entries(actors[sub]!.permissions).map(([code,scope])=>({code,scope})),[]]}
     if(sql.includes('FROM delivery_documents')&&sql.includes('delivery_id=?')){const[documentId,deliveryId]=params.map(String);if(documentId==='1'&&deliveryId==='10')return[[{id:'1',delivery_id:'10',document_name:'Bon de remise',document_url:'ged:agency/delivery.pdf',file_name:'remise.pdf',mime_type:'application/pdf'}],[]];if(documentId==='3'&&deliveryId==='10')return[[{id:'3',delivery_id:'10',document_name:'Absent',document_url:'ged:agency/missing.pdf',file_name:'absent.pdf',mime_type:'application/pdf'}],[]];return[[],[]]}
-    if(sql.includes('SELECT d.id FROM deliveries d'))return params.length===1||actors[String(params.at(-1))]!.allow?[[{id:params[0]}],[]]:[[],[]];
+    if(sql.includes('SELECT d.id FROM deliveries d'))return params.length===1||actors[activeActor]!.allow?[[{id:params[0]}],[]]:[[],[]];
     if(sql.includes('FROM deliveries d JOIN sales'))return[[],[]];
     return[[],[]];
   };

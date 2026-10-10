@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import {after,before,beforeEach,test} from 'node:test';
-import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import type {PoolConnection} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {env} from '../src/config/env.js';
 import {pool} from '../src/config/database.js';
 import {markCrmTestDriveStarted,requireCrmAppointmentForTestDrive} from '../src/modules/showroom/showroom-test-drive.js';
+import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
 function appointmentConnection(stage:string,hasAppointment:boolean){
   const writes:string[]=[];
@@ -22,7 +22,7 @@ test('A4 un essai Showroom sans opportunité CRM conserve le comportement histor
 const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConnection.bind(pool);
 let quote={id:'50',quotation_number:'DEV-50',opportunity_id:'20',customer_id:'30',agency_id:'1',created_by:'200',created_by_name:'Manager Un',commercial_owner_id:'100',commercial_owner_name:'Agent A',status:'draft',valid_until:null,subtotal:10000000,discount_total:0,tax_total:0,total:10000000,notes:null,created_at:'2026-09-08',vehicle_id:'40',vehicle_label:'LCA One',stock_number:'ST-40',description:'Véhicule',quantity:1,unit_price:10000000,discount:0,tax_rate:0,line_total:10000000,sale_price:10000000};
 let capturedSalespersonId:string|null=null,quotationAudited=false;
-const token=(role:string,id:string,agencyId:string|null)=>jwt.sign({sub:id,email:`${id}@test.local`,roles:[role],agencyId},env.jwt.accessSecret,{expiresIn:'5m'});
+const token=(role:string,id:string,agencyId:string|null)=>issueTestAccessToken({userId:id,roles:[role],agencyId,mockRbac:true});
 
 before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{

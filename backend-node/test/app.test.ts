@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import request from 'supertest';
-import jwt from 'jsonwebtoken';
 import { readFileSync } from 'node:fs';
 import { createApp } from '../src/app.js';
 import { env } from '../src/config/env.js';
+import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
-const token=(roles:string[],agencyId:string|null='1')=>jwt.sign({sub:'10',email:'test@lca.local',roles,agencyId},env.jwt.accessSecret,{expiresIn:'5m'});
+const token=(roles:string[],agencyId:string|null='1')=>issueTestAccessToken({userId:'10',email:'test@lca.local',roles,agencyId,mockRbac:true});
 
 test('une route inconnue renvoie un JSON 404',async()=>{const response=await request(createApp()).get('/inconnue');assert.equal(response.status,404);assert.match(response.body.message,/Route introuvable/);});
 test('les routes métier refusent un appel sans JWT',async()=>{const response=await request(createApp()).get('/api/users');assert.equal(response.status,401);assert.equal(response.body.message,'Jeton manquant');});

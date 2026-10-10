@@ -4,7 +4,7 @@ import React from 'react';
 import {JSDOM} from 'jsdom';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 
-const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'http://localhost/deliveries'});
+const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'http://localhost/deliveries',pretendToBeVisual:true});
 Object.assign(globalThis,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement,Event:dom.window.Event,IS_REACT_ACT_ENVIRONMENT:true});
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true});
 Object.defineProperty(globalThis,'localStorage',{value:dom.window.localStorage,configurable:true});

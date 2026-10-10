@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import {after,before,beforeEach,test} from 'node:test';
-import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import {createApp} from '../src/app.js';
 import {env} from '../src/config/env.js';
 import {pool} from '../src/config/database.js';
+import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
 const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConnection.bind(pool);
 type Fixture={id:string;agencyId:string;active:boolean;roles:string[]};
 let users:Record<string,Fixture>={},created:{assignedUserId:string|null;createdBy:string}|null=null,opportunityAssignedUserId:string|null=null,nextId=100;
-const token=(role:string,id:string,agencyId:string|null='1')=>jwt.sign({sub:id,email:`${id}@test.local`,roles:[role],agencyId},env.jwt.accessSecret,{expiresIn:'5m'});
+const token=(role:string,id:string,agencyId:string|null='1')=>issueTestAccessToken({userId:id,roles:[role],agencyId});
 const payload={firstName:'Awa',lastName:'Test',phone:'+242 06 000 00 00',title:'SUV',source:'Passage Showroom'};
 const permissions=(role:string)=>role==='RECEPTIONIST'?['crm.prospect.view','crm.prospect.create','crm.prospect.assign']:role==='SALES_AGENT'||role==='SALES_MANAGER'?['crm.prospect.view','crm.prospect.create','crm.prospect.update','crm.prospect.assign']:['crm.prospect.view','crm.prospect.create'];
 const leadRow=()=>({lead_id:String(nextId),opportunity_id:String(nextId+1),customer_id:null,first_name:'Awa',last_name:'Test',company_name:null,email:null,phone:payload.phone,source:payload.source,lead_status:'new',priority:'medium',assigned_user_id:created?.assignedUserId??null,created_by:created?.createdBy??null,title:'SUV',stage:'new',expected_value:null,probability:null,expected_close_date:null,lost_reason:null,notes:null,assigned_user_name:created?.assignedUserId?'Commercial Test':'',created_by_name:'Créateur Test',agency_id:'1',agency_name:'Agence A',created_at:'2026-09-08',updated_at:'2026-09-08'});

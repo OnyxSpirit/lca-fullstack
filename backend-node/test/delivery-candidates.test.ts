@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import {after,before,test} from 'node:test';
-import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import {createApp} from '../src/app.js';
 import {env} from '../src/config/env.js';
 import {pool} from '../src/config/database.js';
+import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
 const originalExecute=pool.execute.bind(pool);
-const token=jwt.sign({sub:'100',email:'planner@test.local',agencyId:'1'},env.jwt.accessSecret,{expiresIn:'5m'});
+const token=()=>issueTestAccessToken({userId:'100',email:'planner@test.local',agencyId:'1'});
 const users=[
   {id:'101',name:'Coordinateur libre',agencyId:'2',active:true,roleActive:true,prepare:true,system:false},
   {id:'102',name:'Responsable livraison',agencyId:'2',active:true,roleActive:true,prepare:false,system:false},
@@ -30,7 +30,7 @@ before(()=>{(pool as any).execute=async(sql:string,params:unknown[]=[])=>{
   return [[],[]];
 }});
 after(()=>{(pool as any).execute=originalExecute});
-const specialists=async()=>{const response=await request(createApp()).get('/api/deliveries/candidates/10/specialists').set('Authorization',`Bearer ${token}`);assert.equal(response.status,200,JSON.stringify(response.body));return response.body as {id:string;name:string;agencyId:string}[]};
+const specialists=async()=>{const response=await request(createApp()).get('/api/deliveries/candidates/10/specialists').set('Authorization',`Bearer ${token()}`);assert.equal(response.status,200,JSON.stringify(response.body));return response.body as {id:string;name:string;agencyId:string}[]};
 
 test('DEL-CAND-01/08 : rôle dynamique quelconque et permission effective donnent accès',async()=>{
   const ids=(await specialists()).map(user=>user.id);
@@ -46,4 +46,4 @@ test('DEL-CAND-03 : utilisateur inactif exclu',async()=>assert.ok(!(await specia
 test('DEL-CAND-04 : rôle inactif exclu',async()=>assert.ok(!(await specialists()).some(user=>user.id==='104')));
 test('DEL-CAND-05 : autre agence exclue',async()=>assert.ok(!(await specialists()).some(user=>user.id==='105')));
 test('DEL-CAND-06 : vrai Super Admin système exclu, homonyme dynamique conservé',async()=>{const ids=(await specialists()).map(user=>user.id);assert.ok(!ids.includes('106'));assert.ok(ids.includes('107'))});
-test('une vente hors du périmètre ne divulgue aucun candidat',async()=>{const response=await request(createApp()).get('/api/deliveries/candidates/11/specialists').set('Authorization',`Bearer ${token}`);assert.equal(response.status,404)});
+test('une vente hors du périmètre ne divulgue aucun candidat',async()=>{const response=await request(createApp()).get('/api/deliveries/candidates/11/specialists').set('Authorization',`Bearer ${token()}`);assert.equal(response.status,404)});

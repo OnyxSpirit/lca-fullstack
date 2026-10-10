@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -19,19 +19,52 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = 'lg',
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCloseRef.current();
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ));
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
     };
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleKeyDown);
+      window.requestAnimationFrame(() => {
+        const initial = dialogRef.current?.querySelector<HTMLElement>('[data-autofocus], input:not([type="hidden"]), select, textarea, button');
+        (initial ?? dialogRef.current)?.focus();
+      });
     }
     return () => {
       document.body.style.overflow = 'unset';
       window.removeEventListener('keydown', handleKeyDown);
+      if (isOpen) previousFocus?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -51,10 +84,17 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Dialog container */}
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
         className={cn(
           'relative w-full bg-white rounded-xl shadow-2xl border border-slate-200 z-10 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150',
           maxWidths[maxWidth]
@@ -64,11 +104,11 @@ export const Modal: React.FC<ModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div>
             {typeof title === 'string' ? (
-              <h3 className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
+              <h3 id={titleId} className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
             ) : (
-              title
+              <div id={titleId}>{title}</div>
             )}
-            {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+            {description && <p id={descriptionId} className="text-xs text-slate-500 mt-0.5">{description}</p>}
           </div>
           <button
             onClick={onClose}

@@ -60,6 +60,8 @@ test('NOTIF-RBAC-02 sépare view, update, archive et delete avec ownership et au
     assert.ok(statements.every(x=>!x.sql.includes('DELETE FROM notifications')));
 
     permissions=[];systemSuperAdmin=true;
+    assert.equal((await call('patch','/api/notifications/2/archive')).status,403);
+    permissions=[{code:'notifications.archive',scope:'OWN'}];
     assert.equal((await call('patch','/api/notifications/2/archive')).status,200);
   }finally{
     (pool as any).execute=originalExecute;

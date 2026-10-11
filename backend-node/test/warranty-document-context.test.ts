@@ -42,5 +42,5 @@ test('WDC-26..31 utilise le snapshot contrat, garde reçu/planning neutres et pr
  assert.match(context,/provider_name_snapshot/);assert.match(context,/duration_months/);assert.doesNotMatch(context,/default_warranty_months|default_mileage_limit|is_active=TRUE/);
  assert.doesNotMatch(commercial.slice(commercial.indexOf('renderPaymentReceiptData'),commercial.indexOf('renderDeliveryDocumentData')),/renderWarrantyDocumentSections/);
  assert.doesNotMatch(commercial.slice(commercial.indexOf('renderDeliveryPlanningDocumentData')),/warrantyDocumentContext/);
- assert.match(billing,/historicalBusinessPdf\(`invoice:/);assert.match(delivery,/historicalBusinessPdf\(`delivery:/);
+ assert.match(billing,/requiredHistoricalBusinessPdf\(`invoice:/);assert.match(delivery,/requiredHistoricalBusinessPdf\(`delivery:/);
 });

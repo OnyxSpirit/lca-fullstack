@@ -15,7 +15,7 @@ test('NOTIF-RBAC-02 dérive les boutons de la portée dynamique accordée',()=>{
 
 test('NOTIF-RBAC-02 transmet la portée et l inclut dans la clé de cache',()=>{
   const page=read('../src/modules/notifications/NotificationsPage.tsx'),hooks=read('../src/api/notificationHooks.ts');
-  assert.match(page,/useNotificationsQuery\(\{page,pageSize:25,scope,unreadOnly,referenceType\}/);
+  assert.match(page,/useNotificationsQuery\(\{page,pageSize:PAGE_SIZE,scope,unreadOnly,referenceType\}/);
   assert.match(page,/availableScopes\.map/);
   assert.match(hooks,/list:notificationListKey/);
   assert.match(hooks,/Object\.entries\(filters\)/);

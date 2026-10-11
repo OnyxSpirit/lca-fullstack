@@ -48,12 +48,12 @@ test('NOTIF-04 la création refuse cible inactive et contenu invalide puis persi
   assert.ok(service.indexOf('INSERT IGNORE INTO notifications')<service.indexOf("emitToUser(input.userId,'notifications:created'"));
 });
 
-test('NOTIF-05 la sélection collective dépend des permissions/scopes et du vrai Super Admin système',()=>{
+test('NOTIF-05 la sélection collective dépend des permissions/scopes persistées',()=>{
   assert.match(service,/p\.code IN \(\$\{marks\}\)/);
   assert.match(service,/rp\.scope='GLOBAL'/);
   assert.match(service,/rp\.scope='CONCESSION'/);
   assert.match(service,/rp\.scope='AGENCY'/);
-  assert.match(service,/r\.code='SUPER_ADMIN' AND r\.is_system=TRUE/);
+  assert.doesNotMatch(service,/SUPER_ADMIN/);
   assert.doesNotMatch(service,/notifyRoles|roles:string\[\]/);
 });
 
@@ -63,9 +63,11 @@ test('NOTIF-06 les rooms privées et le payload temps réel sont minimaux',()=>{
   assert.doesNotMatch(service,/userId:input\.userId/);
 });
 
-test('NOTIF-07 authentification socket relit utilisateur actif, agence et Super Admin système',()=>{
+test('NOTIF-07 authentification socket relit utilisateur actif, agence et permissions persistées',()=>{
   assert.match(socket,/u\.id=\? AND u\.is_active=TRUE/);
-  assert.match(socket,/r\.is_system=TRUE/);
+  assert.match(socket,/resolveRbacContext\(claims\.sub\)/);
+  assert.match(socket,/context\.permissions\.get\('settings\.view'\)==='GLOBAL'/);
+  assert.match(socket,/context\.permissions\.get\('settings\.update'\)==='GLOBAL'/);
   assert.match(socket,/agencyId:String\(active\.agency_id\)/);
   assert.doesNotMatch(socket,/roles\.some|DIRECTOR/);
 });

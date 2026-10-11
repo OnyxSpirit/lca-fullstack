@@ -1,0 +1,3 @@
+# ERP-15 — Verdict A–Z
+
+A Architecture conforme avec incident documenté · B Backend corrigé · C Client validé · D Documents partiels · E Encaissements validés · F Facturation validée · G Garantie en réserve · H Historique conservé · I Intégrations validées · J Tests ciblés verts avec échec historique isolé · K Kilométrage validé · L Livraison validée · M MySQL conforme · N Notifications partielles · O OR validé · P Pièces validées hors concurrence · Q Qualité validée · R RBAC validé · S SAV validé · T Traçabilité partielle · U Utilisateurs restaurés · V Vente validée · W Workflows respectés · X Cas limites partiels · Y Risques documentés · Z Validé avec réserves.

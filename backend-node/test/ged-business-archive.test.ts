@@ -7,12 +7,14 @@ const quote=source('src/modules/quotations/quotation.service.ts');
 const sale=source('src/modules/sales/sale.service.ts');
 const billing=source('src/modules/billing/billing.routes.ts');
 const delivery=source('src/modules/deliveries/delivery.routes.ts');
+const workshop=source('src/modules/workshop/workshop.routes.ts');
 const routes=source('src/modules/documents/document.routes.ts');
 const migration=source('database/legacy-migrations/021_ged_business_archive.sql');
 
 test('GED-AUTO-01/02 devis émis et idempotent',()=>{assert.match(quote,/archiveQuotation/);assert.match(ged,/quotation:\$\{id\}:issued:v2/);assert.match(migration,/UNIQUE INDEX uk_documents_source_key/)});
 test('GED-AUTO-03/04 vente confirmée sans effet sur GET PDF',()=>{assert.match(sale,/status==='confirmed'.*archiveSaleOrder/);assert.doesNotMatch(source('src/modules/sales/sale.routes.ts'),/get\([^\n]+pdf[^\n]+archiveBusinessDocument/)});
 test('GED-AUTO-05 facture émise avec archive obligatoire',()=>{assert.match(billing,/requireBusinessArchive\(`invoice:\$\{invoiceId\}:issued`.*archiveInvoice/s);assert.match(ged,/invoice:\$\{id\}:issued:v2/)});
+test('GED-AUTO-05B facture atelier émise avec archive obligatoire',()=>{assert.match(workshop,/requireBusinessArchive\(`invoice:\$\{invoiceId\}:issued`.*archiveInvoice/s)});
 test('GED-AUTO-06/07/08 un reçu stable par paiement',()=>{assert.match(billing,/archivePayment\(result.id/);assert.match(ged,/payment:\$\{id\}:confirmed:v1/)});
 test('GED-AUTO-09/10 livraison finalisée et retry réparateur',()=>{assert.equal((delivery.match(/archiveDelivery\(id/g)??[]).length,2);assert.match(ged,/delivery:\$\{id\}:finalized:v2/)});
 test('GED-MANUAL-01..04 dépôt manuel conservé',()=>{const storage=source('src/modules/documents/document-storage.ts');assert.match(routes,/documentRouter.post\('\/documents'/);assert.match(routes,/documentMultipart/);assert.match(storage,/image\/png/);assert.match(routes,/resolveDocumentEntity/)});

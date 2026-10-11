@@ -24,6 +24,7 @@ import{customerApprovalState}from'./customer-approval-state.js';
 import{WORK_STARTED_COUNT_SQL,workStartedFromEvidence}from'./work-start-state.js';
 import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 import{vehicleOriginSnapshot}from'../vehicles/vehicle-commercial.js';
+import{archiveInvoice,requireBusinessArchive}from'../documents/business-document.service.js';
 export const workshopRouter = Router();
 type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.order.abandon'|'service.documents.view'|'service.documents.manage';
 type WorkshopPermission='workshop.view'|'workshop.plan'|'workshop.assign_technician'|'workshop.assign_bay'|'workshop.bay.view'|'workshop.bay.manage'|'workshop.schedule.view'|'workshop.schedule.manage'|'workshop.intervention.view'|'workshop.intervention.assign'|'workshop.intervention.update'|'workshop.session.view'|'workshop.session.track'|'workshop.session.manage'|'workshop.time.view'|'workshop.time.adjust'|'workshop.technicians.view'|'workshop.technicians.manage'|'workshop.resources.view'|'workshop.resources.manage'|'workshop.productivity.view';
@@ -929,6 +930,7 @@ workshopRouter.post(
     });
     emitToAgency(String(ro.agency_id),"workshop:invoiced",{repairOrderId:id,invoiceId:String(invoiceId)});
     emitToAgency(String(ro.agency_id),"billing:invoice-created",{invoiceId:String(invoiceId),repairOrderId:id,source:'workshop'});
+    await requireBusinessArchive(`invoice:${invoiceId}:issued`,()=>archiveInvoice(String(invoiceId),r.user!.sub));
     res.status(201).json({id:String(invoiceId)});
   }),
 );

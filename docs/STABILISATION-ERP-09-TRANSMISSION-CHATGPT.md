@@ -1,0 +1,3 @@
+# ERP-09 — Transmission ChatGPT
+
+Verdict général: conforme avec réserves. Environnement: UI 4176, API 3004, MySQL 33321; port historique 3001 intact. OR créés: 4 (`REC09-KM-ATELIER`) et 5 (`REC09-GAR`). Les workflows, planning, collisions, interventions, sessions, kilométrage, garantie, qualité, facturation et restitution ont été validés. Les preuves structurées sont `/tmp/stabilisation-erp-09-atelier.json` et `/tmp/stabilisation-erp-09-warranty.json`. Correction unique: synchronisation transactionnelle monotone du kilométrage à la restitution. Réserves: productivité réelle non nulle et couverture UI plus profonde. Prochaine action: campagne ERP-10 ciblée sur charge réelle et régression globale isolée.

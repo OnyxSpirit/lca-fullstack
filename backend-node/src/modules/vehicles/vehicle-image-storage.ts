@@ -44,6 +44,7 @@ export async function stageVehicleImages(images: VehicleImageInput[], fs: Vehicl
 }
 
 export async function withStagedVehicleImages<T>(images:VehicleImageInput[],work:(files:StagedVehicleImage[])=>Promise<T>,options:{fs?:VehicleImageFs;isPersisted?:(files:StagedVehicleImage[])=>Promise<boolean>}={}){
+  if(Array.isArray(images)&&images.length===0)return work([]);
   const fs=options.fs??nativeFs,files=await stageVehicleImages(images,fs);let completed=false;
   try{const value=await work(files);completed=true;return value}
   catch(error){

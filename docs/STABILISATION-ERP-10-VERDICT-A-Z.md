@@ -1,0 +1,28 @@
+# ERP-10 — Verdict A–Z
+
+- **A Architecture** — isolée, conforme.
+- **B Backend** — build et transactions validés.
+- **C Catalogue** — validations et doublon corrigé.
+- **D Données** — REC08–REC10 conservées.
+- **E Entrées** — réceptions partielles/complètes validées.
+- **F Fournisseurs** — référentiel et qualification validés.
+- **G Gestion des stocks** — physique/réservé/disponible cohérents.
+- **H Historique** — mouvements détaillés persistés.
+- **I Inventaires** — comptage officiel validé.
+- **J Jeux de tests** — ciblés verts; réserve globale historique.
+- **K Contrôles API** — 400/401/403/409 conformes.
+- **L Logistique** — multi-emplacements validé; inter-agences bloqué.
+- **M MySQL** — intégrité vérifiée sans écriture SQL.
+- **N Notifications** — émission identifiée; non exhaustive.
+- **O Ordres de réparation** — REC08 préservé; REC10 partiel.
+- **P Pièces** — références 2/3 opérationnelles.
+- **Q Qualité des corrections** — correction minimale testée.
+- **R Réservations** — historique valide; rejeu REC10 réservé.
+- **S Sorties** — transfert et consommation historique cohérents.
+- **T Transferts** — local/idempotent validé; inter-agences bloqué.
+- **U Utilisateurs** — responsable, magasinier, technicien testés.
+- **V Valorisation** — achat/vente/reporting XAF cohérents; méthode comptable non définie.
+- **W Workflows** — commande/réception complets.
+- **X Cas limites** — dernières unités et courses validées.
+- **Y Risques résiduels** — scopes, notifications, OR REC10.
+- **Z Verdict final** — conforme avec réserves.

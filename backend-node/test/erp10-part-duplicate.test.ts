@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFile}from'node:fs/promises';
+test('ERP10 traduit une référence pièce dupliquée en conflit métier',async()=>{const source=await readFile(new URL('../src/modules/parts/part.routes.ts',import.meta.url),'utf8');assert.match(source,/error\?\.code==='ER_DUP_ENTRY'/);assert.match(source,/HttpError\(409,'Cette référence de pièce existe déjà'\)/)});

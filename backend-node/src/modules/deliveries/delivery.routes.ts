@@ -84,7 +84,7 @@ async function accessible(id: string, request: Request, permission:DeliveryPermi
   );
   if (!row) throw new HttpError(404, "Livraison introuvable");
   const[authorization]=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.sale_id=? ORDER BY (fa.status='AUTHORIZED') DESC,fa.id DESC LIMIT 1`,[row.sale_id]);
-  const balance=Number(row.balance_due),covered=authorization?.status==='AUTHORIZED'&&balance>0&&balance<=Number(authorization.balance_due_snapshot)+.001;
+  const balance=Number(row.balance_due),covered=(authorization?.status==='AUTHORIZED'||authorization?.status==='USED'&&String(authorization.used_delivery_id)===String(row.id))&&balance>0&&balance<=Number(authorization.balance_due_snapshot)+.001;
   return {...row,financially_cleared:balance<=.001||covered,financial_authorization:authorization??null,balance_due:await canViewFinancials(request,row.agency_id)?row.balance_due:null};
 }
 async function canAccessNested(id:string,request:Request,permissions:DeliveryPermission[]){
@@ -197,7 +197,7 @@ deliveryRouter.get(
     }
     const items=await Promise.all(rows.map(async(row) => {
       const[authorization]=await query<RowDataPacket[]>(`${authorizationSelect} WHERE fa.sale_id=? ORDER BY (fa.status='AUTHORIZED') DESC,fa.id DESC LIMIT 1`,[row.sale_id]);
-      const balance=Number(row.balance_due),covered=authorization?.status==='AUTHORIZED'&&balance>0&&balance<=Number(authorization.balance_due_snapshot)+.001;
+      const balance=Number(row.balance_due),covered=(authorization?.status==='AUTHORIZED'||authorization?.status==='USED'&&String(authorization.used_delivery_id)===String(row.id))&&balance>0&&balance<=Number(authorization.balance_due_snapshot)+.001;
       return ({
         ...row,
         financially_cleared:balance<=.001||covered,

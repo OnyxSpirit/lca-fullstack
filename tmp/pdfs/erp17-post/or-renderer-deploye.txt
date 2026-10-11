@@ -1,0 +1,102 @@
+LCA
+ERP17 recette
+
+
+
+
+ORDRE DE RÉPARATION                                                                   Date : 11/10/2026
+                                                                                            Statut : Prêt
+ERP17-OR-POST
+
+
+  CLIENT                                                VÉHICULE
+
+  Client test                                           Véhicule test
+
+                                                        VIN : —
+                                                        Immatriculation : —
+                                                        Kilométrage : 50
+
+
+
+
+  GARANTIE DU VÉHICULE
+
+  STATUT                    Garantie activée
+
+  CONSTRUCTEUR              Constructeur REC16 Garantie
+
+  DÉBUT                     11/10/2026
+
+  ÉCHÉANCE                  11/10/2029
+
+  KILOMÉTRAGE INITIAL       45 km
+
+  PLAFOND KILOMÉTRIQUE      100 000 km
+
+
+
+
+  MOTIF / SYMPTÔMES
+
+  —
+
+
+
+
+  DIAGNOSTIC
+
+  —
+
+
+
+
+  INTERVENTIONS RÉALISÉES
+
+  —
+
+
+
+
+  PIÈCES FACTURABLES
+
+ Aucune ligne facturable                        —                    0 XAF    0 XAF   0%         0 XAF
+
+
+
+
+                                               Page 1 / 2
+LCA
+ERP17 recette
+
+
+
+
+ORDRE DE RÉPARATION                                                Date : 11/10/2026
+                                                                         Statut : Prêt
+ERP17-OR-POST
+
+
+  MAIN-D’ŒUVRE FACTURABLE
+
+ Aucune ligne facturable     —                     0 XAF   0 XAF   0%         0 XAF
+
+
+
+
+                                         Sous-total HT                     0 XAF
+
+
+                                         Remises                           0 XAF
+
+
+                                         TVA                               0 XAF
+
+
+                                         TOTAL TTC                      0 XAF
+
+
+
+
+                            Page 2 / 2
+

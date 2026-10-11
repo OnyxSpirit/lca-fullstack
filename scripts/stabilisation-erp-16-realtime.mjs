@@ -1,0 +1,60 @@
+import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
+const require = createRequire(new URL('../frontend/package.json', import.meta.url));
+const { io } = require('socket.io-client');
+const base = 'http://127.0.0.1:3004/api', socketBase = 'http://127.0.0.1:3004';
+const adminEmail = process.env.ADMIN_EMAIL, adminPassword = process.env.ADMIN_PASSWORD, password = process.env.RECETTE_USER_PASSWORD;
+if (!adminEmail || !adminPassword || !password) throw new Error('Variables recette absentes');
+const calls = [], checks = [];
+const ok = (name, value, detail) => checks.push({ name, ok: Boolean(value), detail });
+async function api(path, { method = 'GET', token, body, expected = [200] } = {}) {
+  const response = await fetch(base + path, { method, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const raw = await response.text(); let data; try { data = raw ? JSON.parse(raw) : null; } catch { data = { raw: raw.slice(0, 300) }; }
+  calls.push({ method, path, status: response.status }); if (!expected.includes(response.status)) throw new Error(`${method} ${path}: ${response.status} ${JSON.stringify(data)}`); return { status: response.status, data };
+}
+const login = async (email, secret = password) => (await api('/auth/login', { method: 'POST', body: { email, password: secret } })).data.accessToken;
+const admin = await login(adminEmail, adminPassword), commercial = await login('recette.commercial@lca-test.cg'), parts = await login('recette.responsable_pieces.a2@lca-test.cg');
+const socket = (token) => io(socketBase + '/realtime', { path: '/socket.io', transports: ['websocket'], auth: { token }, reconnection: false, forceNew: true });
+const connected = (client) => new Promise((resolve, reject) => { const timeout = setTimeout(() => reject(new Error('Connexion Socket.IO expirée')), 5000); client.once('connect', () => { clearTimeout(timeout); resolve(true); }); client.once('connect_error', reject); });
+const nextEvent = (client, event, timeout = 5000) => new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error(`Événement ${event} absent`)), timeout); client.once(event, (payload) => { clearTimeout(timer); resolve(payload); }); });
+
+const invalid = socket('REC16-invalid'); ok('invalid-token-rejected', await new Promise((resolve) => { invalid.once('connect_error', () => resolve(true)); setTimeout(() => resolve(false), 2500); })); invalid.close();
+let recipient = socket(admin), outsider = socket(commercial); await Promise.all([connected(recipient), connected(outsider)]); ok('two-distinct-sessions', recipient.connected && outsider.connected);
+const before = (await api('/notifications?scope=mine&page=1&pageSize=100', { token: admin })).data;
+const receivedPromise = nextEvent(recipient, 'notifications:created'); const leaked = []; outsider.on('notifications:created', (payload) => leaked.push(payload));
+const lead = (await api('/leads', { method: 'POST', token: commercial, body: { title: 'REC16-RT notification', firstName: 'Temps', lastName: 'Réel REC16', email: `rec16.rt.${Date.now()}@example.test`, source: 'Web', priority: 'medium', stage: 'new', notes: 'REC16-RT-NOTIF-01' }, expected: [201] })).data;
+const realtime = await receivedPromise; await new Promise((resolve) => setTimeout(resolve, 250));
+const after = (await api('/notifications?scope=mine&page=1&pageSize=100', { token: admin })).data;
+const notification = after.items.find((item) => item.referenceType === 'lead' && String(item.referenceId) === String(lead.id));
+ok('persistent-notification-realtime', realtime?.referenceId === String(lead.id) && Boolean(notification), { realtime, notificationId: notification?.id });
+ok('no-user-leak', leaked.length === 0, leaked);
+ok('counter-incremented', after.unreadCount === before.unreadCount + 1, { before: before.unreadCount, after: after.unreadCount });
+recipient.close();
+const offlineLead = (await api('/leads', { method: 'POST', token: commercial, body: { title: 'REC16-RT reconnexion', firstName: 'Hors', lastName: 'Ligne REC16', email: `rec16.offline.${Date.now()}@example.test`, source: 'Web', priority: 'medium', stage: 'new', notes: 'REC16-RT-NOTIF-02' }, expected: [201] })).data;
+recipient = socket(admin); await connected(recipient);
+const recoveredList = (await api('/notifications?scope=mine&page=1&pageSize=100', { token: admin })).data;
+const recovered = recoveredList.items.find((item) => String(item.referenceId) === String(offlineLead.id));
+ok('reconnect-catchup', Boolean(recovered));
+await api(`/notifications/${notification.id}/read`, { method: 'PATCH', token: admin });
+await api(`/notifications/${notification.id}/read`, { method: 'PATCH', token: admin });
+const unread = (await api('/notifications?scope=mine&unreadOnly=true&page=1&pageSize=100', { token: admin })).data;
+ok('read-idempotent-no-duplicate', unread.items.every((item) => String(item.id) !== String(notification.id)));
+
+const partsRecipient = socket(parts), partsOutsider = socket(commercial); await Promise.all([connected(partsRecipient), connected(partsOutsider)]);
+const partEventPromise = nextEvent(partsRecipient, 'parts:stock-changed'); const partLeaks = []; partsOutsider.on('parts:stock-changed', (payload) => partLeaks.push(payload));
+let refs = (await api('/part-references?agencyId=2', { token: parts })).data;
+let category = refs.categories.find((item) => item.code === 'REC16RT') ?? (await api('/part-categories', { method: 'POST', token: parts, body: { name: 'REC16 Temps réel', code: 'REC16RT', description: 'Notification Pièces ERP-16' }, expected: [201] })).data;
+let location = refs.locations.find((item) => item.name === 'Magasin REC16-CONC source') ?? refs.locations[0];
+let list = (await api('/parts?agencyId=2&search=REC16-RT&page=1&pageSize=50', { token: parts })).data; list = list.items ?? list;
+let part = list.find((item) => item.reference === 'REC16-RT-STOCK');
+if (!part) part = (await api('/parts', { method: 'POST', token: parts, body: { agencyId: '2', categoryId: String(category.id), supplierId: String(refs.suppliers[0].id), locationId: String(location.id), reference: 'REC16-RT-STOCK', name: 'REC16-RT stock faible', brand: 'REC16', purchasePrice: 1000, salePrice: 2000, initialQuantity: 1, minStock: 2, maxStock: 10 }, expected: [201] })).data;
+await api(`/parts/${part.id}/adjustments`, { method: 'POST', token: parts, body: { agencyId: '2', locationId: String(location.id), quantity: 1, reason: `REC16-RT-${randomUUID()}` }, expected: [201] });
+const partEvent = await partEventPromise; await new Promise((resolve) => setTimeout(resolve, 250));
+ok('parts-realtime-agency', String(partEvent.partId) === String(part.id) && String(partEvent.agencyId) === '2', partEvent);
+ok('parts-no-cross-agency-leak', partLeaks.length === 0, partLeaks);
+const persistedParts = (await api('/notifications?scope=global&page=1&pageSize=300', { token: admin })).data.items.filter((item) => String(item.referenceType) === 'part' && String(item.referenceId) === String(part.id));
+ok('parts-contract-realtime-only', persistedParts.length === 0, persistedParts);
+recipient.close(); outsider.close(); partsRecipient.close(); partsOutsider.close();
+const result = { generatedAt: new Date().toISOString(), resources: { leadId: String(lead.id), notificationId: String(notification.id), offlineLeadId: String(offlineLead.id), offlineNotificationId: String(recovered.id), partId: String(part.id) }, checks, failed: checks.filter((item) => !item.ok), calls };
+await writeFile('/tmp/stabilisation-erp-16-realtime.json', JSON.stringify(result, null, 2)); console.log(JSON.stringify(result, null, 2)); if (result.failed.length) process.exitCode = 1;

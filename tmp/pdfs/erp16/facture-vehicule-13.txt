@@ -1,0 +1,52 @@
+LCA Concession
+Agence Recette Nord
+Brazzaville
+
+
+
+
+FACTURE                                                                                                 Émission : 2026-10-11
+
+FAC-REC01A2-2026-000011
+
+
+   CLIENT                                                       RÉFÉRENCES
+
+   Client REC15                                                 Vente / devis : V-20261011-1463BA98
+                                                                Commercial : Recette Responsable commercial
+
+   CLI-000008
+   +2420615000001
+   rec15.client@example.test
+
+
+
+
+ Désignation                      Qté                            PU HT             Remise        TVA               Total TTC
+
+
+ REC15VN0000000001 - STK-000011         1.00         40.000.000 XAF         1.000.000 XAF   18.9000 %        46.371.000 XAF
+
+
+
+
+REC15 facture automobile
+                                                                   Sous-total HT                          40.000.000 XAF
+
+                                                                   Remise                                  1.000.000 XAF
+
+                                                                   TVA 18.9000 %                           7.371.000 XAF
+
+
+                                                                   TOTAL TTC                      46.371.000 XAF
+
+
+
+               Signature client                                              Pour l’entreprise · Signature / Cachet
+
+
+
+
+                                        Adresse : Brazzaville
+                                               Page 1 / 1
+

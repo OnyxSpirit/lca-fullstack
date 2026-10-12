@@ -31,6 +31,7 @@ export const env = {
   db: {
     host: required('DB_HOST'), port: positiveInteger('DB_PORT', 3306), user: required('DB_USER'),
     password: process.env.DB_PASSWORD ?? '', database: required('DB_NAME'), poolSize: positiveInteger('DB_POOL_SIZE', 10),
+    queueLimit: positiveInteger('DB_QUEUE_LIMIT', 40), connectTimeoutMs: positiveInteger('DB_CONNECT_TIMEOUT_MS', 10_000),
   },
   jwt: {
     accessSecret: required('JWT_ACCESS_SECRET'), refreshSecret: required('JWT_REFRESH_SECRET'),

@@ -34,7 +34,7 @@ const toUser = (profile: AuthProfile): User => {
 };
 
 const storedUser = typeof window !== 'undefined' ? localStorage.getItem(AUTH_STORAGE_KEY) : null;
-const parsedUser = storedUser ? JSON.parse(storedUser) as User : null;
+const parsedUser = (()=>{if(!storedUser)return null;try{const value=JSON.parse(storedUser) as Partial<User>;if(typeof value.id!=='string'||typeof value.role!=='string'||typeof value.agencyId!=='string')throw new Error('Invalid stored user');return value as User}catch{localStorage.removeItem(AUTH_STORAGE_KEY);localStorage.removeItem(ACCESS_TOKEN_KEY);localStorage.removeItem(REFRESH_TOKEN_KEY);return null}})();
 const initialUser = parsedUser ? {...parsedUser,roles:parsedUser.roles?.length?parsedUser.roles:[parsedUser.role],primaryRole:parsedUser.primaryRole??parsedUser.role}:null;
 const initialAgency: Agency | null = initialUser ? { id: initialUser.agencyId, name: initialUser.agencyName || 'Agence', code: '', city: '', address: '', phone: '', email: '', isMain: true, isActive: true } : null;
 export const useAuthStore = create<AuthState>((set, get) => ({

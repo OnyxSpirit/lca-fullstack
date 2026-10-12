@@ -1,9 +1,6 @@
-const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+import { apiDownload } from './apiClient';
 async function invoicePdfBlob(invoiceId: string): Promise<Blob> {
-  const token = localStorage.getItem('lca-access-token');
-  const response = await fetch(`${API_URL}/invoices/${invoiceId}/pdf`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  if (!response.ok) throw new Error('Impossible de générer la facture PDF');
-  return response.blob();
+  return apiDownload(`/invoices/${encodeURIComponent(invoiceId)}/pdf`);
 }
 export async function downloadInvoicePdf(invoiceId: string, invoiceNumber: string) {
   const url = URL.createObjectURL(await invoicePdfBlob(invoiceId));

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGlobalSearchQuery } from "../../api/dashboardHooks";
@@ -18,6 +18,7 @@ export const GlobalSearchModal: React.FC = () => {
     [query, setQuery] = useState(""),
     [debounced, setDebounced] = useState(""),
     navigate = useNavigate();
+  const dialogRef=useRef<HTMLDivElement>(null),previousFocus=useRef<HTMLElement|null>(null);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -32,6 +33,7 @@ export const GlobalSearchModal: React.FC = () => {
   useEffect(() => {
     if (globalSearchOpen) setQuery("");
   }, [globalSearchOpen]);
+  useEffect(()=>{if(!globalSearchOpen)return;previousFocus.current=document.activeElement as HTMLElement|null;const oldOverflow=document.body.style.overflow;document.body.style.overflow='hidden';const trap=(event:KeyboardEvent)=>{if(event.key!=='Tab')return;const focusable=[...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])')??[])];if(!focusable.length)return;const first=focusable[0]!,last=focusable[focusable.length-1]!;if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};document.addEventListener('keydown',trap);return()=>{document.removeEventListener('keydown',trap);document.body.style.overflow=oldOverflow;previousFocus.current?.focus()}},[globalSearchOpen]);
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 300);
     return () => clearTimeout(timer);
@@ -50,6 +52,7 @@ export const GlobalSearchModal: React.FC = () => {
         onClick={() => setGlobalSearchOpen(false)}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Recherche globale"

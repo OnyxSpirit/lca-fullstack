@@ -3,7 +3,7 @@ import { env } from './env.js';
 
 export const pool = createPool({
   host: env.db.host, port: env.db.port, user: env.db.user, password: env.db.password, database: env.db.database,
-  waitForConnections: true, connectionLimit: env.db.poolSize, queueLimit: 0, charset: 'utf8mb4',
+  waitForConnections: true, connectionLimit: env.db.poolSize, queueLimit: env.db.queueLimit, connectTimeout: env.db.connectTimeoutMs, charset: 'utf8mb4',
   supportBigNumbers: true, bigNumberStrings: true, dateStrings: true,
 });
 

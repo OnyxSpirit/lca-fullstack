@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import type { RowDataPacket } from 'mysql2/promise';
 import { env } from '../../config/env.js';
-import { execute, query } from '../../config/database.js';
+import { execute, query, transaction } from '../../config/database.js';
 import { HttpError } from '../../shared/http-error.js';
 import { resolveRbacContext } from '../rbac/rbac.service.js';
 
@@ -36,7 +36,7 @@ function tokensFor(user: UserRow, roles: string[], sessionId: string) {
 
 async function issueTokens(user: UserRow, roles: string[]) {
   const sessionId = randomUUID(), tokens = tokensFor(user, roles, sessionId);
-  await execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,FROM_UNIXTIME(?))', [sessionId, user.id, tokens.refreshHash, tokens.refreshExpiresAt]);
+  await transaction(async connection=>{await connection.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,FROM_UNIXTIME(?))', [sessionId, user.id, tokens.refreshHash, tokens.refreshExpiresAt]);await connection.execute('UPDATE users SET last_login_at=NOW() WHERE id=?',[user.id])});
   return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
 }
 
@@ -45,9 +45,9 @@ export async function login(email: string, password: string) {
   if (!user || !user.is_active || !(await argon2.verify(user.password_hash, password))) throw new HttpError(401, 'Identifiants invalides');
   const roles = await rolesFor(String(user.id));
   if (!roles.length) throw new HttpError(403, 'ROLE_INACTIVE_OR_MISSING');
+  const profile=await userProfile(user);
   const tokens = await issueTokens(user, roles);
-  await execute('UPDATE users SET last_login_at=NOW() WHERE id=?', [user.id]);
-  return { ...tokens, user: await userProfile(user) };
+  return { ...tokens, user: profile };
 }
 
 export async function refresh(refreshToken: string) {

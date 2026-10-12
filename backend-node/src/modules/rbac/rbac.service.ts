@@ -8,7 +8,9 @@ export interface GrantedPermission { code:string; scope:PermissionScope|null }
 export interface RbacContext { roleId:string|null; roleCode:string|null; isSuperAdmin:boolean; permissions:Map<string,PermissionScope|null> }
 
 export async function resolveRbacContext(userId:string):Promise<RbacContext>{
-  const [role]=await query<RowDataPacket[]>(`SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.is_active=TRUE AND r.is_active=TRUE LIMIT 1`,[userId]);
+  const roles=await query<RowDataPacket[]>(`SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.is_active=TRUE AND r.is_active=TRUE ORDER BY r.is_system DESC,r.code,r.id`,[userId]);
+  if(roles.length>1)throw new HttpError(403,'MULTIPLE_ACTIVE_ROLES');
+  const role=roles[0];
   if(!role)return{roleId:null,roleCode:null,isSuperAdmin:false,permissions:new Map()};
   const isSuperAdmin=String(role.code)==='SUPER_ADMIN'&&Boolean(role.is_system);
   const rows=await query<RowDataPacket[]>(`SELECT p.code,rp.scope FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id WHERE rp.role_id=? AND p.is_active=TRUE`,[role.id]);

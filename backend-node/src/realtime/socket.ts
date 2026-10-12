@@ -11,6 +11,7 @@ let realtimeNamespace: ReturnType<Server['of']> | null = null;
 
 export function emitToUser(userId: string, event: string, payload: unknown) {
   realtimeNamespace?.to(`user:${userId}`).emit(event, payload);
+  if(event==='rbac:updated')disconnectUser(userId);
 }
 export function disconnectUser(userId:string){realtimeNamespace?.in(`user:${userId}`).disconnectSockets(true)}
 
@@ -24,7 +25,7 @@ export function createRealtimeServer(server: HttpServer) {
   const io = new Server(server, { path: '/socket.io', cors: { origin: env.frontendUrl, credentials: true } });
   const namespace = io.of('/realtime');
   realtimeNamespace = namespace;
-  namespace.use(async(socket,next)=>{try{const token=socket.handshake.auth?.token??socket.handshake.headers.authorization?.replace(/^Bearer /,'');const claims=jwt.verify(token,env.jwt.accessSecret,{algorithms:['HS256']}) as AuthUser;if(!claims.sid)throw new Error();const[active]=await query<RowDataPacket[]>(`SELECT u.id,u.agency_id FROM users u JOIN refresh_tokens rt ON rt.id=? AND rt.user_id=u.id AND rt.revoked_at IS NULL AND rt.expires_at>NOW() WHERE u.id=? AND u.is_active=TRUE`,[claims.sid,claims.sub]);if(!active)throw new Error();const context=await resolveRbacContext(claims.sub);socket.data.user={...claims,agencyId:String(active.agency_id)};socket.data.receivesGlobalSettings=context.permissions.get('settings.view')==='GLOBAL'||context.permissions.get('settings.update')==='GLOBAL';next();}catch{next(new Error('Jeton invalide'));}});
+  namespace.use(async(socket,next)=>{try{const token=socket.handshake.auth?.token??socket.handshake.headers.authorization?.replace(/^Bearer /,'');const claims=jwt.verify(token,env.jwt.accessSecret,{algorithms:['HS256']}) as AuthUser;if(!claims.sid)throw new Error();const[active]=await query<RowDataPacket[]>(`SELECT u.id,u.agency_id FROM users u JOIN refresh_tokens rt ON rt.id=? AND rt.user_id=u.id AND rt.revoked_at IS NULL AND rt.expires_at>NOW() WHERE u.id=? AND u.is_active=TRUE`,[claims.sid,claims.sub]);if(!active)throw new Error();const context=await resolveRbacContext(claims.sub);socket.data.user={...claims,agencyId:active.agency_id==null?null:String(active.agency_id)};socket.data.receivesGlobalSettings=context.permissions.get('settings.view')==='GLOBAL'||context.permissions.get('settings.update')==='GLOBAL';next();}catch{next(new Error('Jeton invalide'));}});
   namespace.on('connection',socket=>{const user=socket.data.user as AuthUser;void socket.join(`user:${user.sub}`);if(user.agencyId)void socket.join(`agency:${user.agencyId}`);if(socket.data.receivesGlobalSettings)void socket.join('global');});
   io.on('close',()=>{realtimeNamespace=null;});
   return { io, namespace };

@@ -23,6 +23,7 @@ export const Tabs: React.FC<TabsProps> = ({
   variant = 'underline',
   className,
 }) => {
+  const onKeyDown=(event:React.KeyboardEvent<HTMLButtonElement>)=>{const items=[...(event.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLButtonElement>('[role="tab"]')??[])];if(!items.length)return;const current=items.indexOf(event.currentTarget);let next=current;if(event.key==='ArrowRight')next=(current+1)%items.length;else if(event.key==='ArrowLeft')next=(current-1+items.length)%items.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=items.length-1;else return;event.preventDefault();items[next]?.focus();onChange(tabs[next]!.id)};
   if (variant === 'segmented') {
     return (
       <div role="tablist" className={cn('inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200 gap-1', className)}>
@@ -34,6 +35,8 @@ export const Tabs: React.FC<TabsProps> = ({
               type="button"
               role="tab"
               aria-selected={isActive}
+              tabIndex={isActive?0:-1}
+              onKeyDown={onKeyDown}
               onClick={() => onChange(tab.id)}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer whitespace-nowrap',
@@ -72,6 +75,8 @@ export const Tabs: React.FC<TabsProps> = ({
               type="button"
               role="tab"
               aria-selected={isActive}
+              tabIndex={isActive?0:-1}
+              onKeyDown={onKeyDown}
               onClick={() => onChange(tab.id)}
               className={cn(
                 'flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium rounded-full border transition-all cursor-pointer whitespace-nowrap',
@@ -110,6 +115,8 @@ export const Tabs: React.FC<TabsProps> = ({
             type="button"
             role="tab"
             aria-selected={isActive}
+            tabIndex={isActive?0:-1}
+            onKeyDown={onKeyDown}
             onClick={() => onChange(tab.id)}
             className={cn(
               'flex items-center gap-2 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap px-1',

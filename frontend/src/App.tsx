@@ -89,7 +89,7 @@ export default function App() {
           <Route path="parts/repair-orders" element={<ModuleGuard module="parts">{lazyPage(<PartsWorkQueuePage />)}</ModuleGuard>} />
           <Route path="parts/repair-orders/:id" element={<ModuleGuard module="parts">{lazyPage(<PartsWorkQueuePage />)}</ModuleGuard>} />
           <Route path="parts/:id" element={<ModuleGuard module="parts">{lazyPage(<SparePartDetailPage />)}</ModuleGuard>} />
-          <Route path="notifications" element={lazyPage(<NotificationsPage />)} />
+          <Route path="notifications" element={<ModuleGuard module="notifications">{lazyPage(<NotificationsPage />)}</ModuleGuard>} />
           <Route path="billing" element={<ModuleGuard module="billing">{lazyPage(<BillingPage />)}</ModuleGuard>} />
           <Route path="billing/:id" element={<ModuleGuard module="billing">{lazyPage(<InvoiceDetailPage />)}</ModuleGuard>} />
           <Route path="treasury" element={<ModuleGuard module="treasury">{lazyPage(<TreasuryPage />)}</ModuleGuard>} />

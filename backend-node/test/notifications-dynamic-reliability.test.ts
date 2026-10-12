@@ -68,7 +68,7 @@ test('NOTIF-07 authentification socket relit utilisateur actif, agence et permis
   assert.match(socket,/resolveRbacContext\(claims\.sub\)/);
   assert.match(socket,/context\.permissions\.get\('settings\.view'\)==='GLOBAL'/);
   assert.match(socket,/context\.permissions\.get\('settings\.update'\)==='GLOBAL'/);
-  assert.match(socket,/agencyId:String\(active\.agency_id\)/);
+  assert.match(socket,/active\.agency_id==null\?null:String\(active\.agency_id\)/);
   assert.doesNotMatch(socket,/roles\.some|DIRECTOR/);
 });
 

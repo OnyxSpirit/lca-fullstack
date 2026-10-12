@@ -7,7 +7,11 @@ import {pool} from '../src/config/database.js';
 import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
 const originalExecute=pool.execute.bind(pool);
-const accessToken=()=>issueTestAccessToken({userId:'10',email:'agent@lca.local',roles:['SALES_MANAGER'],agencyId:'1'});
+const customer360Permissions=[
+  'customers.view','customers.history.view','crm.prospect.view','vehicles.view','sales.view',
+  'quotations.view','service.order.view','billing.invoice.view','billing.payment.view',
+].map(code=>({code,scope:'AGENCY' as const}));
+const accessToken=()=>issueTestAccessToken({userId:'10',email:'agent@lca.local',roles:['CUSTOMER_SUPPORT_TEST'],agencyId:'1',permissions:customer360Permissions});
 let linkedVehicles:Record<string,unknown>[]=[];
 
 const customer=(id:string,type:'individual'|'company')=>({

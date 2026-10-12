@@ -23,7 +23,7 @@ test('SALE-DISCOUNT-05..11 applique le prix minimum autoritatif sans confondre z
   assert.throws(()=>assertVehicleMinimumPrice({minimum_price:23_000_000},22_500_000),/prix minimum autorisé/);
   assert.doesNotThrow(()=>assertVehicleMinimumPrice({minimum_price:0},1));
   const sales=read('../src/modules/sales/sale.service.ts');
-  assert.match(sales,/SELECT id,agency_id,status,vin,stock_number,catalog_price,sale_price,minimum_price/);
+  assert.match(sales,/SELECT id,agency_id,status,archived_at,is_commercial_stock,vin,stock_number,[^']*minimum_price[^']* FROM vehicles WHERE id=\? FOR UPDATE/);
   assert.match(sales,/assertVehicleMinimumPrice\(vehicle,quotation\?effectiveSubtotal-effectiveDiscount:directTax!\.netHt\)/);
   assert.match(sales,/vehiclePricingGuard/);
 });

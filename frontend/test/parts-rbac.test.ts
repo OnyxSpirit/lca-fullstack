@@ -14,7 +14,6 @@ test('PARTS-FE-08 approvisionnements nécessitent purchase_order.view',()=>asser
 test('PARTS-FE-09 actions de réservation proposées contrôlent leurs permissions dédiées',()=>{
   assert.match(workshop,/workActive&&can\('parts\.reservation\.create'\)&&!item\.reservationId/);
   assert.match(workshop,/workActive&&can\('parts\.reservation\.consume'\)&&item\.reservationId/);
-  // La libération est portée par le workflow d’arrêt OR, pas par un bouton de cette page.
-  assert.doesNotMatch(workshop,/status:\s*['"]released['"]/);
+  assert.match(workshop,/can\('parts\.reservation\.release'\).*status:'released'/s);
 });
 test('PARTS-FE-10 les hooks Parts acceptent requestEnabled',()=>{assert.match(hooks,/usePurchaseOrdersQuery=.*requestEnabled/);assert.match(hooks,/usePartMovementsQuery=.*requestEnabled/)});

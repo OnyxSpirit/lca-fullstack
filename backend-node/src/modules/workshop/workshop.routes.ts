@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import {assertFinanciallySettled} from "../billing/payment.domain.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { execute, query, transaction } from "../../config/database.js";
+import { execute, query, transaction, transactionWithDeadlockRetry } from "../../config/database.js";
 import { requirePermission } from "../../middleware/require-permission.js";
 import { assertAnyPermission, assertPermission } from "../rbac/rbac.service.js";
 import { asyncHandler } from "../../middleware/error-handler.js";
@@ -28,8 +28,10 @@ import{archiveInvoice,requireBusinessArchive}from'../documents/business-document
 export const workshopRouter = Router();
 type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.order.abandon'|'service.documents.view'|'service.documents.manage';
 type WorkshopPermission='workshop.view'|'workshop.plan'|'workshop.assign_technician'|'workshop.assign_bay'|'workshop.bay.view'|'workshop.bay.manage'|'workshop.schedule.view'|'workshop.schedule.manage'|'workshop.intervention.view'|'workshop.intervention.assign'|'workshop.intervention.update'|'workshop.session.view'|'workshop.session.track'|'workshop.session.manage'|'workshop.time.view'|'workshop.time.adjust'|'workshop.technicians.view'|'workshop.technicians.manage'|'workshop.resources.view'|'workshop.resources.manage'|'workshop.productivity.view';
+type PartsReservationPermission='parts.reservation.view'|'parts.reservation.create'|'parts.reservation.consume'|'parts.reservation.release';
 const actionPermission=new WeakMap<Request,ServicePermission>();
 const workshopActionPermission=new WeakMap<Request,WorkshopPermission>();
+const partsOrderContext=new WeakMap<Request,{id:string;agencyId:string;status:string;permission:PartsReservationPermission}>();
 const workshopAuthorize=(permission:WorkshopPermission)=>{const middleware=requirePermission(permission);return(request:Request,response:any,next:(error?:unknown)=>void)=>{workshopActionPermission.set(request,permission);middleware(request,response,async(error?:unknown)=>{if(error)return next(error);try{if(permission==='workshop.plan'&&request.method==='DELETE'&&/^\/workshop\/schedules\/[1-9]\d*$/.test(request.path)){const[schedule]=await query<RowDataPacket[]>('SELECT status FROM schedules WHERE id=?',[idOf(request.params.id)]);if(schedule&&['completed','cancelled'].includes(schedule.status))throw new HttpError(409,'Affectation terminée ou annulée : consultation uniquement')}next()}catch(cause){next(cause)}})}};
 const workshopAnyAccess=(permissions:WorkshopPermission[])=>asyncHandler(async(request,_response,next)=>{await assertAnyPermission(request,permissions);const selected=permissions.find(permission=>request.rbac?.permissions.has(permission))!;workshopActionPermission.set(request,selected);next();});
 const workshopAssignmentAccess=asyncHandler(async(r,_res,next)=>{await assertPermission(r,'workshop.plan');await assertPermission(r,'workshop.assign_technician');if(r.body.bayId)await assertPermission(r,'workshop.assign_bay');if(/^\/repair-orders\/[1-9]\d*\/assign$/.test(r.path)){const[repairOrder]=await query<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=?',[idOf(r.params.id)]);if(!repairOrder)throw new HttpError(404,'Ordre de réparation introuvable');if(repairOrder.status!=='in_progress')throw new HttpError(409,"L’affectation atelier n’est disponible que pendant les travaux")}if(/^\/workshop\/schedules\/[1-9]\d*$/.test(r.path)){const[schedule]=await query<RowDataPacket[]>('SELECT status FROM schedules WHERE id=?',[idOf(r.params.id)]);if(schedule&&['completed','cancelled'].includes(schedule.status))throw new HttpError(409,'Affectation terminée ou annulée : consultation uniquement')}workshopActionPermission.set(r,'workshop.plan');next();});
@@ -157,6 +159,28 @@ async function permissionCoversAgency(r:Request,permission:string,agencyId:strin
   }
   return false;
 }
+const partsOrderAccess=(resolvePermission:PartsReservationPermission|((request:Request)=>PartsReservationPermission))=>asyncHandler(async(r,_res,next)=>{
+  const permission=typeof resolvePermission==='function'?resolvePermission(r):resolvePermission;
+  await assertPermission(r,permission);
+  const id=idOf(r.params.id),[repairOrder]=await query<RowDataPacket[]>('SELECT id,agency_id,status FROM repair_orders WHERE id=?',[id]);
+  if(!repairOrder)throw new HttpError(404,'Ordre de réparation introuvable');
+  if(!await permissionCoversAgency(r,permission,String(repairOrder.agency_id)))throw new HttpError(403,'Périmètre de réservation Pièces insuffisant');
+  partsOrderContext.set(r,{id,agencyId:String(repairOrder.agency_id),status:String(repairOrder.status),permission});
+  next();
+});
+const partsOrderAnyAccess=(permissions:PartsReservationPermission[])=>asyncHandler(async(r,_res,next)=>{
+  await assertAnyPermission(r,permissions);
+  const id=idOf(r.params.id),[repairOrder]=await query<RowDataPacket[]>('SELECT id,agency_id,status FROM repair_orders WHERE id=?',[id]);
+  if(!repairOrder)throw new HttpError(404,'Ordre de réparation introuvable');
+  let permission:PartsReservationPermission|undefined;
+  for(const candidate of permissions)if(r.rbac?.permissions.has(candidate)&&await permissionCoversAgency(r,candidate,String(repairOrder.agency_id))){permission=candidate;break;}
+  if(!permission)throw new HttpError(403,'Périmètre de réservation Pièces insuffisant');
+  partsOrderContext.set(r,{id,agencyId:String(repairOrder.agency_id),status:String(repairOrder.status),permission});
+  next();
+});
+const scopedPartsOrder=(r:Request)=>{const context=partsOrderContext.get(r);if(!context)throw new HttpError(403,'Contexte de réservation Pièces absent');return{id:context.id,agency_id:context.agencyId,status:context.status};};
+const reservationMutationPermission=(r:Request):PartsReservationPermission=>{const status=r.body?.status;if(!['consumed','released'].includes(status))throw new HttpError(400,'Action de réservation invalide');return status==='consumed'?'parts.reservation.consume':'parts.reservation.release';};
+const partsQueueScope=(r:Request,alias='ro')=>{const granted=r.rbac?.permissions.get('parts.reservation.view');if(granted==='GLOBAL')return{sql:'1=1',params:[] as string[]};if(granted==='CONCESSION')return{sql:`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[String(r.user!.agencyId)]};if(granted==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[String(r.user!.agencyId)]};throw new HttpError(403,'Le périmètre OWN ne couvre pas la file collective Pièces');};
 const serviceCustomerScope=(r:Request,alias='c')=>{
   const granted=r.rbac?.permissions.get('service.order.create');
   if(granted==='GLOBAL')return{sql:'1=1',params:[] as string[]};
@@ -332,15 +356,25 @@ workshopRouter.get('/repair-orders/:id/technician-candidates',serviceAccess('ser
 workshopRouter.get('/repair-orders/:id/labor-rates',serviceAccess('service.order.view'),asyncHandler(async(r,res)=>{
   const ro=await one(idOf(r.params.id),r),config=await getEffectiveBusinessSettings(String(ro.agency_id));res.json({rates:await effectiveLaborRates(String(ro.agency_id)),currencyCode:config.currencyCode});
 }));
-workshopRouter.get('/repair-orders/:id/available-parts',serviceAccess('service.order.view'),asyncHandler(async(r,res)=>{
-  const ro=await one(idOf(r.params.id),r);await assertAnyPermission(r,['parts.reservation.view','parts.reservation.create']);const partPermission=r.rbac?.permissions.has('parts.reservation.view')?'parts.reservation.view':'parts.reservation.create';if(!await permissionCoversAgency(r,partPermission,String(ro.agency_id)))throw new HttpError(403,'Périmètre Pièces insuffisant');
+workshopRouter.get('/repair-orders/:id/available-parts',partsOrderAnyAccess(['parts.reservation.view','parts.reservation.create']),asyncHandler(async(r,res)=>{
+  const ro=scopedPartsOrder(r);
   const rows=await query<RowDataPacket[]>("SELECT p.id,p.reference,p.name,p.sale_price,COALESCE(SUM(ps.current_stock-ps.reserved_stock),0) available_stock FROM parts p JOIN part_stocks ps ON ps.part_id=p.id AND ps.agency_id=? JOIN locations l ON l.id=ps.location_id AND l.agency_id=ps.agency_id AND l.type='warehouse' AND l.is_active=TRUE WHERE p.is_active=TRUE AND ps.current_stock>ps.reserved_stock GROUP BY p.id ORDER BY p.reference",[ro.agency_id]);
   res.json(rows.map(row=>({id:String(row.id),reference:row.reference,name:row.name,salePrice:Number(row.sale_price),availableStock:Number(row.available_stock)})));
 }));
-workshopRouter.get('/repair-orders/:id/available-parts/:partId/stocks',serviceAccess('service.order.view'),asyncHandler(async(r,res)=>{
-  const ro=await one(idOf(r.params.id),r);await assertPermission(r,'parts.reservation.create');if(!await permissionCoversAgency(r,'parts.reservation.create',String(ro.agency_id)))throw new HttpError(403,'Périmètre Pièces insuffisant');
+workshopRouter.get('/repair-orders/:id/available-parts/:partId/stocks',partsOrderAccess('parts.reservation.create'),asyncHandler(async(r,res)=>{
+  const ro=scopedPartsOrder(r);
   const rows=await query<RowDataPacket[]>("SELECT ps.id,l.id location_id,l.name location_name,ps.current_stock-ps.reserved_stock available_stock FROM part_stocks ps JOIN locations l ON l.id=ps.location_id AND l.agency_id=ps.agency_id AND l.type='warehouse' AND l.is_active=TRUE WHERE ps.part_id=? AND ps.agency_id=? AND ps.current_stock>ps.reserved_stock ORDER BY l.name",[idOf(r.params.partId),ro.agency_id]);
   res.json(rows.map(row=>({id:String(row.id),locationId:String(row.location_id),locationName:row.location_name,availableStock:Number(row.available_stock)})));
+}));
+workshopRouter.get('/parts-work-queue',requirePermission('parts.reservation.view'),asyncHandler(async(r,res)=>{
+  const scoped=partsQueueScope(r),rows=await query<RowDataPacket[]>(`SELECT ro.id,ro.order_number,ro.status,ro.agency_id,a.name agency_name,COUNT(DISTINCT e.id) requested_parts,COUNT(DISTINCT CASE WHEN pr.status='reserved' THEN pr.id END) active_reservations FROM repair_orders ro JOIN agencies a ON a.id=ro.agency_id LEFT JOIN repair_order_estimate_items e ON e.repair_order_id=ro.id AND e.item_type='part' LEFT JOIN part_reservations pr ON pr.repair_order_id=ro.id WHERE ${scoped.sql} AND (e.id IS NOT NULL OR pr.id IS NOT NULL) GROUP BY ro.id,a.name ORDER BY ro.id DESC LIMIT 100`,scoped.params);
+  res.json(rows.map(row=>({id:String(row.id),orderNumber:row.order_number,status:row.status,agencyId:String(row.agency_id),agencyName:row.agency_name,requestedParts:Number(row.requested_parts),activeReservations:Number(row.active_reservations)})));
+}));
+workshopRouter.get('/parts-work-queue/:id',partsOrderAccess('parts.reservation.view'),asyncHandler(async(r,res)=>{
+  const ro=scopedPartsOrder(r),[order]=await query<RowDataPacket[]>('SELECT ro.id,ro.order_number,ro.status,ro.agency_id,a.name agency_name FROM repair_orders ro JOIN agencies a ON a.id=ro.agency_id WHERE ro.id=?',[ro.id]);
+  if(!order)throw new HttpError(404,'Ordre de réparation introuvable');
+  const items=await query<RowDataPacket[]>(`SELECT e.id,e.part_id,p.reference part_reference,e.description,e.quantity,e.unit_price,pr.id reservation_id,pr.quantity reserved_quantity,pr.consumed_quantity,pr.status reservation_status FROM repair_order_estimate_items e JOIN parts p ON p.id=e.part_id LEFT JOIN part_reservations pr ON pr.estimate_item_id=e.id WHERE e.repair_order_id=? AND e.item_type='part' ORDER BY e.id`,[ro.id]);
+  res.json({id:String(order.id),orderNumber:order.order_number,status:order.status,agencyId:String(order.agency_id),agencyName:order.agency_name,items:items.map(item=>({id:String(item.id),partId:String(item.part_id),partReference:item.part_reference,description:item.description,quantity:Number(item.quantity),unitPrice:Number(item.unit_price),reservationId:item.reservation_id?String(item.reservation_id):null,reservedQuantity:Number(item.reserved_quantity??0),consumedQuantity:Number(item.consumed_quantity??0),reservationStatus:item.reservation_status??null}))});
 }));
 workshopRouter.get('/workshop/external-customers',...externalCustomerAccess,asyncHandler(async(r,res)=>{
   const scoped=scope(r),where=[scoped.sql,"ro.vehicle_commercial_origin='EXTERNAL'"],params:any[]=[...scoped.p],search=externalCustomerSearch(r.query.search);
@@ -827,11 +861,10 @@ workshopRouter.patch(
 );
 workshopRouter.post(
   "/repair-orders/:id/estimate-items/:estimateItemId/reserve",
-  serviceAccess('service.order.update'),requirePermission('parts.reservation.create'),
+  partsOrderAccess('parts.reservation.create'),
   asyncHandler(async(r,res)=>{
-    const id=idOf(r.params.id),estimateId=idOf(r.params.estimateItemId),stockId=idOf(r.body.partStockId),ro=await one(id,r);ensureWritable(ro,['in_progress']);
-    if(!await permissionCoversAgency(r,'parts.reservation.create',String(ro.agency_id)))throw new HttpError(403,'Périmètre de réservation Pièces insuffisant');
-    const reserved=await transaction(async c=>{
+    const id=idOf(r.params.id),estimateId=idOf(r.params.estimateItemId),stockId=idOf(r.body.partStockId),ro=scopedPartsOrder(r);ensureWritable(ro,['in_progress']);
+    const reserved=await transactionWithDeadlockRetry(async c=>{
       const[lockedOrders]=await c.execute<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=? FOR UPDATE',[id]);if(!['diagnosis','waiting_approval','in_progress'].includes(String(lockedOrders[0]?.status)))throw new HttpError(409,'Les réservations sont gelées pour cet OR');
       const[orders]=await c.execute<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=? FOR UPDATE',[id]);if(orders[0]?.status!=='in_progress')throw new HttpError(409,'La réservation réelle exige un OR en cours');
       const[estimates]=await c.execute<RowDataPacket[]>('SELECT * FROM repair_order_estimate_items WHERE id=? AND repair_order_id=? FOR UPDATE',[estimateId,id]);const estimate=estimates[0];if(!estimate||estimate.item_type!=='part'||!estimate.part_id)throw new HttpError(404,'Pièce estimative introuvable');
@@ -848,13 +881,12 @@ workshopRouter.post(
 );
 workshopRouter.post(
   "/repair-orders/:id/parts/reserve",
-  serviceAccess('service.order.update'),requirePermission('parts.reservation.create'),
+  partsOrderAccess('parts.reservation.create'),
   asyncHandler(async (r,res)=>{
-    const id=idOf(r.params.id),part=idOf(r.body.partId),qty=Number(r.body.quantity),ro=await one(id,r),location=r.body.locationId?idOf(r.body.locationId):null,key=requestKey(r.body.requestKey);ensureWritable(ro,['diagnosis','waiting_approval','in_progress']);
+    const id=idOf(r.params.id),part=idOf(r.body.partId),qty=Number(r.body.quantity),ro=scopedPartsOrder(r),location=r.body.locationId?idOf(r.body.locationId):null,key=requestKey(r.body.requestKey);ensureWritable(ro,['diagnosis','waiting_approval','in_progress']);
     const[acceptedPart]=await query<RowDataPacket[]>("SELECT e.id FROM repair_order_estimate_items e JOIN repair_approvals a ON a.repair_order_id=e.repair_order_id AND a.approved=TRUE WHERE e.repair_order_id=? AND e.item_type='part' LIMIT 1",[id]);if(acceptedPart)throw new HttpError(409,'Réservez les pièces depuis le chiffrage accepté');
     if(!Number.isFinite(qty)||qty<=0) throw new HttpError(400,"Quantité invalide");
-    if(!await permissionCoversAgency(r,'parts.reservation.create',String(ro.agency_id)))throw new HttpError(403,'Périmètre de réservation Pièces insuffisant');
-    const reserved=await transaction(async c=>{
+    const reserved=await transactionWithDeadlockRetry(async c=>{
       const[orderLock]=await c.execute<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=? FOR UPDATE',[id]);if(!['diagnosis','waiting_approval','in_progress'].includes(String(orderLock[0]?.status)))throw new HttpError(409,'Les réservations sont gelées pour cet OR');
       if(key){await c.execute('SELECT id FROM repair_orders WHERE id=? FOR UPDATE',[id]);const[existing]=await c.execute<RowDataPacket[]>('SELECT id,part_id,part_stock_id,quantity,location_id,status FROM part_reservations WHERE repair_order_id=? AND request_key=? FOR UPDATE',[id,key]);if(existing[0]){if(String(existing[0].part_id)!==part||Number(existing[0].quantity)!==qty||r.body.partStockId&&String(existing[0].part_stock_id)!==String(r.body.partStockId))throw new HttpError(409,'Clé de réservation déjà utilisée avec un contenu différent');return{id:existing[0].id,locationId:existing[0].location_id,status:existing[0].status}}}
       const stock=r.body.partStockId?await lockPartStockById(c,idOf(r.body.partStockId),part,String(ro.agency_id)):await lockPartStock(c,part,String(ro.agency_id),location);
@@ -871,13 +903,11 @@ workshopRouter.post(
 );
 workshopRouter.patch(
   "/repair-orders/:id/parts/reservations/:reservationId",
-  serviceAccess('service.order.update'),
+  partsOrderAccess(reservationMutationPermission),
   asyncHandler(async (r,res)=>{
     const id=idOf(r.params.id),reservation=idOf(r.params.reservationId),status=txt(r.body.status,"Statut",20,true)!;
     if(!["consumed","released"].includes(status)) throw new HttpError(400,"Action de réservation invalide");
-    const reservationPermission=status==='consumed'?'parts.reservation.consume':'parts.reservation.release';await assertPermission(r,reservationPermission);
-    const ro=await one(id,r);ensureWritable(ro,['diagnosis','waiting_approval','in_progress']);
-    if(!await permissionCoversAgency(r,reservationPermission,String(ro.agency_id)))throw new HttpError(403,'Périmètre de réservation Pièces insuffisant');
+    const ro=scopedPartsOrder(r);ensureWritable(ro,['diagnosis','waiting_approval','in_progress']);
     const businessConfig=await getEffectiveBusinessSettings(String(ro.agency_id));
     const changed=await transaction(async c=>{
       const[lockedOrders]=await c.execute<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=? FOR UPDATE',[id]);if(!['diagnosis','waiting_approval','in_progress'].includes(String(lockedOrders[0]?.status)))throw new HttpError(409,'Les mouvements de réservation sont gelés pour cet OR');

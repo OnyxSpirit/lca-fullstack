@@ -24,6 +24,7 @@ const RepairOrderDetailPage=lazy(()=>import('./modules/service/RepairOrderDetail
 const WorkshopPlanningPage=lazy(()=>import('./modules/workshop/WorkshopPlanningPage').then(module=>({default:module.WorkshopPlanningPage})));
 const SparePartsPage=lazy(()=>import('./modules/parts/SparePartsPage').then(module=>({default:module.SparePartsPage})));
 const SparePartDetailPage=lazy(()=>import('./modules/parts/SparePartDetailPage').then(module=>({default:module.SparePartDetailPage})));
+const PartsWorkQueuePage=lazy(()=>import('./modules/parts/PartsWorkQueuePage').then(module=>({default:module.PartsWorkQueuePage})));
 const BillingPage=lazy(()=>import('./modules/billing/BillingPage').then(module=>({default:module.BillingPage})));
 const InvoiceDetailPage=lazy(()=>import('./modules/billing/InvoiceDetailPage').then(module=>({default:module.InvoiceDetailPage})));
 const TreasuryPage=lazy(()=>import('./modules/treasury/TreasuryPage').then(module=>({default:module.TreasuryPage})));
@@ -85,6 +86,8 @@ export default function App() {
           <Route path="service/repair-orders/:id" element={<ModuleGuard module="service">{lazyPage(<RepairOrderDetailPage />)}</ModuleGuard>} />
           <Route path="workshop" element={<ModuleGuard module="workshop">{lazyPage(<WorkshopPlanningPage />)}</ModuleGuard>} />
           <Route path="parts" element={<ModuleGuard module="parts">{lazyPage(<SparePartsPage />)}</ModuleGuard>} />
+          <Route path="parts/repair-orders" element={<ModuleGuard module="parts">{lazyPage(<PartsWorkQueuePage />)}</ModuleGuard>} />
+          <Route path="parts/repair-orders/:id" element={<ModuleGuard module="parts">{lazyPage(<PartsWorkQueuePage />)}</ModuleGuard>} />
           <Route path="parts/:id" element={<ModuleGuard module="parts">{lazyPage(<SparePartDetailPage />)}</ModuleGuard>} />
           <Route path="notifications" element={lazyPage(<NotificationsPage />)} />
           <Route path="billing" element={<ModuleGuard module="billing">{lazyPage(<BillingPage />)}</ModuleGuard>} />

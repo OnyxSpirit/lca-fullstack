@@ -1,0 +1,7 @@
+import{apiDownload}from'./apiClient';
+
+export async function downloadAuthenticatedPdf(path:string,fileName:string){const blob=await apiDownload(path),url=URL.createObjectURL(blob);try{const anchor=document.createElement('a');anchor.href=url;anchor.download=fileName;anchor.click()}finally{setTimeout(()=>URL.revokeObjectURL(url),1000)}}
+
+export async function previewAuthenticatedPdf(path:string){const blob=await apiDownload(path),url=URL.createObjectURL(blob),popup=window.open(url,'_blank','noopener,noreferrer');if(!popup){URL.revokeObjectURL(url);throw new Error('La prévisualisation a été bloquée par le navigateur.')}setTimeout(()=>URL.revokeObjectURL(url),60000)}
+
+export async function printAuthenticatedPdf(path:string){const blob=await apiDownload(path),url=URL.createObjectURL(blob),frame=document.createElement('iframe');frame.style.position='fixed';frame.style.right='0';frame.style.bottom='0';frame.style.width='1px';frame.style.height='1px';frame.style.opacity='0';frame.setAttribute('title','Document à imprimer');document.body.appendChild(frame);await new Promise<void>((resolve,reject)=>{const timeout=window.setTimeout(()=>reject(new Error('Le document PDF n’a pas pu être chargé pour impression.')),15000);frame.onload=()=>{window.clearTimeout(timeout);resolve()};frame.onerror=()=>{window.clearTimeout(timeout);reject(new Error('Le document PDF n’a pas pu être chargé pour impression.'))};frame.src=url});try{frame.contentWindow?.focus();frame.contentWindow?.print()}finally{window.setTimeout(()=>{frame.remove();URL.revokeObjectURL(url)},60000)}}

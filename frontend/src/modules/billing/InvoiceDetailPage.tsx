@@ -1,5 +1,5 @@
 import React,{useState}from'react';
-import{ArrowLeft,Download}from'lucide-react';
+import{ArrowLeft,Download,Printer}from'lucide-react';
 import{useNavigate,useParams}from'react-router-dom';
 import{useBillingAction,useInvoiceQuery}from'../../api/erpHooks';
 import{PageHeader}from'../../components/common/PageHeader';
@@ -10,6 +10,7 @@ import{StatusBadge}from'../../components/common/StatusBadge';
 import{formatCurrency,formatDateTime}from'../../lib/utils';
 import{generateUuid}from'../../lib/uuid';
 import{apiDownload}from'../../services/apiClient';
+import{downloadAuthenticatedPdf,printAuthenticatedPdf}from'../../services/pdfActions';
 import{useAuthStore}from'../../stores/authStore';
 import{useUiStore}from'../../stores/uiStore';
 import{InvoicePaymentForm,InvoicePaymentHistory}from'./InvoicePaymentComponents';
@@ -25,7 +26,8 @@ export const InvoiceDetailPage:React.FC=()=>{
  const Button=(props:React.ComponentProps<typeof BaseButton>)=><BaseButton {...props} disabled={props.disabled||(props.type==='submit'&&pending)} loading={props.loading||(props.type==='submit'&&pending)}/>;
  if(query.isLoading)return <p className="p-8">Chargement…</p>;
  if(query.isError||!invoice)return <p className="p-8 text-red-700">{query.error instanceof Error?query.error.message:'Facture introuvable'}</p>;
- const download=async(path:string,name:string)=>{try{const blob=await apiDownload(`${path}?agencyId=${encodeURIComponent(agencyId!)}`),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;anchor.click();URL.revokeObjectURL(url)}catch(error){toast({type:'error',title:'Document indisponible',description:error instanceof Error?error.message:'Erreur API'})}};
+ const invoicePdfPath=()=>`/invoices/${id}/pdf?agencyId=${encodeURIComponent(agencyId!)}`;
+ const documentAction=async(action:'download'|'print')=>{try{if(action==='print')await printAuthenticatedPdf(invoicePdfPath());else await downloadAuthenticatedPdf(invoicePdfPath(),`facture-${invoice.invoiceNumber}.pdf`)}catch(error){toast({type:'error',title:'Document indisponible',description:error instanceof Error?error.message:'Erreur API'})}};
  const issue=async()=>{try{await action.mutateAsync({path:`/invoices/${id}/status`,method:'PATCH',status:'issued',agencyId});toast({type:'success',title:'Facture émise'})}catch(error){toast({type:'error',title:'Émission impossible',description:error instanceof Error?error.message:'Erreur API'})}};
  const updateDraft=async()=>{const notes=window.prompt('Notes de la facture',invoice.notes??'');if(notes===null)return;try{await action.mutateAsync({path:`/invoices/${id}`,method:'PATCH',agencyId,issueDate:String(invoice.issueDate).slice(0,10),dueDate:invoice.dueDate?String(invoice.dueDate).slice(0,10):null,notes,items:(invoice.items??[]).map(item=>({description:item.description,quantity:item.quantity,unitPrice:item.unitPrice,discount:item.discount,taxRate:item.taxRate}))});toast({type:'success',title:'Brouillon modifié'})}catch(error){toast({type:'error',title:'Modification impossible',description:error instanceof Error?error.message:'Erreur API'})}};
  const availableCredits=(invoice.creditNotes??[]).filter(item=>['issued','applied'].includes(item.status)&&item.refundableRemaining>0);
@@ -34,7 +36,7 @@ export const InvoiceDetailPage:React.FC=()=>{
  function openRefund(payment:InvoicePayment){const credit=availableCredits[0];setRefundPayment(payment);setRefundForm({creditNoteId:credit?.id??'',amount:String(Math.min(payment.refundableRemaining,credit?.refundableRemaining??0)),reason:''})}
  async function refund(event:React.FormEvent){event.preventDefault();if(!refundPayment||pending)return;const credit=availableCredits.find(item=>item.id===refundForm.creditNoteId),maximum=Math.min(refundPayment.refundableRemaining,credit?.refundableRemaining??0),amount=Number(refundForm.amount);if(!credit||refundForm.amount===''||!Number.isFinite(amount)||Number(refundForm.amount)<=0||amount>maximum){toast({type:'error',title:'Montant de remboursement invalide'});return}try{await action.mutateAsync({path:`/payments/${refundPayment.id}/refund`,agencyId,creditNoteId:credit.id,amount,reason:refundForm.reason,idempotencyKey:refundKey});toast({type:'success',title:'Remboursement enregistré'});setRefundKey(generateUuid());setRefundPayment(null)}catch(error){toast({type:'error',title:'Remboursement impossible',description:error instanceof Error?error.message:'Erreur API'})}}
  return <div className="space-y-6">
-  <PageHeader title={invoice.invoiceNumber} subtitle={`${invoice.customerName} · ${invoice.agencyName??''}`} breadcrumbs={[{label:'Accueil',href:'/dashboard'},{label:'Facturation',href:'/billing'},{label:invoice.invoiceNumber}]} actions={<div className="flex gap-2"><Button variant="outline" size="sm" icon={<ArrowLeft className="w-4 h-4"/>} onClick={()=>navigate('/billing')}>Retour</Button><Button size="sm" icon={<Download className="w-4 h-4"/>} onClick={()=>download(`/invoices/${id}/pdf`,`facture-${invoice.invoiceNumber}.pdf`)}>PDF</Button></div>}/>
+  <PageHeader title={invoice.invoiceNumber} subtitle={`${invoice.customerName} · ${invoice.agencyName??''}`} breadcrumbs={[{label:'Accueil',href:'/dashboard'},{label:'Facturation',href:'/billing'},{label:invoice.invoiceNumber}]} actions={<div className="flex gap-2"><Button variant="outline" size="sm" icon={<ArrowLeft className="w-4 h-4"/>} onClick={()=>navigate('/billing')}>Retour</Button><Button variant="outline" size="sm" icon={<Printer className="w-4 h-4"/>} onClick={()=>void documentAction('print')}>Imprimer</Button><Button size="sm" icon={<Download className="w-4 h-4"/>} onClick={()=>void documentAction('download')}>Télécharger</Button></div>}/>
   <div className="grid gap-4 lg:grid-cols-3">
    <Card><div className="flex justify-between"><h2 className="font-bold">Facture</h2><StatusBadge status={invoice.status} type="invoice"/></div><Info l="Client" v={invoice.customerName}/><Info l="Type" v={invoice.type}/><Info l="Source" v={invoice.relatedDocNumber||'Manuelle'}/><Info l="Émission" v={invoice.issueDate}/><Info l="Échéance" v={invoice.dueDate||'—'}/></Card>
    <Card><h2 className="font-bold">Résumé</h2><Info l="HT net" v={formatCurrency(invoice.amountHT)}/><Info l="Taxes" v={formatCurrency(invoice.amountTVA)}/><Info l="Total" v={formatCurrency(invoice.amountTTC)}/>{canViewPayments?<><Info l="Encaissé" v={formatCurrency(invoice.paidAmountTTC)}/><Info l="Reste dû" v={formatCurrency(invoice.remainingAmountTTC)}/></>:<p className="mt-2 text-xs text-slate-500">Détails des règlements masqués.</p>}</Card>

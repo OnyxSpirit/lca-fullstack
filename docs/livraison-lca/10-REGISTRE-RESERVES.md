@@ -17,3 +17,21 @@
 
 Aucune réserve ne doit être clôturée sans preuve datée, responsable identifié et validation de l'impact.
 
+## Preuves, conditions de clôture et portée
+
+| ID | Preuve attendue | Condition de clôture | Bloque distribution | Bloque production |
+|---|---|---|:---:|:---:|
+| LCA-R01 | attestation datée par accès, ancien accès refusé, sessions révoquées | six accès au statut rotation ou révocation confirmée | oui | oui |
+| LCA-R02 | inventaire du paquet sans `.git` et décision propriétaire sur l'historique | mode de remise assaini approuvé ; purge seulement si décidée séparément | oui pour toute remise Git | oui si chaîne source non maîtrisée |
+| LCA-R03 | scénario runtime à deux concessions, contrôles SQL/API/UI antagonistes | aucune fuite et matrice validée | non pour mono-concession | oui pour multi-concession |
+| LCA-R04 | test de crash/réconciliation et procédure d'incident approuvée | détection/quarantaine démontrées | non | selon acceptation du risque |
+| LCA-R05 | restore drill avec volumétrie représentative et chronométrage | RPO/RTO définis et atteints | non | oui |
+| LCA-R06 | autorisations écrites sécurité, exploitation et métier | décision formelle de mise en production | non | oui |
+| LCA-R07 | test multi-instance avec store partagé ou décision mono-instance | quotas cohérents sur topologie cible | non | oui si horizontalisé |
+| LCA-R08 | exigence de révocation définie et test correspondant | délai accepté ou révocation temps réel démontrée | non | selon exigence sécurité |
+| LCA-R09 | scripts paramétrés/revus et restauration cible vide réussie | aucune cible implicite dangereuse | non | oui |
+| LCA-R10 | signature vérifiable par identité autorisée, si requise | politique de signature satisfaite ou renonciation formelle | selon politique | non |
+| LCA-R11 | matrice des profils réels et smoke-tests préproduction | accès/refus attendus validés | non | oui |
+| LCA-R12 | procès-verbal de recette infrastructure | DNS/TLS/proxy/intégrations/supervision validés | non | oui |
+
+Les responsables indiqués dans le premier tableau sont proposés et restent à confirmer. Les décisions « selon politique » ou « selon acceptation » exigent une trace écrite ; elles ne valent pas clôture implicite.

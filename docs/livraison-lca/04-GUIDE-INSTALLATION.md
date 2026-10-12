@@ -33,7 +33,7 @@ curl --fail http://127.0.0.1/api/health
 docker compose --profile tools run --rm seed-admin
 ```
 
-Le premier démarrage sur volume vide initialise MySQL, applique baseline/seed/migrations, puis démarre Express et Nginx. Après le seed, retirer `ADMIN_PASSWORD` du fichier d'environnement selon la procédure d'exploitation, sans casser les variables exigées lors d'une future résolution Compose.
+Le premier démarrage sur volume vide initialise MySQL, applique baseline/seed/migrations, puis démarre Express et Nginx. Le Compose actuel exige `ADMIN_PASSWORD` à chaque résolution, même si `seed-admin` n'est pas lancé. Après le seed, conserver cette valeur uniquement dans le mécanisme de secrets protégé choisi pour l'exploitation ou adapter ultérieurement l'injection de secret par une modification séparée et qualifiée ; une simple suppression du `.env` ferait échouer `docker compose config`.
 
 ## Validation minimale
 
@@ -49,4 +49,3 @@ Vérifier trois services `healthy`, niveau de migration 79, connexion du Super A
 - Socket.IO en échec : vérifier upgrade WebSocket, path `/socket.io` et proxy.
 
 Ne jamais utiliser `docker compose down -v` sur une installation à préserver.
-

@@ -1,0 +1,48 @@
+import type {RowDataPacket} from 'mysql2/promise';
+import {query} from '../../config/database.js';
+import {HttpError} from '../../shared/http-error.js';
+
+export const workshopOrigins=['CONCESSION','EXTERNAL','UNKNOWN'] as const;
+export type WorkshopOrigin=(typeof workshopOrigins)[number];
+export type WorkshopOriginReport={origin:WorkshopOrigin;repairOrdersCreated:number;activeOrders:number;completedOrders:number;cancelledOrders:number;abandonedOrders:number;closedOrdersInPeriod:number;distinctCustomers:number;distinctVehicles:number;interventionAmount:number;netInvoiced:number;netCollected:number;currentOutstanding:number};
+export type WorkshopReportAggregate={repair_orders_count:number;active_orders:number;completed_orders:number;warranty_orders:number;average_lead_time:number;planned_hours:number;worked_hours:number;billed_hours:number;workshop_revenue:number;workshop_collected:number;workshop_outstanding:number;invoiced_orders:number;averageRepairOrder:number;productivityRate:number;efficiencyRate:number;interventionAmount:number;closedOrdersInPeriod:number;distinctCustomers:number;distinctVehicles:number;byCommercialOrigin:WorkshopOriginReport[]};
+
+type Input={from:string;to:string;scopeSql:string;scopeParams:unknown[];origin?:WorkshopOrigin};
+const number=(value:unknown)=>Number(value??0);
+const empty=(origin:WorkshopOrigin):WorkshopOriginReport=>({origin,repairOrdersCreated:0,activeOrders:0,completedOrders:0,cancelledOrders:0,abandonedOrders:0,closedOrdersInPeriod:0,distinctCustomers:0,distinctVehicles:0,interventionAmount:0,netInvoiced:0,netCollected:0,currentOutstanding:0});
+const originClause=(origin?:WorkshopOrigin)=>origin?' AND ro.vehicle_commercial_origin=?':'';
+const params=(input:Input)=>[...input.scopeParams,...(input.origin?[input.origin]:[])];
+
+export function workshopOrigin(value:unknown):WorkshopOrigin|undefined{
+  const origin=String(value??'').trim().toUpperCase();
+  if(!origin)return undefined;
+  if(!workshopOrigins.includes(origin as WorkshopOrigin))throw new HttpError(400,'Origine commerciale invalide');
+  return origin as WorkshopOrigin;
+}
+
+export async function aggregateWorkshopReport(input:Input):Promise<WorkshopReportAggregate>{
+  const originFilter=originClause(input.origin),scopeAndOrigin=`${input.scopeSql}${originFilter}`,scopeValues=params(input);
+  const start=`${input.from} 00:00:00`,endExclusive=new Date(`${input.to}T00:00:00Z`);endExclusive.setUTCDate(endExclusive.getUTCDate()+1);const end=`${endExclusive.toISOString().slice(0,10)} 00:00:00`;
+  const [volumes,hours,interventions,invoices,credits,payments,legacyRefunds,modernRefunds,outstanding]=await Promise.all([
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COUNT(*) repair_orders_created,SUM(ro.status IN('planned','received','diagnosis','waiting_approval','in_progress','quality_control','ready')) active_orders,SUM(ro.status IN('invoiced','delivered','closed')) completed_orders,SUM(ro.status='cancelled') cancelled_orders,SUM(ro.status IN('abandonment_pending','abandoned')) abandoned_orders,SUM(ro.warranty_covered=TRUE) warranty_orders,COUNT(DISTINCT ro.customer_id) distinct_customers,COUNT(DISTINCT ro.vehicle_id) distinct_vehicles,COALESCE(SUM(CASE WHEN ro.closed_at IS NOT NULL THEN TIMESTAMPDIFF(HOUR,ro.received_at,ro.closed_at) END),0) lead_hours,COUNT(CASE WHEN ro.closed_at IS NOT NULL AND ro.received_at IS NOT NULL THEN 1 END) lead_count FROM repair_orders ro WHERE ${scopeAndOrigin} AND ro.created_at>=? AND ro.created_at<? GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,start,end]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COALESCE(SUM(iv.planned_hours),0) planned_hours,COALESCE(SUM(iv.actual_hours),0) worked_hours,COALESCE(SUM(CASE WHEN iv.status='completed' THEN iv.planned_hours ELSE 0 END),0) billed_hours FROM interventions iv JOIN repair_orders ro ON ro.id=iv.repair_order_id WHERE ${scopeAndOrigin} AND ro.created_at>=? AND ro.created_at<? GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,start,end]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COUNT(DISTINCT ro.id) closed_orders,COALESCE(SUM(roi.line_total*(1+roi.tax_rate/100)),0) intervention_amount FROM repair_orders ro LEFT JOIN repair_order_items roi ON roi.repair_order_id=ro.id AND roi.status='active' WHERE ${scopeAndOrigin} AND ro.closed_at>=? AND ro.closed_at<? AND ro.status NOT IN('cancelled','abandonment_pending','abandoned') GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,start,end]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COUNT(i.id) invoice_count,COALESCE(SUM(i.total),0) amount FROM invoices i JOIN repair_orders ro ON ro.id=i.repair_order_id WHERE ${scopeAndOrigin} AND i.invoice_type='workshop' AND i.status NOT IN('draft','cancelled') AND i.issue_date>=? AND i.issue_date<? GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,input.from,end.slice(0,10)]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COALESCE(SUM(cn.amount),0) amount FROM credit_notes cn JOIN invoices i ON i.id=cn.invoice_id JOIN repair_orders ro ON ro.id=i.repair_order_id WHERE ${scopeAndOrigin} AND i.invoice_type='workshop' AND i.status NOT IN('draft','cancelled') AND cn.status IN('issued','applied') AND cn.issue_date>=? AND cn.issue_date<? GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,input.from,end.slice(0,10)]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COALESCE(SUM(p.amount),0) amount FROM payments p JOIN invoices i ON i.id=p.invoice_id JOIN repair_orders ro ON ro.id=i.repair_order_id WHERE ${scopeAndOrigin} AND i.invoice_type='workshop' AND p.status IN('confirmed','refunded') AND p.payment_date>=? AND p.payment_date<? GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,start,end]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COALESCE(SUM(p.amount),0) amount FROM payments p JOIN invoices i ON i.id=p.invoice_id JOIN repair_orders ro ON ro.id=i.repair_order_id WHERE ${scopeAndOrigin} AND i.invoice_type='workshop' AND p.status='refunded' AND p.refunded_at>=? AND p.refunded_at<? AND NOT EXISTS(SELECT 1 FROM payment_refunds dedupe WHERE dedupe.payment_id=p.id) GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,start,end]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COALESCE(SUM(pr.amount),0) amount FROM payment_refunds pr JOIN invoices i ON i.id=pr.invoice_id JOIN repair_orders ro ON ro.id=i.repair_order_id WHERE ${scopeAndOrigin} AND i.invoice_type='workshop' AND pr.refunded_at>=? AND pr.refunded_at<? GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,start,end]),
+    query<RowDataPacket[]>(`SELECT ro.vehicle_commercial_origin origin,COALESCE(SUM(i.balance_due),0) amount FROM invoices i JOIN repair_orders ro ON ro.id=i.repair_order_id WHERE ${scopeAndOrigin} AND i.invoice_type='workshop' AND i.status NOT IN('draft','paid','cancelled') AND i.issue_date>=? AND i.issue_date<? GROUP BY ro.vehicle_commercial_origin`,[...scopeValues,input.from,end.slice(0,10)]),
+  ]);
+  const groups=new Map<WorkshopOrigin,WorkshopOriginReport>(workshopOrigins.map(origin=>[origin,empty(origin)]));
+  const apply=(rows:RowDataPacket[],fn:(group:WorkshopOriginReport,row:RowDataPacket)=>void)=>rows.forEach(row=>{const group=groups.get(row.origin as WorkshopOrigin);if(group)fn(group,row)});
+  apply(volumes,(g,r)=>{g.repairOrdersCreated=number(r.repair_orders_created);g.activeOrders=number(r.active_orders);g.completedOrders=number(r.completed_orders);g.cancelledOrders=number(r.cancelled_orders);g.abandonedOrders=number(r.abandoned_orders);g.distinctCustomers=number(r.distinct_customers);g.distinctVehicles=number(r.distinct_vehicles)});
+  apply(interventions,(g,r)=>{g.closedOrdersInPeriod=number(r.closed_orders);g.interventionAmount=number(r.intervention_amount)});
+  apply(invoices,(g,r)=>{g.netInvoiced+=number(r.amount)});apply(credits,(g,r)=>{g.netInvoiced-=number(r.amount)});
+  apply(payments,(g,r)=>{g.netCollected+=number(r.amount)});apply(legacyRefunds,(g,r)=>{g.netCollected-=number(r.amount)});apply(modernRefunds,(g,r)=>{g.netCollected-=number(r.amount)});apply(outstanding,(g,r)=>{g.currentOutstanding=number(r.amount)});
+  const selected=input.origin?[groups.get(input.origin)!]:workshopOrigins.map(origin=>groups.get(origin)!);
+  const sum=(key:keyof WorkshopOriginReport)=>selected.reduce((total,row)=>total+number(row[key]),0),hoursTotal=(key:string)=>hours.reduce((total,row)=>total+number(row[key]),0),volumeTotal=(key:string)=>volumes.reduce((total,row)=>total+number(row[key]),0);
+  const planned=hoursTotal('planned_hours'),worked=hoursTotal('worked_hours'),invoicedOrders=invoices.reduce((total,row)=>total+number(row.invoice_count),0),netInvoiced=sum('netInvoiced');
+  const leadCount=volumeTotal('lead_count');
+  return{repair_orders_count:sum('repairOrdersCreated'),active_orders:sum('activeOrders'),completed_orders:sum('completedOrders'),warranty_orders:volumeTotal('warranty_orders'),average_lead_time:leadCount?volumeTotal('lead_hours')/leadCount:0,planned_hours:planned,worked_hours:worked,billed_hours:hoursTotal('billed_hours'),workshop_revenue:netInvoiced,workshop_collected:sum('netCollected'),workshop_outstanding:sum('currentOutstanding'),invoiced_orders:invoicedOrders,averageRepairOrder:invoicedOrders?netInvoiced/invoicedOrders:0,productivityRate:planned?worked/planned*100:0,efficiencyRate:worked?hoursTotal('billed_hours')/worked*100:0,interventionAmount:sum('interventionAmount'),closedOrdersInPeriod:sum('closedOrdersInPeriod'),distinctCustomers:sum('distinctCustomers'),distinctVehicles:sum('distinctVehicles'),byCommercialOrigin:workshopOrigins.map(origin=>groups.get(origin)!)};
+}

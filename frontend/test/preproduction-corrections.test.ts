@@ -13,16 +13,14 @@ test('PREPROD-FRONT: la facture a un libellé explicite et les rôles une suppre
 });
 
 test('PREPROD-FRONT: ventes et devis aident sur le coût sans remplacer la validation serveur',()=>{
-  for(const file of ['modules/sales/SaleWizardModal.tsx','modules/crm/QuotationModal.tsx']){
-    const text=source(file);
-    assert.match(text,/acquisitionCost/);
-    assert.match(text,/maxDiscount/);
-    assert.match(text,/Remise maximale autorisée/);
-  }
+  const sale=source('modules/sales/SaleWizardModal.tsx'),quote=source('modules/crm/QuotationModal.tsx');
+  assert.match(sale,/pricingGuard\.data\?\.maxDiscount/);assert.match(sale,/maxDiscount/);assert.match(sale,/Remise maximale autorisée/);
+  assert.match(quote,/acquisitionCost/);assert.match(quote,/maxDiscount/);assert.match(quote,/Remise maximale autorisée/);
 });
 
-test('PREPROD-FRONT: les candidats opérationnels ne montrent pas le Super Admin système',()=>{
-  for(const file of ['modules/sales/SaleWizardModal.tsx','modules/showroom/showroomPolicy.ts','modules/deliveries/NewDeliveryModal.tsx'])
+test('PREPROD-FRONT: les candidats locaux excluent le Super Admin et Livraison consomme la liste backend filtrée',()=>{
+  for(const file of ['modules/sales/SaleWizardModal.tsx','modules/showroom/showroomPolicy.ts'])
     assert.match(source(file),/isSystemSuperAdmin/);
+  assert.match(source('modules/deliveries/NewDeliveryModal.tsx'),/useDeliverySpecialistsQuery/);
   assert.match(source('stores/authStore.ts'),/profile\.role\.isSystemSuperAdmin/);
 });

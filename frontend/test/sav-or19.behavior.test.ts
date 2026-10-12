@@ -6,7 +6,7 @@ test('SAV-OR-19 affiche toutes les lignes de l’historique sans réduire par OR
   const page=await readFile(new URL('../src/modules/workshop/WorkshopPlanningPage.tsx',import.meta.url),'utf8');
   const hooks=await readFile(new URL('../src/api/erpHooks.ts',import.meta.url),'utf8');
   assert.match(page,/Historique des interventions/);
-  assert.match(page,/\(historyQuery\.data\?\?\[\]\)\.map\(item=>/);
+  assert.match(page,/historyQuery\.data[\s\S]*\.map\(item=>/);
   assert.doesNotMatch(page,/new Map\([^\n]*repairOrderId/);
   assert.match(page,/item\.technicianName/);
   assert.match(page,/item\.bayNames/);

@@ -1,0 +1,22 @@
+# Surcharge de livraison à utiliser avec docker-compose.yml.
+# Les digests OCI index ci-dessous ont été vérifiés le 12 octobre 2026.
+services:
+  mysql:
+    image: mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+
+  backend:
+    build:
+      context: ./backend-node
+      dockerfile: Dockerfile.livraison
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.livraison
+      args:
+        VITE_API_URL: /api
+
+  seed-admin:
+    build:
+      context: ./backend-node
+      dockerfile: Dockerfile.livraison

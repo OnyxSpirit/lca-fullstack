@@ -20,7 +20,7 @@ const actors:Record<string,Actor>={
   none:{permissions:{},allow:false},agency:{permissions:{'delivery.documents.view':'AGENCY'},allow:true},
   denied:{permissions:{'delivery.documents.view':'AGENCY'},allow:false},concession:{permissions:{'delivery.documents.view':'CONCESSION'},allow:true},
   global:{permissions:{'delivery.documents.view':'GLOBAL'},allow:true},fake:{permissions:{},allow:false,code:'SUPER_ADMIN',system:false},
-  system:{permissions:{},allow:true,code:'SUPER_ADMIN',system:true},manageDenied:{permissions:{'delivery.checklist.manage':'AGENCY'},allow:false},
+  system:{permissions:{'delivery.documents.view':'GLOBAL'},allow:true,code:'SUPER_ADMIN',system:true},manageDenied:{permissions:{'delivery.checklist.manage':'AGENCY'},allow:false},
 };
 let activeActor='none';
 const token=(sub:string)=>{activeActor=sub;return issueTestAccessToken({userId:sub,email:`${sub}@test.local`,agencyId:'1'})};

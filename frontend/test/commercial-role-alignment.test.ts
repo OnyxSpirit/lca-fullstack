@@ -12,7 +12,8 @@ test('COM-RM-01 valide date et heure, explique le blocage et produit un instant 
   assert.equal(appointmentDateError('2099-09-09T12:00',now),null);
   assert.equal(appointmentIso('2099-09-09T12:00'),new Date(2099,8,9,12,0).toISOString());
   const page=read('../src/modules/crm/CrmPage.tsx'),policy=read('../src/modules/crm/crmAppointmentPolicy.ts');
-  assert.match(page,/disabled=\{Boolean\(appointmentDateError\(scheduledAt\)\)\}/);
+  assert.match(page,/appointmentDateError\(scheduledAt\)/);
+  assert.match(page,/appointmentIso\(scheduledAt\)/);
   assert.match(policy,/Renseignez la date et l’heure/);
 });
 

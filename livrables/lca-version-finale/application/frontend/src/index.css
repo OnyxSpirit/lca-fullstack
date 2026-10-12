@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+  --lca-ink: #0b0b0c;
+  --lca-carbon: #151517;
+  --lca-red: #8f1722;
+  --lca-red-hover: #6f1019;
+  --lca-paper: #f5f4f2;
+  --lca-line: #dedbd7;
+}
+
+html { background: var(--lca-paper); }
+body { margin: 0; background: var(--lca-paper); color: var(--lca-ink); font-family: Inter, "Segoe UI", Arial, sans-serif; }
+::selection { background: #8f172233; color: #111; }
+
+/* L'identité de marque remplace les accents bleus historiques sans modifier la logique des écrans. */
+.bg-blue-600, .bg-blue-700 { background-color: var(--lca-red) !important; }
+.hover\:bg-blue-700:hover, .hover\:bg-blue-600:hover { background-color: var(--lca-red-hover) !important; }
+.bg-blue-500 { background-color: #a51d2a !important; }
+.bg-blue-50, .bg-blue-50\/40, .bg-blue-50\/50, .bg-blue-50\/80 { background-color: #fbf3f3 !important; }
+.bg-blue-100 { background-color: #f4dfe1 !important; }
+.text-blue-400, .text-blue-500, .text-blue-600, .text-blue-700, .text-blue-800 { color: var(--lca-red) !important; }
+.border-blue-200, .border-blue-300, .border-blue-400, .border-blue-500 { border-color: #d9a7ac !important; }
+.hover\:border-blue-400:hover { border-color: var(--lca-red) !important; }
+.hover\:text-blue-600:hover, .hover\:text-blue-700:hover { color: var(--lca-red) !important; }
+.focus\:ring-blue-500:focus { --tw-ring-color: #8f172255 !important; }
+
+input, select, textarea { border-radius: 4px !important; }
+table thead { letter-spacing: .055em; }
+table tbody tr { transition: background-color 120ms ease; }
+
+@media print {
+  aside, header, button { display: none !important; }
+  main { padding: 0 !important; max-width: none !important; }
+}

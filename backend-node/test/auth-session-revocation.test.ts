@@ -45,7 +45,8 @@ async function execute(sql: string, params: unknown[] = []): Promise<ResultSetHe
   throw new Error(`Écriture de test non gérée: ${sql}`);
 }
 
-mock.module('../src/config/database.js', { namedExports: { query, execute } });
+async function transaction<T>(work:(connection:{execute:typeof execute})=>Promise<T>){return work({execute})}
+mock.module('../src/config/database.js', { namedExports: { query, execute, transaction } });
 mock.module('../src/modules/rbac/rbac.service.js', { namedExports: {
   resolveRbacContext: async () => ({ roleId: '1', roleCode: 'EMPLOYEE', isSuperAdmin: false, permissions: new Map(permissionEnabled ? [['documents.view', 'AGENCY']] : []) }),
 } });

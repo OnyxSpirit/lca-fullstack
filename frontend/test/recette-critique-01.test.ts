@@ -17,7 +17,7 @@ test('CRM-TEAM-01/02/03 charge dynamiquement les membres et conserve Toute l’�
 test('CRM-TEAM-04/05 sélection et remise à Toute l’équipe pilotent commercialId',()=>{
   assert.match(crm,/value=\{selectedCommercial\}/);
   assert.match(crm,/setSelectedCommercial\(e\.target\.value\)/);
-  assert.match(crm,/useLeadsQuery\([^;]+selectedCommercial\)/);
+  assert.match(crm,/useLeadsPageQuery\(\{[^}]+commercialId:selectedCommercial/);
   assert.match(hooks,/if \(commercialId\) params\.set\("commercialId", commercialId\)/);
 });
 

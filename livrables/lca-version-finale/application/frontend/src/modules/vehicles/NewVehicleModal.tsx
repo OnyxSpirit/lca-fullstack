@@ -1,0 +1,578 @@
+import React, { useEffect, useRef, useState } from "react";
+import { ImagePlus, Star, Trash2 } from "lucide-react";
+import {
+  useCreateVehicle,
+  useVehicleCreateAgenciesQuery,
+  useVehicleReferencesQuery,
+} from "../../api/erpHooks";
+import { useAuthStore } from "../../stores/authStore";
+import { useUiStore } from "../../stores/uiStore";
+import { Modal } from "../../components/ui/Modal";
+import { Button } from "../../components/ui/Button";
+import { numberOrUndefined } from "../../lib/numericInput";
+import { normalizeVin, normalizeVinInput, VIN_PATTERN } from "./vehicleVin";
+import {
+  clearVehicleFinancialValues,
+  vehiclePayloadForAgency,
+} from "./vehicleScopePolicy";
+
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+}
+interface CatalogImage {
+  dataUrl: string;
+  name: string;
+  primary: boolean;
+}
+const initial = {
+  agencyId: "",
+  vin: "",
+  registrationNumber: "",
+  brand: "",
+  model: "",
+  version: "",
+  vehicleType: "used",
+  bodyType: "SUV",
+  year: String(new Date().getFullYear()),
+  firstRegistrationDate: "",
+  mileage: "",
+  color: "",
+  interiorColor: "",
+  fuelType: "Essence",
+  engine: "",
+  transmission: "Automatique",
+  fiscalPower: "",
+  realPower: "",
+  co2Emissions: "",
+  status: "received",
+  locationId: "",
+  supplierId: "",
+  purchasePrice: "",
+  refurbishmentCost: "",
+  transportCost: "",
+  administrativeCost: "",
+  additionalCosts: "",
+  catalogPrice: "",
+  salePrice: "",
+  minimumPrice: "",
+  features: "",
+  notes: "",
+};
+const numericFields = [
+  "year",
+  "mileage",
+  "fiscalPower",
+  "realPower",
+  "co2Emissions",
+  "purchasePrice",
+  "refurbishmentCost",
+  "transportCost",
+  "administrativeCost",
+  "additionalCosts",
+  "catalogPrice",
+  "salePrice",
+  "minimumPrice",
+] as const;
+
+export async function optimizeImage(file: File): Promise<CatalogImage> {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+    throw new Error(`${file.name}: format non accepté`);
+  if (file.size > 8 * 1024 * 1024)
+    throw new Error(`${file.name}: taille supérieure à 8 Mo`);
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 1600 / bitmap.width, 1200 / bitmap.height),
+      canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Optimisation de la photo impossible");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return {
+      dataUrl: canvas.toDataURL("image/webp", 0.84),
+      name: file.name,
+      primary: false,
+    };
+  } finally {
+    bitmap.close();
+  }
+}
+
+export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
+  const createVehicle = useCreateVehicle(),
+    agenciesQuery = useVehicleCreateAgenciesQuery(isOpen),
+    currentAgency = useAuthStore((s) => s.currentAgency),
+    addToast = useUiStore((s) => s.addToast);
+  const [form, setForm] = useState(initial),
+    [images, setImages] = useState<CatalogImage[]>([]),
+    [isProcessingImages, setIsProcessingImages] = useState(false),
+    [vinError, setVinError] = useState("");
+  const agencies = agenciesQuery.data ?? [],
+    selectedAgencyId =
+      form.agencyId || agencies[0]?.id || currentAgency?.id || "",
+    selectedAgency = agencies.find((agency) => agency.id === selectedAgencyId),
+    currencyCode = selectedAgency?.currencyCode ?? "XAF",
+    financialAllowed = Boolean(selectedAgency?.financialAllowed),
+    references = useVehicleReferencesQuery(selectedAgencyId);
+  const vinRef = useRef<HTMLInputElement>(null),
+    normalizedVin = normalizeVin(form.vin),
+    vinValid = VIN_PATTERN.test(normalizedVin);
+  useEffect(() => {
+    if (isOpen && agencies.length)
+      setForm((current) => ({
+        ...current,
+        agencyId: current.agencyId || agencies[0]!.id,
+      }));
+  }, [isOpen, agencies]);
+  useEffect(() => { if (isOpen) setForm((current) => ({...current,locationId:""})) }, [isOpen, selectedAgencyId]);
+  const field =
+    (name: keyof typeof initial) =>
+    (
+      event: React.ChangeEvent<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >,
+    ) => {
+      const value = event.target.value;
+      setForm((current) => ({
+        ...current,
+        [name]: name === "vin" ? normalizeVinInput(value) : value,
+      }));
+      if (name === "vin") setVinError("");
+    };
+  const selectImages = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    setIsProcessingImages(true);
+    try {
+      const files = Array.from(event.target.files ?? []);
+      if (images.length + files.length > 8)
+        throw new Error("Maximum 8 photos par véhicule");
+      const next = await Promise.all(files.map(optimizeImage));
+      setImages((current) =>
+        [...current, ...next].map((image, index) => ({
+          ...image,
+          primary: index === 0,
+        })),
+      );
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Préparation de la photo impossible",
+        description: error instanceof Error ? error.message : "Image invalide",
+      });
+    } finally {
+      setIsProcessingImages(false);
+      event.target.value = "";
+    }
+  };
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!vinValid) {
+      setVinError("Le VIN doit comporter exactement 17 caractères valides.");
+      vinRef.current?.focus();
+      return;
+    }
+    if (images.length === 0) {
+      addToast({
+        type: "error",
+        title: "Photo principale requise",
+        description:
+          "Ajoutez au moins une photo pour publier le véhicule dans le catalogue.",
+      });
+      return;
+    }
+    const numbers = Object.fromEntries(
+      numericFields.map((name) => [name, numberOrUndefined(form[name])]),
+    );
+    const payload = vehiclePayloadForAgency(
+      {
+        ...form,
+        ...numbers,
+        agencyId: selectedAgencyId,
+        vin: normalizedVin,
+        registrationNumber: form.registrationNumber.trim().toUpperCase(),
+        features: form.features
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+        images: images.map(({ dataUrl, name }) => ({ dataUrl, name })),
+      },
+      financialAllowed,
+    );
+    try {
+      await createVehicle.mutateAsync(payload);
+      addToast({
+        type: "success",
+        title: "Véhicule ajouté",
+        description: `${form.brand} ${form.model} a été enregistré avec le statut sélectionné.`,
+      });
+      setForm(initial);
+      setImages([]);
+      onClose();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erreur API";
+      if (/VIN/i.test(message)) {
+        setVinError(message);
+        vinRef.current?.focus();
+      }
+      addToast({
+        type: "error",
+        title: "Entrée en stock impossible",
+        description: message,
+      });
+    }
+  };
+  const disabled =
+    isProcessingImages ||
+    createVehicle.isPending ||
+    !vinValid ||
+    !form.brand.trim() ||
+    !form.model.trim() ||
+    images.length === 0;
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Enregistrer un véhicule VN / VO"
+      description="Identification, données financières et photos du catalogue."
+      maxWidth="2xl"
+    >
+      <form onSubmit={submit} className="space-y-5">
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {agencies.length > 1 && (
+            <label className="text-xs font-semibold">
+              Agence de rattachement
+              <select
+                value={selectedAgencyId}
+                onChange={(event) =>
+                  setForm((current) =>
+                    clearVehicleFinancialValues({
+                      ...current,
+                      agencyId: event.target.value,
+                      locationId: "",
+                    }),
+                  )
+                }
+                className="mt-1 w-full p-2.5 border rounded-lg"
+              >
+                {agencies.map((agency) => (
+                  <option key={agency.id} value={agency.id}>
+                    {agency.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="text-xs font-semibold">
+            Type
+            <select
+              value={form.vehicleType}
+              onChange={field("vehicleType")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            >
+              <option value="new">Véhicule neuf (VN)</option>
+              <option value="used">Véhicule d’occasion (VO)</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold">Statut initial<select value={form.status} onChange={field("status")} className="mt-1 w-full p-2.5 border rounded-lg"><option value="ordered">Commandé</option><option value="in_transit">En transit</option><option value="received">Réceptionné</option><option value="preparation">En préparation</option><option value="available">Disponible</option></select></label>
+          <label className="text-xs font-semibold">
+            Marque *
+            <input
+              required
+              value={form.brand}
+              onChange={field("brand")}
+              list="vehicle-brands"
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+            <datalist id="vehicle-brands">
+              {references.data?.brands?.map(
+                (item: { id: string; name: string }) => (
+                  <option key={item.id} value={item.name} />
+                ),
+              )}
+            </datalist>
+          </label>
+          <label className="text-xs font-semibold">
+            Modèle *
+            <input
+              required
+              value={form.model}
+              onChange={field("model")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            Version / finition
+            <input
+              value={form.version}
+              onChange={field("version")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            VIN (17 caractères) *
+            <input
+              ref={vinRef}
+              required
+              maxLength={17}
+              value={form.vin}
+              onChange={field("vin")}
+              onBlur={() =>
+                setVinError(
+                  vinValid
+                    ? ""
+                    : "Le VIN doit comporter exactement 17 caractères valides.",
+                )
+              }
+              aria-invalid={Boolean(vinError)}
+              className={`mt-1 w-full p-2.5 border rounded-lg uppercase font-mono ${vinError ? "border-red-500" : ""}`}
+            />
+            {vinError && (
+              <span className="mt-1 block text-[11px] text-red-700">
+                {vinError}
+              </span>
+            )}
+          </label>
+          <label className="text-xs font-semibold">
+            Immatriculation
+            <input
+              value={form.registrationNumber}
+              onChange={field("registrationNumber")}
+              className="mt-1 w-full p-2.5 border rounded-lg uppercase"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            Carrosserie
+            <input
+              value={form.bodyType}
+              onChange={field("bodyType")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            Année
+            <input
+              type="number"
+              min="1900"
+              value={form.year}
+              onChange={field("year")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            1ère mise en circulation
+            <input
+              type="date"
+              value={form.firstRegistrationDate}
+              onChange={field("firstRegistrationDate")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            Kilométrage
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.mileage}
+              onChange={field("mileage")}
+              placeholder="Saisir le kilométrage"
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            Énergie
+            <select
+              value={form.fuelType}
+              onChange={field("fuelType")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            >
+              <option>Essence</option>
+              <option>Diesel</option>
+              <option>Hybride</option>
+              <option>Hybride Rechargeable</option>
+              <option>Électrique</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold">
+            Transmission
+            <select
+              value={form.transmission}
+              onChange={field("transmission")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            >
+              <option>Automatique</option>
+              <option>Manuelle</option>
+              <option>Double Débrayage</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold">
+            Couleur extérieure
+            <input
+              value={form.color}
+              onChange={field("color")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            Couleur intérieure
+            <input
+              value={form.interiorColor}
+              onChange={field("interiorColor")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            />
+          </label>
+          <label className="text-xs font-semibold">
+            Emplacement
+            <select
+              value={form.locationId}
+              onChange={field("locationId")}
+              className="mt-1 w-full p-2.5 border rounded-lg"
+            >
+              <option value="">Non affecté</option>
+              {references.data?.locations?.map(
+                (item: { id: string; name: string }) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+          <label className="text-xs font-semibold">Fournisseur véhicule<select value={form.supplierId} onChange={field("supplierId")} className="mt-1 w-full p-2.5 border rounded-lg"><option value="">Non renseigné</option>{references.data?.suppliers?.map((item:{id:string;name:string;code:string})=><option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
+        </section>
+        {financialAllowed && (
+          <section className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border">
+            {(
+              [
+                [
+                  "purchasePrice",
+                  "Prix achat HT",
+                  "Saisir le prix d\u2019achat",
+                ],
+                [
+                  "refurbishmentCost",
+                  "Remise en état HT",
+                  "Saisir le coût de remise en état",
+                ],
+                ["transportCost", "Transport HT", "Saisir les frais de transport"],
+                ["administrativeCost", "Frais administratifs HT", "Saisir les frais administratifs"],
+                ["additionalCosts", "Autres frais HT", "Saisir les autres frais"],
+                ["catalogPrice", "Prix catalogue HT", "Saisir le prix catalogue"],
+                ["salePrice", "Prix de vente HT", "Saisir le prix de vente"],
+                ["minimumPrice", "Prix minimum HT", "Saisir le prix minimum"],
+              ] as const
+            ).map(([name, label, placeholder]) => (
+              <label key={name} className="text-xs font-semibold">
+                {label} ({currencyCode})
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form[name]}
+                  onChange={field(name)}
+                  placeholder={placeholder}
+                  className="mt-1 w-full p-2 border rounded-lg"
+                />
+              </label>
+            ))}
+          </section>
+        )}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-bold">Photos du catalogue *</h4>
+              <p className="text-xs text-slate-500">
+                1 à 8 images JPEG, PNG ou WebP. La première est l’image
+                principale.
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold cursor-pointer">
+              <ImagePlus className="w-4 h-4" />
+              {isProcessingImages ? "Préparation…" : "Ajouter"}
+              <input
+                disabled={isProcessingImages}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={selectImages}
+                className="hidden"
+              />
+            </label>
+          </div>
+          {isProcessingImages && (
+            <p className="text-xs text-amber-700">Préparation de la photo…</p>
+          )}
+          {images.length ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {images.map((image, index) => (
+                <div
+                  key={`${image.name}-${index}`}
+                  className="relative aspect-4/3 rounded-lg overflow-hidden border"
+                >
+                  <img
+                    src={image.dataUrl}
+                    alt={image.name}
+                    className="w-full h-full object-cover"
+                  />
+                  {index === 0 && (
+                    <span className="absolute top-1 left-1 bg-red-800 text-white text-[10px] px-2 py-1 rounded flex gap-1">
+                      <Star className="w-3 h-3" />
+                      Principale
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`Supprimer ${image.name}`}
+                    onClick={() =>
+                      setImages((current) =>
+                        current
+                          .filter((_, i) => i !== index)
+                          .map((item, i) => ({ ...item, primary: i === 0 })),
+                      )
+                    }
+                    className="absolute top-1 right-1 bg-white/90 p-1 rounded"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-700" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center border-2 border-dashed rounded-xl text-xs text-slate-500">
+              Aucune photo : le véhicule ne peut pas être publié.
+            </div>
+          )}
+        </section>
+        <label className="text-xs font-semibold block">
+          Équipements (séparés par des virgules)
+          <input
+            value={form.features}
+            onChange={field("features")}
+            className="mt-1 w-full p-2.5 border rounded-lg"
+            placeholder="Climatisation, caméra de recul, GPS"
+          />
+        </label>
+        <label className="text-xs font-semibold block">
+          Notes internes
+          <textarea
+            value={form.notes}
+            onChange={field("notes")}
+            className="mt-1 w-full p-2.5 border rounded-lg"
+          />
+        </label>
+        <div className="flex justify-end gap-2 border-t pt-3">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="submit" disabled={disabled}>
+            {isProcessingImages
+              ? "Préparation de la photo…"
+              : createVehicle.isPending
+                ? "Enregistrement…"
+                : "Enregistrer dans le stock"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};

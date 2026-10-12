@@ -1,0 +1,30 @@
+type ShowroomUser={id?:string;name?:string;status:string;agencyId:string;isSystemSuperAdmin?:boolean;permissions?:Record<string,unknown>|string[];roles?:string[];role?:string};
+type ClassifiedVisit={status:string;assignedUserId?:string|null};
+type ConvertibleVisit={status:string;leadId?:string|null};
+export type ShowroomViewMode='board'|'list';
+export const showroomViewMode=(value:string|null):ShowroomViewMode=>value==='list'?'list':'board';
+
+export const eligibleShowroomSalesUsers=<T extends ShowroomUser>(users:T[],agencyId?:string)=>users.filter(user=>{const permissions=Array.isArray(user.permissions)?user.permissions:Object.keys(user.permissions??{});return !user.isSystemSuperAdmin&&user.status==='active'&&Boolean(agencyId)&&user.agencyId===agencyId&&(permissions.includes('sales.create')||permissions.includes('crm.prospect.update'))});
+
+export const showroomAgencyOptions=<T extends {id:string}>(agencies:T[],currentAgencyId:string|undefined)=>agencies.length?agencies:currentAgencyId?[{id:currentAgencyId} as T]:[];
+
+export const showroomVisitorErrors=(visitorName:string,phone:string)=>{
+  const errors:{visitorName?:string;phone?:string}={};
+  if(!visitorName.trim())errors.visitorName='Le nom est obligatoire.';
+  const digits=phone.replace(/\D/g,'');
+  if(phone.trim()&&(!/^[+\d\s().-]+$/.test(phone)||digits.length<6||digits.length>15))errors.phone='Le numéro de téléphone est invalide.';
+  return errors;
+};
+
+export const isWaitingShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='En Attente'&&!visit.assignedUserId;
+export const isAssignedShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='Affecté'&&Boolean(visit.assignedUserId);
+export const isActiveShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='En Entretien'||visit.status==='En Essai';
+export const isCompletedShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='Terminé';
+export const canConvertShowroomVisitToLead=(visit:ConvertibleVisit,canUpdateVisitor:boolean)=>canUpdateVisitor&&visit.status==='Terminé'&&!visit.leadId;
+
+export const classifyShowroomVisits=<T extends ClassifiedVisit>(visits:T[])=>({
+  waiting:visits.filter(isWaitingShowroomVisit),
+  assigned:visits.filter(isAssignedShowroomVisit),
+  progress:visits.filter(isActiveShowroomVisit),
+  completed:visits.filter(isCompletedShowroomVisit),
+});

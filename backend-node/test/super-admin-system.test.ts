@@ -11,7 +11,7 @@ test('le résolveur refuse le bypass à SUPER_ADMIN non système',async()=>{
         ? [[{id:1,code:'SUPER_ADMIN',is_system:isSystem}],[]] : [[],[]];
       const context=await resolveRbacContext('1');
       assert.equal(context.isSuperAdmin,isSystem===1);
-      assert.equal(can(context,'roles.create'),isSystem===1);
+      assert.equal(can(context,'roles.create'),false);
     }
   } finally { pool.execute=original; }
 });

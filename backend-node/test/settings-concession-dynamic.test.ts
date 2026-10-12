@@ -66,7 +66,8 @@ test('SETTINGS-09 résolution hiérarchique agence puis concession puis global',
 test('SETTINGS-10 TVA, devise et barèmes sont consommés par Billing et Atelier',()=>{
   const billing=source('src/modules/billing/billing.routes.ts'),workshop=source('src/modules/workshop/workshop.routes.ts');
   assert.match(billing,/getEffectiveBusinessSettings/);
-  assert.match(billing,/lines\(r\.body\.items,config\.vatRate\)/);
+  assert.match(billing,/taxRate=Number\(r\.body\.taxRate\?\?config\.vatRate\)/);
+  assert.match(billing,/items=lines\(r\.body\.items,taxMode,priceInputMode,taxRate\)/);
   assert.match(billing,/currency_code[\s\S]*config\.currencyCode/);
   assert.match(workshop,/getEffectiveBusinessSettings/);
   assert.match(workshop,/resolveEffectiveLaborRateSelection/);

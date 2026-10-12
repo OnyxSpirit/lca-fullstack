@@ -55,11 +55,11 @@ function installInterceptor(){
     }
     if(sql.includes('SELECT r.id,r.code,r.is_system')&&String(params[0])){
       const fixture=requestFixture.getStore()??users.get(String(params[0]));
-      if(fixture){const code=fixture.roles[0]??'TEST_ROLE';return [[{id:`test-role-${fixture.userId}`,code,is_system:0}],[]] as any}
+      if(fixture?.mockRbac){const code=fixture.roles[0]??'TEST_ROLE';return [[{id:`test-role-${fixture.userId}`,code,is_system:0}],[]] as any}
     }
     if(sql.includes('SELECT p.code,rp.scope')&&String(params[0]).startsWith('test-role-')){
       const userId=String(params[0]).slice('test-role-'.length),fixture=requestFixture.getStore()??users.get(userId);
-      return [fixture?.permissions??[],[]] as any;
+      if(fixture?.mockRbac)return [fixture.permissions,[]] as any;
     }
     return delegate(sql as any,params as any) as any;
   };

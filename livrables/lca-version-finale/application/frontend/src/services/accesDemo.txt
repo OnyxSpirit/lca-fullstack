@@ -1,0 +1,21 @@
+---Direction---
+email: jb.mpassi@lca-congo.cg
+
+---Responsable Commercial---
+email: c.ngoma@lca-congo.cg
+
+---Conseiller Commercial---
+email: c.mouzita@lca-congo.cg
+
+---Chef d'Atelier---
+email: a.makosso@lca-congo.cg
+
+---Comptabilité & Finance---
+email: p.nsimba@lca-congo.cg
+
+---Responsable Pièces---
+email: b.mabiala@lca-congo.cg
+
+
+---Mot de passe pour tout les comptes---
+password: Lca@2026

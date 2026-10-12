@@ -38,7 +38,7 @@ test('SALE-TAX-09/10 protège les dérogations directes par sales.tax.override',
 
 test('SALE-TAX-11 conserve les verrous marge et minimum',()=>{
   assert.match(service,/assertVehicleMargin\(vehicle,quotation\?effectiveSubtotal-effectiveDiscount:directTax!\.netHt\)/);
-  assert.match(service,/assertVehicleMinimumPrice\(vehicle,effectiveSubtotal-effectiveDiscount\)/);
+  assert.match(service,/assertVehicleMinimumPrice\(vehicle,quotation\?effectiveSubtotal-effectiveDiscount:directTax!\.netHt\)/);
 });
 
 test('SALE-TAX-12 conserve la machine de statuts Vente',()=>{

@@ -20,9 +20,8 @@ test('SALE-DISCOUNT-01..08 garde un champ vide, transforme le vide en zéro et b
   assert.match(sale,/\[discount,setDiscount\]=useState\(''\)/);
   assert.match(sale,/placeholder="Montant de la remise"/);
   assert.match(sale,/discountValue=discount===''\?0:Number\(discount\)/);
-  assert.match(sale,/minimumAllowed=Math\.max\(configuredMinimum>0\?configuredMinimum:0,acquisitionCost\?\?0\)/);
+  assert.match(sale,/pricingGuard\.data\?\.maxDiscount/);
   assert.match(sale,/discountValue<=maxDiscount/);
   assert.match(sale,/Cette remise ferait passer le prix de vente sous le prix minimum autorisé/);
   assert.match(hooks,/\/sales\/vehicles\/\$\{vehicleId\}\/pricing-guard/);
 });
-

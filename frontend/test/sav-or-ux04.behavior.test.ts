@@ -38,7 +38,7 @@ test('SAV-OR-UX-04 préserve les verrous persistants SAV-OR-UX-03',async()=>{
   assert.match(page,/repairActionCompletion\(ro\)/);
   assert.match(page,/!completed\.reception/);
   assert.match(page,/!completed\.diagnostic/);
-  assert.match(page,/!completed\.approval/);
+  assert.match(page,/approvalActive=ro\.customerApproval\.canDecide/);
   assert.match(page,/!completed\.quality/);
   assert.match(page,/if\(submitting\.current\.has\(actionKey\)\)return/);
   assert.match(page,/finally\{submitting\.current\.delete\(actionKey\)\}/);

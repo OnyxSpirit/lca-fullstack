@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS payment_refunds (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    payment_id BIGINT UNSIGNED NOT NULL,
+    invoice_id BIGINT UNSIGNED NOT NULL,
+    credit_note_id BIGINT UNSIGNED NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    reason VARCHAR(500) NOT NULL,
+    refunded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    refunded_by BIGINT UNSIGNED NULL,
+    idempotency_key VARCHAR(120) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_payment_refund_idempotency (idempotency_key),
+    INDEX idx_payment_refund_payment (payment_id,refunded_at),
+    INDEX idx_payment_refund_invoice (invoice_id,refunded_at),
+    INDEX idx_payment_refund_credit_note (credit_note_id,refunded_at),
+    CONSTRAINT fk_payment_refund_payment FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_payment_refund_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_payment_refund_credit_note FOREIGN KEY (credit_note_id) REFERENCES credit_notes(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_payment_refund_user FOREIGN KEY (refunded_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT chk_payment_refund_amount CHECK (amount > 0)
+) ENGINE=InnoDB;

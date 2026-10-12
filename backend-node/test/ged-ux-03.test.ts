@@ -14,7 +14,7 @@ test('GED-UX03-B02/B04/B06 autonome et valeurs NULL préservés', () => {
   assert.match(route, /entity\?\.entityId\?\?null/);
   assert.match(route, /txt\(r\.body\.expiresAt,10\)\|\|null/);
 });
-test('GED-UX03-B03 document rattaché toujours résolu et contrôlé', () => assert.match(route, /resolveDocumentEntity\(r,entityType\(r\.body\.entityType\)/));
+test('GED-UX03-B03 document rattaché toujours résolu, contrôlé et mutable', () => assert.match(route, /resolveMutableDocumentEntity\(r,entityType\(r\.body\.entityType\)/));
 test('GED-UX03-B05 réponse expose catégorie, type et titre', () => {
   for (const field of ['title', 'categoryId', 'documentTypeId', 'documentType']) assert.match(route, new RegExp(field));
 });

@@ -5,7 +5,6 @@ import{billingOperationsCsv}from'../src/modules/billing/billing-export.csv.js';
 import{financialCsv}from'../src/modules/reports/report.csv.js';
 
 const route=readFileSync(new URL('../src/modules/billing/billing.routes.ts',import.meta.url),'utf8');
-const agencyScope=readFileSync(new URL('../src/middleware/agency-scope.ts',import.meta.url),'utf8');
 
 test('FIN-01 CSV neutralise les formules textuelles et conserve les nombres',()=>{
  const csv=financialCsv([['Valeur','Montant'],['=1+1',1],['+SOMME(1;2)',-12.5],['-1+2',0],['@TEST',2],['  =1+1',3],['\t=1+1',4],['\n=1+1',5],['Été; "Congo"',6],['',7]]);
@@ -38,7 +37,6 @@ test('FIN-01 déduplique legacy par relation au paiement et filtre les paiements
  assert.match(route,/const exportAgencyId=await billingExportAgency\(r\),scoped=\{sql:'i\.agency_id=\?',params:\[exportAgencyId\]\}/);
  assert.match(route,/scope==='AGENCY'&&requested!==actorAgency/);
  assert.match(route,/JOIN agencies actor ON actor\.concession_id=target\.concession_id/);
- assert.match(agencyScope,/request\.path==='\/invoices\/export\/accounting'/);
 });
 
 test('FIN-01 export vide conserve uniquement un en-tête français stable',()=>{

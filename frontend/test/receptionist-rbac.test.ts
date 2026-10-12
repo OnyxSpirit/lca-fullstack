@@ -12,20 +12,20 @@ test('REC-01 le réceptionniste lit le stock sans commandes de mutation',()=>{
   assert.equal(hasPermission([...receptionist],'vehicles.update'),false);
   const page=read('../src/modules/vehicles/VehicleDetailPage.tsx');
   assert.match(page,/canChangeStatus=can\('vehicles\.status\.update'\)/);
-  assert.match(page,/canChangeStatus&&manualStatusOptions\.length>0&&<select/);
-  assert.match(page,/canManageImages&&<div className="flex flex-wrap gap-2">/);
-  assert.match(page,/canCreateSale&&<Button/);
+  assert.match(page,/canChangeStatus&&!stockLocked&&manualStatusOptions\.length>0&&<select/);
+  assert.match(page,/canManageImages&&!stockLocked&&<div/);
+  assert.match(page,/canCreateSale&&vehicle\.status==='DISPONIBLE'&&<Button/);
   assert.match(page,/canCreateRepairOrder&&<Button/);
   assert.match(page,/tab\.key!=='documents'\|\|canViewDocuments/);
-  assert.match(page,/Prix de Vente Concession/);
+  assert.match(page,/Prix de vente concession HT/);
 });
 
 test('REC-02 le dashboard conditionne finance, ventes, rapports et expose l’accueil réel',()=>{
   const page=read('../src/modules/dashboard/DashboardPage.tsx');
   assert.match(page,/canViewBilling&&<div[\s\S]*Chiffre d'Affaires/);
-  assert.match(page,/canViewSales&&<div[\s\S]*Ventes du Mois/);
+  assert.match(page,/canViewSales&&[\s\S]*Ventes du Mois/);
   assert.match(page,/canViewReports&&<button[\s\S]*Exporter Rapport/);
-  assert.match(page,/canViewShowroom&&<div[\s\S]*Visiteurs aujourd’hui/);
+  assert.match(page,/canViewShowroom&&<Link[\s\S]*Visiteurs aujourd’hui/);
   assert.match(page,/overview\.showroom\.waiting/);
 });
 

@@ -25,15 +25,15 @@ call('/dashboard/overview',t);call('/leads',t);call('/sales',t,status=403);call(
 # La propriété CRM exige la capacité de suivi, distincte de la simple création.
 assign += [{'permissionId':str(p['id']),'scope':'OWN'} for p in perms if p['code']=='crm.prospect.update']
 call('/roles/'+rid,a,{'permissions':assign},method='PATCH')
-lead=call('/leads',t,{'title':'Test own','lastName':'Dynamic','email':'lead@rbac.test'},status=201)
-other=call('/leads',a,{'title':'Other owner','lastName':'Other','email':'other@rbac.test'},status=201)
+lead=call('/leads',t,{'title':'Test own','firstName':'Test','lastName':'Dynamic','email':'lead@rbac.test'},status=201)
+other=call('/leads',a,{'title':'Other owner','firstName':'Other','lastName':'Other','email':'other@rbac.test'},status=201)
 assert str(lead['id']) in [str(x['id']) for x in call('/leads',t)]
 assert str(other['id']) not in [str(x['id']) for x in call('/leads',t)]
 call('/leads/'+str(other['id']),t,status=404)
 second=call('/agencies',a,{'name':'Test Second Agency','code':'TEST-SECOND'},status=201)
 call('/users',a,{'firstName':'Second','lastName':'Dynamic','email':'second@rbac.test','password':'disposable-user-password','agencyId':str(second['agencyId']),'roles':['TEST_COMMERCIAL_DYNAMIC']},status=201)
 t2=call('/auth/login',body={'email':'second@rbac.test','password':'disposable-user-password'})['accessToken']
-foreign=call('/leads',t2,{'title':'Foreign agency','lastName':'Foreign','email':'foreign@rbac.test'},status=201)
+foreign=call('/leads',t2,{'title':'Foreign agency','firstName':'Foreign','lastName':'Foreign','email':'foreign@rbac.test'},status=201)
 agency_assign=[{**p,'scope':'AGENCY'} for p in assign]
 call('/roles/'+rid,a,{'permissions':agency_assign},method='PATCH')
 assert str(other['id']) in [str(x['id']) for x in call('/leads',t)]

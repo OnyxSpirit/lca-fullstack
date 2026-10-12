@@ -18,7 +18,7 @@ test('le formulaire attend la configuration TVA au lieu d’utiliser 18.9', () =
   const modal = read('../src/modules/billing/NewInvoiceModal.tsx');
   assert.doesNotMatch(modal, /18[.,]9/);
   assert.match(modal, /config\.data\.defaultVatRate/);
-  assert.match(modal, /disabled={!form\.customerId \|\| !agency\?\.id \|\| !config\.data}/);
+  assert.match(modal, /disabled=\{!form\.customerId \|\| !agency\?\.id \|\| !config\.data \|\| Boolean\(initialSaleId&&!linkedVehicleSaleReady\)\}/);
 });
 
 test('les rôles pièces ne disposent plus de Billing côté frontend', () => {

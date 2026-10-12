@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createHash,randomUUID} from 'node:crypto';
 import {after,test} from 'node:test';
 import jwt from 'jsonwebtoken';
 import supertest from 'supertest';
@@ -8,6 +9,16 @@ import type {RowDataPacket} from 'mysql2/promise';
 
 const enabled=process.env.LCA_REPORT_DB_TEST==='1';
 if(enabled)after(async()=>{await pool.end()});
+
+async function issueSessionToken(userId:string,email:string,agencyId:string){
+  const sid=randomUUID();
+  const tokenHash=createHash('sha256').update(randomUUID()).digest('hex');
+  await pool.execute(
+    'INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR))',
+    [sid,userId,tokenHash],
+  );
+  return jwt.sign({sub:userId,sid,email,roles:[],agencyId},process.env.JWT_ACCESS_SECRET!);
+}
 
 test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persistées',{skip:!enabled},async()=>{
   const [existing]=await query<RowDataPacket[]>("SELECT id FROM agencies WHERE code='REP-A'");
@@ -30,13 +41,13 @@ test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persist�
       const [permission]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,code);
       await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);
     }
-    actors[scope]={id:user,token:jwt.sign({sub:user,email:`rep-${scope.toLowerCase()}@example.test`,roles:[],agencyId:agencyA},process.env.JWT_ACCESS_SECRET!)};
+    actors[scope]={id:user,token:await issueSessionToken(user,`rep-${scope.toLowerCase()}@example.test`,agencyA)};
   }
   const mixedRole=await insert('INSERT INTO roles(name,code) VALUES(?,?)',['Audit mixte','REP_MIXED']);
   const mixedUser=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agencyA,'Audit','Mixte','rep-mixed@example.test','test']);
   await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[mixedUser,mixedRole]);
   for(const [code,scope] of [['reporting.view','GLOBAL'],['reporting.export','AGENCY'],['billing.view','AGENCY'],['sales.view','GLOBAL']] as const){const[p]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[mixedRole,p.id,scope])}
-  const mixedToken=jwt.sign({sub:mixedUser,email:'rep-mixed@example.test',roles:[],agencyId:agencyA},process.env.JWT_ACCESS_SECRET!);
+  const mixedToken=await issueSessionToken(mixedUser,'rep-mixed@example.test',agencyA);
   const customers:Record<string,string>={};
   for(const [key,agency] of [['A',agencyA],['B',agencyB],['C',agencyC]] as const){customers[key]=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name) VALUES(?,?,?,?)',[`REP-${key}`,agency,'Client',key])}
   const invoice=async(name:string,agency:string,customer:string,total:number,status='issued')=>insert('INSERT INTO invoices(invoice_number,customer_id,agency_id,invoice_type,status,issue_date,due_date,total,balance_due) VALUES(?,?,?,? ,?, ?,?,?,?)',[`REP-INV-${name}`,customer,agency,'vehicle',status,'2026-09-15','2026-09-30',total,status==='cancelled'?0:total]);
@@ -95,14 +106,16 @@ test('SAV-FINANCE-03 : facture de septembre, paiements et remboursement à leurs
   const insert=async(sql:string,params:unknown[]=[])=>String((await execute(sql,params)).insertId);
   const agency=async(code:string)=>String((await query<RowDataPacket[]>('SELECT id FROM agencies WHERE code=?',[code]))[0].id);
   const customer=async(code:string)=>String((await query<RowDataPacket[]>('SELECT id FROM customers WHERE customer_code=?',[code]))[0].id);
-  const actor=async(email:string)=>{const user=(await query<RowDataPacket[]>('SELECT id,agency_id FROM users WHERE email=?',[email]))[0];return jwt.sign({sub:String(user.id),email,roles:[],agencyId:String(user.agency_id)},process.env.JWT_ACCESS_SECRET!)};
+  const actor=async(email:string)=>{const user=(await query<RowDataPacket[]>('SELECT id,agency_id FROM users WHERE email=?',[email]))[0];return issueSessionToken(String(user.id),email,String(user.agency_id))};
   const agencyA=await agency('REP-A'),agencyB=await agency('REP-B'),agencyC=await agency('REP-C');
   const customerA=await customer('REP-A'),customerB=await customer('REP-B'),customerC=await customer('REP-C');
   const [method]=await query<RowDataPacket[]>('SELECT id FROM payment_methods LIMIT 1');
   const createWorkshopInvoice=async(suffix:string,agencyId:string,customerId:string,total:number)=>{
     const existing=(await query<RowDataPacket[]>('SELECT id FROM invoices WHERE invoice_number=?',[`REP-SAV-${suffix}`]))[0];
     if(existing)return String(existing.id);
-    return insert("INSERT INTO invoices(invoice_number,customer_id,agency_id,invoice_type,status,issue_date,due_date,total,amount_paid,balance_due) VALUES(?,?,?,'workshop','paid','2026-09-30','2026-10-30',?,?,0)",[`REP-SAV-${suffix}`,customerId,agencyId,total,total]);
+    const vehicle=await insert("INSERT INTO vehicles(agency_id,commercial_origin,commercial_origin_source,is_commercial_stock,identity_brand,identity_model,vin,status) VALUES(?,'EXTERNAL','MANUAL',FALSE,'Test','Reporting',?,'received')",[agencyId,`REP-SAV-VIN-${suffix}`]);
+    const repair=await insert("INSERT INTO repair_orders(order_number,customer_id,vehicle_id,vehicle_commercial_origin,vehicle_origin_source,agency_id,status,received_at,closed_at,created_at) VALUES(?,?,?,'EXTERNAL','MANUAL',?,'closed','2026-09-01 08:00:00','2026-09-30 18:00:00','2026-09-01 08:00:00')",[`REP-SAV-OR-${suffix}`,customerId,vehicle,agencyId]);
+    return insert("INSERT INTO invoices(invoice_number,customer_id,agency_id,repair_order_id,invoice_type,status,issue_date,due_date,total,amount_paid,balance_due) VALUES(?,?,?,?,'workshop','paid','2026-09-30','2026-10-30',?,?,0)",[`REP-SAV-${suffix}`,customerId,agencyId,repair,total,total]);
   };
   const invoiceA=await createWorkshopInvoice('A',agencyA,customerA,100_000);
   const invoiceB=await createWorkshopInvoice('B',agencyB,customerB,20_000);
@@ -139,9 +152,9 @@ test('Reporting MySQL 8.4 : ventes, marges, annulations et bornes de période',{
   const ids:Record<string,string>={};
   for(const key of ['A','B','C']){const [agency]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE code=?',[`REP-${key}`]);ids[key]=String(agency.id)}
   const [actor]=await query<RowDataPacket[]>("SELECT id FROM users WHERE email='rep-concession@example.test'");
-  const token=jwt.sign({sub:String(actor.id),email:'rep-concession@example.test',roles:[],agencyId:ids.A},process.env.JWT_ACCESS_SECRET!);
+  const token=await issueSessionToken(String(actor.id),'rep-concession@example.test',ids.A);
   const [globalActor]=await query<RowDataPacket[]>("SELECT id FROM users WHERE email='rep-global@example.test'");
-  const globalToken=jwt.sign({sub:String(globalActor.id),email:'rep-global@example.test',roles:[],agencyId:ids.A},process.env.JWT_ACCESS_SECRET!);
+  const globalToken=await issueSessionToken(String(globalActor.id),'rep-global@example.test',ids.A);
   const brand=await insert('INSERT INTO brands(name,code) VALUES(?,?)',['Marque Reporting','REP-BRAND']);
   const model=await insert('INSERT INTO models(brand_id,name) VALUES(?,?)',[brand,'Modèle Reporting']);
   const version=await insert('INSERT INTO versions(model_id,name) VALUES(?,?)',[model,'Version Reporting']);
@@ -174,7 +187,7 @@ test('Reporting MySQL 8.4 : stock actuel et CSV respectent chaque périmètre',{
   for(const key of ['A','B','C']){const [agency]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE code=?',[`REP-${key}`]);agencies[key]=String(agency.id)}
   if(!existingStock)for(const [key,type,cost] of [['A','new',5_000_000],['B','used',3_000_000],['C','new',7_000_000]] as const){await pool.execute('INSERT INTO vehicles(version_id,agency_id,vehicle_type,vin,status,purchase_price,entry_date) VALUES(?,?,?,?,?,?,?)',[version.id,agencies[key],type,`REP-STOCK-${key}`,'available',cost,'2026-08-01'])}
   const api=supertest(createApp());
-  const actor=async(email:string)=>{const [user]=await query<RowDataPacket[]>('SELECT id FROM users WHERE email=?',[email]);return jwt.sign({sub:String(user.id),email,roles:[],agencyId:agencies.A},process.env.JWT_ACCESS_SECRET!)};
+  const actor=async(email:string)=>{const [user]=await query<RowDataPacket[]>('SELECT id FROM users WHERE email=?',[email]);return issueSessionToken(String(user.id),email,agencies.A)};
   const agencyToken=await actor('rep-agency@example.test'),concessionToken=await actor('rep-concession@example.test'),globalToken=await actor('rep-global@example.test');
   const get=(path:string,token:string)=>api.get(`/api/reports/${path}`).set('Authorization',`Bearer ${token}`);
   const period='from=2026-09-01&to=2026-09-30';
@@ -198,7 +211,7 @@ test('Reporting MySQL 8.4 : stock actuel et CSV respectent chaque périmètre',{
 
 test('Reporting MySQL 8.4 : granularités et dates invalides',{skip:!enabled},async()=>{
   const [actor]=await query<RowDataPacket[]>("SELECT id,agency_id FROM users WHERE email='rep-global@example.test'");
-  const token=jwt.sign({sub:String(actor.id),email:'rep-global@example.test',roles:[],agencyId:String(actor.agency_id)},process.env.JWT_ACCESS_SECRET!);
+  const token=await issueSessionToken(String(actor.id),'rep-global@example.test',String(actor.agency_id));
   const api=supertest(createApp());
   const get=(path:string)=>api.get(`/api/reports/${path}`).set('Authorization',`Bearer ${token}`);
   for(const [granularity,expected] of [['day','2026-11-15'],['week','2026-11-09'],['month','2026-11']] as const){

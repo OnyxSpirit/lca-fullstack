@@ -23,13 +23,13 @@ test('les actions commerciales sont pilotées uniquement par les permissions dyn
   assert.match(page,/canUpdateSale=can\('sales\.update'\)/);
   assert.match(page,/canCancelSale=can\('sales\.cancel'\)/);
   assert.match(page,/canConfirm=can\('sales\.confirm'\)/);
-  assert.match(page,/disabled=\{isReadyTransition&&readyBlocked\}/);
+  assert.match(page,/disabled=\{financialBlocked\}/);
   assert.doesNotMatch(page,/roles\.some|SALES_AGENT|SALES_MANAGER|DIRECTOR/);
 });
 
 test('PAY double clic désactive immédiatement la validation et conserve une intention',()=>{
   const page=read('../src/modules/billing/InvoiceDetailPage.tsx');
-  assert.match(page,/pending=pay\.isPending\|\|action\.isPending/);
+  assert.match(page,/pending=action\.isPending/);
   assert.match(page,/props\.type==='submit'&&pending/);
   assert.match(page,/idempotencyKey:operationKey/);
   assert.match(page,/setOperationKey\(generateUuid\(\)\)/);

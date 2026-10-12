@@ -23,13 +23,13 @@ test('PAY-DOUBLE la transaction verrouille la facture avant de relire la clé id
   assert.match(read('../database/baseline/001_initial_schema.sql'),/UNIQUE KEY uk_payment_idempotency \(idempotency_key\)/);
 });
 
-test('DEL-01..05 validation finale: facture, solde, rôle et livraison dédiée',()=>{
+test('DEL-01..05 validation finale: verrou financier, solde, rôle et livraison dédiée',()=>{
   const service=read('../src/modules/sales/sale.service.ts');
   assert.match(service,/status==='ready_for_delivery'/);
   assert.match(service,/permission:'sales\.confirm'\|'sales\.cancel'/);
   assert.match(service,/Permission de confirmation requise/);
-  assert.match(service,/Une facture active est requise/);
-  assert.match(service,/entièrement réglée/);
+  assert.match(service,/lockActiveSaleInvoice\(connection,saleId,'ready_for_delivery'\)/);
+  assert.match(read('../src/modules/billing/sale-financial-gate.ts'),/entièrement réglée/);
   assert.match(service,/status==='delivered'.*module Livraisons/);
 });
 
@@ -38,7 +38,7 @@ test('CANCEL-01..05 annulation contrôlée et historisée',()=>{
   assert.match(service,/status==='cancelled'/);
   assert.match(service,/amount_paid/);
   assert.match(service,/livraison est planifiée/);
-  assert.match(service,/ready_for_delivery','delivered/);
+  assert.match(service,/\['ready_for_delivery','delivered'\]\.includes/);
   assert.match(service,/sale\.cancelled/);
 });
 
@@ -47,10 +47,12 @@ test('VEH-SOLD-01..08 stock historique et écritures commerciales protégées',(
   const sales=read('../src/modules/sales/sale.service.ts');
   const quotations=read('../src/modules/quotations/quotation.service.ts');
   const showroom=read('../src/modules/showroom/showroom.routes.ts');
+  const showroomDrive=read('../src/modules/showroom/showroom-test-drive.ts');
   assert.match(vehicles,/view==='active'.*NOT IN\('sold','delivered'\)/s);
   assert.match(vehicles,/view==='sold'.*IN\('sold','delivered'\)/s);
   assert.match(sales,/vehicle\.status!=='available'/);
   assert.match(sales,/vehicles WHERE id=\? FOR UPDATE/);
   assert.match(quotations,/vehicle\.status!=='available'/);
-  assert.equal((showroom.match(/vehicle\.status!=='available'/g)??[]).length,2);
+  assert.match(showroom,/assertTestDriveStartAvailable/);
+  assert.match(showroomDrive,/vehicle\.status!=='available'/);
 });

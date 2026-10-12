@@ -13,7 +13,7 @@ const token=()=>issueTestAccessToken({userId:'100',email:'agent@test.local',role
 const lead=()=>({lead_id:'10',opportunity_id:'20',customer_id:null,first_name:'Awa',last_name:'Test',company_name:null,email:'awa@test.local',phone:'+242060000001',source:'Web',lead_status:stage==='qualified'?'qualified':'new',priority:'medium',assigned_user_id:'100',created_by:'100',title:'SUV',stage,expected_value:15000000,probability:60,expected_close_date:null,lost_reason:null,notes:null,assigned_user_name:'Agent Test',created_by_name:'Agent Test',agency_id:'1',agency_name:'Agence Test',created_at:'2026-09-08',updated_at:'2026-09-08'});
 
 before(()=>{
-  (pool as any).execute=async(sql:string)=>{if(sql.includes('FROM leads l JOIN opportunities o'))return[[lead()],[]];if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:'role-dynamic',code:'CRM_TEST_DYNAMIC',is_system:0}],[]];if(sql.includes('SELECT p.code,rp.scope'))return[[{code:'crm.appointment.create',scope:'OWN'},{code:'crm.pipeline.advance',scope:'OWN'}],[]];return[[],[]]};
+  (pool as any).execute=async(sql:string)=>{if(sql.includes('FROM leads l JOIN opportunities o'))return[[lead()],[]];if(sql.includes('FROM agencies a JOIN concessions c'))return[[{agency_id:'1',concession_id:'1',currency_code:'XAF',timezone:'Africa/Brazzaville'}],[]];if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:'role-dynamic',code:'CRM_TEST_DYNAMIC',is_system:0}],[]];if(sql.includes('SELECT p.code,rp.scope'))return[[{code:'crm.appointment.create',scope:'OWN'},{code:'crm.pipeline.advance',scope:'OWN'}],[]];return[[],[]]};
   (pool as any).getConnection=async()=>({
     beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},
     execute:async(sql:string,params:unknown[]=[])=>{writes.push({sql,params});return sql.includes('INSERT INTO activities')?[{insertId:501,affectedRows:1},[]]:[{affectedRows:1},[]]},
@@ -36,7 +36,7 @@ test('qualified crée le vrai rendez-vous, son activité et passe l’opportunit
 test('qualified ne peut toujours pas passer manuellement à test_drive',async()=>{
   const response=await request(createApp()).patch('/api/leads/10/stage').set('Authorization',`Bearer ${token()}`).send({stage:'test_drive'});
   assert.equal(response.status,409);
-  assert.match(response.body.message,/action métier/);
+  assert.match(response.body.message,/Transition CRM interdite|action métier/);
   assert.equal(writes.length,0);
 });
 

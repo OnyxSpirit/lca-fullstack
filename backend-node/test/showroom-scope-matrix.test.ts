@@ -65,6 +65,8 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles'))return roleRows(String(params[0]));
   if(sql.includes('SELECT p.code,rp.scope FROM role_permissions'))return auth.roles.get(String(params[0]))?.permissions??[];
   if(sql.includes('FROM agencies target')){const target=String(params[1]),actor=String(params[0]);return [{id:target,is_active:1,concession_id:concession(target),actor_concession_id:concession(actor)}]}
+  if(sql.includes('FROM agencies a JOIN concessions c')){const agency=String(params[0]);return [{agency_id:agency,concession_id:concession(agency),currency_code:'XAF',timezone:'Africa/Brazzaville'}]}
+  if(sql.includes('SELECT setting_value FROM settings'))return [];
   if(sql.startsWith('SELECT COUNT(*) total')&&sql.includes('FROM showroom_visits sv')){const rows=visits.filter(visit=>visible(sql,params,visit));return[{total:rows.length,waiting:rows.filter(row=>row.status==='waiting').length,assigned:rows.filter(row=>row.status==='assigned').length,in_progress:rows.filter(row=>row.status==='in_progress').length,completed:rows.filter(row=>row.status==='completed').length,cancelled:rows.filter(row=>row.status==='cancelled').length,average_wait_minutes:0,active_advisors:0,transformed:0,quotations:0}]}
   if(sql.includes('FROM showroom_visits sv'))return visits.filter(visit=>visible(sql,params,visit)).map(decorated);
   if(sql.includes('FROM showroom_test_drives td')&&sql.includes('WHERE td.visit_id=?'))return drives.filter(drive=>drive.visit_id===String(params[0]));
@@ -88,6 +90,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
     const id=String(params[0]),agency=String(params[1]);return assigneeByAgency[agency]===id||id===U1&&agency===A1?[{id}]:[];
   }
   if(sql.includes('FROM vehicles WHERE id=? AND agency_id=?')){const id=String(params[0]),agency=String(params[1]);return vehicleByAgency[agency]===id?[{id,mileage:100,status:'available',agency_id:agency}]:[]}
+  if(sql.includes('FROM vehicles WHERE id=? FOR UPDATE')){const id=String(params[0]),agency=Object.keys(vehicleByAgency).find(key=>vehicleByAgency[key]===id);return agency?[{id,mileage:100,status:'available',agency_id:agency,is_commercial_stock:1,archived_at:null}]:[]}
   if(sql.includes('FROM leads l JOIN opportunities o')){
     const id=String(params[0]),agency=agencyByLead[id];
     return agency?[{id,customer_id:null,first_name:'Prospect',last_name:id,company_name:null,phone:null,opportunity_id:`5${id}`,stage:'appointment',assigned_user_id:leadOwnerOverrides[id]??assigneeByAgency[agency],agency_id:agency,title:'Essai'}]:[];
@@ -101,6 +104,10 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   return [];
 }
 async function connectionExecute(sql:string,params:unknown[]=[]):Promise<any>{
+  if(sql==='SELECT id FROM showroom_visits WHERE id=? FOR UPDATE'){const visit=visits.find(item=>item.id===String(params[0]));return visit?[{id:visit.id}]:[]}
+  if(sql==='SELECT id FROM users WHERE id=? FOR UPDATE')return [{id:String(params[0])}];
+  if(sql.includes('SELECT id FROM showroom_test_drives WHERE vehicle_id=?')||sql.includes('SELECT id FROM showroom_test_drives WHERE advisor_id=?')||sql.includes('SELECT id FROM showroom_test_drives WHERE visit_id=?')||sql.includes('SELECT f.id FROM follow_ups f WHERE'))return [];
+  if(sql==='SELECT status FROM showroom_test_drives WHERE id=? FOR UPDATE'){const drive=drives.find(item=>item.id===String(params[0]));return drive?[{status:drive.status}]:[]}
   if(sql.includes('SELECT assigned_user_id,status FROM showroom_visits')){const visit=visits.find(item=>item.id===String(params[0]));return visit?[visit]:[]}
   if(sql.startsWith('UPDATE showroom_visits SET assigned_user_id=')){const visit=visits.find(item=>item.id===String(params[1]));if(visit){visit.assigned_user_id=String(params[0]);visit.status='assigned'}return {affectedRows:visit?1:0}}
   if(sql.includes('SELECT COALESCE(MAX(queue_number)'))return [{next_number:1}];
@@ -231,6 +238,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
 
   for(const operation of ['start','complete','cancel'] as const)for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const resource of resources.slice(0,3)){
     test(`essai ${operation} ${scope} -> ${resource.agencyId}`,async()=>{
+      if(operation==='start')drives.forEach(drive=>{drive.status='completed'});
       const token=bearer([{code:operation==='complete'?'showroom.status.update':'showroom.visitor.update',scope}]);
       const response=operation==='start'
         ?await request(app).post(`/api/showroom/${resource.id}/test-drives`).set('Authorization',token).send({vehicleId:vehicleByAgency[resource.agencyId],licenseNumber:'PERMIS',mileageOut:100})
@@ -245,6 +253,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
 
   for(const scope of ['AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1]){
     test(`démarrage CRM composite ${scope}/${scope} -> ${agency}`,async()=>{
+      drives.forEach(drive=>{drive.status='completed'});
       const permissions:TestPermission[]=[{code:'showroom.visitor.update',scope},{code:'crm.test_drive.create',scope}];
       const response=await request(app).post(`/api/showroom/crm/leads/${leadByAgency[agency]}/test-drives`).set('Authorization',bearer(permissions)).send({vehicleId:vehicleByAgency[agency],licenseNumber:'PERMIS',mileageOut:100});
       const allowed=scope==='GLOBAL'||scope==='CONCESSION'&&agency!==B1||scope==='AGENCY'&&agency===A1;
@@ -256,6 +265,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
     expectStatus(response.status,403,'permission composite absente');
   });
   test('CRM-OWN-01 applique la propriété du commercial sans casser le démarrage autorisé',async()=>{
+    drives.forEach(drive=>{drive.status='completed'});
     const token=bearer([{code:'showroom.visitor.update',scope:'OWN'},{code:'crm.test_drive.create',scope:'OWN'}]);
     const other=await request(app).post('/api/showroom/crm/leads/401/test-drives').set('Authorization',token).send({vehicleId:'201',licenseNumber:'PERMIS',mileageOut:100});
     expectStatus(other.status,403,'CRM OWN autre commercial');

@@ -14,7 +14,7 @@ test('un brouillon numérique distingue vide, zéro et décimale dans le payload
 
 test('création véhicule: kilométrage et prix sont vides, effaçables et contextualisés',()=>{
   const page=source('modules/vehicles/NewVehicleModal.tsx');
-  assert.match(page,/mileage:''/);
+  assert.match(page,/mileage: ""/);
   assert.match(page,/placeholder="Saisir le kilométrage"/);
   assert.match(page,/Saisir le prix d(?:’|\\u2019)achat/);
   assert.match(page,/event\.target\.value/);
@@ -27,7 +27,7 @@ test('SAV, CRM, facturation et paramètres conservent la chaîne vide pendant la
   const invoice=source('modules/billing/NewInvoiceModal.tsx');
   const rates=source('modules/settings/WorkshopLaborRatesSettings.tsx');
   assert.match(repair,/mileage:''/);
-  assert.match(repair,/mileage: e\.target\.value/);
+  assert.match(repair,/mileage:e\.target\.value/);
   assert.match(quotation,/setDiscount\(e\.target\.value\)/);
   assert.match(invoice,/quantity: '', unitPrice: '', discount: ''/);
   assert.match(rates,/hourlyRate:''/);
@@ -37,7 +37,7 @@ test('les conversions ont lieu à la soumission et acceptent explicitement zéro
   const invoice=source('modules/billing/NewInvoiceModal.tsx');
   const repair=source('modules/service/NewRepairOrderModal.tsx');
   assert.match(invoice,/quantity:Number\(item\.quantity\)/);
-  assert.match(repair,/const mileage=Number\(formData\.mileage\)/);
-  assert.match(repair,/formData\.mileage===''\|\|/);
+  assert.match(repair,/const mileage=form\.mileage!==''/);
+  assert.match(repair,/Number\.isInteger\(Number\(form\.mileage\)\)/);
   assert.equal(requiredNumber('0'),0);
 });

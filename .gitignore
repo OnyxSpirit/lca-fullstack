@@ -9,3 +9,8 @@ backups/
 **/ged-storage/
 **/.claude/
 
+# Contenu local, historique ou généré — jamais inclus dans une release.
+/ll/
+/tmp/
+/frontend/src/services/accesDemo.txt
+/frontend/bun.lock

@@ -1,4 +1,0 @@
-ALTER TABLE concessions
-    ADD COLUMN rccm VARCHAR(190) NULL AFTER tax_identifier,
-    ADD COLUMN rib VARCHAR(500) NULL AFTER rccm,
-    ADD COLUMN website VARCHAR(500) NULL AFTER rib;

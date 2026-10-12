@@ -1,1 +1,0 @@
-export const canCollectInvoicePayment=(status:string,remainingAmountTTC:number,hasPermission:boolean)=>hasPermission&&remainingAmountTTC>0&&['VALIDEE','PARTIELLEMENT_PAYEE','EN_RETARD'].includes(status);

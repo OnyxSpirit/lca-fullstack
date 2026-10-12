@@ -80,7 +80,7 @@ Tous les comptes/accès recensés dans le fichier local retiré doivent être co
 
 La mission interdit la réécriture d'historique ; aucune purge n'a été exécutée. Un clone ou bundle du dépôt conserve donc l'accès aux anciens blobs. Deux voies sûres restent possibles après rotation :
 
-- remettre à NOVA un export signé de l'arbre du tag nettoyé, sans dossier `.git` ;
+- remettre à la LCA un export signé de l'arbre du tag nettoyé, sans dossier `.git` ;
 - organiser séparément une purge d'historique autorisée, coordonnée avec les détenteurs de clones, puis révoquer les anciennes références.
 
 Un simple `.gitignore` ne protège pas l'historique existant.
@@ -114,9 +114,9 @@ La phase 2 n'exécute aucune commande de build, restart, up/down ou déploiement
 ## 12. Réserves restantes
 
 1. Rotation/révocation non confirmée : blocage de distribution.
-2. Historique sensible intact : blocage de remise d'un clone Git à NOVA.
+2. Historique sensible intact : blocage de remise d'un clone Git à la LCA.
 3. Revue propriétaire et commit de nettoyage non réalisés.
-4. ERP-22 restauration isolée, SCA/CVE et recette NOVA non exécutés.
+4. ERP-22 restauration isolée, SCA/CVE et recette LCA non exécutés à cette étape historique.
 5. Réserves ERP-20 : mono-concession, crash GED rare et dérive Compose recette.
 
 ## 13. Verdict

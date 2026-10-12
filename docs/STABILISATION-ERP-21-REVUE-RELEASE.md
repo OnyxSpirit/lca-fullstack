@@ -10,7 +10,7 @@ Verdict : **VERSION CANDIDATE NON PRÊTE**
 
 Le code applicatif au commit `5f9c25c` (`STABILISATION-ERP-20`) compile, les contrôles ciblés réussissent et les environnements sont sains. Le nom `ERP-LCA-v1.0.0-rc1` n'entre en collision avec aucun tag local existant.
 
-La phase 2 a retiré de l'index courant les données et artefacts incompatibles avec une livraison, sans supprimer leurs copies physiques. Le contenu du futur commit est assaini. La candidate reste néanmoins non prête à distribuer tant que la rotation des accès exposés n'est pas confirmée et que le mode de remise à NOVA ne garantit pas l'absence de l'historique Git sensible.
+La phase 2 a retiré de l'index courant les données et artefacts incompatibles avec une livraison, sans supprimer leurs copies physiques. Le contenu du futur commit est assaini. La candidate reste néanmoins non prête à distribuer tant que la rotation des accès exposés n'est pas confirmée et que le mode de remise à la LCA ne garantit pas l'absence de l'historique Git sensible.
 
 ## État Git et worktree
 
@@ -75,7 +75,7 @@ Le répertoire `ll/` contenait **884 fichiers suivis** et représente une copie 
 
 - RC21-SEC-01 empêche une déclaration distribuable tant que la rotation n'est pas confirmée.
 - RC21-DATA-01 empêche la remise d'un clone avec historique ; seul un export de l'arbre assaini pourrait être envisagé après rotation et revue.
-- Les scripts historiques de recette contiennent des identifiants de test ou des références d'environnement ; ils ne doivent pas constituer le paquet d'exploitation NOVA.
+- Les scripts historiques de recette contiennent des identifiants de test ou des références d'environnement ; ils ne doivent pas constituer le paquet d'exploitation LCA.
 - Une rotation des accès exposés est recommandée même si les comptes sont supposés être de démonstration.
 
 ## Dépendances, TypeScript, builds et tests
@@ -134,7 +134,7 @@ Procédure non destructive proposée :
 
 `scripts/backup.sh` couvre MySQL, uploads, GED et empreintes. `scripts/restore.sh` vérifie les empreintes, mais remplace les données des volumes nommés `lca_*` et arrête/redémarre frontend/backend : il est destructif par conception et n'a pas été exécuté.
 
-Les sauvegardes ERP-17 couvrent MySQL, GED, uploads, images, Compose et environnement avec manifeste. La sauvegarde ERP-19 contient MySQL et configuration mais pas un jeu autonome complet GED/uploads. Les secrets sauvegardés doivent rester hors du paquet NOVA, chiffrés et à accès restreint.
+Les sauvegardes ERP-17 couvrent MySQL, GED, uploads, images, Compose et environnement avec manifeste. La sauvegarde ERP-19 contient MySQL et configuration mais pas un jeu autonome complet GED/uploads. Les secrets sauvegardés doivent rester hors du paquet LCA, chiffrés et à accès restreint.
 
 ERP-22 doit tester la restauration dans un nouveau projet, sur des volumes et ports différents. Le script actuel ne doit pas être lancé tel quel pour ce test tant que ses noms de volumes/projet ne sont pas paramétrables ou qu'une procédure isolée équivalente n'est pas revue.
 
@@ -145,8 +145,8 @@ ERP-22 doit tester la restauration dans un nouveau projet, sur des volumes et po
 - `backend-node/src`, `assets`, `database`, `package.json`, `package-lock.json`, `tsconfig.json`, `Dockerfile`, `.dockerignore` ;
 - `frontend/src`, fichiers de configuration, `nginx`, `package.json`, `package-lock.json`, `Dockerfile`, `.dockerignore` ;
 - `docker-compose.yml`, `.env.example`, `deploy/`, `scripts/backup.sh`, `scripts/restore.sh` après validation ;
-- `README.md`, `DEPLOYMENT.md` et dossier NOVA ;
-- tests et rapports uniquement dans un paquet source interne si NOVA en a besoin.
+- `README.md`, `DEPLOYMENT.md` et dossier LCA ;
+- tests et rapports uniquement dans un paquet source interne si la LCA en a besoin.
 
 À exclure impérativement :
 

@@ -55,7 +55,7 @@ Version proposée : `ERP-LCA-v1.0.0-rc1`
 - [ ] Test de restauration MySQL + GED + uploads.
 - [ ] Test de crash brutal GED et réconciliation.
 - [ ] Test réel entre deux concessions.
-- [ ] Recette navigateur finale NOVA.
+- [ ] Recette navigateur finale LCA.
 - [ ] Test TLS/DNS/SMTP ou intégrations propres à l'infrastructure cible.
 
 ## Actions ERP-22 avant production

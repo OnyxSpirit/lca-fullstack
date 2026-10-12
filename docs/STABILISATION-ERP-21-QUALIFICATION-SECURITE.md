@@ -54,7 +54,7 @@ L'absence de preuve n'est pas assimilée à une rotation. Aucun login n'a été 
 
 1. Identifier pour chaque empreinte l'environnement et le propriétaire du compte.
 2. Désactiver les comptes sans utilité légitime.
-3. Renouveler le mot de passe des comptes conservés avec une valeur issue du coffre NOVA.
+3. Renouveler le mot de passe des comptes conservés avec une valeur issue du coffre de secrets autorisé pour la LCA.
 4. Révoquer les refresh tokens/sessions actifs.
 5. Vérifier l'échec de l'ancien accès sans consigner sa valeur.
 6. Vérifier le nouvel accès par un canal séparé et habilité.
@@ -135,7 +135,7 @@ SHA-256 est une empreinte d'intégrité, pas une signature ni une preuve d'ident
 2. Historique Git sensible intact : ne jamais transmettre un clone/bundle/mirror en l'état.
 3. Diff assaini non commité et non tagué : revue propriétaire requise.
 4. Archive non signée numériquement.
-5. Restore drill ERP-22, SCA/CVE connecté et recette NOVA non exécutés.
+5. Restore drill ERP-22, SCA/CVE connecté et recette LCA non exécutés à cette étape historique.
 6. Réserves ERP-20 : périmètre mono-concession, fenêtre rare d'orphelin GED, dérive Compose recette.
 7. Disparition physique de `ll/` constatée entre les contrôles Phase 2 et Phase 3, sans action de suppression exécutée par cette phase ; à rapprocher des actions du propriétaire si une conservation locale était attendue.
 

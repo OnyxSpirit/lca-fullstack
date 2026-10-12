@@ -1,7 +1,7 @@
 # Futures migrations
 
 Ce dossier conserve l'historique d'upgrade additif des bases existantes. La
-baseline fraîche 056 absorbe désormais les migrations 034–056 ; le runner les
+baseline fraîche 071 absorbe désormais les migrations 034–071 ; le runner les
 applique encore aux bases historiques selon leur journal `schema_migrations`.
 Un marqueur consolidé `baseline_001_N` est un marqueur de plage : il prouve
 que toutes les migrations de version inférieure ou égale à `N` sont déjà

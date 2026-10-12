@@ -39,7 +39,7 @@ Un hôte MySQL est `127.0.0.1` ou `mysql`, jamais `http://localhost:3306`.
 
 `npm run db:bootstrap` est l’entrée canonique :
 
-- base vide : baseline consolidée 058 et seed système ;
+- base vide : baseline consolidée 071, seed système, puis migrations 072–079 ;
 - base versionnée : migrations `034+` absentes seulement ;
 - base non vide non versionnée : arrêt sans écriture.
 
@@ -241,4 +241,4 @@ Aucun nom de rôle métier ne confère de privilège. Le bypass exige le code
 
 Cette évolution du seed concerne les installations neuves uniquement. Le bootstrap
 ne rejoue pas le seed sur une base versionnée et ne supprime aucun rôle existant.
-Aucune migration de nettoyage ni modification du schéma consolidé 033 n’est nécessaire.
+Aucune migration de nettoyage ni modification manuelle du schéma consolidé n’est nécessaire pour une installation neuve.

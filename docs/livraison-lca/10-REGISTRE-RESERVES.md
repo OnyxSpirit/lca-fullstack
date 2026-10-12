@@ -2,7 +2,7 @@
 
 | ID | Réserve | Gravité | Impact | Mesure de maîtrise | Responsable | État / clôture |
 |---|---|---|---|---|---|---|
-| LCA-R01 | Six accès historiquement exposés, rotation/révocation non confirmée | Bloquante sécurité | compromission potentielle | révoquer/renouveler, vérifier usages, conserver preuve | sécurité BEROX/LCA à confirmer | ouverte ; Phase B : absents des cinq environnements locaux actifs, mais exhaustivité et autorité propriétaire non confirmées |
+| LCA-R01 | Six accès historiquement exposés, rotation/révocation non confirmée | Bloquante sécurité | compromission potentielle | révoquer/renouveler, vérifier usages, conserver preuve | sécurité BEROX/LCA à confirmer | ouverte ; Phase C : absents des cinq bases actives et trois dumps, mais deux volumes historiques nommés, quatre bases techniques et le périmètre externe restent non qualifiés |
 | LCA-R02 | Éléments sensibles dans l'historique Git | Bloquante pour remise Git | accès à anciens secrets/données | remettre uniquement export assaini sans `.git`, décider purge séparément | propriétaire dépôt à confirmer | ouverte ; clone interdit |
 | LCA-R03 | Isolation réelle multi-concession non qualifiée | Majeure | exposition croisée possible | lancement mono-concession ; scénario antagoniste avant extension | produit/sécurité LCA à confirmer | ouverte conditionnelle |
 | LCA-R04 | Fenêtre rare d'orphelin GED après crash brutal | Majeure | occupation/écart de traçabilité | inventaire SQL/volume, hash, quarantaine décidée, aucune suppression automatique | exploitation LCA à confirmer | ouverte |

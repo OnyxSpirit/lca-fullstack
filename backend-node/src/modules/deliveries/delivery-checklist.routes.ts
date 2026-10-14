@@ -5,6 +5,7 @@ import{asyncHandler}from'../../middleware/error-handler.js';
 import{requirePermission}from'../../middleware/require-permission.js';
 import{emitToAgency}from'../../realtime/socket.js';
 import{HttpError}from'../../shared/http-error.js';
+import{writeAudit}from'../activity/audit-writer.js';
 
 export const deliveryChecklistRouter=Router();
 type ConfigPermission='delivery.checklist.config.view'|'delivery.checklist.config.manage';
@@ -22,7 +23,7 @@ async function concession(request:Request,permission:ConfigPermission,requested?
   throw new HttpError(403,'Périmètre Checklist insuffisant.');
 }
 async function audit(connection:PoolConnection,request:Request,entityType:string,entityId:string|number|bigint,action:string,oldValues:unknown,newValues:unknown){
-  await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'deliveries',?,?,?,?,?,?,?)`,[request.user!.sub,entityType,entityId,action,oldValues==null?null:JSON.stringify(oldValues),newValues==null?null:JSON.stringify(newValues),request.ip??null,request.get('user-agent')??null]);
+  await writeAudit(connection,request,{module:'deliveries',entityType,entityId:String(entityId),action,oldValues,newValues});
 }
 async function categoryInScope(connection:PoolConnection,request:Request,id:string){const permissionScope=request.rbac?.permissions.get('delivery.checklist.config.manage');if(permissionScope==='GLOBAL'){const[rows]=await connection.execute<RowDataPacket[]>('SELECT * FROM delivery_checklist_categories WHERE id=? FOR UPDATE',[id]);if(!rows[0])throw new HttpError(404,'Catégorie introuvable');return{row:rows[0],concessionId:String(rows[0].concession_id)}}const concessionId=await concession(request,'delivery.checklist.config.manage',undefined,connection),[rows]=await connection.execute<RowDataPacket[]>('SELECT * FROM delivery_checklist_categories WHERE id=? AND concession_id=? FOR UPDATE',[id,concessionId]);if(!rows[0])throw new HttpError(404,'Catégorie introuvable');return{row:rows[0],concessionId}}
 async function itemInScope(connection:PoolConnection,request:Request,id:string){const permissionScope=request.rbac?.permissions.get('delivery.checklist.config.manage');if(permissionScope==='GLOBAL'){const[rows]=await connection.execute<RowDataPacket[]>('SELECT i.*,c.concession_id FROM delivery_checklist_items i JOIN delivery_checklist_categories c ON c.id=i.category_id WHERE i.id=? FOR UPDATE',[id]);if(!rows[0])throw new HttpError(404,'Élément introuvable');return{row:rows[0],concessionId:String(rows[0].concession_id)}}const concessionId=await concession(request,'delivery.checklist.config.manage',undefined,connection),[rows]=await connection.execute<RowDataPacket[]>('SELECT i.*,c.concession_id FROM delivery_checklist_items i JOIN delivery_checklist_categories c ON c.id=i.category_id WHERE i.id=? AND c.concession_id=? FOR UPDATE',[id,concessionId]);if(!rows[0])throw new HttpError(404,'Élément introuvable');return{row:rows[0],concessionId}}

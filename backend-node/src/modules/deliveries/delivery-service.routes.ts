@@ -10,6 +10,7 @@ import{nextDocumentNumber}from'../billing/document-sequence.js';
 import{archiveInvoice,requireBusinessArchive}from'../documents/business-document.service.js';
 import{getBusinessIdentity,getEffectiveBusinessSettings}from'../settings/setting-resolver.js';
 import{calculateTaxLine}from'../../shared/tax-calculation.js';
+import{writeAudit}from'../activity/audit-writer.js';
 
 export const deliveryServiceRouter=Router();
 type Permission='delivery.service.view'|'delivery.service.manage'|'delivery.service.add';
@@ -17,7 +18,7 @@ const id=(value:unknown)=>{const result=String(value??'');if(!/^[1-9]\d*$/.test(
 const text=(value:unknown,max:number,required=false)=>{const result=String(value??'').trim();if(required&&!result)throw new HttpError(400,'Champ obligatoire');if(result.length>max)throw new HttpError(400,'Valeur trop longue');return result||null};
 const permissionScope=(request:Request,permission:Permission)=>request.rbac?.permissions.get(permission);
 const scope=(request:Request,permission:Permission,columns:{agency?:string;concession:string})=>{const value=permissionScope(request,permission),agency=request.user?.agencyId;if(value==='GLOBAL')return{sql:'1=1',params:[]as any[]};if(!agency)throw new HttpError(403,'Aucune agence associée');if(value==='CONCESSION'||value==='AGENCY'&&!columns.agency)return{sql:`${columns.concession}=(SELECT concession_id FROM agencies WHERE id=?)`,params:[agency]as any[]};if(value==='AGENCY'&&columns.agency&&permission!=='delivery.service.manage')return{sql:`${columns.agency}=?`,params:[agency]as any[]};if(value==='OWN')throw new HttpError(403,'Le périmètre OWN ne permet pas de gérer ou facturer des services collectifs.');throw new HttpError(403,'Périmètre insuffisant pour les services de livraison.')};
-const audit=async(c:PoolConnection,r:Request,entity:string,entityId:string,action:string,values:unknown)=>c.execute("INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'deliveries',?,?,?,?,?,?)",[r.user!.sub,entity,entityId,action,JSON.stringify(values),r.ip??null,String(r.headers['user-agent']??'').slice(0,500)||null]);
+const audit=async(c:PoolConnection,r:Request,entity:string,entityId:string,action:string,values:unknown)=>writeAudit(c,r,{module:'deliveries',entityType:entity,entityId,action,newValues:values});
 const hash=(catalogServiceId:string,quantity:number)=>createHash('sha256').update(JSON.stringify({catalogServiceId,quantity})).digest('hex');
 
 deliveryServiceRouter.get('/delivery-services/catalog',requirePermission('delivery.service.view'),asyncHandler(async(r,res)=>{const scoped=scope(r,'delivery.service.view',{concession:'c.concession_id'}),manageScope=permissionScope(r,'delivery.service.manage'),includeInactive=r.query.includeInactive==='true'&&Boolean(manageScope)&&manageScope!=='OWN';res.json(await query<RowDataPacket[]>(`SELECT c.* FROM delivery_service_catalog c WHERE ${scoped.sql}${includeInactive?'':' AND c.is_active=TRUE'} ORDER BY c.display_order,c.name,c.id`,scoped.params))}));

@@ -18,6 +18,7 @@ import{loadWarrantyDocumentContext}from'../documents/warranty-document-context.j
 import {repairOrderFinancialSummary} from './repair-order-finance.js';
 import {REPAIR_ORDER_IN_WORKSHOP_STATUSES} from './repair-order-status.js';
 import {actualBillableState} from './actual-billable.js';
+import{writeAudit}from'../activity/audit-writer.js';
 import {assertWarrantyDecisionMade,assertWarrantyMayStart,assertWarrantyReadyForQuality,invalidateWarrantyAllocation,money,warrantyDetail} from './warranty.service.js';
 import{evaluateVehicleWarranty}from'./vehicle-warranty-eligibility.service.js';
 import{customerApprovalState}from'./customer-approval-state.js';
@@ -326,7 +327,7 @@ async function synchronizeVehicleMileageAtHandover(connection:PoolConnection,inp
   const previous=Number(vehicle.mileage??0),current=Math.max(previous,input.mileage);
   if(current===previous)return;
   await connection.execute('UPDATE vehicles SET mileage=? WHERE id=?',[current,input.vehicleId]);
-  await connection.execute("INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,agency_id,concession_id)VALUES(?,'service','vehicle',?,'workshop.vehicle_mileage.updated',?,?,?,?)",[input.userId,input.vehicleId,JSON.stringify({mileage:previous}),JSON.stringify({mileage:current,repairOrderId:input.repairOrderId}),vehicle.agency_id,vehicle.concession_id]);
+  await writeAudit(connection,{user:{sub:input.userId},ip:null,get:()=>undefined}as never,{module:'service',entityType:'vehicle',entityId:input.vehicleId,action:'workshop.vehicle_mileage.updated',oldValues:{mileage:previous},newValues:{mileage:current,repairOrderId:input.repairOrderId},context:{mode:'EXPLICIT',agencyId:String(vehicle.agency_id),concessionId:String(vehicle.concession_id)}});
 }
 async function abandonmentImpact(connection:PoolConnection,id:string){
   const [[sessions],[interventions],[time],[reservations],[schedules],[items],[invoice]]=await Promise.all([

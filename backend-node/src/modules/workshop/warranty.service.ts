@@ -3,6 +3,7 @@ import type{Request}from'express';
 import{query}from'../../config/database.js';
 import{HttpError}from'../../shared/http-error.js';
 import{assertPermission,type PermissionScope}from'../rbac/rbac.service.js';
+import{writeAudit}from'../activity/audit-writer.js';
 
 export const money=(value:number)=>Math.round((value+Number.EPSILON)*100)/100;
 
@@ -49,5 +50,5 @@ export async function assertWarrantyReadyForQuality(connection:PoolConnection,re
 }
 
 export async function auditWarranty(connection:PoolConnection,request:Request,entityId:string,action:string,oldValues:unknown,newValues:unknown){
- await connection.execute("INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent)VALUES(?,'service','repair_order_warranty',?,?,?,?,?,?)",[request.user!.sub,entityId,action,oldValues==null?null:JSON.stringify(oldValues),newValues==null?null:JSON.stringify(newValues),request.ip??null,request.get('user-agent')??null]);
+ await writeAudit(connection,request,{module:'service',entityType:'repair_order_warranty',entityId,action,oldValues,newValues});
 }

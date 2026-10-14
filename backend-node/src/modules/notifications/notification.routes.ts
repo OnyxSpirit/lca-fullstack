@@ -5,6 +5,7 @@ import {asyncHandler} from '../../middleware/error-handler.js';
 import {HttpError} from '../../shared/http-error.js';
 import {requirePermission} from '../../middleware/require-permission.js';
 import type {PermissionScope} from '../rbac/rbac.service.js';
+import{writeAudit}from'../activity/audit-writer.js';
 
 export const notificationRouter=Router();
 const routeId=(value:string|string[]|undefined)=>{const id=Array.isArray(value)?value[0]:value;if(!id||!/^[1-9]\d*$/.test(id))throw new HttpError(400,'Identifiant invalide');return id};
@@ -41,7 +42,7 @@ notificationRouter.patch('/notifications/:id/archive',requirePermission('notific
     const current=rows[0];if(!current)throw new HttpError(404,'Notification introuvable');
     if(current.archived_at)return false;
     await connection.execute('UPDATE notifications SET archived_at=NOW(),archived_by=? WHERE id=?',[userId,notificationId]);
-    await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'notifications','notification',?,'notification.archived',?,?,?)`,[userId,notificationId,JSON.stringify({archived:true}),request.ip??null,text(request.get('user-agent'),500)||null]);
+    await writeAudit(connection,request,{module:'notifications',entityType:'notification',entityId:notificationId,action:'notification.archived',newValues:{archived:true}});
     return true;
   });
   response.json({success:true,archived});
@@ -53,7 +54,7 @@ notificationRouter.delete('/notifications/:id',requirePermission('notifications.
     const current=rows[0];if(!current)throw new HttpError(404,'Notification introuvable');
     if(current.deleted_at)return false;
     await connection.execute('UPDATE notifications SET deleted_at=NOW(),deleted_by=? WHERE id=?',[userId,notificationId]);
-    await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'notifications','notification',?,'notification.deleted',?,?,?)`,[userId,notificationId,JSON.stringify({deleted:true}),request.ip??null,text(request.get('user-agent'),500)||null]);
+    await writeAudit(connection,request,{module:'notifications',entityType:'notification',entityId:notificationId,action:'notification.deleted',newValues:{deleted:true}});
     return true;
   });
   response.json({success:true,deleted});

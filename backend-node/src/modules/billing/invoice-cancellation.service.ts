@@ -1,5 +1,6 @@
 import type {PoolConnection,RowDataPacket} from'mysql2/promise';
 import{HttpError}from'../../shared/http-error.js';
+import{writeAudit}from'../activity/audit-writer.js';
 
 type CancellationActor={userId:string;ip:string|null;userAgent:string|null};
 
@@ -10,7 +11,7 @@ export async function cancelUnpaidInvoice(connection:PoolConnection,invoiceId:st
  if(payments.some(payment=>Number(payment.amount)-Number(payment.refunded_amount)>.001)||Number(invoice.amount_paid)>0)throw new HttpError(409,'Une facture encaissée doit faire l’objet d’un avoir ou remboursement');
  if(invoice.status==='cancelled')throw new HttpError(409,'Facture déjà annulée');
  await connection.execute("UPDATE invoices SET status='cancelled',balance_due=0,cancellation_reason=?,cancelled_by=?,cancelled_at=NOW() WHERE id=?",[reason,actor.userId,invoiceId]);
- await connection.execute('INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,?,?,?,?,?,?,?)',[actor.userId,'billing','invoice',invoiceId,'cancelled',JSON.stringify({reason}),actor.ip,actor.userAgent]);
+ await writeAudit(connection,{user:{sub:actor.userId},ip:actor.ip,get:()=>actor.userAgent??undefined}as never,{module:'billing',entityType:'invoice',entityId:invoiceId,action:'cancelled',newValues:{reason}});
 }
 
 export const cancellationActor=(request:{user?:{sub?:string};ip?:string|null;get(name:string):string|undefined}):CancellationActor=>({userId:String(request.user?.sub),ip:request.ip??null,userAgent:request.get('user-agent')?.slice(0,500)??null});

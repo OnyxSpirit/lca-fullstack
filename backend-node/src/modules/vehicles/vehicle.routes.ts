@@ -11,6 +11,7 @@ import {renderVehicleDocumentData} from '../documents/commercial-document.js';
 import { can, type PermissionScope } from '../rbac/rbac.service.js';
 import { deleteVehicleImageFile, finalizeVehicleImages, validateVehicleImages, withStagedVehicleImages, type StagedVehicleImage, type VehicleImageInput } from './vehicle-image-storage.js';
 import {permissionScopePredicate} from '../rbac/scope-intersection.js';
+import {writeAudit} from '../activity/audit-writer.js';
 
 export const vehicleRouter=Router();
 const DB_STATUSES=['ordered','in_transit','received','preparation','available','reserved','sold','delivered'];
@@ -207,7 +208,7 @@ vehicleRouter.patch('/vehicles/:id',requirePermission('vehicles.update'),asyncHa
     if(Object.hasOwn(request.body,'supplierId'))await vehicleSupplier(connection,request.body.supplierId);
     await connection.execute(`UPDATE vehicles SET ${sets.join(',')} WHERE id=?`,[...params,id]);
     if(request.body.salePrice!=null||request.body.minimumPrice!=null)await connection.execute('INSERT INTO vehicle_price_history(vehicle_id,old_sale_price,new_sale_price,old_minimum_price,new_minimum_price,changed_by,reason) VALUES(?,?,?,?,?,?,?)',[id,before.sale_price,request.body.salePrice??before.sale_price,before.minimum_price,request.body.minimumPrice??before.minimum_price,request.user!.sub,optional(request.body.reason)]);
-    await connection.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,'vehicles','vehicle',?,'update',?,?,?,?)`,[request.user!.sub,id,JSON.stringify(mapVehicle(before,true)),JSON.stringify(request.body),request.ip??null,request.get('user-agent')??null]);
+    await writeAudit(connection,request,{module:'vehicles',entityType:'vehicle',entityId:id,action:'update',oldValues:mapVehicle(before,true),newValues:request.body});
   });
   await notify(request,id,String(before.agency_id),'vehicles:updated','Véhicule modifié',`${before.stock_number} a été mis à jour`);
   response.json(mapVehicle(await accessible(id,request,'vehicles.update')));

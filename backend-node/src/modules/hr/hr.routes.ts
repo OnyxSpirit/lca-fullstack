@@ -11,6 +11,7 @@ import {getBusinessIdentity} from '../settings/setting-resolver.js';
 import {renderEmployeeDocument} from './employee-document.js';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
+import{writeAudit}from'../activity/audit-writer.js';
 
 export const hrRouter=Router();
 type Input=Record<string,unknown>;
@@ -46,7 +47,7 @@ function budgetPredicate(r:Request,scope:PermissionScope|null){
   if(scope==='AGENCY')return{sql:'b.scope_type=\'agency\' AND b.agency_id=?',params:[r.user!.agencyId]};
   throw new HttpError(403,'Le scope OWN ne s’applique pas aux budgets.');
 }
-async function audit(c:PoolConnection,r:Request,type:string,entityId:string,action:string,value:unknown){await c.execute(`INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,new_values,ip_address,user_agent) VALUES(?,'hr',?,?,?,?,?,?)`,[r.user!.sub,type,entityId,action,JSON.stringify(value),r.ip??null,r.get('user-agent')??null])}
+async function audit(c:PoolConnection,r:Request,type:string,entityId:string,action:string,value:unknown){await writeAudit(c,r,{module:'hr',entityType:type,entityId,action,newValues:value})}
 async function approvalHistory(c:PoolConnection,r:Request,entityType:'budget'|'expense',entityId:string,action:'created'|'submitted'|'approved'|'rejected'|'reopened'|'cancelled'|'closed',oldStatus:string|null,newStatus:string,reason:string|null=null){await c.execute('INSERT INTO budget_approval_history(entity_type,entity_id,action,old_status,new_status,reason,actor_id) VALUES(?,?,?,?,?,?,?)',[entityType,entityId,action,oldStatus,newStatus,reason,r.user!.sub])}
 const decisionReason=(value:unknown,label='Motif')=>{const reason=text(value,label,true,500)!;if(reason.length<3)throw new HttpError(400,`${label} doit contenir au moins 3 caractères.`);return reason}
 function emitEmployeeChange(employeeId:string,agencyId:string|null,action:string){const payload={employeeId,agencyId,action};if(agencyId)emitToAgencyAndGlobals(agencyId,'hr:employee-updated',payload);else emitToAgenciesAndGlobals([],'hr:employee-updated',payload)}

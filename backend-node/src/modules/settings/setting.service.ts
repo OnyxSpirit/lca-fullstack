@@ -22,6 +22,7 @@ import {
   type ConcessionIdentityPayload,
   type UpdateSettingsPayload,
 } from "./setting.types.js";
+import{writeAudit}from'../activity/audit-writer.js';
 const id = (v: unknown) => {
     const x = String(v ?? "");
     if (!/^[1-9]\d*$/.test(x)) throw new HttpError(400, "Identifiant invalide");
@@ -47,20 +48,7 @@ async function audit(
   oldValues: unknown,
   newValues: unknown,
 ) {
-  await c.execute(
-    "INSERT INTO audit_logs(user_id,module,entity_type,entity_id,action,old_values,new_values,ip_address,user_agent) VALUES(?,?,?,?,?,?,?,?,?)",
-    [
-      r.user!.sub,
-      "settings",
-      type,
-      entityId,
-      action,
-      JSON.stringify(oldValues),
-      JSON.stringify(newValues),
-      r.ip ?? null,
-      r.get("user-agent") ?? null,
-    ],
-  );
+  await writeAudit(c,r,{module:'settings',entityType:type,entityId,action,oldValues,newValues,context:{mode:'RESOURCE'}});
 }
 async function currentConcessionId(r: Request) {
   const [row] = await query<RowDataPacket[]>(

@@ -2,7 +2,7 @@ import{useMutation,useQuery,useQueryClient}from'@tanstack/react-query';
 import{apiRequest}from'../services/apiClient';
 import{useAuthStore}from'../stores/authStore';
 
-export interface Employee{id:string;user_id:string|null;concession_id:string;concession_name:string;agency_id:string|null;agency_name:string|null;first_name:string;last_name:string;email:string|null;phone:string|null;employee_number:string;position_title:string|null;hire_date:string;employment_status:'active'|'inactive'|'departed';account_email:string|null;account_active:boolean|null;account_agency_id:string|null;account_roles:string[];current_salary?:number}
+export interface Employee{id:string;user_id:string|null;concession_id:string;concession_name:string;agency_id:string|null;agency_name:string|null;first_name:string;last_name:string;email:string|null;phone:string|null;employee_number:string;position_title:string|null;hire_date:string;employment_status:'active'|'inactive'|'departed';avatar_path:string|null;account_email:string|null;account_active:boolean|null;account_agency_id:string|null;account_roles:string[];current_salary?:number}
 export interface EligibleUser{id:string;first_name:string;last_name:string;email:string;is_active:boolean;agency_id:string;agency_name:string}
 export interface Salary{id:string;amount:number;effective_date:string;created_at:string;author_name:string|null}
 export interface EmployeeContractType{id:string;concession_id:string;concession_name:string;code:string;name:string;description:string|null;is_active:boolean;is_used:boolean}

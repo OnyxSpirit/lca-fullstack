@@ -48,7 +48,21 @@ async function objectExists(connection:Connection,type:'table'|'column'|'index'|
   const[rows]=await connection.execute<RowDataPacket[]>(queries[type],name?[table,name]:[table]);return rows.length>0;
 }
 
-async function ddlState(connection:Connection,statement:string):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
+const normalizedSqlType=(value:string)=>value.trim().toLowerCase().replace(/^boolean$/,'tinyint(1)').replace(/\s+/g,' ').replace(/\s*,\s*/g,',');
+type ExpectedColumn={name:string;type:string;nullable:boolean};
+function expectedModifiedColumn(statement:string):ExpectedColumn|null{
+  const match=/^ALTER\s+TABLE\s+`?[a-zA-Z0-9_]+`?\s+MODIFY(?:\s+COLUMN)?\s+`?([a-zA-Z0-9_]+)`?\s+([a-zA-Z]+(?:\s*\([^;]*?\))?(?:\s+UNSIGNED)?)\s+(NOT\s+NULL|NULL)(?:\s|$)/i.exec(statement.trim());
+  return match?{name:identifier(match[1]!),type:normalizedSqlType(match[2]!),nullable:!/^NOT\s+NULL$/i.test(match[3]!)}:null;
+}
+async function modifiedColumnState(connection:Connection,table:string,expected:ExpectedColumn):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
+  const[rows]=await connection.execute<RowDataPacket[]>(`SELECT column_type,is_nullable FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?`,[table,expected.name]);
+  if(!rows.length)return'ABSENT';
+  const actual=rows[0]!;
+  const actualType=actual.COLUMN_TYPE??actual.column_type,actualNullable=actual.IS_NULLABLE??actual.is_nullable;
+  return normalizedSqlType(String(actualType))===expected.type&&(String(actualNullable)==='YES')===expected.nullable?'SATISFIED':'AMBIGUOUS';
+}
+
+export async function ddlState(connection:Connection,statement:string):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
   const createIndex=/^CREATE\s+(?:UNIQUE\s+)?INDEX\s+(`?[a-zA-Z0-9_]+`?)\s+ON\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
   if(createIndex)return await objectExists(connection,'index',identifier(createIndex[2]!),identifier(createIndex[1]!))?'SATISFIED':'ABSENT';
   const create=/^CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
@@ -56,15 +70,17 @@ async function ddlState(connection:Connection,statement:string):Promise<'SATISFI
   const alter=/^ALTER\s+TABLE\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
   if(!alter)return 'AMBIGUOUS';
   const table=identifier(alter[1]!),objects:Array<Promise<boolean>>=[];
+  const modified=expectedModifiedColumn(statement);
+  const modifiedState=modified?await modifiedColumnState(connection,table,modified):null;
   const droppedConstraints:Array<Promise<boolean>>=[];
   for(const match of statement.matchAll(/\bDROP\s+FOREIGN\s+KEY\s+(`?[a-zA-Z0-9_]+`?)/gi))droppedConstraints.push(objectExists(connection,'constraint',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+COLUMN\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'column',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+(?:UNIQUE\s+)?(?:INDEX|KEY)\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'index',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+CONSTRAINT\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'constraint',table,identifier(match[1]!)));
-  if(!objects.length&&!droppedConstraints.length)return 'AMBIGUOUS';
+  if(!objects.length&&!droppedConstraints.length)return modifiedState??'AMBIGUOUS';
   const[states,droppedStates]=await Promise.all([Promise.all(objects),Promise.all(droppedConstraints)]),additionsSatisfied=states.every(Boolean),dropsSatisfied=droppedStates.every(value=>!value);
-  if(additionsSatisfied&&dropsSatisfied)return'SATISFIED';
-  if(states.every(value=>!value)&&droppedStates.every(Boolean))return'ABSENT';
+  if(additionsSatisfied&&dropsSatisfied&&(modifiedState==null||modifiedState==='SATISFIED'))return'SATISFIED';
+  if(states.every(value=>!value)&&droppedStates.every(Boolean)&&(modifiedState==null||modifiedState==='ABSENT'))return'ABSENT';
   return'AMBIGUOUS';
 }
 

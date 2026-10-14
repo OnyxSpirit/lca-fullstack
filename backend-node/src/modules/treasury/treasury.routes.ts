@@ -32,5 +32,7 @@ treasuryRouter.post('/hr/budget-expenses/:id/disbursements',requirePermission('h
 treasuryRouter.post('/treasury/movements/:id/reversal',requirePermission('treasury.reverse'),asyncHandler(async(r,res)=>res.status(201).json(await s.reverse(r,r.params.id,r.body))));
 treasuryRouter.get('/treasury/flow-configuration',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.getFlowConfiguration(r))));
 treasuryRouter.put('/treasury/flow-mappings',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.saveMapping(r,r.body))));
+treasuryRouter.patch('/treasury/flow-mappings/:id',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.updateMapping(r,r.params.id,r.body))));
 treasuryRouter.patch('/treasury/flow-mappings/:id/status',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.setMappingStatus(r,r.params.id,r.body.isActive))));
+treasuryRouter.delete('/treasury/flow-mappings/:id',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.deleteMapping(r,r.params.id))));
 treasuryRouter.patch('/treasury/flow-readiness',requirePermission('treasury.account.manage'),asyncHandler(async(r,res)=>res.json(await flow.setReadiness(r,r.body.isReady,r.body.concessionId))));

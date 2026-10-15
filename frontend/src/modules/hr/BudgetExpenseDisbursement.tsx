@@ -10,7 +10,7 @@ import {
   useTreasuryReservations,
 } from "../../api/treasuryHooks";
 import { Button } from "../../components/ui/Button";
-import { confirmAction } from "../../components/ui/BusinessDialog";
+import { confirmMutationAction } from "../../components/ui/BusinessDialog";
 import { Modal } from "../../components/ui/Modal";
 import { apiDownload } from "../../services/apiClient";
 import { useAuthStore } from "../../stores/authStore";
@@ -72,14 +72,10 @@ export function BudgetExpenseDisbursement({
     setError("");
     if (!expense || !selectedAccount) return;
     const value = Number(form.amount);
-    if (
-      !(await confirmAction(
-        "Confirmer le décaissement",
-        `Confirmer le décaissement de ${money(value, selectedAccount.currency_code)} pour cette dépense depuis le compte ${selectedAccount.name} ?`,
-      ))
-    )
-      return;
-    try {
+    await confirmMutationAction(
+      "Confirmer le décaissement",
+      `Confirmer le décaissement de ${money(value, selectedAccount.currency_code)} pour cette dépense depuis le compte ${selectedAccount.name} ?`,
+      async()=>{
       const result = await actions.expenseDisbursement.mutateAsync({
         expenseId: expense.id,
         body: form,
@@ -92,11 +88,8 @@ export function BudgetExpenseDisbursement({
         clientRequestId: crypto.randomUUID(),
       }));
       await summary.refetch();
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Décaissement impossible",
-      );
-    }
+      },true,"Décaisser"
+    );
   };
   return (
     <>

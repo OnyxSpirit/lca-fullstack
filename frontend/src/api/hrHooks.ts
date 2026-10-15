@@ -223,6 +223,7 @@ export interface Budget {
   created_by: string;
   can_create_expense: boolean;
   can_add_funds: boolean;
+  currency_code: string;
 }
 export interface BudgetFundMovement {
   id: string;
@@ -235,6 +236,7 @@ export interface BudgetFundMovement {
   created_at: string;
 }
 export interface BudgetFundRequest{id:string;budget_id:string;budget_label:string;amount:number;reason:string;reference:string|null;status:"SUBMITTED"|"APPROVED"|"REJECTED"|"CANCELLED";requester_name:string|null;decider_name:string|null;decision_reason:string|null;requested_at:string;fund_movement_id:string|null}
+export interface ApprovalHistoryEntry {id:string;entity_type:"budget"|"expense";entity_id:string;action:string;old_status:string|null;new_status:string|null;reason:string|null;actor_name:string|null;created_at:string}
 export interface BudgetTargets {
   scope: "AGENCY" | "CONCESSION" | "GLOBAL";
   agencies: { id: string; name: string; concessionId: string }[];
@@ -688,6 +690,7 @@ export const useBudgetFundsQuery = (
     enabled: enabled && Boolean(budgetId) && Boolean(userId),
   });
 };
+export const useBudgetApprovalHistoryQuery = (budgetId:string|undefined,enabled:boolean) => useQuery({queryKey:["hr","budget",budgetId,"approval-history"],queryFn:()=>apiRequest<ApprovalHistoryEntry[]>(`/hr/budgets/${budgetId}/approval-history`),enabled:enabled&&Boolean(budgetId)});
 export const useBudgetFundRequestsQuery=(enabled:boolean)=>useQuery({queryKey:["hr","budget-fund-requests"],queryFn:()=>apiRequest<BudgetFundRequest[]>("/hr/budget-fund-requests"),enabled});
 export const useHrReportingQuery = (
   filters: Record<string, string>,
@@ -1127,10 +1130,12 @@ export function useHrActions() {
       onSuccess: () => invalidate(qc),
     }),
     budgetClose: useMutation({
-      mutationFn: (id: string) =>
-        apiRequest(`/hr/budgets/${id}/close`, { method: "POST", body: "{}" }),
+      mutationFn: ({id,reason}:{id:string;reason:string}) =>
+        apiRequest(`/hr/budgets/${id}/close`, { method: "POST", body: JSON.stringify({reason}) }),
       onSuccess: () => invalidate(qc),
     }),
+    budgetReopen:useMutation({mutationFn:(id:string)=>apiRequest(`/hr/budgets/${id}/reopen`,{method:"POST",body:"{}"}),onSuccess:()=>invalidate(qc)}),
+    budgetCancel:useMutation({mutationFn:({id,reason}:{id:string;reason:string})=>apiRequest(`/hr/budgets/${id}/cancel`,{method:"POST",body:JSON.stringify({reason})}),onSuccess:()=>invalidate(qc)}),
     budgetFund: useMutation({
       mutationFn: ({
         budgetId,
@@ -1182,6 +1187,8 @@ export function useHrActions() {
         }),
       onSuccess: () => invalidate(qc),
     }),
+    expenseUpdate:useMutation({mutationFn:({id,body}:{id:string;body:Record<string,unknown>})=>apiRequest(`/hr/expenses/${id}`,{method:"PATCH",body:JSON.stringify(body)}),onSuccess:()=>invalidate(qc)}),
+    expenseCancel:useMutation({mutationFn:({id,reason}:{id:string;reason:string})=>apiRequest(`/hr/expenses/${id}/cancel`,{method:"POST",body:JSON.stringify({reason})}),onSuccess:()=>invalidate(qc)}),
     expenseDisbursement: useMutation({
       mutationFn: ({
         expenseId,

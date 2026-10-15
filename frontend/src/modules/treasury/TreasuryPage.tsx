@@ -8,6 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import { PageHeader } from "../../components/common/PageHeader";
+import { OperationTimeline } from "../../components/common/OperationTimeline";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Modal } from "../../components/ui/Modal";
@@ -23,6 +24,7 @@ import {
   useTreasuryJournal,
   useTreasuryManualOptions,
   useTreasuryReservationActions,
+  useTreasuryReservationHistory,
   useTreasuryReservableExpenses,
   useTreasuryReservations,
   useTreasurySummary,
@@ -199,7 +201,9 @@ export const TreasuryPage: React.FC = () => {
     } | null>(null),
     [reverseReason, setReverseReason] = useState(""),
     [reservationDecision,setReservationDecision]=useState<{id:string;action:"release"|"reject"|"cancel"|"expire"}|null>(null),
-    [reservationReason,setReservationReason]=useState("");
+    [reservationReason,setReservationReason]=useState(""),
+    [reservationAdjust,setReservationAdjust]=useState<{id:string;amount:number;currency:string}|null>(null),
+    [reservationHistoryId,setReservationHistoryId]=useState<string>();
   const canViewCoverage = can("treasury.coverage.view"),
     canViewReservations = can("treasury.reservation.view"),
     accounts = useTreasuryAccounts(),
@@ -208,6 +212,7 @@ export const TreasuryPage: React.FC = () => {
     coverage = useTreasuryCoverage(canViewCoverage),
     budgetIndicators = useTreasuryBudgetIndicators(canViewCoverage),
     reservations = useTreasuryReservations(canViewReservations),
+    reservationHistory=useTreasuryReservationHistory(reservationHistoryId,canViewReservations),
     reservableExpenses=useTreasuryReservableExpenses(reservationModal&&can("treasury.reservation.create")),
     reservationActions = useTreasuryReservationActions(),
     journal = useTreasuryJournal({ page, pageSize: 20, ...filters }),
@@ -821,8 +826,13 @@ export const TreasuryPage: React.FC = () => {
                   </span>
                   <span className="flex items-center gap-2">
                     <b>{formatCurrency(x.active_amount, x.currency_code)}</b>
+                    <Button size="xs" variant="outline" onClick={()=>setReservationHistoryId(x.id)}>Historique</Button>
                     {(x.status==="DRAFT"||x.status==="REJECTED")&&can("treasury.reservation.submit")&&<Button size="xs" onClick={()=>run(reservationActions.submit.mutateAsync(x.id))}>Soumettre</Button>}
                     {x.status==="SUBMITTED"&&can("treasury.reservation.approve")&&<><Button size="xs" onClick={()=>run(reservationActions.approve.mutateAsync(x.id))}>Approuver</Button><Button size="xs" variant="outline" onClick={()=>setReservationDecision({id:x.id,action:"reject"})}>Rejeter</Button></>}
+                    {x.status === "ACTIVE" &&
+                      can("treasury.reservation.adjust") && (
+                        <Button size="xs" variant="outline" onClick={()=>setReservationAdjust({id:x.id,amount:x.active_amount,currency:x.currency_code})}>Réduire</Button>
+                      )}
                     {x.status === "ACTIVE" &&
                       can("treasury.reservation.release") && (
                         <Button
@@ -1405,6 +1415,10 @@ export const TreasuryPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+      <Modal isOpen={reservationAdjust!==null} onClose={()=>setReservationAdjust(null)} title="Réduire la réservation" description="Une augmentation nécessite une nouvelle demande et une nouvelle approbation.">
+        {reservationAdjust&&<form className="grid gap-3" onSubmit={async e=>{e.preventDefault();const data=new FormData(e.currentTarget);await run(reservationActions.adjust.mutateAsync({id:reservationAdjust.id,amount:String(data.get("amount")),reason:String(data.get("reason"))}));setReservationAdjust(null)}}><label className="text-xs">Nouveau montant réservé<input name="amount" type="number" required min="0.01" max={reservationAdjust.amount} step="0.01" defaultValue={reservationAdjust.amount} className={input}/></label><p className="text-xs text-slate-500">Maximum actuel : {formatCurrency(reservationAdjust.amount,reservationAdjust.currency)}</p><textarea name="reason" required minLength={3} maxLength={500} className={input} placeholder="Motif de la réduction"/><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={()=>setReservationAdjust(null)}>Annuler</Button><Button type="submit" loading={reservationActions.adjust.isPending}>Confirmer la réduction</Button></div></form>}
+      </Modal>
+      <Modal isOpen={Boolean(reservationHistoryId)} onClose={()=>setReservationHistoryId(undefined)} title="Historique de la réservation"><OperationTimeline entries={reservationHistory.data} loading={reservationHistory.isLoading}/></Modal>
       <Modal
         isOpen={manual !== null}
         onClose={() => setManual(null)}

@@ -11,6 +11,7 @@ import {
   type StockCategory,
   type StockItem,
   useBudgetFundsQuery,
+  useBudgetApprovalHistoryQuery,
   useBudgetsQuery,
   useBudgetCategoriesQuery,
   useBudgetCategoryConcessionsQuery,
@@ -28,6 +29,7 @@ import {
   useStockQuery,
 } from "../../api/hrHooks";
 import { PageHeader } from "../../components/common/PageHeader";
+import { OperationTimeline } from "../../components/common/OperationTimeline";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -193,9 +195,15 @@ export const HrAdministrationPage: React.FC = () => {
       | "budget-categories"
       | "budget"
       | "budget-reject"
+      | "budget-close"
+      | "budget-history"
+      | "budget-edit"
+      | "budget-cancel"
       | "expense-view"
       | "expense-disbursement"
       | "expense-add"
+      | "expense-edit"
+      | "expense-cancel"
       | "expense-reject"
       | "fund-add"
       | "fund-history"
@@ -255,7 +263,8 @@ export const HrAdministrationPage: React.FC = () => {
       selectedBudget?.id,
       (modal === "fund-add" || modal === "fund-history") &&
         can("hr.budget.view"),
-    );
+    ),
+    budgetHistory = useBudgetApprovalHistoryQuery(selectedBudget?.id,modal === "budget-history" && can("hr.approval.history.view"));
   const notify = (promise: Promise<unknown>, success: string) =>
     promise
       .then(() => {
@@ -747,6 +756,7 @@ export const HrAdministrationPage: React.FC = () => {
                     />
                   </div>
                   <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    {can("hr.approval.history.view") && <Button size="sm" variant="outline" onClick={()=>{setSelectedBudget(x);setModal("budget-history")}}>Historique des décisions</Button>}
                     <Button
                       size="sm"
                       variant="outline"
@@ -1646,6 +1656,8 @@ export const HrAdministrationPage: React.FC = () => {
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
                   <strong>{money(x.amount)}</strong>
+                  {(x.approval_status === "draft" || x.approval_status === "rejected") && can("hr.expense.manage") && <Button size="xs" variant="outline" onClick={()=>{setSelectedExpense(x);setModal("expense-edit")}}>Modifier</Button>}
+                  {x.approval_status !== "approved" && x.approval_status !== "cancelled" && can("hr.expense.manage") && <Button size="xs" variant="outline" onClick={()=>{setSelectedExpense(x);setModal("expense-cancel")}}>Annuler</Button>}
                   <Button
                     size="xs"
                     variant={mayDisburse ? "primary" : "outline"}
@@ -1664,6 +1676,12 @@ export const HrAdministrationPage: React.FC = () => {
             <Empty text="Aucune dépense." />
           )}
         </div>
+      </Modal>
+      <Modal isOpen={modal === "expense-edit"} onClose={()=>setModal("expense-view")} title="Modifier la dépense">
+        {selectedBudget && selectedExpense && <ExpenseEditForm budget={selectedBudget} expense={selectedExpense} notify={notify} actions={actions}/>}
+      </Modal>
+      <Modal isOpen={modal === "expense-cancel"} onClose={()=>setModal("expense-view")} title="Annuler la dépense">
+        {selectedExpense && <ReasonForm label="Motif de l’annulation" submit={(reason)=>notify(actions.expenseCancel.mutateAsync({id:selectedExpense.id,reason}),"Dépense annulée")}/>}
       </Modal>
       <HrSectionBoundary active={modal === "expense-disbursement"}>
         <BudgetExpenseDisbursement
@@ -1720,6 +1738,9 @@ export const HrAdministrationPage: React.FC = () => {
                     {x.is_legacy ? " · historique" : ""}
                   </span>
                   <div className="flex gap-2">
+                    {(x.status === "draft" || x.status === "rejected") && can("hr.budget.manage") && <Button size="xs" variant="outline" onClick={()=>{setSelectedBudget(x);setModal("budget-edit")}}>Modifier</Button>}
+                    {x.status === "rejected" && can("hr.budget.manage") && <Button size="xs" variant="outline" onClick={()=>void notify(actions.budgetReopen.mutateAsync(x.id),"Budget remis en brouillon")}>Réouvrir</Button>}
+                    {x.status === "draft" && can("hr.budget.manage") && <Button size="xs" variant="outline" onClick={()=>{setSelectedBudget(x);setModal("budget-cancel")}}>Annuler</Button>}
                     {(x.status === "draft" || x.status === "rejected") &&
                       can("hr.budget.submit") && (
                         <Button
@@ -1763,12 +1784,10 @@ export const HrAdministrationPage: React.FC = () => {
                       <Button
                         size="xs"
                         variant="outline"
-                        onClick={() =>
-                          void notify(
-                            actions.budgetClose.mutateAsync(x.id),
-                            "Budget clôturé",
-                          )
-                        }
+                        onClick={() => {
+                          setSelectedBudget(x);
+                          setModal("budget-close");
+                        }}
                       >
                         Clôturer
                       </Button>
@@ -1844,6 +1863,25 @@ export const HrAdministrationPage: React.FC = () => {
           ) : null}
         </Card>
       )}
+      <Modal
+        isOpen={modal === "budget-edit"}
+        onClose={() => setModal(null)}
+        title="Modifier le budget"
+      >{selectedBudget&&<BudgetEditForm budget={selectedBudget} notify={notify} actions={actions}/>}</Modal>
+      <Modal isOpen={modal === "budget-cancel"} onClose={()=>setModal(null)} title="Annuler le budget brouillon">{selectedBudget&&<ReasonForm label="Motif de l’annulation" submit={reason=>notify(actions.budgetCancel.mutateAsync({id:selectedBudget.id,reason}),"Budget annulé")}/>}</Modal>
+      <Modal
+        isOpen={modal === "budget-history"}
+        onClose={() => setModal(null)}
+        title={`Historique · ${selectedBudget?.label ?? ""}`}
+      ><OperationTimeline entries={budgetHistory.data} loading={budgetHistory.isLoading}/></Modal>
+      <Modal
+        isOpen={modal === "budget-close"}
+        onClose={() => setModal(null)}
+        title="Confirmer la clôture du budget"
+        description="Cette opération est définitive. Toute dépense en attente, engagement non soldé, réservation active ou rallonge soumise bloquera la clôture."
+      >
+        {selectedBudget && <div className="space-y-3"><div className="grid grid-cols-2 gap-2 rounded bg-slate-50 p-3 text-xs"><b className="col-span-2">{selectedBudget.label}</b><span>Initial : {money(selectedBudget.initial_amount)}</span><span>Rallonges : {money(selectedBudget.additional_funds)}</span><span>Engagé : {money(selectedBudget.spent)}</span><span>Disponible : {money(selectedBudget.remaining)}</span></div><ReasonForm label="Motif de la clôture" submit={(reason)=>notify(actions.budgetClose.mutateAsync({id:selectedBudget.id,reason}),"Budget clôturé")}/></div>}
+      </Modal>
       <Modal
         isOpen={modal === "budget-reject"}
         onClose={() => setModal(null)}
@@ -2234,6 +2272,22 @@ const ExpenseCreationForm = ({
       <Button type="submit">Enregistrer</Button>
     </form>
   );
+};
+
+const ExpenseEditForm = ({budget,expense,notify,actions}:{budget:Budget;expense:Expense;notify:Notify;actions:HrActions}) => {
+  const categories=useBudgetCategoriesQuery("expense",budget.target_concession_id,true,true);
+  return <form className="grid gap-3" onSubmit={e=>{e.preventDefault();notify(actions.expenseUpdate.mutateAsync({id:expense.id,body:Object.fromEntries(new FormData(e.currentTarget).entries())}),"Dépense modifiée")}}>
+    <p className="text-xs">Budget : <b>{budget.label}</b> · montant immuable : <b>{money(expense.amount)}</b> · payé : <b>{money(expense.disbursed_amount)}</b> · reste : <b>{money(expense.remaining_to_disburse)}</b></p>
+    <input name="label" required className={input} defaultValue={expense.label} placeholder="Libellé"/>
+    <select name="categoryId" className={input} defaultValue={expense.category_id??""}><option value="">Aucune catégorie</option>{categories.data?.filter(c=>c.is_active||c.id===expense.category_id).map(c=><option key={c.id} value={c.id}>{c.name}{c.is_active?"":" (inactive)"}</option>)}</select>
+    <input name="reference" className={input} defaultValue={expense.reference??""} placeholder="Référence"/>
+    <Button type="submit" loading={actions.expenseUpdate.isPending}>Enregistrer</Button>
+  </form>;
+};
+
+const BudgetEditForm=({budget,notify,actions}:{budget:Budget;notify:Notify;actions:HrActions})=>{
+  const categories=useBudgetCategoriesQuery("budget",budget.target_concession_id,true,true);
+  return <form className="grid gap-3 sm:grid-cols-2" onSubmit={e=>{e.preventDefault();notify(actions.budgetUpdate.mutateAsync({id:budget.id,body:Object.fromEntries(new FormData(e.currentTarget).entries())}),"Budget modifié")}}><input name="label" required className={input} defaultValue={budget.label}/><input name="initialAmount" type="number" min="0.01" step="0.01" required className={input} defaultValue={budget.initial_amount}/><input name="startDate" type="date" required className={input} defaultValue={budget.start_date.slice(0,10)}/><input name="endDate" type="date" required className={input} defaultValue={budget.end_date.slice(0,10)}/><select name="categoryId" className={input} defaultValue={budget.category_id??""}><option value="">Aucune catégorie</option>{categories.data?.filter(c=>c.is_active||c.id===budget.category_id).map(c=><option key={c.id} value={c.id}>{c.name}{c.is_active?"":" (inactive)"}</option>)}</select><Button type="submit" loading={actions.budgetUpdate.isPending}>Enregistrer</Button></form>;
 };
 
 const BudgetFundForm = ({

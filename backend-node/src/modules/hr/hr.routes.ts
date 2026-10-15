@@ -1440,7 +1440,7 @@ hrRouter.get(
           ? [r.user!.agencyId]
           : [],
       rows = await query<RowDataPacket[]>(
-        `SELECT b.*,COALESCE(b.concession_id,ba.concession_id) target_concession_id,a.name agency_name,c.name concession_name,bc.code category_code,bc.name category_current_name,bc.is_active category_is_active,COALESCE((SELECT SUM(f.amount) FROM budget_fund_movements f WHERE f.budget_id=b.id),0) additional_funds,b.initial_amount+COALESCE((SELECT SUM(f.amount) FROM budget_fund_movements f WHERE f.budget_id=b.id),0) total_allocated,COALESCE(SUM(CASE WHEN e.approval_status='approved' THEN e.amount ELSE 0 END),0) spent,b.initial_amount+COALESCE((SELECT SUM(f.amount) FROM budget_fund_movements f WHERE f.budget_id=b.id),0)-COALESCE(SUM(CASE WHEN e.approval_status='approved' THEN e.amount ELSE 0 END),0) remaining,(${scopeSql(createScope)}) can_create_expense,(${scopeSql(manageScope)}) can_add_funds FROM budgets b LEFT JOIN agencies ba ON ba.id=b.agency_id LEFT JOIN agencies a ON a.id=b.agency_id LEFT JOIN concessions c ON c.id=b.concession_id LEFT JOIN budget_categories bc ON bc.id=b.category_id LEFT JOIN budget_expenses e ON e.budget_id=b.id WHERE ${p.sql} GROUP BY b.id,ba.concession_id,a.name,c.name,bc.code,bc.name,bc.is_active ORDER BY b.start_date DESC,b.id DESC`,
+        `SELECT b.*,COALESCE(b.concession_id,ba.concession_id) target_concession_id,a.name agency_name,c.name concession_name,c.currency_code,bc.code category_code,bc.name category_current_name,bc.is_active category_is_active,COALESCE((SELECT SUM(f.amount) FROM budget_fund_movements f WHERE f.budget_id=b.id),0) additional_funds,b.initial_amount+COALESCE((SELECT SUM(f.amount) FROM budget_fund_movements f WHERE f.budget_id=b.id),0) total_allocated,COALESCE(SUM(CASE WHEN e.approval_status='approved' THEN e.amount ELSE 0 END),0) spent,b.initial_amount+COALESCE((SELECT SUM(f.amount) FROM budget_fund_movements f WHERE f.budget_id=b.id),0)-COALESCE(SUM(CASE WHEN e.approval_status='approved' THEN e.amount ELSE 0 END),0) remaining,(${scopeSql(createScope)}) can_create_expense,(${scopeSql(manageScope)}) can_add_funds FROM budgets b LEFT JOIN agencies ba ON ba.id=b.agency_id LEFT JOIN agencies a ON a.id=b.agency_id LEFT JOIN concessions c ON c.id=COALESCE(b.concession_id,ba.concession_id) LEFT JOIN budget_categories bc ON bc.id=b.category_id LEFT JOIN budget_expenses e ON e.budget_id=b.id WHERE ${p.sql} GROUP BY b.id,ba.concession_id,a.name,c.name,c.currency_code,bc.code,bc.name,bc.is_active ORDER BY b.start_date DESC,b.id DESC`,
         [...createParams, ...manageParams, ...p.params],
       );
     res.json(
@@ -1789,16 +1789,48 @@ hrRouter.post(
   "/hr/budgets/:id/close",
   requirePermission("hr.budget.manage"),
   asyncHandler(async (r, res) => {
-    const budgetId = id(r.params.id);
+    const budgetId = id(r.params.id),
+      reason = decisionReason(r.body.reason, "Motif de la clôture");
     await transaction(async (c) => {
       const current = await budget(r, "hr.budget.manage", budgetId, c);
       if (String(current.status) !== "active")
         throw new HttpError(409, "Seul un budget approuvé peut être clôturé.");
-      const [blocking]=await c.execute<RowDataPacket[]>(`SELECT (SELECT COUNT(*) FROM budget_fund_requests WHERE budget_id=? AND status='SUBMITTED') pending_funds,(SELECT COUNT(*) FROM budget_expenses e WHERE e.budget_id=? AND e.approval_status='approved' AND e.amount>(SELECT COALESCE(SUM(CASE WHEN rev.id IS NULL THEN d.amount ELSE 0 END),0) FROM budget_expense_disbursements d JOIN treasury_movements tm ON tm.source_type='BUDGET_EXPENSE_DISBURSEMENT' AND CAST(tm.source_id AS UNSIGNED)=d.id LEFT JOIN treasury_movements rev ON rev.reversal_of_id=tm.id WHERE d.budget_expense_id=e.id)) unpaid,(SELECT COUNT(*) FROM treasury_reservations tr JOIN budget_expenses e ON e.id=tr.budget_expense_id WHERE e.budget_id=? AND tr.status='ACTIVE' AND tr.active_amount>0) active_reservations`,[budgetId,budgetId,budgetId]);
-      if(Number(blocking[0]?.pending_funds)||Number(blocking[0]?.unpaid)||Number(blocking[0]?.active_reservations))throw new HttpError(409,"Clôture refusée : engagements non soldés, réservations actives ou rallonges en attente.");
+      // Lock every mutable child before evaluating closure. Expense creation and
+      // approval both lock the parent budget, so this lock order serializes them
+      // with closure and prevents a request from becoming stranded afterwards.
+      const [expenses] = await c.execute<RowDataPacket[]>(
+          "SELECT id,approval_status,amount FROM budget_expenses WHERE budget_id=? FOR UPDATE",
+          [budgetId],
+        ),
+        [fundRequests] = await c.execute<RowDataPacket[]>(
+          "SELECT id,status FROM budget_fund_requests WHERE budget_id=? FOR UPDATE",
+          [budgetId],
+        ),
+        [reservations] = await c.execute<RowDataPacket[]>(
+          "SELECT tr.id,tr.status,tr.active_amount FROM treasury_reservations tr JOIN budget_expenses e ON e.id=tr.budget_expense_id WHERE e.budget_id=? FOR UPDATE",
+          [budgetId],
+        ),
+        pendingExpenses = expenses.filter((x) =>
+          ["draft", "submitted"].includes(String(x.approval_status)),
+        ).length,
+        pendingFunds = fundRequests.filter(
+          (x) => String(x.status) === "SUBMITTED",
+        ).length,
+        activeReservations = reservations.filter(
+          (x) => String(x.status) === "ACTIVE" && Number(x.active_amount) > 0,
+        ).length,
+        [unpaidRows] = await c.execute<RowDataPacket[]>(
+          `SELECT e.id FROM budget_expenses e WHERE e.budget_id=? AND e.approval_status='approved' AND e.amount>(SELECT COALESCE(SUM(CASE WHEN rev.id IS NULL THEN d.amount ELSE 0 END),0) FROM budget_expense_disbursements d JOIN treasury_movements tm ON tm.source_type='BUDGET_EXPENSE_DISBURSEMENT' AND CAST(tm.source_id AS UNSIGNED)=d.id AND tm.event_type='POSTED' LEFT JOIN treasury_movements rev ON rev.reversal_of_id=tm.id WHERE d.budget_expense_id=e.id) FOR UPDATE`,
+          [budgetId],
+        );
+      if (pendingExpenses || pendingFunds || activeReservations || unpaidRows.length)
+        throw new HttpError(
+          409,
+          `Clôture refusée : ${pendingExpenses} dépense(s) à traiter, ${unpaidRows.length} engagement(s) non soldé(s), ${activeReservations} réservation(s) active(s) et ${pendingFunds} rallonge(s) en attente.`,
+        );
       await c.execute(
-        "UPDATE budgets SET status='closed',updated_by=? WHERE id=?",
-        [r.user!.sub, budgetId],
+        "UPDATE budgets SET status='closed',decision_reason=?,updated_by=? WHERE id=?",
+        [reason, r.user!.sub, budgetId],
       );
       await approvalHistory(
         c,
@@ -1808,8 +1840,9 @@ hrRouter.post(
         "closed",
         "active",
         "closed",
+        reason,
       );
-      await audit(c, r, "budget", budgetId, "budget.closed", {});
+      await audit(c, r, "budget", budgetId, "budget.closed", { reason });
     });
     res.json({ success: true, status: "closed" });
   }),
@@ -2466,12 +2499,14 @@ hrRouter.patch(
       body = r.body as Input;
     await transaction(async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
-          `SELECT e.id,e.budget_id,e.label,e.category,e.category_id,e.reference,COALESCE(b.concession_id,ba.concession_id) target_concession_id FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
+          `SELECT e.id,e.budget_id,e.label,e.category,e.category_id,e.reference,e.approval_status,COALESCE(b.concession_id,ba.concession_id) target_concession_id FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
           [expenseId, ...p.params],
         ),
         current = rows[0];
       if (!current)
         throw new HttpError(404, "Dépense introuvable dans votre périmètre.");
+      if (!["draft", "rejected"].includes(String(current.approval_status)))
+        throw new HttpError(409, "Seule une dépense brouillon ou rejetée peut être modifiée.");
       const label = text(body.label, "Libellé", true)!,
         reference = text(body.reference, "Référence", false, 100),
         hasCategory = Object.hasOwn(body, "categoryId"),

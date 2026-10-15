@@ -8,6 +8,7 @@ export type TreasuryAccount = {
   account_type: "CASH" | "BANK" | "OTHER";
   currency_code: string;
   agency_id: string | null;
+  concession_id: string;
   agency_name: string | null;
   concession_name: string;
   is_active: boolean;
@@ -21,6 +22,7 @@ export type TreasuryCategory = {
   allowed_direction: "IN" | "OUT" | "BOTH";
   is_active: boolean;
   usage_count: number;
+  concession_id: string;
 };
 export type TreasuryMovement = {
   id: string;
@@ -83,6 +85,7 @@ export type TreasuryReservation = {
   beneficiary:string;due_date:string;decision_reason:string|null;
 };
 export type ReservableExpense={id:string;budget_id:string;budget_label:string;label:string;reference:string|null;amount:number;available_amount:number;currency_code:string;territory_name:string};
+export type TreasuryReservationEvent={id:string;event_type:string;amount:number;amount_before:number;amount_after:number;reason:string|null;actor_name:string|null;created_at:string};
 export type TreasuryFlowMapping = {
   id: string;
   concession_id: string;
@@ -224,6 +227,7 @@ export const useTreasuryReservations = (enabled = true) =>
     queryFn: () => apiRequest<TreasuryReservation[]>("/treasury/reservations"),
     enabled,
   });
+export const useTreasuryReservationHistory=(id:string|undefined,enabled=true)=>useQuery({queryKey:[...keys.reservations,id,"history"],queryFn:()=>apiRequest<TreasuryReservationEvent[]>(`/treasury/reservations/${id}/history`),enabled:enabled&&Boolean(id)});
 export const useTreasuryReservableExpenses=(enabled=true)=>useQuery({queryKey:keys.reservableExpenses,queryFn:()=>apiRequest<ReservableExpense[]>("/treasury/reservation-expenses"),enabled});
 export const useTreasuryFlowConfiguration = (enabled = true) =>
   useQuery({
@@ -497,6 +501,7 @@ export function useBankStatement(id: string) {
     enabled: Boolean(id),
   });
 }
+export function useBankStatementHistory(id:string){return useQuery({queryKey:["treasury","bank-statements",id,"history"],queryFn:()=>apiRequest<Array<{id:string;action:string;reason:string|null;actor_name:string|null;created_at:string}>>(`/treasury/bank-statements/${id}/history`),enabled:Boolean(id)})}
 export function useBankProposals(lineId: string) {
   return useQuery({
     queryKey: ["treasury", "bank-proposals", lineId],

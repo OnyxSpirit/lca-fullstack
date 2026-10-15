@@ -244,6 +244,7 @@ export interface BudgetTargets {
 }
 export interface Expense {
   id: string;
+  budget_id: string;
   label: string;
   amount: number;
   expense_date: string;
@@ -351,7 +352,7 @@ const keys = {
   reporting: ["hr", "reporting"] as const,
 };
 const invalidate = (qc: ReturnType<typeof useQueryClient>) =>
-  void qc.invalidateQueries({ queryKey: keys.root });
+  qc.invalidateQueries({ queryKey: keys.root });
 const params = (values: Record<string, string | number | undefined>) => {
   const p = new URLSearchParams();
   Object.entries(values).forEach(([k, v]) => {
@@ -656,6 +657,10 @@ export const useExpensesQuery = (
     queryFn: () => apiRequest<Expense[]>(`/hr/budgets/${budgetId}/expenses`),
     enabled: enabled && Boolean(budgetId) && Boolean(userId),
   });
+};
+export const useAllExpensesQuery = (filters: Record<string,string|number>, enabled: boolean) => {
+  const {userId,signature}=useHrIdentity();
+  return useQuery({queryKey:["hr","expenses",userId,signature,filters],queryFn:()=>apiRequest<{items:(Expense&{budget_label:string})[];total:number;page:number;pageSize:number}>(`/hr/expenses?${params(filters)}`),enabled:enabled&&Boolean(userId)});
 };
 export const useExpenseDisbursementsQuery = (
   expenseId: string | undefined,
@@ -1201,9 +1206,11 @@ export function useHrActions() {
           `/hr/budget-expenses/${expenseId}/disbursements`,
           { method: "POST", body: JSON.stringify(body) },
         ),
-      onSuccess: () => {
-        invalidate(qc);
-        void qc.invalidateQueries({ queryKey: ["treasury"] });
+      onSuccess: async () => {
+        await Promise.all([
+          invalidate(qc),
+          qc.invalidateQueries({ queryKey: ["treasury"] }),
+        ]);
       },
     }),
   };

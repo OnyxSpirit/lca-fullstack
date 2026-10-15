@@ -11,6 +11,7 @@ import {
   type StockCategory,
   type StockItem,
   useBudgetFundsQuery,
+  useAllExpensesQuery,
   useBudgetApprovalHistoryQuery,
   useBudgetsQuery,
   useBudgetCategoriesQuery,
@@ -828,6 +829,7 @@ export const HrAdministrationPage: React.FC = () => {
               <Empty text="Aucun budget dans votre périmètre." />
             </Card>
           )}
+          {can("hr.expense.view") && <ExpensesWorkspace budgets={budgets.data??[]} can={can} notify={notify} onOpen={(expense)=>{setSelectedExpense(expense);setSelectedBudget(budgets.data?.find(b=>b.id===expense.budget_id));setModal("expense-disbursement")}} />}
         </>
       )}
       {tab === "reporting" && (
@@ -2180,6 +2182,14 @@ const BudgetCreationForm = ({
       <Submit />
     </form>
   );
+};
+
+const ExpensesWorkspace = ({budgets,can,notify,onOpen}:{budgets:Budget[];can:(permission:string)=>boolean;notify:Notify;onOpen:(expense:Expense)=>void}) => {
+  const [search,setSearch]=useState(""),[budgetId,setBudgetId]=useState(""),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState(""),[page,setPage]=useState(1),[pageSize,setPageSize]=useState(10),actions=useHrActions();
+  const filters={search,budgetId,status,from,to,page,pageSize},expenses=useAllExpensesQuery(filters,true),pages=Math.max(1,Math.ceil((expenses.data?.total??0)/pageSize));
+  useEffect(()=>{if(page>pages)setPage(pages)},[page,pages]);
+  const decide=(promise:Promise<unknown>,message:string)=>notify(promise,message);
+  return <section className="space-y-3"><div><h2 className="text-base font-bold">Dépenses</h2><p className="text-xs text-slate-500">Liste accessible sans sélectionner préalablement un budget. Les demandes soumises constituent la file d’approbation.</p></div><Card className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6"><input className={input} placeholder="Rechercher" value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/><select className={input} value={budgetId} onChange={e=>{setBudgetId(e.target.value);setPage(1)}}><option value="">Tous les budgets</option>{budgets.map(b=><option key={b.id} value={b.id}>{b.label}</option>)}</select><select className={input} value={status} onChange={e=>{setStatus(e.target.value);setPage(1)}}><option value="">Tous les statuts</option>{["draft","submitted","approved","rejected","cancelled"].map(s=><option key={s} value={s}>{statusLabel[s]??s}</option>)}</select><input aria-label="Dépenses depuis" type="date" className={input} value={from} onChange={e=>{setFrom(e.target.value);setPage(1)}}/><input aria-label="Dépenses jusqu’à" type="date" className={input} value={to} onChange={e=>{setTo(e.target.value);setPage(1)}}/><select aria-label="Taille de page" className={input} value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}}>{[10,25,50].map(n=><option key={n}>{n}</option>)}</select></Card><Card padding="none"><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead><tr className="bg-slate-50"><th className="p-3">Date</th><th>Budget</th><th>Dépense</th><th>Montant</th><th>Statut</th><th>Décaissé / reste</th><th>Actions</th></tr></thead><tbody>{expenses.data?.items.map(x=><tr key={x.id} className="border-t"><td className="p-3">{dateLabel(x.expense_date)}</td><td>{x.budget_label}</td><td>{x.label}<small className="block text-slate-500">{x.reference??"Sans référence"}</small></td><td>{money(x.amount)}</td><td><Badge variant={x.approval_status==="approved"?"success":"default"}>{statusLabel[x.approval_status]??x.approval_status}</Badge></td><td>{money(x.disbursed_amount)} / {money(x.remaining_to_disburse)}</td><td><div className="flex flex-wrap gap-1"><Button size="xs" variant="outline" onClick={()=>onOpen(x)}>Détails</Button>{(x.approval_status==="draft"||x.approval_status==="rejected")&&can("hr.expense.submit")&&<Button size="xs" onClick={()=>void decide(actions.expenseSubmit.mutateAsync(x.id),"Dépense soumise")}>Soumettre</Button>}{x.approval_status==="submitted"&&can("hr.expense.approve")&&<><Button size="xs" onClick={()=>void decide(actions.expenseApprove.mutateAsync(x.id),"Dépense approuvée")}>Approuver</Button><Button size="xs" variant="outline" onClick={()=>void decide(actions.expenseReject.mutateAsync({id:x.id,reason:"Rejet après contrôle"}),"Dépense rejetée")}>Rejeter</Button></>}</div></td></tr>)}</tbody></table>{expenses.isLoading&&<Empty text="Chargement des dépenses…"/>}{expenses.isError&&<p className="p-4 text-xs text-red-700">Impossible de charger les dépenses : {expenses.error.message}</p>}{expenses.isSuccess&&!expenses.data.items.length&&<Empty text="Aucune dépense pour ces filtres."/>}</div><div className="flex items-center justify-between border-t p-3 text-xs"><span>{expenses.data?.total??0} résultat(s) · page {page}/{pages}</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Précédent</Button><Button size="xs" variant="outline" disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>Suivant</Button></div></div></Card></section>;
 };
 
 const ExpenseCreationForm = ({

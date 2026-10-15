@@ -9,7 +9,7 @@ test("TRES-01 filtre les dépenses éligibles avec le compte et son scope", () =
   const routes = read("modules/treasury/treasury.routes.ts");
   assert.match(routes, /eligibleExpenses\(r,r\.query\.accountId\)/);
   assert.match(service, /c\.id=\? AND c\.currency_code=\?/);
-  assert.match(service, /b\.scope_type<>'agency' OR b\.agency_id=\?/);
+  assert.match(service, /b\.scope_type<>'agency' OR \?='CONCESSION' OR \(\?='AGENCY' AND b\.agency_id=\?\)/);
   assert.match(service, /HAVING available_amount>0/);
 });
 

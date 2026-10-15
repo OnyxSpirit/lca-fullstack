@@ -12,6 +12,11 @@ treasuryRouter.get(
   asyncHandler(async (r, res) => res.json(await s.listAccounts(r))),
 );
 treasuryRouter.get(
+  "/treasury/account-territories",
+  requirePermission("treasury.account.manage"),
+  asyncHandler(async (r, res) => res.json(await s.accountTerritories(r))),
+);
+treasuryRouter.get(
   "/treasury/accounts/:id",
   requirePermission("treasury.view"),
   asyncHandler(async (r, res) => res.json(await s.getAccount(r, r.params.id))),

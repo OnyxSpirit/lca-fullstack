@@ -17,6 +17,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
 import {
   useTreasuryAccounts,
+  useTreasuryAccountTerritories,
   useTreasuryActions,
   useTreasuryBudgetIndicators,
   useTreasuryCategories,
@@ -59,6 +60,9 @@ type AccountForm = {
   name: string;
   description: string;
   accountType: AccountType;
+  attachmentType:"AGENCY"|"CONCESSION";
+  concessionId:string;
+  agencyId:string;
 };
 const input = "rounded-md border border-slate-300 px-3 py-2 text-xs";
 const sourceLabel = (s: string) =>
@@ -99,6 +103,7 @@ const emptyAccount: AccountForm = {
   name: "",
   description: "",
   accountType: "BANK",
+  attachmentType:"AGENCY",concessionId:"",agencyId:"",
 };
 const directionLabel: Record<CategoryDirection, string> = {
   IN: "Entrées",
@@ -136,6 +141,8 @@ const accountError = (form: AccountForm, editing: boolean) => {
     return "La description ne peut pas dépasser 1 000 caractères.";
   if (!["CASH", "BANK", "OTHER"].includes(form.accountType))
     return "Le type de compte est invalide.";
+  if(!form.concessionId)return "La concession est obligatoire.";
+  if(form.attachmentType==='AGENCY'&&!form.agencyId)return "L’agence est obligatoire pour un compte d’agence.";
   return "";
 };
 export const TreasuryPage: React.FC = () => {
@@ -215,6 +222,7 @@ export const TreasuryPage: React.FC = () => {
   const canViewCoverage = can("treasury.coverage.view"),
     canViewReservations = can("treasury.reservation.view"),
     accounts = useTreasuryAccounts(),
+    accountTerritories=useTreasuryAccountTerritories(can("treasury.account.manage")),
     categories = useTreasuryCategories(),
     summary = useTreasurySummary(),
     coverage = useTreasuryCoverage(canViewCoverage),
@@ -325,7 +333,8 @@ export const TreasuryPage: React.FC = () => {
     }
   };
   const openAccountCreate = () => {
-    setAccountForm(emptyAccount);
+    const concessionId=accountTerritories.data?.concessions[0]?.id??"";
+    setAccountForm({...emptyAccount,concessionId,agencyId:accountTerritories.data?.agencies.find(a=>a.concessionId===concessionId)?.id??""});
     setAccountFormError("");
     setAccountModal({ mode: "create" });
   };
@@ -337,6 +346,7 @@ export const TreasuryPage: React.FC = () => {
       name: account.name,
       description: account.description ?? "",
       accountType: account.account_type,
+      attachmentType:account.attachment_type??"CONCESSION",concessionId:account.concession_id,agencyId:account.agency_id??"",
     });
     setAccountFormError("");
     setAccountModal({ mode: "edit", account });
@@ -365,6 +375,7 @@ export const TreasuryPage: React.FC = () => {
           name: accountForm.name.trim(),
           description: accountForm.description.trim(),
           accountType: accountForm.accountType,
+          attachmentType:accountForm.attachmentType,concessionId:accountForm.concessionId,agencyId:accountForm.attachmentType==='AGENCY'?accountForm.agencyId:undefined,
         });
       else
         await actions.createAccount.mutateAsync({
@@ -372,6 +383,7 @@ export const TreasuryPage: React.FC = () => {
           name: accountForm.name.trim(),
           description: accountForm.description.trim(),
           accountType: accountForm.accountType,
+          attachmentType:accountForm.attachmentType,concessionId:accountForm.concessionId,agencyId:accountForm.attachmentType==='AGENCY'?accountForm.agencyId:undefined,
         });
       setAccountModal(null);
       toast({
@@ -658,26 +670,27 @@ export const TreasuryPage: React.FC = () => {
       </div>
       {tab === "overview" && (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          {(summary.data?.byCurrency??[]).map(kpi=><div key={kpi.currencyCode} className="grid gap-4 md:grid-cols-4">
             <Card>
-              <p className="text-xs text-slate-500">Solde dérivé</p>
+              <p className="text-xs text-slate-500">Solde externe net · {kpi.currencyCode}</p>
               <p className="text-2xl font-bold">
-                {formatCurrency(summary.data?.balance ?? 0)}
+                {formatCurrency(kpi.balance,kpi.currencyCode)}
               </p>
             </Card>
             <Card>
-              <p className="text-xs text-slate-500">Entrées comptabilisées</p>
+              <p className="text-xs text-slate-500">Entrées externes · {kpi.currencyCode}</p>
               <p className="text-xl font-bold text-emerald-700">
-                {formatCurrency(summary.data?.totalIn ?? 0)}
+                {formatCurrency(kpi.totalIn,kpi.currencyCode)}
               </p>
             </Card>
             <Card>
-              <p className="text-xs text-slate-500">Sorties comptabilisées</p>
+              <p className="text-xs text-slate-500">Sorties externes · {kpi.currencyCode}</p>
               <p className="text-xl font-bold text-red-700">
-                {formatCurrency(summary.data?.totalOut ?? 0)}
+                {formatCurrency(kpi.totalOut,kpi.currencyCode)}
               </p>
             </Card>
-          </div>
+            <Card><p className="text-xs text-slate-500">Transferts internes · {kpi.currencyCode}</p><p className="text-xl font-bold">{formatCurrency(kpi.internalTransfers,kpi.currencyCode)}</p></Card>
+          </div>)}
           <Card>
             <h2 className="mb-3 font-bold">Comptes accessibles</h2>
             {overviewAccountsPage.visible.map((a) => (
@@ -944,7 +957,7 @@ export const TreasuryPage: React.FC = () => {
                 <br />
                 <span className="text-slate-500">
                   {accountTypeLabel[a.account_type]} · {a.currency_code} ·{" "}
-                  {a.agency_name ?? a.concession_name} ·{" "}
+                  {a.attachment_type==='AGENCY'?`Agence — ${a.agency_name}`:a.attachment_type==='CONCESSION'?`Concession — ${a.concession_name}`:"Rattachement historique non qualifié"} ·{" "}
                   {a.is_active ? "Actif" : "Inactif"}
                 </span>
               </span>
@@ -1658,6 +1671,21 @@ export const TreasuryPage: React.FC = () => {
               <option value="OTHER">Autre</option>
             </select>
           </label>
+          <label className="text-xs font-semibold">Rattachement du compte
+            <select required disabled={accountModal?.mode==='edit'&&!Boolean(accountModal.account?.attachment_mutable)} className={`${input} mt-1 w-full disabled:bg-slate-100`} value={accountForm.attachmentType} onChange={e=>setAccountForm({...accountForm,attachmentType:e.target.value as "AGENCY"|"CONCESSION",agencyId:""})}>
+              <option value="AGENCY">Agence</option><option value="CONCESSION">Concession</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold">Concession
+            <select required disabled={accountModal?.mode==='edit'&&!Boolean(accountModal.account?.attachment_mutable)} className={`${input} mt-1 w-full disabled:bg-slate-100`} value={accountForm.concessionId} onChange={e=>setAccountForm({...accountForm,concessionId:e.target.value,agencyId:""})}>
+              <option value="">Sélectionner</option>{accountTerritories.data?.concessions.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          {accountForm.attachmentType==='AGENCY'&&<label className="text-xs font-semibold">Agence
+            <select required disabled={accountModal?.mode==='edit'&&!Boolean(accountModal.account?.attachment_mutable)} className={`${input} mt-1 w-full disabled:bg-slate-100`} value={accountForm.agencyId} onChange={e=>setAccountForm({...accountForm,agencyId:e.target.value})}>
+              <option value="">Sélectionner</option>{accountTerritories.data?.agencies.filter(a=>a.concessionId===accountForm.concessionId).map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </label>}
           <label className="text-xs font-semibold">
             Description{" "}
             <span className="font-normal text-slate-500">(facultative)</span>
@@ -1686,13 +1714,12 @@ export const TreasuryPage: React.FC = () => {
                     accountModal.account.concession_name}
                 </b>
               </p>
-              <p>Le code, la devise et le périmètre ne sont pas modifiables.</p>
+              <p>{accountModal.account.attachment_mutable?'Le rattachement reste modifiable tant que le compte ne possède aucun historique ni engagement.':'Le rattachement est verrouillé car ce compte possède un historique ou un engagement financier.'}</p>
             </div>
           )}
           {accountModal?.mode === "create" && (
             <p className="rounded-md bg-slate-50 p-3 text-xs text-slate-600">
-              La devise et le périmètre seront déterminés par le serveur selon
-              vos autorisations. Aucun solde d’ouverture ne sera créé.
+              Le serveur vérifiera que le rattachement sélectionné appartient à votre périmètre. Aucun solde d’ouverture ne sera créé.
             </p>
           )}
           {accountFormError && (

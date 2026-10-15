@@ -6,7 +6,7 @@ import type {
 } from "mysql2/promise";
 import { query, transaction } from "../../config/database.js";
 import { HttpError } from "../../shared/http-error.js";
-import { emitToAgenciesAndGlobals } from "../../realtime/socket.js";
+import { emitToDomainAgenciesAndGlobals } from "../../realtime/socket.js";
 import {
   assertPermission,
   type PermissionScope,
@@ -213,9 +213,24 @@ const duplicate = (e: unknown) => {
 export async function listAccounts(r: Request) {
   const p = predicate(r, "treasury.view", "ta");
   return query<RowDataPacket[]>(
-    `SELECT ta.*,a.name agency_name,c.name concession_name,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0) balance,COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) reserved_amount,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0)-COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) available_balance FROM treasury_accounts ta JOIN concessions c ON c.id=ta.concession_id LEFT JOIN agencies a ON a.id=ta.agency_id LEFT JOIN treasury_movements tm ON tm.account_id=ta.id WHERE ${p.sql} GROUP BY ta.id,a.name,c.name ORDER BY ta.is_active DESC,ta.name`,
+    `SELECT ta.*,a.name agency_name,c.name concession_name,NOT(EXISTS(SELECT 1 FROM treasury_movements hx WHERE hx.account_id=ta.id) OR EXISTS(SELECT 1 FROM treasury_reservations hr WHERE hr.account_id=ta.id) OR EXISTS(SELECT 1 FROM treasury_flow_mappings hf WHERE hf.treasury_account_id=ta.id) OR EXISTS(SELECT 1 FROM bank_statements hb WHERE hb.account_id=ta.id)) attachment_mutable,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0) balance,COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) reserved_amount,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0)-COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) available_balance FROM treasury_accounts ta JOIN concessions c ON c.id=ta.concession_id LEFT JOIN agencies a ON a.id=ta.agency_id LEFT JOIN treasury_movements tm ON tm.account_id=ta.id WHERE ${p.sql} GROUP BY ta.id,a.name,c.name ORDER BY ta.is_active DESC,ta.name`,
     p.params,
   );
+}
+export async function accountTerritories(r: Request) {
+  const granted = scope(r, "treasury.account.manage"), current = await actor(r);
+  if (!granted || granted === "OWN") throw new HttpError(403, "Scope collectif requis");
+  const concessions = granted === "GLOBAL"
+    ? await query<RowDataPacket[]>("SELECT id,name FROM concessions WHERE is_active=TRUE ORDER BY name")
+    : await query<RowDataPacket[]>("SELECT id,name FROM concessions WHERE id=? AND is_active=TRUE", [current.concession_id]);
+  if (!concessions.length) return { concessions: [], agencies: [] };
+  const ids = concessions.map((x) => String(x.id));
+  const placeholders = ids.map(() => "?").join(",");
+  const agenciesRows = await query<RowDataPacket[]>(`SELECT id,name,concession_id FROM agencies WHERE is_active=TRUE AND concession_id IN (${placeholders}) ORDER BY name`, ids);
+  return {
+    concessions: concessions.map((x) => ({ id: String(x.id), name: String(x.name) })),
+    agencies: agenciesRows.map((x) => ({ id: String(x.id), name: String(x.name), concessionId: String(x.concession_id) })),
+  };
 }
 export async function getAccount(r: Request, value: unknown) {
   const p = predicate(r, "treasury.view", "ta"),
@@ -231,10 +246,15 @@ export async function getAccount(r: Request, value: unknown) {
   return rows[0];
 }
 export async function createAccount(r: Request, b: any) {
+  const attachmentType = String(b?.attachmentType ?? "");
+  if (!['AGENCY','CONCESSION'].includes(attachmentType))
+    throw new HttpError(400, "Rattachement du compte obligatoire");
+  if (attachmentType === 'CONCESSION' && !['CONCESSION','GLOBAL'].includes(String(scope(r,'treasury.account.manage'))))
+    throw new HttpError(403, "Un compte de concession exige un scope CONCESSION ou GLOBAL");
   const t = await target(
       r,
       "treasury.account.manage",
-      b?.agencyId,
+      attachmentType === 'AGENCY' ? b?.agencyId : null,
       b?.concessionId,
     ),
     type = String(b?.accountType ?? "");
@@ -245,10 +265,11 @@ export async function createAccount(r: Request, b: any) {
   try {
     const result = await transaction(async (c) => {
       const [x] = await c.execute<ResultSetHeader>(
-        "INSERT INTO treasury_accounts(concession_id,agency_id,code,name,description,account_type,currency_code,created_by) VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO treasury_accounts(concession_id,agency_id,attachment_type,code,name,description,account_type,currency_code,created_by) VALUES(?,?,?,?,?,?,?,?,?)",
         [
           t.concessionId,
           t.agencyId,
+          attachmentType,
           code(b?.code),
           txt(b?.name, "Nom", true, 150),
           txt(b?.description, "Description", false, 1000),
@@ -286,11 +307,11 @@ export async function createAccount(r: Request, b: any) {
         "treasury_account",
         accountId,
         "treasury.account.created",
-        { ...t, type, currency },
+        { ...t, attachmentType, type, currency },
       );
       return { id: accountId, agencies: await agencies(c, t.concessionId) };
     });
-    emitToAgenciesAndGlobals(result.agencies, "treasury:account-updated", {
+    emitToDomainAgenciesAndGlobals('treasury',result.agencies, "treasury:account-updated", {
       id: result.id,
     });
     return { id: result.id };
@@ -303,27 +324,39 @@ export async function updateAccount(r: Request, value: unknown, b: any) {
     const a = await accountFor(c, r, value, "treasury.account.manage", true),
       name = txt(b?.name, "Nom", true, 150),
       description = txt(b?.description, "Description", false, 1000),
-      type = String(b?.accountType ?? a.account_type);
+      type = String(b?.accountType ?? a.account_type),
+      requestedAttachment = b?.attachmentType == null ? String(a.attachment_type ?? '') : String(b.attachmentType);
     if (!["CASH", "BANK", "OTHER"].includes(type))
       throw new HttpError(400, "Type de compte invalide");
-    await c.execute(
-      "UPDATE treasury_accounts SET name=?,description=?,account_type=? WHERE id=?",
-      [name, description, type, a.id],
-    );
+    let nextAgency = a.agency_id == null ? null : String(a.agency_id), nextConcession = String(a.concession_id);
+    if (requestedAttachment && (requestedAttachment !== String(a.attachment_type ?? '') || b?.agencyId != null || b?.concessionId != null)) {
+      if (!['AGENCY','CONCESSION'].includes(requestedAttachment)) throw new HttpError(400,'Rattachement invalide');
+      if (requestedAttachment === 'CONCESSION' && !['CONCESSION','GLOBAL'].includes(String(scope(r,'treasury.account.manage')))) throw new HttpError(403,'Un compte de concession exige un scope CONCESSION ou GLOBAL');
+      const [history] = await c.execute<RowDataPacket[]>(`SELECT
+        EXISTS(SELECT 1 FROM treasury_movements WHERE account_id=?) movements,
+        EXISTS(SELECT 1 FROM treasury_reservations WHERE account_id=?) reservations,
+        EXISTS(SELECT 1 FROM treasury_flow_mappings WHERE treasury_account_id=?) mappings,
+        EXISTS(SELECT 1 FROM bank_statements WHERE account_id=?) statements`,[a.id,a.id,a.id,a.id]);
+      if (Object.values(history[0] ?? {}).some(Number)) throw new HttpError(409,'Le rattachement est verrouillé car le compte possède un historique ou un engagement financier');
+      const next = await target(r,'treasury.account.manage',requestedAttachment==='AGENCY'?b?.agencyId:null,b?.concessionId,c);
+      nextAgency=next.agencyId;nextConcession=next.concessionId;
+    }
+    await c.execute("UPDATE treasury_accounts SET name=?,description=?,account_type=?,attachment_type=?,agency_id=?,concession_id=? WHERE id=?",
+      [name, description, type, requestedAttachment || null, nextAgency, nextConcession, a.id]);
     await audit(
       c,
       r,
       "treasury_account",
       String(a.id),
       "treasury.account.updated",
-      { name, description, type },
+      { name, description, type, attachmentType: requestedAttachment || null, agencyId: nextAgency, concessionId: nextConcession },
     );
     return {
       id: String(a.id),
       agencies: await agencies(c, String(a.concession_id)),
     };
   });
-  emitToAgenciesAndGlobals(result.agencies, "treasury:account-updated", {
+  emitToDomainAgenciesAndGlobals('treasury',result.agencies, "treasury:account-updated", {
     id: result.id,
   });
   return { id: result.id };
@@ -355,7 +388,7 @@ export async function accountStatus(
       agencies: await agencies(c, String(a.concession_id)),
     };
   });
-  emitToAgenciesAndGlobals(result.agencies, "treasury:account-updated", {
+  emitToDomainAgenciesAndGlobals('treasury',result.agencies, "treasury:account-updated", {
     id: result.id,
     isActive,
   });
@@ -751,7 +784,7 @@ async function createManualOperation(
       "SELECT id FROM agencies WHERE concession_id=?",
       [result.concessionId],
     );
-    emitToAgenciesAndGlobals(
+    emitToDomainAgenciesAndGlobals('treasury',
       targetAgencies.map((x) => String(x.id)),
       "treasury:movement-posted",
       { id: result.movementId, manualOperationId: result.id },
@@ -850,6 +883,10 @@ export async function budgetExpenseDisburse(
         409,
         "Compte Treasury incompatible avec la concession de la dépense",
       );
+    if (expense.scope_type === 'agency' && !(
+      (account.attachment_type === 'AGENCY' && String(account.agency_id) === String(expense.agency_id)) ||
+      account.attachment_type === 'CONCESSION'
+    )) throw new HttpError(409, 'Compte incompatible avec l’agence de la dépense');
     if (String(account.currency_code) !== String(expense.concession_currency))
       throw new HttpError(409, "Devise du compte incompatible avec la dépense");
     const [existingRows] = await c.execute<RowDataPacket[]>(
@@ -1018,7 +1055,7 @@ export async function budgetExpenseDisburse(
       "SELECT id FROM agencies WHERE concession_id=?",
       [result.concessionId],
     );
-    emitToAgenciesAndGlobals(
+    emitToDomainAgenciesAndGlobals('treasury',
       targetAgencies.map((x) => String(x.id)),
       "treasury:movement-posted",
       {
@@ -1219,15 +1256,10 @@ export async function summary(r: Request, q: any) {
   }
   const extra = dates.length ? ` AND ${dates.join(" AND ")}` : "",
     rows = await query<RowDataPacket[]>(
-      `SELECT COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount ELSE 0 END),0) total_in,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='OUT' THEN tm.amount ELSE 0 END),0) total_out FROM treasury_accounts ta LEFT JOIN treasury_movements tm ON tm.account_id=ta.id${extra} WHERE ${p.sql}`,
+      `SELECT ta.currency_code,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.transfer_id IS NULL AND tm.direction='IN' THEN tm.amount ELSE 0 END),0) total_in,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.transfer_id IS NULL AND tm.direction='OUT' THEN tm.amount ELSE 0 END),0) total_out,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.transfer_id IS NOT NULL AND tm.direction='OUT' THEN tm.amount ELSE 0 END),0) internal_transfers FROM treasury_accounts ta LEFT JOIN treasury_movements tm ON tm.account_id=ta.id${extra} WHERE ${p.sql} GROUP BY ta.currency_code ORDER BY ta.currency_code`,
       [...dateParams, ...p.params],
-    ),
-    row = rows[0];
-  return {
-    totalIn: Number(row?.total_in ?? 0),
-    totalOut: Number(row?.total_out ?? 0),
-    balance: Number(row?.total_in ?? 0) - Number(row?.total_out ?? 0),
-  };
+    );
+  return { byCurrency: rows.map(row=>({currencyCode:String(row.currency_code),totalIn:Number(row.total_in),totalOut:Number(row.total_out),balance:Number(row.total_in)-Number(row.total_out),internalTransfers:Number(row.internal_transfers)})) };
 }
 export async function manualOptions() {
   return {
@@ -1273,6 +1305,8 @@ export async function transfer(r: Request, b: any, fault?: TreasuryFaultHook) {
           409,
           "Transfert inter-devise refusé sans moteur de change",
         );
+      if (String(source.concession_id) !== String(destination.concession_id))
+        throw new HttpError(409, "Transfert inter-concessions interdit");
       const [balanceRows] = await c.execute<RowDataPacket[]>(
         "SELECT COALESCE((SELECT SUM(CASE WHEN status='POSTED' AND direction='IN' THEN amount WHEN status='POSTED' THEN -amount ELSE 0 END) FROM treasury_movements WHERE account_id=?),0)-COALESCE((SELECT SUM(active_amount) FROM treasury_reservations WHERE account_id=? AND status='ACTIVE'),0) available",
         [source.id, source.id],
@@ -1340,7 +1374,7 @@ export async function transfer(r: Request, b: any, fault?: TreasuryFaultHook) {
         agencies: await agencies(c, String(source.concession_id)),
       };
     });
-    emitToAgenciesAndGlobals(result.agencies, "treasury:movement-posted", {
+    emitToDomainAgenciesAndGlobals('treasury',result.agencies, "treasury:movement-posted", {
       transferId: result.id,
     });
     return { id: result.id };
@@ -1421,7 +1455,7 @@ export async function reverse(
         agencies: await agencies(c, String(original.concession_id)),
       };
     });
-    emitToAgenciesAndGlobals(result.agencies, "treasury:movement-reversed", {
+    emitToDomainAgenciesAndGlobals('treasury',result.agencies, "treasury:movement-reversed", {
       id: result.id,
       originalId: result.originalId,
     });

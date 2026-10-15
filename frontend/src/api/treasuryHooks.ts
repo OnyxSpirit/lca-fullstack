@@ -15,6 +15,8 @@ export type TreasuryAccount = {
   balance: number;
   reserved_amount: number;
   available_balance: number;
+  attachment_type: "AGENCY" | "CONCESSION" | null;
+  attachment_mutable: boolean | number;
 };
 export type TreasuryCategory = {
   id: string;
@@ -41,11 +43,8 @@ export type TreasuryMovement = {
   author_name: string | null;
   is_reversed: boolean | number;
 };
-export type TreasurySummary = {
-  totalIn: number;
-  totalOut: number;
-  balance: number;
-};
+export type TreasurySummary = {byCurrency:Array<{currencyCode:string;totalIn:number;totalOut:number;balance:number;internalTransfers:number}>};
+export type TreasuryAccountTerritories={concessions:Array<{id:string;name:string}>;agencies:Array<{id:string;name:string;concessionId:string}>};
 export type TreasuryCoverage = {
   currencyCode: string;
   accountCount: number;
@@ -182,6 +181,7 @@ export type BankProposal = {
 const keys = {
   all: ["treasury"] as const,
   accounts: ["treasury", "accounts"] as const,
+  territories: ["treasury", "account-territories"] as const,
   categories: ["treasury", "categories"] as const,
   summary: ["treasury", "summary"] as const,
   coverage: ["treasury", "coverage"] as const,
@@ -198,6 +198,7 @@ export const useTreasuryAccounts = (enabled = true) =>
     queryFn: () => apiRequest<TreasuryAccount[]>("/treasury/accounts"),
     enabled,
   });
+export const useTreasuryAccountTerritories=(enabled=true)=>useQuery({queryKey:keys.territories,queryFn:()=>apiRequest<TreasuryAccountTerritories>("/treasury/account-territories"),enabled});
 export const useTreasuryCategories = (enabled = true) =>
   useQuery({
     queryKey: keys.categories,
@@ -330,6 +331,7 @@ export function useTreasuryActions() {
         name: string;
         description: string;
         accountType: "CASH" | "BANK" | "OTHER";
+        attachmentType:"AGENCY"|"CONCESSION";concessionId:string;agencyId?:string;
       }) =>
         apiRequest("/treasury/accounts", {
           method: "POST",
@@ -346,6 +348,7 @@ export function useTreasuryActions() {
         name: string;
         description: string;
         accountType: "CASH" | "BANK" | "OTHER";
+        attachmentType?:"AGENCY"|"CONCESSION";concessionId?:string;agencyId?:string;
       }) =>
         apiRequest(`/treasury/accounts/${id}`, {
           method: "PATCH",

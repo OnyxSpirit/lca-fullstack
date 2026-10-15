@@ -1,3 +1,4 @@
+import { confirmAction, promptAction } from '../../components/ui/BusinessDialog';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
@@ -90,7 +91,7 @@ export const VehicleDetailPage: React.FC = () => {
   }
 
   const handleStatusChange = async (newStatus: VehicleStatus) => {
-    const status = vehicleStatusToDb[newStatus],reason=window.prompt('Motif obligatoire du changement de statut')?.trim();if(!reason)return;try{if(status)await statusMutation.mutateAsync({id:vehicle.id,status,reason});addToast({
+    const status = vehicleStatusToDb[newStatus],reason=(await promptAction('Motif obligatoire du changement de statut'))?.trim();if(!reason)return;try{if(status)await statusMutation.mutateAsync({id:vehicle.id,status,reason});addToast({
       type: 'success',
       title: 'Statut du véhicule modifié',
       description: `Le véhicule est maintenant marqué comme ${newStatus}.`,
@@ -102,7 +103,7 @@ export const VehicleDetailPage: React.FC = () => {
   };
   const addImages=async(event:React.ChangeEvent<HTMLInputElement>)=>{try{const images=await Promise.all(Array.from(event.target.files??[]).map(optimizeImage));await imageMutations.add.mutateAsync({id:vehicle.id,images:images.map(({dataUrl,name})=>({dataUrl,name}))});addToast({type:'success',title:'Galerie mise à jour',description:`${images.length} photo(s) ajoutée(s).`})}catch(error){addToast({type:'error',title:'Ajout impossible',description:error instanceof Error?error.message:'Erreur image'})}event.target.value=''};
   const setPrimaryImage=async()=>{if(!selectedImage)return;try{await imageMutations.primary.mutateAsync({id:vehicle.id,imageId:String(selectedImage.id)});addToast({type:'success',title:'Image principale mise à jour',description:'La photo sélectionnée est maintenant l’image principale.'})}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur image'})}};
-  const removeSelectedImage=async()=>{if(!selectedImage||!window.confirm('Supprimer cette photo du catalogue ?'))return;try{await imageMutations.remove.mutateAsync({id:vehicle.id,imageId:String(selectedImage.id)});setSelectedImageId(null);setSelectedPhotoIndex(0);addToast({type:'success',title:'Photo supprimée',description:'La photo sélectionnée a été retirée du catalogue.'})}catch(error){addToast({type:'error',title:'Suppression impossible',description:error instanceof Error?error.message:'Erreur image'})}};
+  const removeSelectedImage=async()=>{if(!selectedImage||!await confirmAction('Supprimer cette photo du catalogue ?'))return;try{await imageMutations.remove.mutateAsync({id:vehicle.id,imageId:String(selectedImage.id)});setSelectedImageId(null);setSelectedPhotoIndex(0);addToast({type:'success',title:'Photo supprimée',description:'La photo sélectionnée a été retirée du catalogue.'})}catch(error){addToast({type:'error',title:'Suppression impossible',description:error instanceof Error?error.message:'Erreur image'})}};
 
   return (
     <div className="space-y-6">

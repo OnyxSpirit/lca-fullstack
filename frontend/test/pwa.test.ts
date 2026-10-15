@@ -29,7 +29,7 @@ test('le service worker ne met en cache et n’intercepte aucune requête métie
   assert.match(serviceWorker, /addEventListener\('activate'/);
 });
 
-test('le bouton repose sur le prompt natif et reste conditionnel', () => {
+test('le bouton d’installation PWA utilise l’événement navigateur dédié et reste conditionnel', () => {
   const hook = readFileSync(new URL('../src/hooks/usePwaInstall.ts', import.meta.url), 'utf8');
   const header = readFileSync(new URL('../src/components/layout/Header.tsx', import.meta.url), 'utf8');
 

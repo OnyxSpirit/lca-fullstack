@@ -1,3 +1,4 @@
+import { confirmAction, promptAction } from '../../components/ui/BusinessDialog';
 import { useEffect, useState } from 'react';
 import { usePaymentMethodsQuery, useRepairOrderActions, useWarrantyClaimPayment } from '../../api/erpHooks';
 import { Button } from '../../components/ui/Button';
@@ -66,7 +67,7 @@ export function WarrantyCard({ ro }: { ro: RepairOrder }) {
   const shown = (value: number) => allocationsKnown ? formatCurrency(value) : 'À déterminer';
 
   const decide = async (decision: 'APPROVED' | 'REJECTED') => {
-    if (decision === 'REJECTED' && !window.confirm('Confirmer le refus de la prise en charge constructeur pour cet OR ?')) return;
+    if (decision === 'REJECTED' && !await confirmAction('Confirmer le refus de la prise en charge constructeur pour cet OR ?')) return;
     try {
       await actions.warrantyDecision.mutateAsync({ repairOrderId: ro.id, expectedVersion: warranty.version, decision, ...(decision === 'APPROVED' ? { providerId: warranty.providerId, mode, authorizationReference: authorization.trim(), reason: comment.trim() } : { reason: comment.trim() }) });
       toast({ type: 'success', title: decision === 'APPROVED' ? 'Prise en charge approuvée' : 'Prise en charge refusée' });

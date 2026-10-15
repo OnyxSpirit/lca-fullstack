@@ -5,6 +5,7 @@ import { ROUTES } from './navigation/routes';
 import type { ModuleKey } from './navigation/routes';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
+import { BusinessDialogHost } from './components/ui/BusinessDialog';
 
 const DashboardPage=lazy(()=>import('./modules/dashboard/DashboardPage').then(module=>({default:module.DashboardPage})));
 const ModulesPortalPage=lazy(()=>import('./modules/modules-portal/ModulesPortalPage').then(module=>({default:module.ModulesPortalPage})));
@@ -65,6 +66,7 @@ export default function App() {
     <BrowserRouter>
       <RouteErrorBoundary>
       <SessionBootstrap />
+      <BusinessDialogHost />
       <Routes>
         <Route path={ROUTES.login} element={lazyPage(<LoginPage />)} />
         <Route path="/" element={<ProtectedLayout />}>

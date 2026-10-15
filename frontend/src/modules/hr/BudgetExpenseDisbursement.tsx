@@ -10,6 +10,7 @@ import {
   useTreasuryReservations,
 } from "../../api/treasuryHooks";
 import { Button } from "../../components/ui/Button";
+import { confirmAction } from "../../components/ui/BusinessDialog";
 import { Modal } from "../../components/ui/Modal";
 import { apiDownload } from "../../services/apiClient";
 import { useAuthStore } from "../../stores/authStore";
@@ -72,9 +73,10 @@ export function BudgetExpenseDisbursement({
     if (!expense || !selectedAccount) return;
     const value = Number(form.amount);
     if (
-      !window.confirm(
+      !(await confirmAction(
+        "Confirmer le décaissement",
         `Confirmer le décaissement de ${money(value, selectedAccount.currency_code)} pour cette dépense depuis le compte ${selectedAccount.name} ?`,
-      )
+      ))
     )
       return;
     try {

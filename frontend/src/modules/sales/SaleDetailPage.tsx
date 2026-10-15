@@ -1,3 +1,4 @@
+import { choiceAction, promptAction } from '../../components/ui/BusinessDialog';
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -70,7 +71,7 @@ export const SaleDetailPage: React.FC = () => {
   const financialBlockReason=invoice?`Préparation impossible — solde restant : ${formatCurrency(invoice.remainingAmountTTC)}`:'Une facture émise et intégralement réglée est requise.';
   const netCollected=Number(invoice?.paidAmountTTC??0),financialRegularizationRequired=netCollected>0,refundedAmount=(invoice?.payments??[]).reduce((sum,payment)=>sum+payment.refundedAmount,0),cancellationBlocked=financialRegularizationRequired||['PRET_LIVRAISON','LIVRE'].includes(sale.status);
   const warrantyLabel={UNDETERMINED:'Décision à renseigner',NOT_APPLICABLE:'Garantie non applicable',APPLICABLE:'Garantie applicable'}[sale.warranty.decision];
-  const editWarranty=async()=>{const applicable=window.confirm('OK : garantie applicable. Annuler : garantie non applicable.');try{if(!applicable){await updateWarranty.mutateAsync({id:sale.id,decision:'NOT_APPLICABLE'});return}const months=Number(window.prompt('Durée contractuelle en mois',String(sale.warranty.durationMonths??24)));if(!Number.isInteger(months)||months<1||months>240)return;const mileageText=window.prompt('Plafond kilométrique (vide si aucun)',sale.warranty.mileageLimit==null?'':String(sale.warranty.mileageLimit));await updateWarranty.mutateAsync({id:sale.id,decision:'APPLICABLE',durationMonths:months,mileageLimit:mileageText?Number(mileageText):null})}catch(error){addToast({type:'error',title:'Garantie non modifiée',description:error instanceof Error?error.message:'Erreur API'})}};
+  const editWarranty=async()=>{const applicable=await choiceAction('Décision de garantie','Choisissez explicitement si la garantie contractuelle est applicable. Fermer cette fenêtre ne modifie rien.','Garantie applicable','Non applicable');if(applicable===null)return;try{if(!applicable){await updateWarranty.mutateAsync({id:sale.id,decision:'NOT_APPLICABLE'});return}const months=Number(await promptAction('Durée contractuelle en mois',String(sale.warranty.durationMonths??24)));if(!Number.isInteger(months)||months<1||months>240)return;const mileageText=await promptAction('Plafond kilométrique (vide si aucun)',sale.warranty.mileageLimit==null?'':String(sale.warranty.mileageLimit));await updateWarranty.mutateAsync({id:sale.id,decision:'APPLICABLE',durationMonths:months,mileageLimit:mileageText?Number(mileageText):null})}catch(error){addToast({type:'error',title:'Garantie non modifiée',description:error instanceof Error?error.message:'Erreur API'})}};
 
   return (
     <div className="space-y-6">
@@ -85,7 +86,7 @@ export const SaleDetailPage: React.FC = () => {
         badge={<StatusBadge status={sale.status} type="sale" />}
         actions={
           <div className="flex items-center gap-2">
-            {canUpdateSale&&['DEVIS','RESERVATION'].includes(sale.status)&&<Button variant="outline" size="sm" onClick={()=>{const notes=window.prompt('Notes de la vente',sale.notes??'');if(notes!==null)void updateSale.mutateAsync({id:sale.id,notes}).catch(error=>addToast({type:'error',title:'Modification impossible',description:error instanceof Error?error.message:'Erreur API'}))}}>Modifier les notes</Button>}
+            {canUpdateSale&&['DEVIS','RESERVATION'].includes(sale.status)&&<Button variant="outline" size="sm" onClick={async()=>{const notes=await promptAction('Notes de la vente',sale.notes??'');if(notes!==null)void updateSale.mutateAsync({id:sale.id,notes}).catch(error=>addToast({type:'error',title:'Modification impossible',description:error instanceof Error?error.message:'Erreur API'}))}}>Modifier les notes</Button>}
             <Button
               variant="outline"
               size="sm"
@@ -97,7 +98,7 @@ export const SaleDetailPage: React.FC = () => {
 
             {next&&canConfirm&&<div title={financialBlocked?financialBlockReason:undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={financialBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
             {sale.status === 'PRET_LIVRAISON'&&canPlanDelivery&&<Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
-            {canCancelSale&&!['LIVRE','ANNULE'].includes(sale.status)&&<div title={cancellationBlocked?'Une vente encaissée ou engagée en livraison ne peut plus être annulée.':undefined}><Button variant="danger" size="sm" loading={saleStatus.isPending} disabled={cancellationBlocked} onClick={()=>{const reason=window.prompt("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button></div>}
+            {canCancelSale&&!['LIVRE','ANNULE'].includes(sale.status)&&<div title={cancellationBlocked?'Une vente encaissée ou engagée en livraison ne peut plus être annulée.':undefined}><Button variant="danger" size="sm" loading={saleStatus.isPending} disabled={cancellationBlocked} onClick={async()=>{const reason=await promptAction("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button></div>}
           </div>
         }
       />

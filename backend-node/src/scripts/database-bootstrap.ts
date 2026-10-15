@@ -25,6 +25,19 @@ export function classifyDatabase(tableNames:string[]):DatabaseState{
   return tableNames.length===0?'EMPTY':'AMBIGUOUS';
 }
 
+export async function ensureSystemPermissionAdministration(connection:Awaited<ReturnType<typeof mysql.createConnection>>){
+  await connection.beginTransaction();
+  try{
+    const[roles]=await connection.execute<RowDataPacket[]>("SELECT id FROM roles WHERE code='SUPER_ADMIN' AND is_system=TRUE AND is_active=TRUE FOR UPDATE");
+    if(roles.length!==1)throw new Error(`RBAC_SYSTEM_ROLE_INVALID: ${roles.length} rôle(s) SUPER_ADMIN système actif(s)`);
+    await connection.execute(
+      "INSERT IGNORE INTO role_permissions(role_id,permission_id,scope) SELECT ?,p.id,'GLOBAL' FROM permissions p WHERE p.is_active=TRUE",
+      [roles[0]!.id],
+    );
+    await connection.commit();
+  }catch(error){await connection.rollback();throw error;}
+}
+
 export async function bootstrapDatabase(options:{faultHook?:MigrationFaultHook}={}){
   const connection=await mysql.createConnection({
     host:process.env.DB_HOST,port:Number(process.env.DB_PORT??3306),user:process.env.DB_USER,
@@ -78,6 +91,7 @@ export async function bootstrapDatabase(options:{faultHook?:MigrationFaultHook}=
       await executeResilientMigration(connection,{version,name,sql},options.faultHook);
       applied.add(version);
     }
+    await ensureSystemPermissionAdministration(connection);
     return {state,version:Math.max(...applied),migrations:names};
   }finally{
     if(migrationLock)await connection.execute('SELECT RELEASE_LOCK(?)',[migrationLockName(process.env.DB_NAME??'')]).catch(()=>undefined);

@@ -4,7 +4,7 @@ import { apiRequest } from '../services/apiClient';
 export interface AdminUser{id:string;firstName:string;lastName:string;fullName:string;email:string;phone:string|null;jobTitle:string|null;agencyId:string;agencyName:string;roles:string[];isActive:boolean;isEmployee:boolean;employeeProfileId:string|null;employeeNumber:string|null;employeePosition:string|null;employeeHireDate:string|null;employeeStatus:'active'|'inactive'|'departed'|null;avatar:string|null;createdAt:string;updatedAt:string}
 export type RbacScope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
 export interface RolePermission{id:string|number;module:string;action:string;code:string;label?:string;group_name?:string|null;description:string|null;scope?:RbacScope|null}
-export interface PermissionCatalogItem extends RolePermission{is_active:boolean}
+export interface PermissionCatalogItem extends RolePermission{is_active:boolean;allowedScopes:RbacScope[];delegable:boolean;maxDelegableScope:RbacScope|null}
 export interface Role{id:string|number;code:string;name:string;description:string|null;is_system?:boolean;is_active?:boolean;user_count?:number;permissions?:RolePermission[]}
 export interface UserFilters{active?:''|'true'|'false';agencyId?:string;role?:string;search?:string;page?:number;pageSize?:number}
 export interface CreateUserPayload{firstName:string;lastName:string;email:string;phone?:string;jobTitle?:string;agencyId:string;roles:string[];password:string}

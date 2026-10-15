@@ -22,7 +22,7 @@ userRouter.patch('/users/:id/status',requirePermission('users.disable'),asyncHan
 userRouter.patch('/users/:id/password',requirePermission('users.reset_password'),asyncHandler(async(req,res)=>res.json(await service.resetPassword(routeId(req.params.id),req.body,req))));
 userRouter.post('/users/:id/avatar',requirePermission('users.update'),documentMultipart,asyncHandler(async(req,res)=>{const id=routeId(req.params.id);await assertCanManage(req,id);const current=await service.one(id),avatar=await saveAvatar((req as MultipartRequest).documentFile),updated=await service.avatarChanged(id,avatar,req);await removeAvatar(current.avatar);res.status(201).json(updated)}));
 userRouter.delete('/users/:id/avatar',requirePermission('users.update'),asyncHandler(async(req,res)=>{const id=routeId(req.params.id);await assertCanManage(req,id);const current=await service.one(id),updated=await service.avatarChanged(id,null,req);await removeAvatar(current.avatar);res.json(updated)}));
-userRouter.get('/permissions',requirePermission('roles.view'),asyncHandler(async(_req,res)=>res.json(await service.permissionsCatalog())));
+userRouter.get('/permissions',requirePermission('roles.view'),asyncHandler(async(req,res)=>res.json(await service.permissionsCatalog(req))));
 userRouter.get('/roles',requirePermission('roles.view'),asyncHandler(async(_req,res)=>res.json(await service.rolesList())));
 userRouter.get('/roles/:id/permissions',requirePermission('roles.view'),asyncHandler(async(req,res)=>res.json(await service.rolePermissions(routeId(req.params.id)))));
 userRouter.post('/roles',requirePermission('roles.create'),asyncHandler(async(req,res)=>res.status(201).json(await service.createRole(req.body,req))));

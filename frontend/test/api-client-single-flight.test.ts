@@ -7,7 +7,7 @@ Object.defineProperty(globalThis,'window',{value:dom.window,configurable:true});
 Object.defineProperty(globalThis,'localStorage',{value:dom.window.localStorage,configurable:true});
 Object.defineProperty(globalThis,'Event',{value:dom.window.Event,configurable:true});
 const {queryClient}=await import('../src/queryClient.js');
-const {apiDownload,apiRequest,markAuthSessionBoundary}=await import('../src/services/apiClient.js');
+const {ApiError,apiDownload,apiRequest,isDefinitiveAuthenticationFailure,markAuthSessionBoundary}=await import('../src/services/apiClient.js');
 const {useAuthStore}=await import('../src/stores/authStore.js');
 const {disconnectRealtime}=await import('../src/services/realtime.js');
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
@@ -36,11 +36,29 @@ test('F7–F9 refresh invalide termine et notifie une seule fois sans replay',as
   assert.equal(results.every(result=>result.status==='rejected'),true);assert.equal(refreshes,1);assert.equal(business,10);assert.equal(expired,1);assert.equal(queryClient.getQueryData(['secret']),undefined);assert.equal(localStorage.getItem('lca-access-token'),null);
 });
 
-test('un refresh refusé 403 termine également la session sans replay',async()=>{
+test('un refresh refusé 403 reste une interdiction métier et ne détruit pas la session',async()=>{
   install('A');let refreshes=0,business=0,expired=0;window.addEventListener('lca:session-expired',()=>{expired+=1},{once:true});
   globalThis.fetch=async input=>{if(String(input).endsWith('/auth/refresh')){refreshes+=1;return json({message:'Session révoquée'},403)}business+=1;return json({message:'Expired'},401)};
   const results=await Promise.allSettled(Array.from({length:10},(_,index)=>apiRequest(`/revoked/${index}`)));
-  assert.equal(results.every(result=>result.status==='rejected'),true);assert.equal(refreshes,1);assert.equal(business,10);assert.equal(expired,1);assert.equal(localStorage.getItem('lca-access-token'),null);
+  assert.equal(results.every(result=>result.status==='rejected'),true);assert.equal(refreshes,1);assert.equal(business,10);assert.equal(expired,0);assert.equal(localStorage.getItem('lca-access-token'),'access-A');assert.equal(localStorage.getItem('lca-refresh-token'),'refresh-A');
+});
+
+test('un 403 n’est jamais classé comme expiration de session, contrairement au 401',()=>{
+  assert.equal(isDefinitiveAuthenticationFailure(new ApiError(401,'Jeton invalide')),true);
+  assert.equal(isDefinitiveAuthenticationFailure(new ApiError(403,'Permission insuffisante')),false);
+});
+
+test('2FA setup: les JWT et le profil sont persistés atomiquement avant ouverture de l’ERP',async()=>{
+  useAuthStore.setState({currentUser:null,currentAgency:null,allUsers:[],allAgencies:[],isAuthenticated:false,pendingTwoFactor:{challengeToken:'00000000-0000-4000-8000-000000000001',mode:'setup',expiresAt:Date.now()+60_000},pendingAuthenticatedSession:null});
+  globalThis.fetch=async input=>String(input).endsWith('/auth/2fa/challenge/confirm')?json({status:'authenticated',accessToken:'access-2fa',refreshToken:'refresh-2fa',recoveryCodes:['AAAA-BBBB-CCCC-DDDD-EEEE'],user:{id:'A',firstName:'Super',lastName:'Admin',email:'admin@test.local',agencyId:'1',agencyName:'Agence',agencyCode:'AG',avatar:null,roles:['SUPER_ADMIN'],role:{id:'1',code:'SUPER_ADMIN',isSystemSuperAdmin:true},permissions:[{code:'dashboard.view',scope:'GLOBAL'}]}}):json({message:'Unexpected'},500);
+  const confirmed=await useAuthStore.getState().confirmRequiredTwoFactorSetup('123456');
+  assert.equal(confirmed.success,true);assert.equal(useAuthStore.getState().isAuthenticated,false);assert.equal(localStorage.getItem('lca-access-token'),null);assert.equal(localStorage.getItem('lca-refresh-token'),null);
+  useAuthStore.getState().finishRequiredTwoFactorSetup();
+  assert.equal(localStorage.getItem('lca-access-token'),'access-2fa');assert.equal(localStorage.getItem('lca-refresh-token'),'refresh-2fa');assert.equal(localStorage.getItem('lca-auth-user')!==null,true);assert.equal(useAuthStore.getState().isAuthenticated,true);assert.equal(useAuthStore.getState().pendingAuthenticatedSession,null);
+  const protectedCalls:string[]=[];
+  globalThis.fetch=async(input,init)=>{protectedCalls.push(new Headers(init?.headers).get('Authorization')??'');return json(String(input).endsWith('/auth/me')?{user:{id:'A'}}:[])};
+  await apiRequest('/auth/me');await apiRequest('/users/directory');
+  assert.deepEqual(protectedCalls,['Bearer access-2fa','Bearer access-2fa']);
 });
 
 test('F10/F11 un replay 401 et /auth/refresh ne bouclent jamais',async()=>{
@@ -75,7 +93,7 @@ test('F15 FormData réellement utilisé par les uploads reste rejouable et incha
 
 test('S1–S10 logout/login B pendant refresh A protège intégralement B',async()=>{
   install('A');let release!:()=>void,refreshStarted!:()=>void;const started=new Promise<void>(resolve=>{refreshStarted=resolve}),pending=new Promise<void>(resolve=>{release=resolve});let business=0;
-  globalThis.fetch=async input=>{const path=String(input);if(path.endsWith('/auth/refresh')){refreshStarted();await pending;return json({accessToken:'access-A2',refreshToken:'refresh-A2'})}if(path.endsWith('/auth/logout'))return new Response(null,{status:204});if(path.endsWith('/auth/login'))return json({accessToken:'access-B',refreshToken:'refresh-B',user:{id:'B',firstName:'User',lastName:'B',email:'b@test.local',agencyId:'agency-B',agencyName:'Agency B',agencyCode:'B',avatar:null,roles:['EMPLOYEE'],role:{id:'B',code:'EMPLOYEE'},permissions:[]}});business+=1;return json({message:'Expired'},401)};
+  globalThis.fetch=async input=>{const path=String(input);if(path.endsWith('/auth/refresh')){refreshStarted();await pending;return json({accessToken:'access-A2',refreshToken:'refresh-A2'})}if(path.endsWith('/auth/logout'))return new Response(null,{status:204});if(path.endsWith('/auth/login'))return json({status:'authenticated',accessToken:'access-B',refreshToken:'refresh-B',user:{id:'B',firstName:'User',lastName:'B',email:'b@test.local',agencyId:'agency-B',agencyName:'Agency B',agencyCode:'B',avatar:null,roles:['EMPLOYEE'],role:{id:'B',code:'EMPLOYEE'},permissions:[]}});business+=1;return json({message:'Expired'},401)};
   const requests=Array.from({length:10},(_,index)=>apiRequest(`/session-race/${index}`));await started;useAuthStore.getState().logout();assert.equal((await useAuthStore.getState().login('b@test.local','password')).success,true);queryClient.setQueryData(['B'],{owner:'B'});release();const results=await Promise.allSettled(requests);
   assert.equal(results.every(result=>result.status==='rejected'),true);assert.equal(business,10);assert.equal(localStorage.getItem('lca-access-token'),'access-B');assert.equal(localStorage.getItem('lca-refresh-token'),'refresh-B');assert.deepEqual(queryClient.getQueryData(['B']),{owner:'B'});
 });

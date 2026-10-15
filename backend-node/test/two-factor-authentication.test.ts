@@ -45,6 +45,9 @@ test('2FA-04: aucun jeton de session n’est émis avant le second facteur requi
   assert.match(decision, /two_factor_setup_required/);
   assert.ok(decision.indexOf('createLoginChallenge') < decision.indexOf('issueTokens'));
   assert.match(authService, /assertSessionCurrent\(String\(user\.id\),sessionId\)/);
+  assert.match(authService, /confirmChallengeSetup[\s\S]*complete\(result\.userId,result\.recoveryCodes\)/);
+  assert.match(authService, /issueTokens\(user,roles,true\)/);
+  assert.match(authService, /two_factor_verified_at,two_factor_grandfathered/);
 });
 
 test('2FA-05: challenge, anti-rejeu, récupération atomique et limitation progressive sont présents', () => {

@@ -52,3 +52,22 @@ test('bootstrap attend un refresh valide et ne déconnecte pas sur un échec tem
   assert.equal(replayedWith,'Bearer access-fresh');
   assert.equal(useAuthStore.getState().isAuthenticated,true);
 });
+
+test('bootstrap conserve la session authentifiée lorsque /auth/me répond 403',async()=>{
+  markAuthSessionBoundary();
+  localStorage.setItem('lca-access-token','access-2fa-verified');
+  localStorage.setItem('lca-refresh-token','refresh-2fa-verified');
+  localStorage.setItem('lca-auth-user',JSON.stringify({id:'A',name:'Session Test',role:'SUPER_ADMIN',roles:['SUPER_ADMIN'],agencyId:'1',agencyName:'Agence test',permissions:{}}));
+  useAuthStore.setState({currentUser:{id:'A',name:'Session Test',email:'session@test.local',role:'SUPER_ADMIN',roles:['SUPER_ADMIN'],primaryRole:'SUPER_ADMIN',roleCode:'SUPER_ADMIN',roleTitle:'Super admin',avatar:'',agencyId:'1',agencyName:'Agence test',department:'',phone:'',status:'active',permissions:{}},currentAgency:{id:'1',name:'Agence test',code:'AG1',city:'',address:'',phone:'',email:'',isMain:true,isActive:true},isAuthenticated:true,allUsers:[],allAgencies:[]});
+  let logoutCalls=0;
+  const originalLogout=useAuthStore.getState().logout;
+  useAuthStore.setState({logout:()=>{logoutCalls+=1}});
+  globalThis.fetch=async input=>String(input).endsWith('/auth/me')?json({message:'Permission insuffisante'},403):json([]);
+  const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});
+  testing.render(React.createElement(QueryClientProvider,{client},React.createElement(AppBootstrap)));
+  await new Promise(resolve=>setTimeout(resolve,25));
+  assert.equal(logoutCalls,0);
+  assert.equal(useAuthStore.getState().isAuthenticated,true);
+  assert.equal(localStorage.getItem('lca-access-token'),'access-2fa-verified');
+  useAuthStore.setState({logout:originalLogout});
+});

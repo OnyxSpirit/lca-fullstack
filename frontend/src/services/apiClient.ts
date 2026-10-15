@@ -12,7 +12,9 @@ export class ApiError extends Error {
   constructor(public readonly status: number, message: string, public readonly details?: unknown) { super(message); }
 }
 
-export const isDefinitiveAuthenticationFailure=(error:unknown)=>error instanceof ApiError&&(error.status===401||error.status===403)&&!error.message.startsWith('La session a changé');
+// Un 403 confirme que la session est authentifiée mais ne possède pas le droit
+// métier demandé. Seul un 401 peut invalider globalement la session cliente.
+export const isDefinitiveAuthenticationFailure=(error:unknown)=>error instanceof ApiError&&error.status===401&&!error.message.startsWith('La session a changé');
 
 type SessionSnapshot={generation:number;accessToken:string|null;refreshToken:string|null};
 type RefreshFlight={snapshot:SessionSnapshot;promise:Promise<string>};
@@ -46,7 +48,7 @@ function terminateSession(snapshot:SessionSnapshot){
 async function performRefresh(snapshot:SessionSnapshot){
   const response=await send('/auth/refresh',{method:'POST',body:JSON.stringify({refreshToken:snapshot.refreshToken})},null);
   if(!response.ok){
-    if(response.status===401||response.status===403)terminateSession(snapshot);
+    if(response.status===401)terminateSession(snapshot);
     const payload=await response.json().catch(()=>null) as{message?:string}|null;
     throw new ApiError(response.status,payload?.message??'Rafraîchissement de session impossible');
   }

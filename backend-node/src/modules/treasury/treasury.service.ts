@@ -249,6 +249,10 @@ export async function createAccount(r: Request, b: any) {
   const attachmentType = String(b?.attachmentType ?? "");
   if (!['AGENCY','CONCESSION'].includes(attachmentType))
     throw new HttpError(400, "Rattachement du compte obligatoire");
+  if (attachmentType === 'AGENCY' && (b?.agencyId == null || b.agencyId === ''))
+    throw new HttpError(400, "Agence obligatoire pour un compte d’agence");
+  if (attachmentType === 'CONCESSION' && b?.agencyId != null && b.agencyId !== '')
+    throw new HttpError(400, "Une agence ne doit pas être renseignée pour un compte de concession");
   if (attachmentType === 'CONCESSION' && !['CONCESSION','GLOBAL'].includes(String(scope(r,'treasury.account.manage'))))
     throw new HttpError(403, "Un compte de concession exige un scope CONCESSION ou GLOBAL");
   const t = await target(
@@ -331,6 +335,8 @@ export async function updateAccount(r: Request, value: unknown, b: any) {
     let nextAgency = a.agency_id == null ? null : String(a.agency_id), nextConcession = String(a.concession_id);
     if (requestedAttachment && (requestedAttachment !== String(a.attachment_type ?? '') || b?.agencyId != null || b?.concessionId != null)) {
       if (!['AGENCY','CONCESSION'].includes(requestedAttachment)) throw new HttpError(400,'Rattachement invalide');
+      if (requestedAttachment === 'AGENCY' && (b?.agencyId == null || b.agencyId === '')) throw new HttpError(400,'Agence obligatoire pour un compte d’agence');
+      if (requestedAttachment === 'CONCESSION' && b?.agencyId != null && b.agencyId !== '') throw new HttpError(400,'Une agence ne doit pas être renseignée pour un compte de concession');
       if (requestedAttachment === 'CONCESSION' && !['CONCESSION','GLOBAL'].includes(String(scope(r,'treasury.account.manage')))) throw new HttpError(403,'Un compte de concession exige un scope CONCESSION ou GLOBAL');
       const [history] = await c.execute<RowDataPacket[]>(`SELECT
         EXISTS(SELECT 1 FROM treasury_movements WHERE account_id=?) movements,
@@ -541,11 +547,13 @@ export type TreasuryFaultHook = (
 ) => void | Promise<void>;
 export async function postMovement(c: PoolConnection, x: MovementInput) {
   const [rows] = await c.execute<RowDataPacket[]>(
-      "SELECT ta.is_active,ta.currency_code,tc.id category_id,tc.is_active category_active,tc.allowed_direction FROM treasury_accounts ta LEFT JOIN treasury_categories tc ON tc.id=? AND tc.concession_id=ta.concession_id WHERE ta.id=? FOR UPDATE",
+      "SELECT ta.is_active,ta.currency_code,ta.attachment_type,tc.id category_id,tc.is_active category_active,tc.allowed_direction FROM treasury_accounts ta LEFT JOIN treasury_categories tc ON tc.id=? AND tc.concession_id=ta.concession_id WHERE ta.id=? FOR UPDATE",
       [x.categoryId ?? null, x.accountId],
     ),
     context = rows[0];
   if (!context) throw new HttpError(404, "Compte de trésorerie introuvable");
+  if (!context.attachment_type)
+    throw new HttpError(409, "Rattachement historique du compte à qualifier avant toute opération financière");
   if (!context.is_active && !x.allowInactiveAccount)
     throw new HttpError(409, "Compte de trésorerie inactif");
   if (String(context.currency_code) !== x.currencyCode)
@@ -1300,6 +1308,8 @@ export async function transfer(r: Request, b: any, fault?: TreasuryFaultHook) {
         );
       if (!source.is_active || !destination.is_active)
         throw new HttpError(409, "Les deux comptes doivent être actifs");
+      if (!source.attachment_type || !destination.attachment_type)
+        throw new HttpError(409, "Rattachement historique d’un compte à qualifier avant transfert");
       if (source.currency_code !== destination.currency_code)
         throw new HttpError(
           409,

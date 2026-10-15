@@ -20,6 +20,12 @@ test('TRES-09 vérifie le territoire et verrouille un rattachement ayant un hist
   assert.match(service,/treasury_reservations WHERE account_id/);
 });
 
+test('la consultation des comptes utilise le nom officiel du mapping de flux',()=>{
+  assert.match(service,/treasury_account_mappings hf/);
+  assert.doesNotMatch(service,/treasury_flow_mappings/);
+  assert.match(service,/SELECT ta\.\*/);
+});
+
 test('TRES-06 exclut structurellement les transferts des flux externes et ne compte que la jambe sortante',()=>{
   assert.match(service,/tm\.transfer_id IS NULL AND tm\.direction='IN'/);
   assert.match(service,/tm\.transfer_id IS NULL AND tm\.direction='OUT'/);

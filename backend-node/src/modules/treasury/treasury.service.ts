@@ -213,7 +213,7 @@ const duplicate = (e: unknown) => {
 export async function listAccounts(r: Request) {
   const p = predicate(r, "treasury.view", "ta");
   return query<RowDataPacket[]>(
-    `SELECT ta.*,a.name agency_name,c.name concession_name,NOT(EXISTS(SELECT 1 FROM treasury_movements hx WHERE hx.account_id=ta.id) OR EXISTS(SELECT 1 FROM treasury_reservations hr WHERE hr.account_id=ta.id) OR EXISTS(SELECT 1 FROM treasury_flow_mappings hf WHERE hf.treasury_account_id=ta.id) OR EXISTS(SELECT 1 FROM bank_statements hb WHERE hb.account_id=ta.id)) attachment_mutable,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0) balance,COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) reserved_amount,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0)-COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) available_balance FROM treasury_accounts ta JOIN concessions c ON c.id=ta.concession_id LEFT JOIN agencies a ON a.id=ta.agency_id LEFT JOIN treasury_movements tm ON tm.account_id=ta.id WHERE ${p.sql} GROUP BY ta.id,a.name,c.name ORDER BY ta.is_active DESC,ta.name`,
+    `SELECT ta.*,a.name agency_name,c.name concession_name,NOT(EXISTS(SELECT 1 FROM treasury_movements hx WHERE hx.account_id=ta.id) OR EXISTS(SELECT 1 FROM treasury_reservations hr WHERE hr.account_id=ta.id) OR EXISTS(SELECT 1 FROM treasury_account_mappings hf WHERE hf.treasury_account_id=ta.id) OR EXISTS(SELECT 1 FROM bank_statements hb WHERE hb.account_id=ta.id)) attachment_mutable,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0) balance,COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) reserved_amount,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0)-COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) available_balance FROM treasury_accounts ta JOIN concessions c ON c.id=ta.concession_id LEFT JOIN agencies a ON a.id=ta.agency_id LEFT JOIN treasury_movements tm ON tm.account_id=ta.id WHERE ${p.sql} GROUP BY ta.id,a.name,c.name ORDER BY ta.is_active DESC,ta.name`,
     p.params,
   );
 }
@@ -341,7 +341,7 @@ export async function updateAccount(r: Request, value: unknown, b: any) {
       const [history] = await c.execute<RowDataPacket[]>(`SELECT
         EXISTS(SELECT 1 FROM treasury_movements WHERE account_id=?) movements,
         EXISTS(SELECT 1 FROM treasury_reservations WHERE account_id=?) reservations,
-        EXISTS(SELECT 1 FROM treasury_flow_mappings WHERE treasury_account_id=?) mappings,
+        EXISTS(SELECT 1 FROM treasury_account_mappings WHERE treasury_account_id=?) mappings,
         EXISTS(SELECT 1 FROM bank_statements WHERE account_id=?) statements`,[a.id,a.id,a.id,a.id]);
       if (Object.values(history[0] ?? {}).some(Number)) throw new HttpError(409,'Le rattachement est verrouillé car le compte possède un historique ou un engagement financier');
       const next = await target(r,'treasury.account.manage',requestedAttachment==='AGENCY'?b?.agencyId:null,b?.concessionId,c);

@@ -84,7 +84,7 @@ export type TreasuryReservation = {
   created_at: string;
   beneficiary:string;due_date:string;decision_reason:string|null;
 };
-export type ReservableExpense={id:string;budget_id:string;budget_label:string;label:string;reference:string|null;amount:number;available_amount:number;currency_code:string;territory_name:string};
+export type ReservableExpense={id:string;budget_id:string;budget_label:string;label:string;reference:string|null;amount:number;available_amount:number;currency_code:string;territory_name:string;scope_type:"agency"|"concession";agency_id:string|null;concession_id:string|null};
 export type TreasuryReservationEvent={id:string;event_type:string;amount:number;amount_before:number;amount_after:number;reason:string|null;actor_name:string|null;created_at:string};
 export type TreasuryFlowMapping = {
   id: string;

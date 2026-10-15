@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "../../components/common/PageHeader";
 import { OperationTimeline } from "../../components/common/OperationTimeline";
+import { useClientPagination } from "../../components/common/ClientPagination";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Modal } from "../../components/ui/Modal";
@@ -202,6 +203,7 @@ export const TreasuryPage: React.FC = () => {
     [reverseReason, setReverseReason] = useState(""),
     [reservationDecision,setReservationDecision]=useState<{id:string;action:"release"|"reject"|"cancel"|"expire"}|null>(null),
     [reservationReason,setReservationReason]=useState(""),
+    [reservationError,setReservationError]=useState(""),
     [reservationAdjust,setReservationAdjust]=useState<{id:string;amount:number;currency:string}|null>(null),
     [reservationHistoryId,setReservationHistoryId]=useState<string>();
   const canViewCoverage = can("treasury.coverage.view"),
@@ -233,6 +235,15 @@ export const TreasuryPage: React.FC = () => {
     options = useTreasuryManualOptions(Boolean(manual)),
     flows = useTreasuryFlowConfiguration(canManageAccounts),
     canActivateFlows = manageScope === "CONCESSION" || manageScope === "GLOBAL";
+  const overviewAccountsPage=useClientPagination(accounts.data??[],undefined,"compte(s)"),accountsPage=useClientPagination(accounts.data??[],undefined,"compte(s)"),coverageBudgetsPage=useClientPagination(budgetIndicators.data??[],undefined,"budget(s)"),coverageReservationsPage=useClientPagination(reservations.data??[],undefined,"réservation(s)"),categoriesPage=useClientPagination(categories.data??[],undefined,"catégorie(s)");
+  const selectedReservationAccount = accounts.data?.find((account) => account.id === reservationForm.accountId);
+  const compatibleReservableExpenses = (reservableExpenses.data ?? []).filter((expense) =>
+    !selectedReservationAccount || (
+      expense.currency_code === selectedReservationAccount.currency_code &&
+      String(expense.concession_id ?? "") === String(selectedReservationAccount.concession_id ?? "") &&
+      (expense.scope_type !== "agency" || String(expense.agency_id ?? "") === String(selectedReservationAccount.agency_id ?? ""))
+    ),
+  );
   const run = (p: Promise<unknown>) =>
     void p.catch((e) =>
       toast({
@@ -512,6 +523,7 @@ export const TreasuryPage: React.FC = () => {
   const submitReservation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (reservationActions.create.isPending) return;
+    setReservationError("");
     try {
       await reservationActions.create.mutateAsync(reservationForm);
       setReservationModal(false);
@@ -531,6 +543,7 @@ export const TreasuryPage: React.FC = () => {
         description: "La réservation devra être soumise puis approuvée avant d’affecter les liquidités.",
       });
     } catch (error) {
+      setReservationError(error instanceof Error ? error.message : "Veuillez réessayer.");
       toast({
         type: "error",
         title: "Réservation impossible",
@@ -652,7 +665,7 @@ export const TreasuryPage: React.FC = () => {
           </div>
           <Card>
             <h2 className="mb-3 font-bold">Comptes accessibles</h2>
-            {accounts.data?.map((a) => (
+            {overviewAccountsPage.visible.map((a) => (
               <div
                 key={a.id}
                 className="flex justify-between border-t py-3 text-xs"
@@ -664,6 +677,7 @@ export const TreasuryPage: React.FC = () => {
                 <b>{formatCurrency(Number(a.balance), a.currency_code)}</b>
               </div>
             ))}
+            {overviewAccountsPage.controls}
           </Card>
         </>
       )}
@@ -739,7 +753,7 @@ export const TreasuryPage: React.FC = () => {
                 Aucun budget approuvé dans ce périmètre.
               </p>
             )}
-            {budgetIndicators.data?.map((x) => (
+            {coverageBudgetsPage.visible.map((x) => (
               <div
                 key={x.id}
                 className="grid grid-cols-2 gap-1 border-t py-3 text-xs md:grid-cols-4"
@@ -791,6 +805,7 @@ export const TreasuryPage: React.FC = () => {
                 </span>
               </div>
             ))}
+            {coverageBudgetsPage.controls}
           </Card>
           {canViewReservations && (
             <Card>
@@ -800,7 +815,7 @@ export const TreasuryPage: React.FC = () => {
                   Aucune réservation dans ce périmètre.
                 </p>
               )}
-              {reservations.data?.map((x) => (
+              {coverageReservationsPage.visible.map((x) => (
                 <div
                   key={x.id}
                   className="flex flex-wrap items-center justify-between gap-2 border-t py-3 text-xs"
@@ -848,6 +863,7 @@ export const TreasuryPage: React.FC = () => {
                   </span>
                 </div>
               ))}
+              {coverageReservationsPage.controls}
             </Card>
           )}
         </>
@@ -903,7 +919,7 @@ export const TreasuryPage: React.FC = () => {
                 : "Aucun compte n’est disponible dans votre périmètre."}
             </p>
           )}
-          {accounts.data?.map((a) => (
+          {accountsPage.visible.map((a) => (
             <div
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-3 border-t py-3 text-xs"
@@ -943,6 +959,7 @@ export const TreasuryPage: React.FC = () => {
               </span>
             </div>
           ))}
+          {accountsPage.controls}
         </Card>
       )}
       {tab==="budgets"&&<BudgetTreasuryPanel/>}
@@ -1132,7 +1149,7 @@ export const TreasuryPage: React.FC = () => {
                 : "Aucune catégorie n’est disponible dans votre périmètre."}
             </p>
           )}
-          {categories.data?.map((c) => (
+          {categoriesPage.visible.map((c) => (
             <div
               key={c.id}
               className="flex flex-wrap items-center justify-between gap-3 border-t py-3 text-xs"
@@ -1172,6 +1189,7 @@ export const TreasuryPage: React.FC = () => {
               </span>
             </div>
           ))}
+          {categoriesPage.controls}
         </Card>
       )}
       {tab === "flows" && canManageAccounts && (
@@ -1292,19 +1310,21 @@ export const TreasuryPage: React.FC = () => {
       </p>
       <Modal
         isOpen={reservationModal}
-        onClose={() => setReservationModal(false)}
+        onClose={() => { if (!reservationActions.create.isPending) { setReservationModal(false); setReservationError(""); } }}
         title="Réserver des liquidités"
         description="Une réservation affecte la couverture, sans créer de mouvement de trésorerie."
       >
         <form className="grid gap-3" onSubmit={submitReservation}>
           <select
             required
+            disabled={reservationActions.create.isPending}
             className={input}
             value={reservationForm.accountId}
             onChange={(e) =>
               setReservationForm({
                 ...reservationForm,
                 accountId: e.target.value,
+                budgetExpenseId: "",
               })
             }
           >
@@ -1319,6 +1339,7 @@ export const TreasuryPage: React.FC = () => {
               ))}
           </select>
           <select required className={input}
+            disabled={reservationActions.create.isPending || reservableExpenses.isLoading || reservableExpenses.isError || !reservableExpenses.data?.length}
             value={reservationForm.budgetExpenseId}
             onChange={(e) =>
               setReservationForm({
@@ -1326,7 +1347,10 @@ export const TreasuryPage: React.FC = () => {
                 budgetExpenseId: e.target.value,
               })
             }
-          ><option value="">Dépense approuvée à réserver</option>{reservableExpenses.data?.map(x=><option key={x.id} value={x.id}>{x.budget_label} · {x.label} · {formatCurrency(x.available_amount,x.currency_code)} disponible · {x.territory_name}</option>)}</select>
+          ><option value="">{reservableExpenses.isLoading ? "Chargement des dépenses éligibles…" : "Dépense approuvée à réserver"}</option>{compatibleReservableExpenses.map(x=><option key={x.id} value={x.id}>{x.budget_label} · {x.label} · {formatCurrency(x.available_amount,x.currency_code)} disponible · {x.territory_name}</option>)}</select>
+          {reservableExpenses.isError && <p role="alert" className="rounded bg-red-50 p-2 text-xs text-red-700">Impossible de charger les dépenses éligibles : {reservableExpenses.error.message}</p>}
+          {reservableExpenses.isSuccess && !reservableExpenses.data.length && <p role="status" className="rounded bg-amber-50 p-2 text-xs text-amber-800">Aucune dépense approuvée ne possède actuellement un reste à payer non réservé dans votre périmètre.</p>}
+          {reservableExpenses.isSuccess && reservableExpenses.data.length > 0 && !compatibleReservableExpenses.length && <p role="status" className="rounded bg-amber-50 p-2 text-xs text-amber-800">Aucune dépense éligible n’est compatible avec le territoire et la devise du compte sélectionné.</p>}
           <input
             required
             className={input}
@@ -1365,14 +1389,16 @@ export const TreasuryPage: React.FC = () => {
             }
           />
           <div className="flex justify-end gap-2">
+            {reservationError && <p role="alert" className="mr-auto rounded bg-red-50 p-2 text-xs text-red-700">{reservationError}</p>}
             <Button
               type="button"
               variant="outline"
+              disabled={reservationActions.create.isPending}
               onClick={() => setReservationModal(false)}
             >
               Annuler
             </Button>
-            <Button type="submit" loading={reservationActions.create.isPending}>
+            <Button type="submit" loading={reservationActions.create.isPending} disabled={reservationActions.create.isPending || reservableExpenses.isLoading || reservableExpenses.isError || !compatibleReservableExpenses.length}>
               Confirmer la réservation
             </Button>
           </div>

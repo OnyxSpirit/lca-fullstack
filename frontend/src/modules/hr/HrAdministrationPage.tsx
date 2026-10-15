@@ -31,6 +31,7 @@ import {
 } from "../../api/hrHooks";
 import { PageHeader } from "../../components/common/PageHeader";
 import { OperationTimeline } from "../../components/common/OperationTimeline";
+import { useClientPagination } from "../../components/common/ClientPagination";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -266,6 +267,10 @@ export const HrAdministrationPage: React.FC = () => {
         can("hr.budget.view"),
     ),
     budgetHistory = useBudgetApprovalHistoryQuery(selectedBudget?.id,modal === "budget-history" && can("hr.approval.history.view"));
+  const stockPage = useClientPagination(stock.data ?? [], undefined, "article(s)");
+  const budgetPage = useClientPagination(budgets.data ?? [], 4, "budget(s)");
+  const salaryPage = useClientPagination(salaries.data ?? [], undefined, "rémunération(s)");
+  const movementPage = useClientPagination(movements.data ?? [], undefined, "mouvement(s)");
   const notify = (promise: Promise<unknown>, success: string) =>
     promise
       .then(() => {
@@ -602,7 +607,7 @@ export const HrAdministrationPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {stock.data?.map((x) => (
+                  {stockPage.visible.map((x) => (
                     <tr key={x.id} className="border-b last:border-0">
                       <td className="p-4">
                         <div className="flex items-center gap-2 font-bold">
@@ -687,6 +692,7 @@ export const HrAdministrationPage: React.FC = () => {
                 </tbody>
               </table>
             </TableEmpty>
+            {stockPage.controls}
           </Card>
         </>
       )}
@@ -713,7 +719,7 @@ export const HrAdministrationPage: React.FC = () => {
             )}
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            {budgets.data?.map((x) => {
+            {budgetPage.visible.map((x) => {
               const canAdd =
                 can("hr.expense.create") &&
                 x.can_create_expense &&
@@ -819,6 +825,7 @@ export const HrAdministrationPage: React.FC = () => {
               );
             })}
           </div>
+          {budgetPage.controls}
           {budgets.isError && (
             <Card className="border-red-200 bg-red-50 text-xs text-red-700">
               Erreur de chargement : {budgets.error.message}
@@ -1103,7 +1110,7 @@ export const HrAdministrationPage: React.FC = () => {
             </form>
           )}
           <div className="divide-y rounded-md border">
-            {salaries.data?.map((x) => (
+            {salaryPage.visible.map((x) => (
               <div key={x.id} className="flex justify-between p-3 text-xs">
                 <span>
                   {dateLabel(x.effective_date)}
@@ -1118,6 +1125,7 @@ export const HrAdministrationPage: React.FC = () => {
               <Empty text="Aucun historique salarial." />
             )}
           </div>
+          {salaryPage.controls}
         </div>
       </Modal>
       <Modal
@@ -1550,7 +1558,7 @@ export const HrAdministrationPage: React.FC = () => {
               </form>
             )}
           <div className="divide-y rounded-md border">
-            {movements.data?.map((x) => (
+            {movementPage.visible.map((x) => (
               <div key={x.id} className="flex justify-between p-3 text-xs">
                 <span>
                   <Badge
@@ -1572,6 +1580,7 @@ export const HrAdministrationPage: React.FC = () => {
             ))}
             {!movements.data?.length && <Empty text="Aucun mouvement." />}
           </div>
+          {movementPage.controls}
         </div>
       </Modal>
       <Modal

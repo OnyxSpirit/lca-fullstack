@@ -69,7 +69,13 @@ const sourceLabel = (s: string) =>
     MANUAL_RECEIPT: "Entrée manuelle",
     MANUAL_DISBURSEMENT: "Sortie manuelle",
     BUDGET_EXPENSE_DISBURSEMENT: "Décaissement budgétaire",
+    TRANSFER: "Transfert",
+    TRANSFER_REVERSAL: "Contrepassation de transfert",
+    REVERSAL: "Contrepassation",
+    OPENING_BALANCE: "Solde d’ouverture",
   })[s] ?? s;
+const businessReference = (movement: {source_type:string;source_id:string;reference:string|null}) =>
+  movement.reference?.trim() || `${sourceLabel(movement.source_type)} ${movement.source_id}`;
 const initial = (today: string) => ({
   accountId: "",
   amount: "",
@@ -215,7 +221,7 @@ export const TreasuryPage: React.FC = () => {
     budgetIndicators = useTreasuryBudgetIndicators(canViewCoverage),
     reservations = useTreasuryReservations(canViewReservations),
     reservationHistory=useTreasuryReservationHistory(reservationHistoryId,canViewReservations),
-    reservableExpenses=useTreasuryReservableExpenses(reservationModal&&can("treasury.reservation.create")),
+    reservableExpenses=useTreasuryReservableExpenses(reservationForm.accountId,reservationModal&&can("treasury.reservation.create")),
     reservationActions = useTreasuryReservationActions(),
     journal = useTreasuryJournal({ page, pageSize: 20, ...filters }),
     actions = useTreasuryActions();
@@ -244,6 +250,11 @@ export const TreasuryPage: React.FC = () => {
       (expense.scope_type !== "agency" || String(expense.agency_id ?? "") === String(selectedReservationAccount.agency_id ?? ""))
     ),
   );
+  const selectedReservableExpense = compatibleReservableExpenses.find((expense) => expense.id === reservationForm.budgetExpenseId);
+  const reservationCashInsufficient = Boolean(selectedReservableExpense && selectedReservationAccount && selectedReservableExpense.available_amount > Number(selectedReservationAccount.available_balance));
+  const selectedTransferSource = accounts.data?.find((account) => account.id === transferForm.sourceAccountId);
+  const transferAvailable = Number(selectedTransferSource?.available_balance ?? 0);
+  const transferAmountInvalid = transferForm.amount !== "" && Number(transferForm.amount) > transferAvailable;
   const run = (p: Promise<unknown>) =>
     void p.catch((e) =>
       toast({
@@ -486,6 +497,10 @@ export const TreasuryPage: React.FC = () => {
   const submitTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (actions.transfer.isPending) return;
+    if (!selectedTransferSource || Number(transferForm.amount) <= 0 || transferAmountInvalid) {
+      toast({type:"error",title:"Transfert impossible",description:`Le montant doit être positif et ne pas dépasser ${formatCurrency(transferAvailable,selectedTransferSource?.currency_code ?? "XAF")}.`});
+      return;
+    }
     try {
       await actions.transfer.mutateAsync({ ...transferForm, valueDate: today });
       setTransferModal(false);
@@ -1045,15 +1060,14 @@ export const TreasuryPage: React.FC = () => {
             >
               <span>{formatDate(m.value_date)}</span>
               <span>{m.account_name}</span>
-              <span>{m.direction}</span>
+              <span>{m.direction === "IN" ? "Entrée" : "Sortie"}</span>
               <b>{formatCurrency(Number(m.amount), m.currency_code)}</b>
               <span>{m.category_name ?? "—"}</span>
               <span>
-                {sourceLabel(m.source_type)} #{m.source_id}
+                {businessReference(m)}
                 {m.budget_expense_id
-                  ? ` · dépense #${m.budget_expense_id}`
+                  ? ` · Dépense ${m.budget_expense_id}`
                   : ""}
-                {m.reference ? ` · ${m.reference}` : ""}
                 {(m.source_type === "MANUAL_RECEIPT" ||
                   m.source_type === "MANUAL_DISBURSEMENT") && (
                   <Button
@@ -1325,6 +1339,7 @@ export const TreasuryPage: React.FC = () => {
                 ...reservationForm,
                 accountId: e.target.value,
                 budgetExpenseId: "",
+                amount: "",
               })
             }
           >
@@ -1339,30 +1354,29 @@ export const TreasuryPage: React.FC = () => {
               ))}
           </select>
           <select required className={input}
-            disabled={reservationActions.create.isPending || reservableExpenses.isLoading || reservableExpenses.isError || !reservableExpenses.data?.length}
+            disabled={!reservationForm.accountId || reservationActions.create.isPending || reservableExpenses.isLoading || reservableExpenses.isError || !reservableExpenses.data?.length}
             value={reservationForm.budgetExpenseId}
             onChange={(e) =>
               setReservationForm({
                 ...reservationForm,
                 budgetExpenseId: e.target.value,
+                amount: compatibleReservableExpenses.find((expense) => expense.id === e.target.value)?.available_amount.toFixed(2) ?? "",
               })
             }
           ><option value="">{reservableExpenses.isLoading ? "Chargement des dépenses éligibles…" : "Dépense approuvée à réserver"}</option>{compatibleReservableExpenses.map(x=><option key={x.id} value={x.id}>{x.budget_label} · {x.label} · {formatCurrency(x.available_amount,x.currency_code)} disponible · {x.territory_name}</option>)}</select>
           {reservableExpenses.isError && <p role="alert" className="rounded bg-red-50 p-2 text-xs text-red-700">Impossible de charger les dépenses éligibles : {reservableExpenses.error.message}</p>}
-          {reservableExpenses.isSuccess && !reservableExpenses.data.length && <p role="status" className="rounded bg-amber-50 p-2 text-xs text-amber-800">Aucune dépense approuvée ne possède actuellement un reste à payer non réservé dans votre périmètre.</p>}
-          {reservableExpenses.isSuccess && reservableExpenses.data.length > 0 && !compatibleReservableExpenses.length && <p role="status" className="rounded bg-amber-50 p-2 text-xs text-amber-800">Aucune dépense éligible n’est compatible avec le territoire et la devise du compte sélectionné.</p>}
+          {reservationForm.accountId && reservableExpenses.isSuccess && !reservableExpenses.data.length && <p role="status" className="rounded bg-amber-50 p-2 text-xs text-amber-800">Aucune dépense approuvée avec un reste à payer non réservé n’est disponible pour {selectedReservationAccount?.agency_name ?? selectedReservationAccount?.concession_name}, en {selectedReservationAccount?.currency_code}. Les dépenses entièrement décaissées ou déjà réservées sont exclues.</p>}
           <input
             required
             className={input}
             type="number"
-            min="0.01"
-            step="0.01"
-            placeholder="Montant"
+            readOnly
+            aria-readonly="true"
+            placeholder="Sélectionnez une dépense"
             value={reservationForm.amount}
-            onChange={(e) =>
-              setReservationForm({ ...reservationForm, amount: e.target.value })
-            }
           />
+          {selectedReservableExpense && <p className="text-xs text-slate-600">Montant restant à réserver intégralement : <b>{formatCurrency(selectedReservableExpense.available_amount,selectedReservableExpense.currency_code)}</b>.</p>}
+          {reservationCashInsufficient && selectedReservationAccount && <p role="alert" className="rounded bg-red-50 p-2 text-xs text-red-700">Réservation intégrale impossible : le compte ne dispose que de {formatCurrency(Number(selectedReservationAccount.available_balance),selectedReservationAccount.currency_code)} de liquidités libres, après déduction des réservations actives.</p>}
           <textarea
             required
             minLength={3}
@@ -1398,7 +1412,7 @@ export const TreasuryPage: React.FC = () => {
             >
               Annuler
             </Button>
-            <Button type="submit" loading={reservationActions.create.isPending} disabled={reservationActions.create.isPending || reservableExpenses.isLoading || reservableExpenses.isError || !compatibleReservableExpenses.length}>
+            <Button type="submit" loading={reservationActions.create.isPending} disabled={reservationActions.create.isPending || reservableExpenses.isLoading || reservableExpenses.isError || !reservationForm.budgetExpenseId || !reservationForm.amount || reservationCashInsufficient}>
               Confirmer la réservation
             </Button>
           </div>
@@ -2012,11 +2026,12 @@ export const TreasuryPage: React.FC = () => {
                 .map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name} ·{" "}
-                    {formatCurrency(Number(a.balance), a.currency_code)}
+                    {formatCurrency(Number(a.available_balance), a.currency_code)} disponible
                   </option>
                 ))}
             </select>
           </label>
+          {selectedTransferSource && <div className="rounded bg-slate-50 p-3 text-xs"><p>Solde comptable : <b>{formatCurrency(Number(selectedTransferSource.balance),selectedTransferSource.currency_code)}</b></p><p>Réservations actives : <b>{formatCurrency(Number(selectedTransferSource.reserved_amount),selectedTransferSource.currency_code)}</b></p><p>Disponible pour transfert : <b>{formatCurrency(transferAvailable,selectedTransferSource.currency_code)}</b></p></div>}
           <label className="text-xs font-semibold">
             Compte destination
             <select
@@ -2055,6 +2070,7 @@ export const TreasuryPage: React.FC = () => {
                 setTransferForm({ ...transferForm, amount: e.target.value })
               }
             />
+            {transferAmountInvalid && <span role="alert" className="mt-1 block text-red-700">Montant supérieur aux liquidités librement disponibles.</span>}
           </label>
           <label className="text-xs font-semibold">
             Motif
@@ -2080,7 +2096,7 @@ export const TreasuryPage: React.FC = () => {
             >
               Annuler
             </Button>
-            <Button type="submit" loading={actions.transfer.isPending}>
+            <Button type="submit" loading={actions.transfer.isPending} disabled={actions.transfer.isPending || !selectedTransferSource || transferAmountInvalid || Number(transferForm.amount)<=0}>
               Confirmer le transfert
             </Button>
           </div>

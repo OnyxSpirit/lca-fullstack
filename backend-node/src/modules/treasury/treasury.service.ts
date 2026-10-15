@@ -213,7 +213,7 @@ const duplicate = (e: unknown) => {
 export async function listAccounts(r: Request) {
   const p = predicate(r, "treasury.view", "ta");
   return query<RowDataPacket[]>(
-    `SELECT ta.*,a.name agency_name,c.name concession_name,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0) balance FROM treasury_accounts ta JOIN concessions c ON c.id=ta.concession_id LEFT JOIN agencies a ON a.id=ta.agency_id LEFT JOIN treasury_movements tm ON tm.account_id=ta.id WHERE ${p.sql} GROUP BY ta.id,a.name,c.name ORDER BY ta.is_active DESC,ta.name`,
+    `SELECT ta.*,a.name agency_name,c.name concession_name,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0) balance,COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) reserved_amount,COALESCE(SUM(CASE WHEN tm.status='POSTED' AND tm.direction='IN' THEN tm.amount WHEN tm.status='POSTED' THEN -tm.amount ELSE 0 END),0)-COALESCE((SELECT SUM(tr.active_amount) FROM treasury_reservations tr WHERE tr.account_id=ta.id AND tr.status='ACTIVE'),0) available_balance FROM treasury_accounts ta JOIN concessions c ON c.id=ta.concession_id LEFT JOIN agencies a ON a.id=ta.agency_id LEFT JOIN treasury_movements tm ON tm.account_id=ta.id WHERE ${p.sql} GROUP BY ta.id,a.name,c.name ORDER BY ta.is_active DESC,ta.name`,
     p.params,
   );
 }
@@ -1274,11 +1274,12 @@ export async function transfer(r: Request, b: any, fault?: TreasuryFaultHook) {
           "Transfert inter-devise refusé sans moteur de change",
         );
       const [balanceRows] = await c.execute<RowDataPacket[]>(
-        "SELECT COALESCE(SUM(CASE WHEN status='POSTED' AND direction='IN' THEN amount WHEN status='POSTED' THEN -amount ELSE 0 END),0)>=CAST(? AS DECIMAL(15,2)) sufficient FROM treasury_movements WHERE account_id=?",
-        [value, source.id],
+        "SELECT COALESCE((SELECT SUM(CASE WHEN status='POSTED' AND direction='IN' THEN amount WHEN status='POSTED' THEN -amount ELSE 0 END) FROM treasury_movements WHERE account_id=?),0)-COALESCE((SELECT SUM(active_amount) FROM treasury_reservations WHERE account_id=? AND status='ACTIVE'),0) available",
+        [source.id, source.id],
       );
-      if (!Number(balanceRows[0]?.sufficient))
-        throw new HttpError(409, "Solde disponible insuffisant");
+      const available = Number(balanceRows[0]?.available ?? 0);
+      if (value > available)
+        throw new HttpError(409, `Montant supérieur aux liquidités librement disponibles (${available.toFixed(2)} ${source.currency_code})`);
       const [x] = await c.execute<ResultSetHeader>(
           "INSERT INTO treasury_transfers(source_account_id,destination_account_id,amount,currency_code,value_date,reference,description,created_by) VALUES(?,?,?,?,?,?,?,?)",
           [

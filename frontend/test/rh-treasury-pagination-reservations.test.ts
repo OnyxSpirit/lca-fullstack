@@ -39,7 +39,7 @@ test("le formulaire de réservation distingue chargement, erreur, absence et com
   const source = read("modules/treasury/TreasuryPage.tsx");
   assert.match(source, /reservableExpenses\.isLoading/);
   assert.match(source, /reservableExpenses\.isError/);
-  assert.match(source, /Aucune dépense approuvée ne possède actuellement un reste à payer non réservé/);
+  assert.match(source, /Aucune dépense approuvée avec un reste à payer non réservé/);
   assert.match(source, /compatibleReservableExpenses/);
   assert.match(source, /reservationActions\.create\.isPending/);
 });

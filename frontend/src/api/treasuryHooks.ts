@@ -13,6 +13,8 @@ export type TreasuryAccount = {
   concession_name: string;
   is_active: boolean;
   balance: number;
+  reserved_amount: number;
+  available_balance: number;
 };
 export type TreasuryCategory = {
   id: string;
@@ -185,7 +187,7 @@ const keys = {
   coverage: ["treasury", "coverage"] as const,
   budgets: ["treasury", "budget-indicators"] as const,
   reservations: ["treasury", "reservations"] as const,
-  reservableExpenses:["treasury","reservation-expenses"] as const,
+  reservableExpenses:(accountId:string)=>["treasury","reservation-expenses",accountId] as const,
   flow: ["treasury", "flow"] as const,
   manualOptions: ["treasury", "manual-options"] as const,
   journal: (filters: string) => ["treasury", "journal", filters] as const,
@@ -228,7 +230,7 @@ export const useTreasuryReservations = (enabled = true) =>
     enabled,
   });
 export const useTreasuryReservationHistory=(id:string|undefined,enabled=true)=>useQuery({queryKey:[...keys.reservations,id,"history"],queryFn:()=>apiRequest<TreasuryReservationEvent[]>(`/treasury/reservations/${id}/history`),enabled:enabled&&Boolean(id)});
-export const useTreasuryReservableExpenses=(enabled=true)=>useQuery({queryKey:keys.reservableExpenses,queryFn:()=>apiRequest<ReservableExpense[]>("/treasury/reservation-expenses"),enabled});
+export const useTreasuryReservableExpenses=(accountId:string,enabled=true)=>useQuery({queryKey:keys.reservableExpenses(accountId),queryFn:()=>apiRequest<ReservableExpense[]>(`/treasury/reservation-expenses?accountId=${encodeURIComponent(accountId)}`),enabled:enabled&&Boolean(accountId)});
 export const useTreasuryFlowConfiguration = (enabled = true) =>
   useQuery({
     queryKey: keys.flow,

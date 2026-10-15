@@ -38,7 +38,7 @@ export const LoginPage: React.FC = () => {
               <p className="mt-6 text-sm leading-6 text-zinc-400 max-w-sm">Une vision opérationnelle unique des ventes, du parc, de l'atelier et de la relation client.</p>
             </div>
           </div>
-          <div className="relative z-10 flex items-center gap-2 text-xs text-zinc-500"><ShieldCheck className="w-4 h-4 text-[#b83c47]" /> Accès sécurisé par profil utilisateur</div>
+          
         </div>
 
         <div className="p-7 sm:p-10 lg:p-14 flex items-center bg-white">

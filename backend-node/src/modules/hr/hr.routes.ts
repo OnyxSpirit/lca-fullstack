@@ -24,6 +24,7 @@ import { renderEmployeeDocument } from "./employee-document.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { writeAudit } from "../activity/audit-writer.js";
+import { notifyPermissions } from "../notifications/notification.service.js";
 
 export const hrRouter = Router();
 type Input = Record<string, unknown>;
@@ -2209,39 +2210,44 @@ hrRouter.post(
 );
 hrRouter.post(
   "/hr/expenses/:id/cancel",
-  requirePermission("hr.expense.manage"),
+  requirePermission("hr.expense.cancel"),
   asyncHandler(async (r, res) => {
     const expenseId = id(r.params.id),
       reason = decisionReason(r.body.reason, "Motif de l’annulation"),
-      scope = await scopeFor(r, "hr.expense.manage"),
+      scope = await scopeFor(r, "hr.expense.cancel"),
       p = budgetPredicate(r, scope);
-    await transaction(async (c) => {
+    const result=await transaction(async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
-          `SELECT e.* FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
+          `SELECT e.*,b.scope_type,b.agency_id,COALESCE(b.concession_id,ba.concession_id) target_concession_id FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
           [expenseId, ...p.params],
         ),
         current = rows[0];
       if (!current)
         throw new HttpError(404, "Dépense introuvable dans votre périmètre.");
-      const [paid] = await c.execute<RowDataPacket[]>(
-        "SELECT COUNT(*) total FROM budget_expense_disbursements d JOIN treasury_movements tm ON tm.source_type='BUDGET_EXPENSE_DISBURSEMENT' AND CAST(tm.source_id AS UNSIGNED)=d.id AND tm.event_type='POSTED' LEFT JOIN treasury_movements reversal ON reversal.reversal_of_id=tm.id WHERE d.budget_expense_id=? AND reversal.id IS NULL",
-        [expenseId],
-      );
-      if (Number(paid[0]?.total))
-        throw new HttpError(
-          409,
-          "Une dépense décaissée doit être corrigée par contrepassation avant annulation.",
-        );
-      if (String(current.approval_status) === "approved")
-        throw new HttpError(
-          409,
-          "Une dépense engagée ne peut pas être annulée sans traitement budgétaire dédié.",
-        );
       if (String(current.approval_status) === "cancelled")
         throw new HttpError(409, "La dépense est déjà annulée.");
+      const [paid] = await c.execute<RowDataPacket[]>(
+        "SELECT COALESCE(SUM(CASE WHEN reversal.id IS NULL THEN d.amount ELSE 0 END),0) total FROM budget_expense_disbursements d JOIN treasury_movements tm ON tm.source_type='BUDGET_EXPENSE_DISBURSEMENT' AND CAST(tm.source_id AS UNSIGNED)=d.id AND tm.event_type='POSTED' LEFT JOIN treasury_movements reversal ON reversal.reversal_of_id=tm.id WHERE d.budget_expense_id=?",
+        [expenseId],
+      );
+      const disbursed=Number(paid[0]?.total??0);
+      if (disbursed>0)
+        throw new HttpError(
+          409,
+          disbursed<Number(current.amount)
+            ? "Cette dépense est partiellement décaissée. Un traitement spécifique du solde restant est nécessaire."
+            : "Cette dépense est totalement décaissée. Utilisez les mécanismes financiers de régularisation appropriés.",
+        );
+      const [reservations]=await c.execute<RowDataPacket[]>("SELECT id,status FROM treasury_reservations WHERE budget_expense_id=? AND status IN('SUBMITTED','ACTIVE') FOR UPDATE",[expenseId]);
+      if(reservations.some(x=>x.status==='ACTIVE'))
+        throw new HttpError(
+          409,
+          "Cette dépense possède une réservation de liquidités active. Veuillez d'abord faire annuler ou libérer la réservation.",
+        );
+      if(reservations.length)throw new HttpError(409,"Cette dépense possède une demande de réservation en attente. Veuillez d’abord la clôturer.");
       await c.execute(
-        "UPDATE budget_expenses SET approval_status='cancelled',decision_reason=? WHERE id=?",
-        [reason, expenseId],
+        "UPDATE budget_expenses SET approval_status='cancelled',decided_by=?,decided_at=NOW(),decision_reason=? WHERE id=?",
+        [r.user!.sub,reason, expenseId],
       );
       await approvalHistory(
         c,
@@ -2254,8 +2260,25 @@ hrRouter.post(
         reason,
       );
       await audit(c, r, "budget_expense", expenseId, "expense.cancelled", {
-        reason,
+        reason,previousStatus:String(current.approval_status),releasedCommitment:String(current.approval_status)==='approved'?Number(current.amount):0,
       });
+      const agencyIds=current.scope_type==='agency'
+        ?[String(current.agency_id)]
+        :(await c.execute<RowDataPacket[]>('SELECT id FROM agencies WHERE concession_id=?',[current.target_concession_id]))[0].map(x=>String(x.id));
+      return{agencyIds,label:String(current.label),reference:current.reference?String(current.reference):null};
+    });
+    emitToAgenciesAndGlobals(result.agencyIds,'hr:expense-updated',{id:expenseId,action:'cancelled'});
+    for(const agencyId of result.agencyIds)await notifyPermissions({
+      agencyId,
+      permissions:['hr.expense.view'],
+      excludeUserIds:[r.user!.sub],
+      subject:'Dépense annulée',
+      message:`La dépense « ${result.label} »${result.reference?` (${result.reference})`:''} a été annulée.`,
+      eventType:'hr.expense.cancelled',
+      referenceType:'budget_expense',
+      referenceId:expenseId,
+      eventKey:`hr.expense.cancelled:${expenseId}`,
+      priority:'normal',
     });
     res.json({ success: true, status: "cancelled" });
   }),
@@ -2323,18 +2346,23 @@ hrRouter.get(
         context.permissions.get("hr.budget.view") ?? null,
       );
       const [row] = await query<RowDataPacket[]>(
-          `SELECT COALESCE(SUM(b.initial_amount+(SELECT COALESCE(SUM(f.amount),0) FROM budget_fund_movements f WHERE f.budget_id=b.id)),0) total,COALESCE(SUM((SELECT COALESCE(SUM(e.amount),0) FROM budget_expenses e WHERE e.budget_id=b.id AND e.approval_status='approved')),0) spent FROM budgets b LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE b.status='active' AND ${p.sql}`,
+          `SELECT COALESCE(SUM(b.initial_amount+(SELECT COALESCE(SUM(f.amount),0) FROM budget_fund_movements f WHERE f.budget_id=b.id)),0) total,COALESCE(SUM((SELECT COALESCE(SUM(e.amount),0) FROM budget_expenses e WHERE e.budget_id=b.id AND e.approval_status='approved')),0) engaged,COALESCE(SUM((SELECT COALESCE(SUM(CASE WHEN reversal.id IS NULL THEN d.amount ELSE 0 END),0) FROM budget_expense_disbursements d JOIN budget_expenses e ON e.id=d.budget_expense_id JOIN treasury_movements original ON original.source_type='BUDGET_EXPENSE_DISBURSEMENT' AND CAST(original.source_id AS UNSIGNED)=d.id AND original.event_type='POSTED' LEFT JOIN treasury_movements reversal ON reversal.reversal_of_id=original.id WHERE e.budget_id=b.id)),0) disbursed FROM budgets b LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE b.status='active' AND ${p.sql}`,
           p.params,
         ),
         total = Number(row?.total ?? 0),
-        spent = Number(row?.spent ?? 0);
+        engaged = Number(row?.engaged ?? 0),
+        disbursed = Number(row?.disbursed ?? 0);
       result.activeBudget = total;
-      result.expenses = spent;
-      result.remainingBudget = total - spent;
+      result.expenses = engaged;
+      result.disbursedExpenses=disbursed;
+      result.remainingToDisburse=Math.max(0,engaged-disbursed);
+      result.remainingBudget = total - engaged;
       result.budgetSummary = [
         { label: "Alloué", value: total },
-        { label: "Consommé", value: spent },
-        { label: "Restant", value: total - spent },
+        { label: "Engagé", value: engaged },
+        { label: "Décaissé", value: disbursed },
+        { label: "Reste à décaisser", value: Math.max(0,engaged-disbursed) },
+        { label: "Disponible", value: total - engaged },
       ];
     }
     if (can(context, "hr.expense.view")) {
@@ -2343,7 +2371,7 @@ hrRouter.get(
           context.permissions.get("hr.expense.view") ?? null,
         ),
         rows = await query<RowDataPacket[]>(
-          `SELECT DATE_FORMAT(e.expense_date,'%Y-%m') period,COALESCE(SUM(e.amount),0) spent FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.approval_status='approved' AND e.expense_date>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 5 MONTH) AND e.expense_date<=LAST_DAY(CURDATE()) AND ${p.sql} GROUP BY DATE_FORMAT(e.expense_date,'%Y-%m') ORDER BY period`,
+          `SELECT DATE_FORMAT(original.value_date,'%Y-%m') period,COALESCE(SUM(CASE WHEN reversal.id IS NULL THEN d.amount ELSE 0 END),0) spent FROM budget_expense_disbursements d JOIN budget_expenses e ON e.id=d.budget_expense_id JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id JOIN treasury_movements original ON original.source_type='BUDGET_EXPENSE_DISBURSEMENT' AND CAST(original.source_id AS UNSIGNED)=d.id AND original.event_type='POSTED' LEFT JOIN treasury_movements reversal ON reversal.reversal_of_id=original.id WHERE original.value_date>=DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'),INTERVAL 5 MONTH) AND original.value_date<=LAST_DAY(CURDATE()) AND ${p.sql} GROUP BY DATE_FORMAT(original.value_date,'%Y-%m') ORDER BY period`,
           p.params,
         );
       result.expenseTrend = rows.map((x) => ({

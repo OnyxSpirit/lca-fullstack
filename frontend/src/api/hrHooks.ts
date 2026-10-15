@@ -245,6 +245,7 @@ export interface BudgetTargets {
 export interface Expense {
   id: string;
   budget_id: string;
+  budget_label?: string;
   label: string;
   amount: number;
   expense_date: string;
@@ -298,6 +299,8 @@ export interface HrOverview {
   lowStockItems?: number;
   activeBudget?: number;
   expenses?: number;
+  disbursedExpenses?:number;
+  remainingToDisburse?:number;
   remainingBudget?: number;
   periodExpenses?: number;
   headcountByAgency?: {

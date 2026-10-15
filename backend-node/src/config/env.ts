@@ -45,8 +45,22 @@ export const env = {
     refreshWindowMs: boundedInteger('AUTH_REFRESH_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000, 24 * 60 * 60 * 1000),
     refreshMax: boundedInteger('AUTH_REFRESH_RATE_LIMIT_MAX', 120, 10_000),
   },
+  twoFactor: {
+    encryptionKey: process.env.TWO_FACTOR_ENCRYPTION_KEY?.trim() || null,
+    keyVersion: process.env.TWO_FACTOR_KEY_VERSION?.trim() || 'v1',
+    issuer: process.env.TWO_FACTOR_ISSUER?.trim() || 'ERP LCA',
+    challengeTtlSeconds: boundedInteger('TWO_FACTOR_CHALLENGE_TTL_SECONDS', 300, 900),
+    setupTtlSeconds: boundedInteger('TWO_FACTOR_SETUP_TTL_SECONDS', 600, 1800),
+    maxAttempts: boundedInteger('TWO_FACTOR_MAX_ATTEMPTS', 5, 20),
+    grandfatherGraceSeconds: boundedInteger('TWO_FACTOR_EXISTING_SESSION_GRACE_SECONDS', 7 * 24 * 60 * 60, 30 * 24 * 60 * 60),
+  },
 };
 
 if (env.trustProxyHops > 5) throw new Error('TRUST_PROXY_HOPS doit être inférieur ou égal à 5');
 
 if (env.jwt.accessSecret.length < 32 || env.jwt.refreshSecret.length < 32) throw new Error('Les secrets JWT doivent contenir au moins 32 caractères');
+if(env.twoFactor.encryptionKey){
+  let decoded:Buffer;
+  try{decoded=Buffer.from(env.twoFactor.encryptionKey,'base64')}catch{throw new Error('TWO_FACTOR_ENCRYPTION_KEY doit être une clé Base64 de 32 octets')}
+  if(decoded.length!==32)throw new Error('TWO_FACTOR_ENCRYPTION_KEY doit être une clé Base64 de 32 octets');
+}

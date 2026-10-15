@@ -6,6 +6,7 @@ import type { AuthUser } from '../types/index.js';
 import type { RowDataPacket } from 'mysql2/promise';
 import { query } from '../config/database.js';
 import { resolveRbacContext } from '../modules/rbac/rbac.service.js';
+import { assertSessionCurrent } from '../modules/auth/two-factor.service.js';
 
 export async function authenticate(request: Request, _response: Response, next: NextFunction) {
   const token = request.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
@@ -20,6 +21,7 @@ export async function authenticate(request: Request, _response: Response, next: 
   try {
     const [active]=await query<RowDataPacket[]>('SELECT u.id,u.agency_id FROM users u JOIN refresh_tokens rt ON rt.id=? AND rt.user_id=u.id AND rt.revoked_at IS NULL AND rt.expires_at>NOW() WHERE u.id=? AND u.is_active=TRUE LIMIT 1',[user.sid,user.sub]);
     if(!active)throw new HttpError(401,'Compte désactivé ou introuvable');
+    await assertSessionCurrent(user.sub,user.sid);
     user.agencyId=active.agency_id==null?null:String(active.agency_id);
     request.user=user;
     request.rbac=await resolveRbacContext(user.sub);

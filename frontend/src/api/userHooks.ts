@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../services/apiClient';
 
-export interface AdminUser{id:string;firstName:string;lastName:string;fullName:string;email:string;phone:string|null;jobTitle:string|null;agencyId:string;agencyName:string;roles:string[];isActive:boolean;isEmployee:boolean;employeeProfileId:string|null;employeeNumber:string|null;employeePosition:string|null;employeeHireDate:string|null;employeeStatus:'active'|'inactive'|'departed'|null;avatar:string|null;createdAt:string;updatedAt:string}
+export interface AdminUser{id:string;firstName:string;lastName:string;fullName:string;email:string;phone:string|null;jobTitle:string|null;agencyId:string;agencyName:string;roles:string[];isActive:boolean;isEmployee:boolean;employeeProfileId:string|null;employeeNumber:string|null;employeePosition:string|null;employeeHireDate:string|null;employeeStatus:'active'|'inactive'|'departed'|null;avatar:string|null;createdAt:string;updatedAt:string;twoFactorEnabled:boolean;twoFactorRequired:boolean;twoFactorIndividualRequired:boolean;twoFactorResetRequired:boolean}
 export type RbacScope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
 export interface RolePermission{id:string|number;module:string;action:string;code:string;label?:string;group_name?:string|null;description:string|null;scope?:RbacScope|null}
 export interface PermissionCatalogItem extends RolePermission{is_active:boolean;allowedScopes:RbacScope[];delegable:boolean;maxDelegableScope:RbacScope|null}

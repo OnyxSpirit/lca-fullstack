@@ -42,6 +42,9 @@ const collectiveCodes = new Set([
   "workshop.technicians.manage",
 ]);
 
+const ownOnlyCodes = new Set(["auth.2fa.view", "auth.2fa.manage"]);
+const globalOnlyCodes = new Set(["auth.2fa.policy.manage"]);
+
 /**
  * Source de vérité des scopes attribuables. Les routes restent responsables de
  * l'intersection avec la ressource; cette politique empêche seulement les
@@ -53,6 +56,9 @@ const collectiveCodes = new Set([
 export function allowedScopesForPermission(
   code: string,
 ): readonly PermissionScope[] {
+  if (ownOnlyCodes.has(code)) return ["OWN"];
+  if (globalOnlyCodes.has(code)) return ["GLOBAL"];
+  if (code.startsWith("auth.2fa.users.")) return collectiveScopes;
   if (concessionOnlyPrefixes.some((prefix) => code.startsWith(prefix)))
     return concessionScopes;
   if (

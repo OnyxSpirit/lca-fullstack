@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { env } from '../src/config/env.js';
 
-type Session = { id: string; userId: string; hash: string; expires: number; revoked: boolean };
+type Session = { id: string; userId: string; hash: string; expires: number; revoked: boolean; authenticatedAt: string };
 const password = 'valid-password';
 const user = { id: '1', agency_id: '10', agency_name: 'Agence', agency_code: 'AG', avatar_path: null, first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.test', password_hash: await argon2.hash(password), is_active: 1 };
 const sessions = new Map<string, Session>();
@@ -15,6 +15,11 @@ let permissionEnabled = true;
 const result = (affectedRows = 1): ResultSetHeader => ({ affectedRows } as ResultSetHeader);
 
 async function query<T extends RowDataPacket[]>(sql: string, params: unknown[] = []): Promise<T> {
+  if (sql.includes("r.code='SUPER_ADMIN'") && sql.includes('role_two_factor_policies')) return [{ super_admin: 0, individually_required: 0, role_required: 0, enabled_at: null, reset_required: 0 }] as T;
+  if (sql.includes('two_factor_verified_at,two_factor_grandfathered FROM refresh_tokens')) {
+    const session = sessions.get(String(params[0]));
+    return (session && session.userId === String(params[1]) && !session.revoked ? [{ authenticated_at: session.authenticatedAt, two_factor_verified_at: null, two_factor_grandfathered: 1 }] : []) as T;
+  }
   if (sql.includes('FROM roles r JOIN user_roles')) return [{ code: 'EMPLOYEE' }] as T;
   if (sql.includes('FROM users u JOIN agencies') && sql.includes('u.email=?')) return (user.is_active && params[0] === user.email ? [user] : []) as T;
   if (sql.includes('FROM users u JOIN agencies') && sql.includes('u.id=?')) return (user.is_active && params[0] === user.id ? [user] : []) as T;
@@ -28,7 +33,7 @@ async function query<T extends RowDataPacket[]>(sql: string, params: unknown[] =
 
 async function execute(sql: string, params: unknown[] = []): Promise<ResultSetHeader> {
   if (sql.startsWith('INSERT INTO refresh_tokens')) {
-    sessions.set(String(params[0]), { id: String(params[0]), userId: String(params[1]), hash: String(params[2]), expires: Number(params[3]), revoked: false });
+    sessions.set(String(params[0]), { id: String(params[0]), userId: String(params[1]), hash: String(params[2]), expires: Number(params[3]), revoked: false, authenticatedAt: new Date().toISOString() });
     return result();
   }
   if (sql.startsWith('UPDATE users SET last_login_at')) return result();
@@ -131,7 +136,7 @@ test('JWT: HS256 est explicite et les anciens access tokens sans sid sont refus√
   assert.equal((await authenticated(legacy)).status, 401);
   const legacySession = randomUUID();
   const legacyRefresh = jwt.sign({ sub: user.id, email: user.email, roles: ['EMPLOYEE'], agencyId: user.agency_id, jti: legacySession, type: 'refresh' }, env.jwt.refreshSecret, { algorithm: 'HS256', expiresIn: '5m' });
-  sessions.set(legacySession, { id: legacySession, userId: user.id, hash: createHash('sha256').update(legacyRefresh).digest('hex'), expires: Math.floor(Date.now() / 1000) + 300, revoked: false });
+  sessions.set(legacySession, { id: legacySession, userId: user.id, hash: createHash('sha256').update(legacyRefresh).digest('hex'), expires: Math.floor(Date.now() / 1000) + 300, revoked: false, authenticatedAt: new Date().toISOString() });
   const upgraded = await service.refresh(legacyRefresh);
   assert.equal(claims(upgraded.accessToken).sid, legacySession);
 });

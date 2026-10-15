@@ -209,7 +209,7 @@ export const Sidebar: React.FC = () => {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#fffffff] text-zinc-400 select-none">
       {/* Brand Header */}
-      <div className="h-20 px-5 flex items-center justify-between border-b border-white/10">
+      <div className="h-20 px-5 flex items-center align-middle justify-center border-b border-white/10">
         <NavLink
           to={ROUTES.dashboard}
           onClick={() => setMobileMenuOpen(false)}
@@ -217,7 +217,7 @@ export const Sidebar: React.FC = () => {
         >
          
          
-          {sidebarCollapsed ? <div className='justify-items-center'><div className="w-[100%]"><img alt='LCA Logo' src='/images/logo-lca2.png'/></div></div> :<div className="w-[80%] p-5 justify-items-center"><img alt='LCA Logo' src='/images/logo-lca2.png'/></div>}
+          {sidebarCollapsed ? <div><div className="w-[100%]"><img alt='LCA Logo' src='/images/logo-lca2.png'/></div></div> :<div className="w-[80%] p-5"><img alt='LCA Logo' src='/images/logo-lca2.png'/></div>}
         </NavLink>
 
         {/* Mobile close button */}

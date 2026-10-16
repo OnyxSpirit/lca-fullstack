@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useAuthStore } from './stores/authStore';
 import { ROUTES } from './navigation/routes';
 import type { ModuleKey } from './navigation/routes';
+import { SECURITY_CENTER_PERMISSIONS } from './navigation/permissions';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 import { BusinessDialogHost } from './components/ui/BusinessDialog';
@@ -37,6 +38,7 @@ const SettingsPage=lazy(()=>import('./modules/settings/SettingsPage').then(modul
 const NotificationsPage=lazy(()=>import('./modules/notifications/NotificationsPage').then(module=>({default:module.NotificationsPage})));
 const ActivityPage=lazy(()=>import('./modules/activity/ActivityPage').then(module=>({default:module.ActivityPage})));
 const LoginPage=lazy(()=>import('./modules/auth/LoginPage').then(module=>({default:module.LoginPage})));
+const TwoFactorSecurityCenterPage=lazy(()=>import('./modules/auth/TwoFactorSecurityCenterPage').then(module=>({default:module.TwoFactorSecurityCenterPage})));
 const NotFoundPage=lazy(()=>import('./modules/errors/NotFoundPage').then(module=>({default:module.NotFoundPage})));
 const AppLayout=lazy(()=>import('./components/layout/AppLayout').then(module=>({default:module.AppLayout})));
 
@@ -60,6 +62,8 @@ function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNod
   const can=useAuthStore(state=>state.can);
   return can(MODULE_PERMISSION[module])?<>{children}</>:<AccessDeniedPage/>;
 }
+function PermissionGuard({permission,children}:{permission:string;children:React.ReactNode}){const can=useAuthStore(state=>state.can);return can(permission)?<>{children}</>:<AccessDeniedPage/>}
+function SecurityCenterGuard({children}:{children:React.ReactNode}){const can=useAuthStore(state=>state.can);return SECURITY_CENTER_PERMISSIONS.some(can)?<>{children}</>:<AccessDeniedPage/>}
 
 export default function App() {
   return (
@@ -101,6 +105,9 @@ export default function App() {
           <Route path="users" element={<ModuleGuard module="users">{lazyPage(<UsersManagementPage />)}</ModuleGuard>} />
           <Route path="settings" element={<ModuleGuard module="settings">{lazyPage(<SettingsPage />)}</ModuleGuard>} />
           <Route path="activity" element={<ModuleGuard module="activity">{lazyPage(<ActivityPage />)}</ModuleGuard>} />
+          <Route path="security/2fa" element={<SecurityCenterGuard>{lazyPage(<TwoFactorSecurityCenterPage />)}</SecurityCenterGuard>} />
+          <Route path="security/devices/me" element={<Navigate to="/security/2fa?section=mine" replace />} />
+          <Route path="security/devices" element={<Navigate to="/security/2fa?section=devices" replace />} />
           <Route path="*" element={lazyPage(<NotFoundPage />)} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.login} replace />} />

@@ -5,6 +5,21 @@ export type WorkflowPermission = 'crm.stage.update'|'crm.activity.create'|'crm.c
 export type AppPermission = `${ModulePermission}.view`|WorkflowPermission;
 export const hasDynamicPermission=(permissions:Record<string,unknown>|undefined,permissionCode:string)=>Boolean(permissions&&Object.hasOwn(permissions,permissionCode));
 
+export const SECURITY_CENTER_PERMISSIONS = [
+  'auth.2fa.settings.view',
+  'auth.2fa.settings.manage',
+  'auth.2fa.policy.manage',
+  'auth.2fa.users.view',
+  'auth.2fa.users.enforce',
+  'auth.2fa.users.reset',
+  'auth.2fa.devices.view',
+  'auth.2fa.devices.revoke',
+  'auth.2fa.view',
+] as const;
+
+export const canAccessSecurityCenter=(permissions:Record<string,unknown>|undefined)=>
+  SECURITY_CENTER_PERMISSIONS.some(permission=>hasDynamicPermission(permissions,permission));
+
 const modules=(...values:ModulePermission[]):AppPermission[]=>values.map(value=>`${value}.view` as AppPermission);
 const common=modules('dashboard','modules','notifications');
 

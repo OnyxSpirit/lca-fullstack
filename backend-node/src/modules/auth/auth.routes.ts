@@ -7,6 +7,7 @@ import { env } from '../../config/env.js';
 import { createAuthRateLimiters, type AuthRateLimitConfig } from './auth-rate-limit.js';
 import { requirePermission } from '../../middleware/require-permission.js';
 import * as twoFactor from './two-factor.service.js';
+import{expiredTrustedDeviceCookieOptions,TRUSTED_DEVICE_COOKIE,trustedDeviceCookieOptions}from'./trusted-device.service.js';
 
 const credentials = (body: unknown) => {
   const value = body as { email?: unknown; password?: unknown };
@@ -23,11 +24,12 @@ const challenge=(body:unknown)=>{const value=String((body as {challengeToken?:un
 export function createAuthRouter(rateLimitConfig: AuthRateLimitConfig = env.authRateLimit) {
   const router = Router();
   const limits = createAuthRateLimiters(rateLimitConfig);
-  router.post('/login', ...limits.login, asyncHandler(async (request, response) => { const input=credentials(request.body); response.json(await service.login(input.email,input.password,request)); }));
-  router.post('/2fa/verify',...limits.login,asyncHandler(async(request,response)=>response.json(await service.verifyTwoFactor(challenge(request.body),(request.body as {code?:unknown}).code,request))));
+  const respond=(response:import('express').Response,result:any)=>{if(result._trustedDevice)response.cookie(TRUSTED_DEVICE_COOKIE,result._trustedDevice.token,trustedDeviceCookieOptions(result._trustedDevice.expiresAt));else if(result._clearTrustedDevice)response.cookie(TRUSTED_DEVICE_COOKIE,'',expiredTrustedDeviceCookieOptions());const{_trustedDevice,_clearTrustedDevice,...publicResult}=result;response.json(publicResult)};
+  router.post('/login', ...limits.login, asyncHandler(async (request, response) => { const input=credentials(request.body);respond(response,await service.login(input.email,input.password,request)); }));
+  router.post('/2fa/verify',...limits.login,asyncHandler(async(request,response)=>respond(response,await service.verifyTwoFactor(challenge(request.body),(request.body as {code?:unknown}).code,request,request.body?.trustDevice,request.body?.deviceName))));
   router.post('/2fa/recovery',...limits.login,asyncHandler(async(request,response)=>response.json(await service.recoverTwoFactor(challenge(request.body),(request.body as {recoveryCode?:unknown}).recoveryCode,request))));
   router.post('/2fa/challenge/setup',...limits.login,asyncHandler(async(request,response)=>response.json(await service.setupForChallenge(challenge(request.body),request))));
-  router.post('/2fa/challenge/confirm',...limits.login,asyncHandler(async(request,response)=>response.json(await service.confirmChallengeSetup(challenge(request.body),(request.body as {code?:unknown}).code,request))));
+  router.post('/2fa/challenge/confirm',...limits.login,asyncHandler(async(request,response)=>respond(response,await service.confirmChallengeSetup(challenge(request.body),(request.body as {code?:unknown}).code,request,request.body?.trustDevice,request.body?.deviceName))));
   router.post('/2fa/step-up',authenticate,limits.stepUp,asyncHandler(async(request,response)=>response.json(await twoFactor.stepUp(request,request.body?.currentPassword,request.body?.totpCode))));
   router.get('/2fa/status',authenticate,requirePermission('auth.2fa.view'),asyncHandler(async(request,response)=>response.json(await twoFactor.status(request.user!.sub))));
   router.post('/2fa/setup',authenticate,requirePermission('auth.2fa.manage'),asyncHandler(async(request,response)=>response.json(await twoFactor.beginPersonalSetup(request))));

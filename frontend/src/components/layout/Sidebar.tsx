@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Grid,
@@ -24,16 +24,19 @@ import {
   Landmark,
   X,
   History,
+  KeyRound,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { ROUTES } from '../../navigation/routes';
-import { canNavigateWithPermissions } from '../../navigation/permissions';
+import { canAccessSecurityCenter, canNavigateWithPermissions } from '../../navigation/permissions';
 
 export const Sidebar: React.FC = () => {
   const { currentUser, can } = useAuthStore();
+  const location = useLocation();
   const notifications = useNotificationsQuery({page:1,pageSize:1},can('notifications.view')).data;
   const {
     sidebarCollapsed,
@@ -44,16 +47,20 @@ export const Sidebar: React.FC = () => {
 
   const unreadNotifs = notifications?.unreadCount??0;
 
+  interface NavItem {
+    to?: string;
+    label: string;
+    icon: React.ReactNode;
+    badge?: string | number;
+    badgeVariant?: 'default' | 'danger' | 'warning' | 'primary' | 'success';
+    module: string;
+    visible?: boolean;
+    children?: NavItem[];
+  }
+
   interface NavSection {
     title: string;
-    items: {
-      to: string;
-      label: string;
-      icon: React.ReactNode;
-      badge?: string | number;
-      badgeVariant?: 'default' | 'danger' | 'warning' | 'primary' | 'success';
-      module: string;
-    }[];
+    items: NavItem[];
   }
 
   const sections: NavSection[] = [
@@ -191,10 +198,14 @@ export const Sidebar: React.FC = () => {
           module: 'activity',
         },
         {
-          to: ROUTES.users,
           label: 'Utilisateurs & RBAC',
           icon: <ShieldCheck className="w-4 h-4" />,
           module: 'users',
+          children: [
+            {to:`${ROUTES.users}?tab=users`,label:'Collaborateurs',icon:<Users className="w-4 h-4"/>,module:'users'},
+            {to:`${ROUTES.users}?tab=matrix`,label:'Matrice RBAC',icon:<KeyRound className="w-4 h-4"/>,module:'users',visible:can('roles.view')&&can('users.view')},
+            {to:'/security/2fa',label:'Centre de sécurité 2FA',icon:<ShieldCheck className="w-4 h-4"/>,module:'security2fa',visible:canAccessSecurityCenter(currentUser.permissions)},
+          ],
         },
         {
           to: ROUTES.settings,
@@ -205,6 +216,12 @@ export const Sidebar: React.FC = () => {
       ],
     },
   ];
+
+  const usersGroupActive=location.pathname===ROUTES.users||location.pathname==='/security/2fa';
+  const usersActiveTab=new URLSearchParams(location.search).get('tab')??'users';
+  const[usersGroupOpen,setUsersGroupOpen]=useState(usersGroupActive);
+  useEffect(()=>{if(usersGroupActive)setUsersGroupOpen(true)},[usersGroupActive]);
+  const isVisible=(item:NavItem)=>item.visible??(item.to?canNavigateWithPermissions(currentUser.permissions,item.to):Boolean(item.children?.some(isVisible)));
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#fffffff] text-zinc-400 select-none">
@@ -233,7 +250,7 @@ export const Sidebar: React.FC = () => {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4 text-[13px] scrollbar-thin scrollbar-thumb-zinc-700">
         {sections.map((section, sIdx) => {
           // Filter items by RBAC permissions
-          const visibleItems = section.items.filter((item) => canNavigateWithPermissions(currentUser.permissions,item.to));
+          const visibleItems = section.items.filter(isVisible);
           if (visibleItems.length === 0) return null;
 
           return (
@@ -244,10 +261,35 @@ export const Sidebar: React.FC = () => {
                 </div>
               )}
               <div className="space-y-1">
-                {visibleItems.map((item) => (
+                {visibleItems.map((item) => item.children ? (()=>{
+                  const visibleChildren=item.children.filter(isVisible);
+                  return <div key={item.label}>
+                    <button
+                      type="button"
+                      aria-expanded={usersGroupOpen}
+                      onClick={()=>setUsersGroupOpen(open=>!open)}
+                      className={cn('relative flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left transition-colors',usersGroupActive?'bg-slate-100 font-semibold text-[#8f1722]':'text-gray-950 hover:bg-white/7 hover:text-red-800',sidebarCollapsed&&'justify-center px-2')}
+                      title={sidebarCollapsed?item.label:undefined}
+                    >
+                      <span className="shrink-0">{item.icon}</span>
+                      {!sidebarCollapsed&&<><span className="flex-1 truncate">{item.label}</span><ChevronDown className={cn('h-3.5 w-3.5 transition-transform',usersGroupOpen&&'rotate-180')}/></>}
+                    </button>
+                    {usersGroupOpen&&<div className={cn('mt-1 space-y-1',!sidebarCollapsed&&'ml-4 border-l border-slate-200 pl-2')}>
+                      {visibleChildren.map(child=><NavLink
+                        key={child.to}
+                        to={child.to!}
+                        onClick={()=>setMobileMenuOpen(false)}
+                        className={()=>cn('relative flex items-center gap-3 rounded-sm px-3 py-2 text-[12px] transition-colors',location.pathname===(child.to!.split('?')[0])&&(child.module==='security2fa'||usersActiveTab===(child.to!.includes('matrix')?'matrix':'users'))?'bg-[#8f1722] font-semibold text-white':'text-gray-800 hover:bg-slate-100 hover:text-[#8f1722]',sidebarCollapsed&&'justify-center px-2')}
+                        title={sidebarCollapsed?child.label:undefined}
+                      >
+                        <span className="shrink-0">{child.icon}</span>{!sidebarCollapsed&&<span className="flex-1 truncate">{child.label}</span>}
+                      </NavLink>)}
+                    </div>}
+                  </div>
+                })() : (
                   <NavLink
-                    key={item.to}
-                    to={item.to}
+                    key={item.to!}
+                    to={item.to!}
                     onClick={() => setMobileMenuOpen(false)}
                     className={({ isActive }) =>
                       cn(

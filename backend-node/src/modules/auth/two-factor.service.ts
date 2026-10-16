@@ -5,6 +5,8 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/prom
 import { generateSecret, generateURI, verify } from 'otplib';
 import type { VerifyResult as TotpVerifyResult } from '@otplib/totp';
 import QRCode from 'qrcode';
+import {strongAuthDurationSeconds} from './two-factor-security-settings.js';
+import{revokeAllTrustedDevices}from'./trusted-device.service.js';
 import { env } from '../../config/env.js';
 import { query, transaction } from '../../config/database.js';
 import { HttpError } from '../../shared/http-error.js';
@@ -136,9 +138,9 @@ async function verifyCurrentFactor(c:PoolConnection,userId:string,value:unknown)
 
 async function assertRecentSession(request:Request){const[session]=await query<RowDataPacket[]>('SELECT authenticated_at FROM refresh_tokens WHERE id=? AND user_id=? AND revoked_at IS NULL',[request.user!.sid,request.user!.sub]);if(!session||Date.now()-new Date(session.authenticated_at).getTime()>10*60*1000)throw new HttpError(401,'Une authentification récente est requise. Reconnectez-vous.')}
 
-export const STRONG_AUTH_TTL_SECONDS=10*60;
+export const DEFAULT_STRONG_AUTH_TTL_SECONDS=10*60;
 export async function assertRecentStrongAuthentication(request:Request){
-  const[session]=await query<RowDataPacket[]>('SELECT id FROM refresh_tokens WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP() AND strong_auth_at IS NOT NULL AND strong_auth_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL ? SECOND)',[request.user!.sid,request.user!.sub,STRONG_AUTH_TTL_SECONDS]);
+  const durationSeconds=await strongAuthDurationSeconds(),[session]=await query<RowDataPacket[]>('SELECT id FROM refresh_tokens WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP() AND strong_auth_at IS NOT NULL AND strong_auth_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL ? SECOND)',[request.user!.sid,request.user!.sub,durationSeconds]);
   if(!session)throw new HttpError(401,'Authentification renforcée requise.',{code:'STRONG_AUTH_REQUIRED'});
 }
 
@@ -158,11 +160,11 @@ export async function stepUp(request:Request,password:unknown,totp:unknown){
       await audit(c,request,userId,userId,'auth.2fa.step_up_succeeded',{method});
     });
   }catch(error){if(error instanceof HttpError&&(error.status===400||error.status===401)){await auditStepUpFailure(request,'TOTP');throw new HttpError(401,'Vérification renforcée invalide.')}throw error}
-  return{success:true,method,validForSeconds:STRONG_AUTH_TTL_SECONDS};
+  return{success:true,method,validForSeconds:await strongAuthDurationSeconds()};
 }
 
 export async function regenerateRecovery(request:Request,token:unknown){const userId=request.user!.sub;await assertRecentSession(request);const codes=await transaction(async c=>{await verifyCurrentFactor(c,userId,token);const values=await replaceRecoveryCodes(c,userId);await audit(c,request,userId,userId,'auth.2fa.recovery_regenerated',{count:values.length});return values});return{recoveryCodes:codes}}
 
-export async function disable(request:Request,token:unknown){const userId=request.user!.sub,state=await requirement(userId);if(state.required)throw new HttpError(409,'La double authentification est obligatoire pour ce compte et ne peut pas être désactivée.');await assertRecentSession(request);await transaction(async c=>{await verifyCurrentFactor(c,userId,token);await c.execute('DELETE FROM two_factor_recovery_codes WHERE user_id=?',[userId]);await c.execute('UPDATE user_two_factor_auth SET encrypted_secret=NULL,secret_iv=NULL,secret_tag=NULL,secret_key_version=NULL,enabled_at=NULL,last_accepted_time_step=NULL,reset_required=FALSE WHERE user_id=?',[userId]);await c.execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE user_id=? AND id<>? AND revoked_at IS NULL',[userId,request.user!.sid]);await audit(c,request,userId,userId,'auth.2fa.disabled')});await createUserNotification({userId,subject:'Double authentification désactivée',message:'La double authentification a été désactivée sur votre compte.',eventType:'auth.2fa.disabled',referenceType:'user',referenceId:userId,eventKey:`auth.2fa.disabled:${userId}:${Date.now()}`,priority:'urgent'});return{success:true}}
+export async function disable(request:Request,token:unknown){const userId=request.user!.sub,state=await requirement(userId);if(state.required)throw new HttpError(409,'La double authentification est obligatoire pour ce compte et ne peut pas être désactivée.');await assertRecentSession(request);await transaction(async c=>{await verifyCurrentFactor(c,userId,token);await c.execute('DELETE FROM two_factor_recovery_codes WHERE user_id=?',[userId]);await c.execute('UPDATE user_two_factor_auth SET encrypted_secret=NULL,secret_iv=NULL,secret_tag=NULL,secret_key_version=NULL,enabled_at=NULL,last_accepted_time_step=NULL,reset_required=FALSE WHERE user_id=?',[userId]);await c.execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE user_id=? AND id<>? AND revoked_at IS NULL',[userId,request.user!.sid]);await revokeAllTrustedDevices(c,userId,userId,'TWO_FACTOR_DISABLED');await audit(c,request,userId,userId,'auth.2fa.disabled')});await createUserNotification({userId,subject:'Double authentification désactivée',message:'La double authentification a été désactivée sur votre compte.',eventType:'auth.2fa.disabled',referenceType:'user',referenceId:userId,eventKey:`auth.2fa.disabled:${userId}:${Date.now()}`,priority:'urgent'});return{success:true}}
 
 export function challengeFingerprint(request:Request){return contextHash(request.ip??'',request.get('user-agent')??'')}

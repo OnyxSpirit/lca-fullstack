@@ -23,7 +23,7 @@ import { Button } from '../ui/Button';
 import { assetUrl } from '../../services/apiClient';
 import { useChangeMyPassword, useUploadMyAvatar } from '../../api/userHooks';
 import { usePwaInstall } from '../../hooks/usePwaInstall';
-import { canNavigateWithPermissions } from '../../navigation/permissions';
+import { canNavigateWithPermissions, SECURITY_CENTER_PERMISSIONS } from '../../navigation/permissions';
 import { TwoFactorSettings } from '../../modules/auth/TwoFactorSettings';
 
 export const Header: React.FC = () => {
@@ -269,6 +269,7 @@ export const Header: React.FC = () => {
                   <label className="w-full cursor-pointer px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><Plus className="w-4 h-4 text-slate-500"/>Changer ma photo<input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const updated=await uploadMyAvatar.mutateAsync(file);useAuthStore.getState().setCurrentUser({...currentUser,avatar:updated.avatar??''});setUserMenuOpen(false)}catch(error){useUiStore.getState().addToast({type:'error',title:'Photo refusée',description:error instanceof Error?error.message:'Erreur API'})}}}/></label>
                   <button onClick={async()=>{const current=await promptAction('Mot de passe actuel',{label:'Mot de passe actuel',inputType:'password'});if(!current)return;const next=await promptAction('Nouveau mot de passe',{description:'Le nouveau mot de passe doit contenir au moins 8 caractères.',label:'Nouveau mot de passe',inputType:'password'});if(!next)return;try{await changePassword.mutateAsync({currentPassword:current,newPassword:next});useUiStore.getState().addToast({type:'success',title:'Mot de passe modifié',description:'Vos sessions ont été révoquées. Reconnectez-vous.'});logout();navigate('/login',{replace:true})}catch(error){useUiStore.getState().addToast({type:'error',title:'Modification impossible',description:error instanceof Error?error.message:'Erreur API'})}}} className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><LockKeyhole className="w-4 h-4 text-slate-500"/>Changer mon mot de passe</button>
                   {can('auth.2fa.view')&&<button onClick={()=>{setUserMenuOpen(false);setTwoFactorOpen(true)}} className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><ShieldCheck className="w-4 h-4 text-slate-500"/>Double authentification</button>}
+                  {SECURITY_CENTER_PERMISSIONS.some(can)&&<Link to="/security/2fa" onClick={()=>setUserMenuOpen(false)} className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><ShieldCheck className="w-4 h-4 text-slate-500"/>Centre de sécurité 2FA</Link>}
                   {canViewSettings && <Link
                     to="/settings"
                     onClick={() => setUserMenuOpen(false)}

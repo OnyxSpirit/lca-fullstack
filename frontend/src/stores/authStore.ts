@@ -15,13 +15,13 @@ interface AuthState {
   allUsers: User[];
   allAgencies: Agency[];
   isAuthenticated: boolean;
-  pendingTwoFactor: {challengeToken:string;mode:'verify'|'setup';expiresAt:number}|null;
+  pendingTwoFactor: {challengeToken:string;mode:'verify'|'setup';expiresAt:number;trustedDeviceAvailable:boolean;trustedDeviceDurationDays:number}|null;
   pendingAuthenticatedSession: PendingAuthenticatedSession|null;
   login: (email: string, password: string) => Promise<{ success: boolean; next?:'verify'|'setup'; message?: string }>;
-  verifyTwoFactor:(code:string)=>Promise<{success:boolean;message?:string}>;
+  verifyTwoFactor:(code:string,trustDevice?:boolean,deviceName?:string)=>Promise<{success:boolean;message?:string}>;
   recoverTwoFactor:(recoveryCode:string)=>Promise<{success:boolean;message?:string}>;
   beginRequiredTwoFactorSetup:()=>Promise<{manualKey:string;qrCodeDataUrl:string;expiresIn:number}>;
-  confirmRequiredTwoFactorSetup:(code:string)=>Promise<{success:boolean;recoveryCodes?:string[];message?:string}>;
+  confirmRequiredTwoFactorSetup:(code:string,trustDevice?:boolean,deviceName?:string)=>Promise<{success:boolean;recoveryCodes?:string[];message?:string}>;
   finishRequiredTwoFactorSetup:()=>void;
   cancelTwoFactorChallenge:()=>void;
   logout: () => void;
@@ -36,7 +36,7 @@ interface AuthState {
 
 type AuthProfile = { id: string; firstName: string; lastName: string; email: string; agencyId: string; agencyName: string; agencyCode: string; avatar: string | null; roles: string[]; role: { id: string | null; code: string; isSystemSuperAdmin?: boolean }; permissions: { code: string; scope: EffectivePermissionScope | null }[] };
 type AuthenticatedResponse={status:'authenticated';accessToken:string;refreshToken:string;user:AuthProfile;recoveryCodes?:string[]};
-type LoginResponse=AuthenticatedResponse|{status:'two_factor_required'|'two_factor_setup_required';challengeToken:string;expiresIn:number};
+type LoginResponse=AuthenticatedResponse|{status:'two_factor_required'|'two_factor_setup_required';challengeToken:string;expiresIn:number;trustedDeviceAvailable:boolean;trustedDeviceDurationDays:number};
 type PendingAuthenticatedSession={accessToken:string;refreshToken:string;user:User;agency:Agency};
 const toUser = (profile: AuthProfile): User => {
   const roles = profile.roles;
@@ -60,7 +60,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     try {
       const response = await apiRequest<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      if(response.status!=='authenticated'){const next=response.status==='two_factor_required'?'verify':'setup';set({pendingTwoFactor:{challengeToken:response.challengeToken,mode:next,expiresAt:Date.now()+response.expiresIn*1000}});return{success:false,next}}
+      if(response.status!=='authenticated'){const next=response.status==='two_factor_required'?'verify':'setup';set({pendingTwoFactor:{challengeToken:response.challengeToken,mode:next,expiresAt:Date.now()+response.expiresIn*1000,trustedDeviceAvailable:Boolean(response.trustedDeviceAvailable),trustedDeviceDurationDays:Number(response.trustedDeviceDurationDays)||7}});return{success:false,next}}
       const user = toUser(response.user);
       const agency: Agency = { id: user.agencyId, name: response.user.agencyName, code: response.user.agencyCode, city: '', address: '', phone: '', email: '', isMain: true, isActive: true };
       markAuthSessionBoundary();
@@ -70,10 +70,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) { return { success: false, message: error instanceof Error ? error.message : 'Connexion impossible' }; }
   },
 
-  verifyTwoFactor:async(code)=>{try{const pending=get().pendingTwoFactor;if(!pending||pending.mode!=='verify')throw new Error('Challenge 2FA absent ou expiré.');const response=await apiRequest<AuthenticatedResponse>('/auth/2fa/verify',{method:'POST',body:JSON.stringify({challengeToken:pending.challengeToken,code})});const user=toUser(response.user),agency:Agency={id:user.agencyId,name:response.user.agencyName,code:response.user.agencyCode,city:'',address:'',phone:'',email:'',isMain:true,isActive:true};markAuthSessionBoundary();clearSessionClientState();localStorage.setItem(ACCESS_TOKEN_KEY,response.accessToken);localStorage.setItem(REFRESH_TOKEN_KEY,response.refreshToken);localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(user));set({currentUser:user,currentAgency:agency,allUsers:[user],allAgencies:[agency],isAuthenticated:true,pendingTwoFactor:null});return{success:true}}catch(error){return{success:false,message:error instanceof Error?error.message:'Vérification impossible'}}},
+  verifyTwoFactor:async(code,trustDevice=false,deviceName)=>{try{const pending=get().pendingTwoFactor;if(!pending||pending.mode!=='verify')throw new Error('Challenge 2FA absent ou expiré.');const response=await apiRequest<AuthenticatedResponse>('/auth/2fa/verify',{method:'POST',body:JSON.stringify({challengeToken:pending.challengeToken,code,trustDevice,deviceName})});const user=toUser(response.user),agency:Agency={id:user.agencyId,name:response.user.agencyName,code:response.user.agencyCode,city:'',address:'',phone:'',email:'',isMain:true,isActive:true};markAuthSessionBoundary();clearSessionClientState();localStorage.setItem(ACCESS_TOKEN_KEY,response.accessToken);localStorage.setItem(REFRESH_TOKEN_KEY,response.refreshToken);localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(user));set({currentUser:user,currentAgency:agency,allUsers:[user],allAgencies:[agency],isAuthenticated:true,pendingTwoFactor:null});return{success:true}}catch(error){return{success:false,message:error instanceof Error?error.message:'Vérification impossible'}}},
   recoverTwoFactor:async(recoveryCode)=>{try{const pending=get().pendingTwoFactor;if(!pending||pending.mode!=='verify')throw new Error('Challenge 2FA absent ou expiré.');const response=await apiRequest<AuthenticatedResponse>('/auth/2fa/recovery',{method:'POST',body:JSON.stringify({challengeToken:pending.challengeToken,recoveryCode})});const user=toUser(response.user),agency:Agency={id:user.agencyId,name:response.user.agencyName,code:response.user.agencyCode,city:'',address:'',phone:'',email:'',isMain:true,isActive:true};markAuthSessionBoundary();clearSessionClientState();localStorage.setItem(ACCESS_TOKEN_KEY,response.accessToken);localStorage.setItem(REFRESH_TOKEN_KEY,response.refreshToken);localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(user));set({currentUser:user,currentAgency:agency,allUsers:[user],allAgencies:[agency],isAuthenticated:true,pendingTwoFactor:null});return{success:true}}catch(error){return{success:false,message:error instanceof Error?error.message:'Récupération impossible'}}},
   beginRequiredTwoFactorSetup:async()=>{const pending=get().pendingTwoFactor;if(!pending||pending.mode!=='setup')throw new Error('Challenge d’enrôlement absent ou expiré.');return apiRequest('/auth/2fa/challenge/setup',{method:'POST',body:JSON.stringify({challengeToken:pending.challengeToken})})},
-  confirmRequiredTwoFactorSetup:async(code)=>{try{const pending=get().pendingTwoFactor;if(!pending||pending.mode!=='setup')throw new Error('Challenge d’enrôlement absent ou expiré.');const response=await apiRequest<AuthenticatedResponse>('/auth/2fa/challenge/confirm',{method:'POST',body:JSON.stringify({challengeToken:pending.challengeToken,code})});const user=toUser(response.user),agency:Agency={id:user.agencyId,name:response.user.agencyName,code:response.user.agencyCode,city:'',address:'',phone:'',email:'',isMain:true,isActive:true};set({pendingAuthenticatedSession:{accessToken:response.accessToken,refreshToken:response.refreshToken,user,agency},pendingTwoFactor:null});return{success:true,recoveryCodes:response.recoveryCodes??[]}}catch(error){return{success:false,message:error instanceof Error?error.message:'Activation impossible'}}},
+  confirmRequiredTwoFactorSetup:async(code,trustDevice=false,deviceName)=>{try{const pending=get().pendingTwoFactor;if(!pending||pending.mode!=='setup')throw new Error('Challenge d’enrôlement absent ou expiré.');const response=await apiRequest<AuthenticatedResponse>('/auth/2fa/challenge/confirm',{method:'POST',body:JSON.stringify({challengeToken:pending.challengeToken,code,trustDevice,deviceName})});const user=toUser(response.user),agency:Agency={id:user.agencyId,name:response.user.agencyName,code:response.user.agencyCode,city:'',address:'',phone:'',email:'',isMain:true,isActive:true};set({pendingAuthenticatedSession:{accessToken:response.accessToken,refreshToken:response.refreshToken,user,agency},pendingTwoFactor:null});return{success:true,recoveryCodes:response.recoveryCodes??[]}}catch(error){return{success:false,message:error instanceof Error?error.message:'Activation impossible'}}},
   finishRequiredTwoFactorSetup:()=>{const pending=get().pendingAuthenticatedSession;if(!pending)return;markAuthSessionBoundary();clearSessionClientState();localStorage.setItem(ACCESS_TOKEN_KEY,pending.accessToken);localStorage.setItem(REFRESH_TOKEN_KEY,pending.refreshToken);localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(pending.user));set({currentUser:pending.user,currentAgency:pending.agency,allUsers:[pending.user],allAgencies:[pending.agency],isAuthenticated:true,pendingAuthenticatedSession:null})},
   cancelTwoFactorChallenge:()=>set({pendingTwoFactor:null,pendingAuthenticatedSession:null}),
 

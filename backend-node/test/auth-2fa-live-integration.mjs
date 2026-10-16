@@ -80,6 +80,7 @@ await sleep(2_100); // backoff progressif après la première tentative invalide
 const expiredCode = await totp(Date.now() - 90_000);
 assert.equal((await post('/auth/2fa/verify', { challengeToken: relogin.payload.challengeToken, code: expiredCode })).status, 401);
 
+await sleep(4_100); // deuxième échec : backoff exponentiel de 4 secondes + marge anti-flakiness
 await nextTotpWindow();
 const verifyCode = await totp();
 const verified = await post('/auth/2fa/verify', { challengeToken: relogin.payload.challengeToken, code: verifyCode });

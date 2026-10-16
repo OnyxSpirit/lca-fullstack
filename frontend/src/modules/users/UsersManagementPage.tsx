@@ -1,7 +1,7 @@
 import { confirmMutationAction, promptAction } from '../../components/ui/BusinessDialog';
 import React,{useEffect,useMemo,useState}from'react';
 import{Camera,KeyRound,Plus,Search,UserCheck,UserX}from'lucide-react';
-import{Navigate,useNavigate}from'react-router-dom';
+import{Navigate,useNavigate,useSearchParams}from'react-router-dom';
 import{useAgenciesQuery}from'../../api/erpHooks';
 import{type AdminUser,type CreateUserPayload,useRolesQuery,useUserActions,useUsersAdminQuery}from'../../api/userHooks';
 import{PageHeader}from'../../components/common/PageHeader';
@@ -19,8 +19,10 @@ const empty:CreateUserPayload={firstName:'',lastName:'',email:'',phone:'',jobTit
 const input='w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs';
 export const UsersManagementPage:React.FC=()=>{
  const navigate=useNavigate();
+ const[searchParams,setSearchParams]=useSearchParams();
  const auth=useAuthStore(),toast=useUiStore(s=>s.addToast),allowed=auth.can('users.view'),canCreate=auth.can('users.create')&&auth.can('users.assign_role')&&auth.can('users.assign_agency'),canUpdate=auth.can('users.update'),canAssignRole=auth.can('users.assign_role'),canAssignAgency=auth.can('users.assign_agency'),canDisable=auth.can('users.disable'),canReset=auth.can('users.reset_password'),canViewRoles=auth.can('roles.view');
- const[tab,setTab]=useState<'users'|'matrix'>('users'),[search,setSearch]=useState(''),[active,setActive]=useState<''|'true'|'false'>(''),[agencyId,setAgencyId]=useState(''),[role,setRole]=useState(''),[page,setPage]=useState(1),[open,setOpen]=useState(false),[editing,setEditing]=useState<AdminUser|null>(null),[reset,setReset]=useState<AdminUser|null>(null),[twoFactorUser,setTwoFactorUser]=useState<AdminUser|null>(null),[form,setForm]=useState<CreateUserPayload>(empty);
+ const requestedTab=searchParams.get('tab'),tab: 'users'|'matrix'=requestedTab==='matrix'&&canViewRoles?'matrix':'users',setTab=(value:'users'|'matrix')=>setSearchParams({tab:value},{replace:true});
+ const[search,setSearch]=useState(''),[active,setActive]=useState<''|'true'|'false'>(''),[agencyId,setAgencyId]=useState(''),[role,setRole]=useState(''),[page,setPage]=useState(1),[open,setOpen]=useState(false),[editing,setEditing]=useState<AdminUser|null>(null),[reset,setReset]=useState<AdminUser|null>(null),[twoFactorUser,setTwoFactorUser]=useState<AdminUser|null>(null),[form,setForm]=useState<CreateUserPayload>(empty);
  const users=useUsersAdminQuery({search,active,agencyId,role,page,pageSize:7}),agencies=useAgenciesQuery(),roles=useRolesQuery(canViewRoles),actions=useUserActions();
  useEffect(()=>{if(users.data&&users.data.page!==page)setPage(users.data.page)},[users.data,page]);
  const availableRoles=useMemo(()=>roles.data?.filter(r=>r.is_active!==false)??[],[roles.data]);

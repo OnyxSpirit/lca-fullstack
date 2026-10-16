@@ -43,7 +43,11 @@ const collectiveCodes = new Set([
 ]);
 
 const ownOnlyCodes = new Set(["auth.2fa.view", "auth.2fa.manage"]);
-const globalOnlyCodes = new Set(["auth.2fa.policy.manage"]);
+const globalOnlyCodes = new Set([
+  "auth.2fa.policy.manage",
+  "auth.2fa.settings.view",
+  "auth.2fa.settings.manage",
+]);
 
 /**
  * Source de vérité des scopes attribuables. Les routes restent responsables de
@@ -58,6 +62,8 @@ export function allowedScopesForPermission(
 ): readonly PermissionScope[] {
   if (ownOnlyCodes.has(code)) return ["OWN"];
   if (globalOnlyCodes.has(code)) return ["GLOBAL"];
+  if (code === "auth.2fa.devices.view" || code === "auth.2fa.devices.revoke")
+    return permissionScopes;
   if (code.startsWith("auth.2fa.users.")) return collectiveScopes;
   if (concessionOnlyPrefixes.some((prefix) => code.startsWith(prefix)))
     return concessionScopes;

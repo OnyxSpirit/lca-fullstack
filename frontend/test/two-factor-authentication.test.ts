@@ -61,7 +61,7 @@ test('UI-2FA-07: la liste des politiques présente chargement, erreur et absence
   assert.match(administration, /Chargement des politiques 2FA…/);
   assert.match(administration, /policies\.isError&&/);
   assert.match(administration, /Récupération des politiques 2FA impossible/);
-  assert.match(administration, /policies\.data\?\.length===0/);
+  assert.match(administration, /visible\.length===0/);
   assert.match(administration, /Aucun rôle disponible\./);
 });
 

@@ -1,0 +1,22 @@
+CREATE TABLE two_factor_trusted_devices (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  device_name VARCHAR(120) NULL,
+  browser_summary VARCHAR(255) NULL,
+  user_agent_hash CHAR(64) NULL,
+  created_ip VARCHAR(45) NULL,
+  last_used_ip VARCHAR(45) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_used_at DATETIME NULL,
+  expires_at DATETIME NOT NULL,
+  revoked_at DATETIME NULL,
+  revoked_by BIGINT UNSIGNED NULL,
+  revoke_reason VARCHAR(255) NULL,
+  rotation_count INT UNSIGNED NOT NULL DEFAULT 0,
+  UNIQUE KEY uq_2fa_trusted_device_token_hash(token_hash),
+  INDEX idx_2fa_trusted_device_user_state(user_id,revoked_at,expires_at),
+  INDEX idx_2fa_trusted_device_expiry(expires_at,revoked_at),
+  CONSTRAINT fk_2fa_trusted_device_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_2fa_trusted_device_revoker FOREIGN KEY(revoked_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;

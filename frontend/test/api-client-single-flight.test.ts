@@ -49,7 +49,7 @@ test('un 403 n’est jamais classé comme expiration de session, contrairement a
 });
 
 test('2FA setup: les JWT et le profil sont persistés atomiquement avant ouverture de l’ERP',async()=>{
-  useAuthStore.setState({currentUser:null,currentAgency:null,allUsers:[],allAgencies:[],isAuthenticated:false,pendingTwoFactor:{challengeToken:'00000000-0000-4000-8000-000000000001',mode:'setup',expiresAt:Date.now()+60_000},pendingAuthenticatedSession:null});
+  useAuthStore.setState({currentUser:null,currentAgency:null,allUsers:[],allAgencies:[],isAuthenticated:false,pendingTwoFactor:{challengeToken:'00000000-0000-4000-8000-000000000001',mode:'setup',expiresAt:Date.now()+60_000,trustedDeviceAvailable:false,trustedDeviceDurationDays:30},pendingAuthenticatedSession:null});
   globalThis.fetch=async input=>String(input).endsWith('/auth/2fa/challenge/confirm')?json({status:'authenticated',accessToken:'access-2fa',refreshToken:'refresh-2fa',recoveryCodes:['AAAA-BBBB-CCCC-DDDD-EEEE'],user:{id:'A',firstName:'Super',lastName:'Admin',email:'admin@test.local',agencyId:'1',agencyName:'Agence',agencyCode:'AG',avatar:null,roles:['SUPER_ADMIN'],role:{id:'1',code:'SUPER_ADMIN',isSystemSuperAdmin:true},permissions:[{code:'dashboard.view',scope:'GLOBAL'}]}}):json({message:'Unexpected'},500);
   const confirmed=await useAuthStore.getState().confirmRequiredTwoFactorSetup('123456');
   assert.equal(confirmed.success,true);assert.equal(useAuthStore.getState().isAuthenticated,false);assert.equal(localStorage.getItem('lca-access-token'),null);assert.equal(localStorage.getItem('lca-refresh-token'),null);

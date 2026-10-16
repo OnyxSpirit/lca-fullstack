@@ -44,7 +44,8 @@ test('2FA-04: aucun jeton de session n’est émis avant le second facteur requi
   assert.match(decision, /createLoginChallenge/);
   assert.match(decision, /two_factor_required/);
   assert.match(decision, /two_factor_setup_required/);
-  assert.ok(decision.indexOf('createLoginChallenge') < decision.indexOf('issueTokens'));
+  assert.match(decision, /consumeTrustedDevice[\s\S]*issueTokens\(user,roles,true,false\)/);
+  assert.match(decision, /createLoginChallenge[\s\S]*return\{status:state\.enabled/);
   assert.match(authService, /assertSessionCurrent\(String\(user\.id\),sessionId\)/);
   assert.match(authService, /confirmChallengeSetup[\s\S]*complete\(result\.userId,result\.recoveryCodes\)/);
   assert.match(authService, /issueTokens\(user,roles,true\)/);

@@ -32,7 +32,7 @@ async function send(path:string,init:RequestInit,token:string|null){
   const headers=new Headers(init.headers);
   if(!(init.body instanceof FormData)&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
   if(token)headers.set('Authorization',`Bearer ${token}`);else headers.delete('Authorization');
-  return fetch(`${API_URL}${path}`,{...init,headers});
+  return fetch(`${API_URL}${path}`,{credentials:'include',...init,headers});
 }
 
 function terminateSession(snapshot:SessionSnapshot){

@@ -6,6 +6,7 @@ import type{ResultSetHeader,RowDataPacket}from'mysql2/promise';
 const password='step-up-password',passwordHash=await argon2.hash(password),sessions=new Map<string,{userId:string;strongAt:number|null;revoked:boolean}>();
 const result=(affectedRows=1)=>({affectedRows}as ResultSetHeader);
 async function query<T extends RowDataPacket[]>(sql:string,params:unknown[]=[]):Promise<T>{
+ if(sql.includes("FROM settings WHERE scope_type='global'"))return[]as T;
  if(sql.includes('strong_auth_at>=DATE_SUB')){const session=sessions.get(String(params[0])),minimum=Date.now()-Number(params[2])*1000;return(session&&session.userId===String(params[1])&&!session.revoked&&session.strongAt!=null&&session.strongAt>=minimum?[{id:params[0]}]:[])as T}
  if(sql.includes('SELECT password_hash FROM users'))return(String(params[0])==='1'?[{password_hash:passwordHash}]:[])as T;
  if(sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('role_two_factor_policies'))return[{super_admin:0,individually_required:0,role_required:0,enabled_at:null,reset_required:0}]as T;

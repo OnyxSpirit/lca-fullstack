@@ -403,8 +403,13 @@ workshopRouter.get('/repair-orders/advisor-candidates',serviceAccess('service.or
 }));
 workshopRouter.get('/repair-orders/customer-candidates',serviceAccess('service.order.create'),asyncHandler(async(r,res)=>{
   const scoped=serviceCustomerScope(r);
-  const rows=await query<RowDataPacket[]>(`SELECT c.id,c.customer_code,c.civility,c.first_name,c.last_name,c.company_name,c.phone,c.agency_id FROM customers c WHERE ${scoped.sql} ORDER BY c.last_name,c.first_name,c.id`,scoped.params);
-  res.json(rows.map(row=>({id:String(row.id),code:row.customer_code,civility:row.civility,firstName:row.first_name??'',lastName:row.last_name??'',companyName:row.company_name??'',phone:row.phone??'',agencyId:String(row.agency_id)})));
+  const search=typeof r.query.search==='string'?r.query.search.trim().replace(/\s+/g,' '):'',customerType=typeof r.query.customerType==='string'?r.query.customerType:'';
+  if(customerType&&!['individual','company'].includes(customerType))throw new HttpError(400,'Type de client invalide');
+  const where=[scoped.sql],params:any[]=[...scoped.params];
+  if(customerType){where.push('c.customer_type=?');params.push(customerType)}
+  if(search){const term=`%${search}%`;where.push("(CONCAT_WS(' ',c.first_name,c.last_name) LIKE ? OR CONCAT_WS(' ',c.last_name,c.first_name) LIKE ? OR c.company_name LIKE ?)");params.push(term,term,term)}
+  const rows=await query<RowDataPacket[]>(`SELECT c.id,c.customer_code,c.civility,c.first_name,c.last_name,c.company_name,c.phone,c.email,c.agency_id FROM customers c WHERE ${where.join(' AND ')} ORDER BY c.last_name,c.first_name,c.id LIMIT 50`,params);
+  res.json(rows.map(row=>({id:String(row.id),code:row.customer_code,civility:row.civility,firstName:row.first_name??'',lastName:row.last_name??'',companyName:row.company_name??'',phone:row.phone??'',email:row.email??'',agencyId:String(row.agency_id)})));
 }));
 workshopRouter.get('/repair-orders/customer-vehicles',serviceAccess('service.order.create'),asyncHandler(async(r,res)=>{
   const customer=idOf(r.query.customerId);
@@ -487,6 +492,9 @@ workshopRouter.post(
         400,
         "Ce véhicule n’est pas lié au client dans cette agence",
       );
+    const expectedOrigin=r.body.expectedVehicleOrigin==null?null:String(r.body.expectedVehicleOrigin);
+    if(expectedOrigin&&!['CONCESSION','EXTERNAL'].includes(expectedOrigin))throw new HttpError(400,'Origine de parcours invalide');
+    if(expectedOrigin&&valid.commercial_origin!==expectedOrigin)throw new HttpError(409,expectedOrigin==='CONCESSION'?'Le parcours interne exige un véhicule de concession':'Le parcours extérieur exige un véhicule extérieur',{code:'VEHICLE_ORIGIN_MISMATCH',expectedOrigin,actualOrigin:valid.commercial_origin});
     const originSnapshot=vehicleOriginSnapshot(valid.commercial_origin,valid.commercial_origin_source);
     const appointment=r.body.appointmentId?idOf(r.body.appointmentId):null;
     const advisor=idOf(r.body.advisorId??r.user!.sub);

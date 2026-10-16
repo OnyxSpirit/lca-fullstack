@@ -7,6 +7,7 @@ process.env.TWO_FACTOR_ENCRYPTION_KEY = randomBytes(32).toString('base64');
 
 const crypto = await import('../src/modules/auth/two-factor-crypto.js');
 const migration = readFileSync(new URL('../database/migrations/087_two_factor_authentication.sql', import.meta.url), 'utf8');
+const stepUpMigration = readFileSync(new URL('../database/migrations/088_two_factor_strong_authentication.sql', import.meta.url), 'utf8');
 const authService = readFileSync(new URL('../src/modules/auth/auth.service.ts', import.meta.url), 'utf8');
 const factorService = readFileSync(new URL('../src/modules/auth/two-factor.service.ts', import.meta.url), 'utf8');
 const adminService = readFileSync(new URL('../src/modules/auth/two-factor-admin.service.ts', import.meta.url), 'utf8');
@@ -47,7 +48,7 @@ test('2FA-04: aucun jeton de session n’est émis avant le second facteur requi
   assert.match(authService, /assertSessionCurrent\(String\(user\.id\),sessionId\)/);
   assert.match(authService, /confirmChallengeSetup[\s\S]*complete\(result\.userId,result\.recoveryCodes\)/);
   assert.match(authService, /issueTokens\(user,roles,true\)/);
-  assert.match(authService, /two_factor_verified_at,two_factor_grandfathered/);
+  assert.match(authService, /two_factor_verified_at,strong_auth_at,strong_auth_method,two_factor_grandfathered/);
   assert.match(factorService, /const sqlBoolean=\(value:unknown\)=>Number\(value\)===1/);
   assert.doesNotMatch(factorService, /resetRequired:Boolean\(row\.reset_required\)/);
 });
@@ -65,9 +66,31 @@ test('2FA-05: challenge, anti-rejeu, récupération atomique et limitation progr
 test('2FA-06: les opérations administratives imposent périmètre, authentification forte et protections Super Admin', () => {
   assert.match(adminService, /assertCanManage/);
   assert.match(adminService, /assertCanViewTargetActor/);
-  assert.match(adminService, /assertRecentAndStrong/);
+  assert.match(adminService, /assertRecentStrongAuthentication/);
   assert.match(adminService, /SUPER_ADMIN/);
   assert.match(adminService, /is_system/);
   assert.match(adminService, /Seul un Super Administrateur peut réinitialiser ce compte privilégié/);
   assert.match(adminService, /permissions\.get\('auth\.2fa\.policy\.manage'\)!=='GLOBAL'/);
+});
+
+test('2FA-07: le step-up est additif, lié à la session et comparé en UTC sans parsing JavaScript', () => {
+  assert.match(stepUpMigration, /ALTER TABLE refresh_tokens/);
+  assert.match(stepUpMigration, /strong_auth_at DATETIME NULL/);
+  assert.match(stepUpMigration, /strong_auth_method ENUM\('PASSWORD','PASSWORD_TOTP'\) NULL/);
+  assert.doesNotMatch(stepUpMigration, /DROP|TRUNCATE|DELETE/i);
+  assert.match(factorService, /strong_auth_at>=DATE_SUB\(UTC_TIMESTAMP\(\),INTERVAL \? SECOND\)/);
+  assert.match(factorService, /WHERE id=\? AND user_id=\? AND revoked_at IS NULL/);
+  assert.doesNotMatch(factorService.slice(factorService.indexOf('assertRecentStrongAuthentication'),factorService.indexOf('auditStepUpFailure')), /new Date|Date\.now/);
+});
+
+test('2FA-08: le step-up exige mot de passe, TOTP actif, anti-rejeu, audit et n’accorde aucune permission', () => {
+  const stepUp = factorService.slice(factorService.indexOf('export async function stepUp'), factorService.indexOf('export async function regenerateRecovery'));
+  assert.match(stepUp, /argon2\.verify/);
+  assert.match(stepUp, /state\.enabled/);
+  assert.match(stepUp, /verifyCurrentFactor/);
+  assert.match(factorService, /afterTimeStep:last/);
+  assert.match(stepUp, /strong_auth_at=UTC_TIMESTAMP\(\)/);
+  assert.match(stepUp, /auth\.2fa\.step_up_succeeded/);
+  assert.doesNotMatch(stepUp, /permissions|role_permissions|SUPER_ADMIN/);
+  assert.match(routes, /\/2fa\/step-up',authenticate,limits\.stepUp/);
 });

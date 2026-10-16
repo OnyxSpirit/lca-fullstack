@@ -38,7 +38,7 @@ function tokensFor(user: UserRow, roles: string[], sessionId: string) {
 
 async function issueTokens(user: UserRow, roles: string[],twoFactorVerified=false) {
   const sessionId = randomUUID(), tokens = tokensFor(user, roles, sessionId);
-  await transaction(async connection=>{await connection.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,two_factor_verified_at,two_factor_grandfathered) VALUES(?,?,?,FROM_UNIXTIME(?),IF(?,NOW(),NULL),FALSE)', [sessionId, user.id, tokens.refreshHash, tokens.refreshExpiresAt,twoFactorVerified]);await connection.execute('UPDATE users SET last_login_at=NOW() WHERE id=?',[user.id])});
+  await transaction(async connection=>{await connection.execute("INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,two_factor_verified_at,strong_auth_at,strong_auth_method,two_factor_grandfathered) VALUES(?,?,?,FROM_UNIXTIME(?),IF(?,UTC_TIMESTAMP(),NULL),UTC_TIMESTAMP(),IF(?,'PASSWORD_TOTP','PASSWORD'),FALSE)", [sessionId, user.id, tokens.refreshHash, tokens.refreshExpiresAt,twoFactorVerified,twoFactorVerified]);await connection.execute('UPDATE users SET last_login_at=NOW() WHERE id=?',[user.id])});
   return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
 }
 

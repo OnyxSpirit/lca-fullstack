@@ -79,6 +79,14 @@ test('RL15-RL18: me/logout et les autres routes ne reçoivent aucun quota auth',
   assert.equal((await invalidRefresh(app)).status, 400);
 });
 
+test('RL19: le step-up possède un quota indépendant lié à l’acteur authentifié',async()=>{
+  const app=express(),limits=createAuthRateLimiters(config({loginMax:2,loginIpMax:100}));
+  app.set('trust proxy',0);app.use(express.json());app.post('/step-up',(req,_res,next)=>{req.user={sub:'7'}as any;next()},limits.stepUp,(_req,res)=>res.json({success:true}));
+  assert.equal((await request(app).post('/step-up')).status,200);
+  assert.equal((await request(app).post('/step-up')).status,200);
+  const blocked=await request(app).post('/step-up');assert.equal(blocked.status,429);assert.equal(blocked.body.code,'AUTH_RATE_LIMITED');
+});
+
 test('RL13/RL17/RL18: rotation, utilisateur actif et absence de journalisation sensible sont préservés', () => {
   const service = readFileSync(new URL('../src/modules/auth/auth.service.ts', import.meta.url), 'utf8');
   const limiter = readFileSync(new URL('../src/modules/auth/auth-rate-limit.ts', import.meta.url), 'utf8');

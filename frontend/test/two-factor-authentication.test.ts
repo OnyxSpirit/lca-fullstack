@@ -8,6 +8,8 @@ const settings = readFileSync(new URL('../src/modules/auth/TwoFactorSettings.tsx
 const administration = readFileSync(new URL('../src/modules/users/TwoFactorAdministration.tsx', import.meta.url), 'utf8');
 const users = readFileSync(new URL('../src/modules/users/UsersManagementPage.tsx', import.meta.url), 'utf8');
 const apiClient = readFileSync(new URL('../src/services/apiClient.ts', import.meta.url), 'utf8');
+const strongAuthentication = readFileSync(new URL('../src/modules/auth/StrongAuthenticationModal.tsx', import.meta.url), 'utf8');
+const hooks = readFileSync(new URL('../src/api/twoFactorHooks.ts', import.meta.url), 'utf8');
 
 test('UI-2FA-01: la session frontend reste fermée pendant les challenges TOTP et enrollment', () => {
   assert.match(store, /two_factor_required/);
@@ -61,4 +63,18 @@ test('UI-2FA-07: la liste des politiques présente chargement, erreur et absence
   assert.match(administration, /Récupération des politiques 2FA impossible/);
   assert.match(administration, /policies\.data\?\.length===0/);
   assert.match(administration, /Aucun rôle disponible\./);
+});
+
+test('UI-2FA-08: le step-up demande le mot de passe, le TOTP éventuel et permet l’annulation', () => {
+  assert.match(strongAuthentication, /Mot de passe actuel/);
+  assert.match(strongAuthentication, /Code TOTP si activé/);
+  assert.match(strongAuthentication, /Annuler/);
+  assert.match(hooks, /\/auth\/2fa\/step-up/);
+});
+
+test('UI-2FA-09: une mutation sensible n’est jamais rejouée automatiquement après le step-up', () => {
+  assert.match(strongAuthentication, /L’opération initiale ne sera pas relancée automatiquement/);
+  assert.match(administration, /Relancez explicitement l’opération sensible/);
+  assert.match(administration, /Relancez explicitement la modification de politique/);
+  assert.doesNotMatch(strongAuthentication, /onConfirmed\([^)]*mutateAsync/);
 });

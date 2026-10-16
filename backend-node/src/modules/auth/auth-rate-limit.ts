@@ -17,6 +17,7 @@ const loginIdentity = (request: Request) => {
   const normalized = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   return createHash('sha256').update(normalized || 'missing').digest('hex');
 };
+const stepUpIdentity = (request: Request) => `${clientIp(request)}:${request.user?.sub ?? 'anonymous'}`;
 
 function limiter(windowMs: number, max: number, keyGenerator?: (request: Request) => string): RequestHandler {
   return rateLimit({
@@ -40,5 +41,6 @@ export function createAuthRateLimiters(config: AuthRateLimitConfig) {
       limiter(config.loginWindowMs, config.loginMax, (request) => `${clientIp(request)}:${loginIdentity(request)}`),
     ],
     refresh: limiter(config.refreshWindowMs, config.refreshMax, clientIp),
+    stepUp: limiter(config.loginWindowMs, config.loginMax, stepUpIdentity),
   };
 }

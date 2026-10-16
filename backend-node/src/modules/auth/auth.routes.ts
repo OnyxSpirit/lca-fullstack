@@ -28,6 +28,7 @@ export function createAuthRouter(rateLimitConfig: AuthRateLimitConfig = env.auth
   router.post('/2fa/recovery',...limits.login,asyncHandler(async(request,response)=>response.json(await service.recoverTwoFactor(challenge(request.body),(request.body as {recoveryCode?:unknown}).recoveryCode,request))));
   router.post('/2fa/challenge/setup',...limits.login,asyncHandler(async(request,response)=>response.json(await service.setupForChallenge(challenge(request.body),request))));
   router.post('/2fa/challenge/confirm',...limits.login,asyncHandler(async(request,response)=>response.json(await service.confirmChallengeSetup(challenge(request.body),(request.body as {code?:unknown}).code,request))));
+  router.post('/2fa/step-up',authenticate,limits.stepUp,asyncHandler(async(request,response)=>response.json(await twoFactor.stepUp(request,request.body?.currentPassword,request.body?.totpCode))));
   router.get('/2fa/status',authenticate,requirePermission('auth.2fa.view'),asyncHandler(async(request,response)=>response.json(await twoFactor.status(request.user!.sub))));
   router.post('/2fa/setup',authenticate,requirePermission('auth.2fa.manage'),asyncHandler(async(request,response)=>response.json(await twoFactor.beginPersonalSetup(request))));
   router.post('/2fa/confirm',authenticate,requirePermission('auth.2fa.manage'),asyncHandler(async(request,response)=>response.json(await twoFactor.confirmPersonalSetup(request,(request.body as {code?:unknown}).code))));

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -24,8 +24,6 @@ import {
   Landmark,
   X,
   History,
-  KeyRound,
-  ChevronDown,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationsQuery } from '../../api/notificationHooks';
@@ -55,7 +53,7 @@ export const Sidebar: React.FC = () => {
     badgeVariant?: 'default' | 'danger' | 'warning' | 'primary' | 'success';
     module: string;
     visible?: boolean;
-    children?: NavItem[];
+    active?: boolean;
   }
 
   interface NavSection {
@@ -198,14 +196,12 @@ export const Sidebar: React.FC = () => {
           module: 'activity',
         },
         {
+          to: ROUTES.users,
           label: 'Utilisateurs & RBAC',
           icon: <ShieldCheck className="w-4 h-4" />,
           module: 'users',
-          children: [
-            {to:`${ROUTES.users}?tab=users`,label:'Collaborateurs',icon:<Users className="w-4 h-4"/>,module:'users'},
-            {to:`${ROUTES.users}?tab=matrix`,label:'Matrice RBAC',icon:<KeyRound className="w-4 h-4"/>,module:'users',visible:can('roles.view')&&can('users.view')},
-            {to:'/security/2fa',label:'Centre de sécurité 2FA',icon:<ShieldCheck className="w-4 h-4"/>,module:'security2fa',visible:canAccessSecurityCenter(currentUser.permissions)},
-          ],
+          visible: can('users.view')||can('roles.view')||canAccessSecurityCenter(currentUser.permissions),
+          active: location.pathname===ROUTES.users||location.pathname==='/security/2fa',
         },
         {
           to: ROUTES.settings,
@@ -217,11 +213,7 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
-  const usersGroupActive=location.pathname===ROUTES.users||location.pathname==='/security/2fa';
-  const usersActiveTab=new URLSearchParams(location.search).get('tab')??'users';
-  const[usersGroupOpen,setUsersGroupOpen]=useState(usersGroupActive);
-  useEffect(()=>{if(usersGroupActive)setUsersGroupOpen(true)},[usersGroupActive]);
-  const isVisible=(item:NavItem)=>item.visible??(item.to?canNavigateWithPermissions(currentUser.permissions,item.to):Boolean(item.children?.some(isVisible)));
+  const isVisible=(item:NavItem)=>item.visible??Boolean(item.to&&canNavigateWithPermissions(currentUser.permissions,item.to));
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#fffffff] text-zinc-400 select-none">
@@ -261,32 +253,7 @@ export const Sidebar: React.FC = () => {
                 </div>
               )}
               <div className="space-y-1">
-                {visibleItems.map((item) => item.children ? (()=>{
-                  const visibleChildren=item.children.filter(isVisible);
-                  return <div key={item.label}>
-                    <button
-                      type="button"
-                      aria-expanded={usersGroupOpen}
-                      onClick={()=>setUsersGroupOpen(open=>!open)}
-                      className={cn('relative flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left transition-colors',usersGroupActive?'bg-slate-100 font-semibold text-[#8f1722]':'text-gray-950 hover:bg-white/7 hover:text-red-800',sidebarCollapsed&&'justify-center px-2')}
-                      title={sidebarCollapsed?item.label:undefined}
-                    >
-                      <span className="shrink-0">{item.icon}</span>
-                      {!sidebarCollapsed&&<><span className="flex-1 truncate">{item.label}</span><ChevronDown className={cn('h-3.5 w-3.5 transition-transform',usersGroupOpen&&'rotate-180')}/></>}
-                    </button>
-                    {usersGroupOpen&&<div className={cn('mt-1 space-y-1',!sidebarCollapsed&&'ml-4 border-l border-slate-200 pl-2')}>
-                      {visibleChildren.map(child=><NavLink
-                        key={child.to}
-                        to={child.to!}
-                        onClick={()=>setMobileMenuOpen(false)}
-                        className={()=>cn('relative flex items-center gap-3 rounded-sm px-3 py-2 text-[12px] transition-colors',location.pathname===(child.to!.split('?')[0])&&(child.module==='security2fa'||usersActiveTab===(child.to!.includes('matrix')?'matrix':'users'))?'bg-[#8f1722] font-semibold text-white':'text-gray-800 hover:bg-slate-100 hover:text-[#8f1722]',sidebarCollapsed&&'justify-center px-2')}
-                        title={sidebarCollapsed?child.label:undefined}
-                      >
-                        <span className="shrink-0">{child.icon}</span>{!sidebarCollapsed&&<span className="flex-1 truncate">{child.label}</span>}
-                      </NavLink>)}
-                    </div>}
-                  </div>
-                })() : (
+                {visibleItems.map((item) => (
                   <NavLink
                     key={item.to!}
                     to={item.to!}
@@ -294,7 +261,7 @@ export const Sidebar: React.FC = () => {
                     className={({ isActive }) =>
                       cn(
                         'relative flex items-center gap-3 px-3 py-2 rounded-sm transition-colors cursor-pointer',
-                        isActive
+                        (item.active??isActive)
                           ? 'bg-[#8f1722] text-white font-semibold before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[3px] before:bg-grey-800'
                           : ' text-gray-950 hover:bg-white/7 hover:text-red-800',
                         sidebarCollapsed && 'justify-center px-2'

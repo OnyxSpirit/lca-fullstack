@@ -400,11 +400,11 @@ const mapInvoice = (r: any): Invoice => ({
   creditNotes:(r.creditNotes??[]).map((x:any)=>({id:s(x.id),creditNoteNumber:x.credit_note_number,amount:n(x.amount),refundedAmount:n(x.refunded_amount),refundableRemaining:Math.max(0,n(x.amount)-n(x.refunded_amount)),reason:x.reason,status:x.status,issueDate:x.issue_date,createdByName:x.created_by_name??''})),
 });
 
-function resource<T>(key: readonly string[], path: string, map: (r: any) => T) {
+function resource<T>(key: readonly string[], path: string, map: (r: any) => T,requestEnabled=true) {
   return useQuery({
     queryKey: key,
     queryFn: async () => (await apiRequest<any[]>(path)).map(map),
-    enabled: enabled(),
+    enabled: enabled()&&requestEnabled,
   });
 }
 export const useUsersQuery = (requestEnabled=true) =>
@@ -427,7 +427,7 @@ export const useUsersQuery = (requestEnabled=true) =>
         permissions: Array.isArray(r.permissions)?r.permissions:Object.keys(r.permissions??{}),
       }) as User)});
 export const useCrmTeamMembersQuery=(requestEnabled=true)=>useQuery({queryKey:['crm','team-members'],enabled:enabled()&&requestEnabled,queryFn:()=>apiRequest<Array<{id:string;name:string;agencyId:string}>>('/crm/team-members')});
-export const useAgenciesQuery = () =>
+export const useAgenciesQuery = (requestEnabled=true) =>
   resource<Agency>(erpKeys.agencies, "/agencies", (r: any) => ({
     id: s(r.id),
     name: r.name,
@@ -438,7 +438,7 @@ export const useAgenciesQuery = () =>
     email: r.email ?? "",
     isMain: false,
     isActive: Boolean(r.isActive),
-  }));
+  }),requestEnabled);
 export const useCustomersQuery = (search = "", type = "", requestEnabled = true) =>
   useQuery({
     queryKey: [...erpKeys.customers, search, type],

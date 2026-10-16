@@ -38,7 +38,6 @@ const SettingsPage=lazy(()=>import('./modules/settings/SettingsPage').then(modul
 const NotificationsPage=lazy(()=>import('./modules/notifications/NotificationsPage').then(module=>({default:module.NotificationsPage})));
 const ActivityPage=lazy(()=>import('./modules/activity/ActivityPage').then(module=>({default:module.ActivityPage})));
 const LoginPage=lazy(()=>import('./modules/auth/LoginPage').then(module=>({default:module.LoginPage})));
-const TwoFactorSecurityCenterPage=lazy(()=>import('./modules/auth/TwoFactorSecurityCenterPage').then(module=>({default:module.TwoFactorSecurityCenterPage})));
 const NotFoundPage=lazy(()=>import('./modules/errors/NotFoundPage').then(module=>({default:module.NotFoundPage})));
 const AppLayout=lazy(()=>import('./components/layout/AppLayout').then(module=>({default:module.AppLayout})));
 
@@ -64,6 +63,7 @@ function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNod
 }
 function PermissionGuard({permission,children}:{permission:string;children:React.ReactNode}){const can=useAuthStore(state=>state.can);return can(permission)?<>{children}</>:<AccessDeniedPage/>}
 function SecurityCenterGuard({children}:{children:React.ReactNode}){const can=useAuthStore(state=>state.can);return SECURITY_CENTER_PERMISSIONS.some(can)?<>{children}</>:<AccessDeniedPage/>}
+function UsersRbacGuard({children}:{children:React.ReactNode}){const can=useAuthStore(state=>state.can);return can('users.view')||can('roles.view')||SECURITY_CENTER_PERMISSIONS.some(can)?<>{children}</>:<AccessDeniedPage/>}
 
 export default function App() {
   return (
@@ -102,10 +102,10 @@ export default function App() {
           <Route path="reports" element={<ModuleGuard module="reports">{lazyPage(<ReportsPage />)}</ModuleGuard>} />
           <Route path="documents" element={<ModuleGuard module="documents">{lazyPage(<DocumentsGedPage />)}</ModuleGuard>} />
           <Route path="hr" element={<ModuleGuard module="hr">{lazyPage(<HrAdministrationPage />)}</ModuleGuard>} />
-          <Route path="users" element={<ModuleGuard module="users">{lazyPage(<UsersManagementPage />)}</ModuleGuard>} />
+          <Route path="users" element={<UsersRbacGuard>{lazyPage(<UsersManagementPage />)}</UsersRbacGuard>} />
           <Route path="settings" element={<ModuleGuard module="settings">{lazyPage(<SettingsPage />)}</ModuleGuard>} />
           <Route path="activity" element={<ModuleGuard module="activity">{lazyPage(<ActivityPage />)}</ModuleGuard>} />
-          <Route path="security/2fa" element={<SecurityCenterGuard>{lazyPage(<TwoFactorSecurityCenterPage />)}</SecurityCenterGuard>} />
+          <Route path="security/2fa" element={<SecurityCenterGuard>{lazyPage(<UsersManagementPage />)}</SecurityCenterGuard>} />
           <Route path="security/devices/me" element={<Navigate to="/security/2fa?section=mine" replace />} />
           <Route path="security/devices" element={<Navigate to="/security/2fa?section=devices" replace />} />
           <Route path="*" element={lazyPage(<NotFoundPage />)} />

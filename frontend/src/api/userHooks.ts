@@ -13,7 +13,7 @@ export const userKeys={all:['users-admin']as const,detail:(id:string)=>['user',i
 const params=(f:UserFilters)=>{const p=new URLSearchParams();Object.entries(f).forEach(([k,v])=>{if(v)p.set(k,v)});return p.toString()};
 const invalidate=(qc:ReturnType<typeof useQueryClient>)=>{void qc.invalidateQueries({queryKey:userKeys.all});void qc.invalidateQueries({queryKey:['users']});void qc.invalidateQueries({queryKey:userKeys.directory});void qc.invalidateQueries({queryKey:['technicians']})};
 export interface AdminUserPage{items:AdminUser[];total:number;page:number;pageSize:number;totalPages:number}
-export const useUsersAdminQuery=(filters:UserFilters)=>useQuery({queryKey:[...userKeys.all,filters],queryFn:()=>apiRequest<AdminUserPage>(`/users?${params(filters)}`)});
+export const useUsersAdminQuery=(filters:UserFilters,enabled=true)=>useQuery({queryKey:[...userKeys.all,filters],queryFn:()=>apiRequest<AdminUserPage>(`/users?${params(filters)}`),enabled});
 export const useUserQuery=(id?:string)=>useQuery({queryKey:userKeys.detail(id??''),queryFn:()=>apiRequest<AdminUser>(`/users/${id}`),enabled:Boolean(id)});
 export const useRolesQuery=(enabled=true)=>useQuery({queryKey:userKeys.roles,queryFn:()=>apiRequest<Role[]>('/roles'),enabled});
 export const usePermissionsCatalogQuery=(enabled=true)=>useQuery({queryKey:userKeys.permissions,queryFn:()=>apiRequest<PermissionCatalogItem[]>('/permissions'),enabled});

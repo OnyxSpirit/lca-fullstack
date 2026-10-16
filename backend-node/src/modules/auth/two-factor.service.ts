@@ -30,8 +30,13 @@ export async function requirement(userId:string,connection?:PoolConnection){
   const run=async(sql:string,params:any[])=>connection?(await connection.execute<RowDataPacket[]>(sql,params))[0]:query<RowDataPacket[]>(sql,params);
   const rows=await run(`SELECT EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_active=TRUE AND r.is_system=TRUE AND r.code='SUPER_ADMIN') super_admin,COALESCE(tf.individually_required,FALSE) individually_required,EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id AND r.is_active=TRUE JOIN role_two_factor_policies p ON p.role_id=r.id AND p.required=TRUE WHERE ur.user_id=?) role_required,tf.enabled_at,COALESCE(tf.reset_required,FALSE) reset_required FROM users u LEFT JOIN user_two_factor_auth tf ON tf.user_id=u.id WHERE u.id=?`,[userId,userId,userId]);
   const row=rows[0];if(!row)throw new HttpError(404,'Utilisateur introuvable.');
-  const superAdmin=Boolean(row.super_admin),individual=Boolean(row.individually_required),role=Boolean(row.role_required),enabled=Boolean(row.enabled_at)&&!Boolean(row.reset_required);
-  return{required:superAdmin||individual||role,enabled,superAdmin,individual,role,resetRequired:Boolean(row.reset_required),enabledAt:row.enabled_at??null};
+  // With supportBigNumbers/bigNumberStrings, MySQL aggregate expressions such
+  // as EXISTS and COALESCE(..., FALSE) may be returned as "0"/"1". Boolean("0")
+  // is true in JavaScript and previously made reset_required=0 disable every
+  // active factor, causing verified sessions to be rejected immediately.
+  const sqlBoolean=(value:unknown)=>Number(value)===1;
+  const superAdmin=sqlBoolean(row.super_admin),individual=sqlBoolean(row.individually_required),role=sqlBoolean(row.role_required),resetRequired=sqlBoolean(row.reset_required),enabled=Boolean(row.enabled_at)&&!resetRequired;
+  return{required:superAdmin||individual||role,enabled,superAdmin,individual,role,resetRequired,enabledAt:row.enabled_at??null};
 }
 
 export async function createLoginChallenge(userId:string,purpose:ChallengePurpose,context:string){

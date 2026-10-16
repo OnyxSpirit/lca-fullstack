@@ -41,3 +41,24 @@ test('UI-2FA-04: un refus métier 403 ne provoque pas la destruction de la sessi
   assert.doesNotMatch(apiClient, /error\.status===401\|\|error\.status===403/);
   assert.match(apiClient, /if\(response\.status===401\)terminateSession/);
 });
+
+test('UI-2FA-05: la politique par rôle expose explicitement ses deux états et conserve la bascule booléenne', () => {
+  assert.match(administration, /required\?'Obligatoire':'Non obligatoire'/);
+  assert.match(administration, /required\?'Retirer l’obligation':'Imposer la 2FA'/);
+  assert.match(administration, /change\(policy\.role_id,!policy\.required\)/);
+});
+
+test('UI-2FA-06: le SUPER_ADMIN affiche sa protection système et ne permet pas son retrait', () => {
+  assert.match(administration, /systemProtected=policy\.is_system&&policy\.code==='SUPER_ADMIN'/);
+  assert.match(administration, /Obligatoire — Sécurité système/);
+  assert.match(administration, /disabled=\{systemProtected\}/);
+});
+
+test('UI-2FA-07: la liste des politiques présente chargement, erreur et absence de rôle', () => {
+  assert.match(administration, /policies\.isLoading&&/);
+  assert.match(administration, /Chargement des politiques 2FA…/);
+  assert.match(administration, /policies\.isError&&/);
+  assert.match(administration, /Récupération des politiques 2FA impossible/);
+  assert.match(administration, /policies\.data\?\.length===0/);
+  assert.match(administration, /Aucun rôle disponible\./);
+});

@@ -62,6 +62,7 @@ export function allowedScopesForPermission(
 ): readonly PermissionScope[] {
   if (ownOnlyCodes.has(code)) return ["OWN"];
   if (globalOnlyCodes.has(code)) return ["GLOBAL"];
+  if (code === "auth.2fa.devices.delete") return collectiveScopes;
   if (code === "auth.2fa.devices.view" || code === "auth.2fa.devices.revoke")
     return permissionScopes;
   if (code.startsWith("auth.2fa.users.")) return collectiveScopes;

@@ -8,7 +8,7 @@ import { HttpError } from '../../shared/http-error.js';
 import { resolveRbacContext } from '../rbac/rbac.service.js';
 import type { Request } from 'express';
 import * as twoFactor from './two-factor.service.js';
-import{consumeTrustedDevice,cookieFrom,createTrustedDevice}from'./trusted-device.service.js';
+import{consumeTrustedDevice,cookieFrom,createTrustedDevice,trustedDeviceRequestAllowed}from'./trusted-device.service.js';
 import{getTwoFactorSecuritySettings}from'./two-factor-security-settings.js';
 
 interface UserRow extends RowDataPacket { id: string; agency_id: string; agency_name?:string; agency_code?:string; avatar_path?:string|null; first_name: string; last_name: string; email: string; password_hash: string; is_active: number }
@@ -56,7 +56,7 @@ export async function login(email: string, password: string,request:Request) {
     const presented=cookieFrom(request);
     if(state.enabled&&presented){const trusted=await consumeTrustedDevice(String(user.id),presented,request);if(trusted){const profile=await userProfile(user),tokens=await issueTokens(user,roles,true,false);return{status:'authenticated',...tokens,user:profile,_trustedDevice:trusted}}}
     const purpose=state.enabled?'LOGIN_VERIFY':'LOGIN_SETUP',challenge=await twoFactor.createLoginChallenge(String(user.id),purpose,twoFactor.challengeFingerprint(request)),security=await getTwoFactorSecuritySettings();
-    return{status:state.enabled?'two_factor_required':'two_factor_setup_required',challengeToken:challenge.id,expiresIn:challenge.expiresIn,trustedDeviceAvailable:security.trustedDevicesEnabled,trustedDeviceDurationDays:Math.min(security.trustedDevicesDurationDays,security.trustedDevicesMaxDurationDays,30),_clearTrustedDevice:Boolean(presented)};
+    return{status:state.enabled?'two_factor_required':'two_factor_setup_required',challengeToken:challenge.id,expiresIn:challenge.expiresIn,trustedDeviceAvailable:security.trustedDevicesEnabled&&trustedDeviceRequestAllowed(request),trustedDeviceDurationDays:Math.min(security.trustedDevicesDurationDays,security.trustedDevicesMaxDurationDays,30),_clearTrustedDevice:Boolean(presented)};
   }
   const profile=await userProfile(user);
   const tokens = await issueTokens(user, roles);

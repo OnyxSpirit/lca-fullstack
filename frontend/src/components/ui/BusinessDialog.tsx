@@ -5,7 +5,7 @@ import { Modal } from "./Modal";
 type InputType="text"|"password"|"number"|"date"|"datetime-local";
 type Request={kind:"confirm"|"prompt"|"choice";title:string;description?:string;label?:string;defaultValue?:string;inputType?:InputType;danger?:boolean;primaryLabel?:string;secondaryLabel?:string;execute?:(value:string|boolean)=>Promise<void>;resolve:(value:any)=>void};
 let publish:(request:Request)=>void=()=>{};
-export const confirmAction=(title:string,description?:string,danger=false)=>new Promise<boolean>(resolve=>publish({kind:"confirm",title,description,danger,resolve}));
+export const confirmAction=(title:string,description?:string,danger=false,primaryLabel?:string)=>new Promise<boolean>(resolve=>publish({kind:"confirm",title,description,danger,primaryLabel,resolve}));
 export const promptAction=(title:string,input:{description?:string;label?:string;defaultValue?:string;inputType?:Request["inputType"];danger?:boolean}|string={})=>{const options=typeof input==="string"?{defaultValue:input}:input;return new Promise<string|null>(resolve=>publish({kind:"prompt",title,...options,resolve}))};
 export const choiceAction=(title:string,description:string,primaryLabel:string,secondaryLabel:string)=>new Promise<boolean|null>(resolve=>publish({kind:"choice",title,description,primaryLabel,secondaryLabel,resolve}));
 type PromptMutationOptions={description?:string;label?:string;defaultValue?:string;inputType?:InputType;danger?:boolean;confirmLabel?:string;execute:(value:string)=>Promise<void>};

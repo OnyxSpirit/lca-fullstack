@@ -53,6 +53,10 @@ function installInterceptor(){
       if(fixture)requestFixture.enterWith(fixture);
       return [fixture&&fixture.state==='ACTIVE'&&fixture.userId===String(params[1])?[{id:fixture.userId,agency_id:fixture.agencyId} as RowDataPacket]:[],[]] as any;
     }
+    if(sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('role_two_factor_policies')){
+      const fixture=requestFixture.getStore()??users.get(String(params[2]));
+      if(fixture)return [[{super_admin:0,individually_required:0,role_required:0,enabled_at:null,reset_required:0} as RowDataPacket],[]] as any;
+    }
     if(sql.includes('SELECT r.id,r.code,r.is_system')&&String(params[0])){
       const fixture=requestFixture.getStore()??users.get(String(params[0]));
       if(fixture?.mockRbac){const code=fixture.roles[0]??'TEST_ROLE';return [[{id:`test-role-${fixture.userId}`,code,is_system:0}],[]] as any}
@@ -73,7 +77,11 @@ export function issueTestAccessToken(identity:TestAccessIdentity){
   if(state!=='ABSENT'){
     const fixture={userId:identity.userId,agencyId:identity.agencyId??null,roles,permissions,state,mockRbac:Boolean(identity.mockRbac)};
     sessions.set(sid,fixture);
-    if(fixture.mockRbac)users.set(fixture.userId,fixture);
+    // Every issued test identity must be discoverable by user id for the
+    // session-current 2FA policy query. Some route fixtures replace the
+    // refresh-token lookup themselves, so AsyncLocalStorage is not populated.
+    // RBAC rows remain gated by fixture.mockRbac in the interceptor above.
+    users.set(fixture.userId,fixture);
   }
   return jwt.sign({sub:identity.userId,email:identity.email??`${identity.userId}@test.local`,roles,agencyId:identity.agencyId??null,sid},identity.secret??env.jwt.accessSecret,{algorithm:'HS256',expiresIn:identity.expiresIn??'5m'});
 }

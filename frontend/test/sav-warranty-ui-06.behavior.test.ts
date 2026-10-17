@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from 'node:test';
 
 const card = readFileSync(new URL('../src/modules/service/WarrantyCard.tsx', import.meta.url), 'utf8');
@@ -13,7 +13,7 @@ test('UI06-FE-03 les choix TOTAL et PARTIEL sont libellés en français', () => 
 test('UI06-FE-04 approbation exige constructeur et autorisation', () => { assert.match(card, /!warranty\.providerId/); assert.match(card, /!authorization\.trim\(\)/); });
 test('UI06-FE-05 les motifs de désactivation sont visibles', () => { assert.match(card, /approvalReason &&/); assert.match(card, /rejectionReason &&/); });
 test('UI06-FE-06 APPROVED transmet le mode, le constructeur et la référence', () => assert.match(card, /providerId: warranty\.providerId, mode, authorizationReference: authorization\.trim\(\)/));
-test('UI06-FE-07 REJECTED demande confirmation et transmet le motif', () => { assert.match(card, /window\.confirm/); assert.match(card, /decision === 'APPROVED'[\s\S]*: \{ reason: comment\.trim\(\) \}/); });
+test('UI06-FE-07 REJECTED demande confirmation métier et transmet le motif', () => { assert.match(card, /confirmAction/); assert.doesNotMatch(card,/window\.confirm/); assert.match(card, /decision === 'APPROVED'[\s\S]*: \{ reason: comment\.trim\(\) \}/); });
 test('UI06-FE-08 APPROVED est reconstruit depuis la version serveur', () => { assert.match(card, /warranty\.decisionStatus !== 'PENDING'/); assert.match(card, /\[ro\.id, warranty\?\.version\]/); });
 test('UI06-FE-09 REJECTED reste rendu après refetch', () => assert.match(card, /warrantyDecisionLabel\[warranty\.decisionStatus\]/));
 test('UI06-FE-10 PENDING reste traitable après refetch', () => assert.match(card, /useEffect\(\(\) => \{[\s\S]*setAuthorization/));
@@ -23,4 +23,3 @@ test('UI06-FE-13 une allocation réelle zéro passe par formatCurrency', () => a
 test('UI06-FE-14 la création OR ne réintroduit aucune checkbox garantie', () => { assert.match(modal, /useVehicleWarrantyEligibilityQuery/); assert.doesNotMatch(modal, /warrantyIntent|type="checkbox"[^>]*garantie/i); });
 test('UI06-FE-15 la mutation refetch le détail OR', () => assert.match(hooks, /\['repair-orders',v\.repairOrderId\]/));
 test('UI06-FE-16 PENDING seul verrouille la réception', () => { assert.match(detail, /warrantyDecisionPending=ro\.warranty\?\.decisionStatus==='PENDING'/); assert.match(detail, /next==='RECEPTIONNE'&&warrantyDecisionPending/); });
-

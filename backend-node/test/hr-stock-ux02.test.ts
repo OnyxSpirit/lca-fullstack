@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract.js';
 import test from'node:test';
 import{stockUnit}from'../src/modules/hr/hr-stock-validation';
 
@@ -17,6 +17,6 @@ test('RH-STOCK-UX-02 branche la validation sur l endpoint et conserve le contrat
   const routes=readFileSync(new URL('../src/modules/hr/hr.routes.ts',import.meta.url),'utf8');
   assert.match(routes,/unit=stockUnit\(b\.unit\)/);
   assert.match(routes,/minimum=stockThreshold\(b\.minimumQuantity\?\?0\)/);
-  assert.match(routes,/const stockThreshold=.*nonNegative/);
+  assert.match(routes,/const stockThreshold\s*=\s*\([\s\S]{0,300}nonNegative/);
   assert.doesNotMatch(routes,/Math\.(?:round|floor|ceil)\([^)]*minimumQuantity/);
 });

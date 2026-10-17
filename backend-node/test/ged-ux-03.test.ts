@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readContractFileSync as readFileSync } from './helpers/source-contract.js';
 import test from 'node:test';
 
 const route = readFileSync(new URL('../src/modules/documents/document.routes.ts', import.meta.url), 'utf8');
@@ -19,10 +19,8 @@ test('GED-UX03-B05 réponse expose catégorie, type et titre', () => {
   for (const field of ['title', 'categoryId', 'documentTypeId', 'documentType']) assert.match(route, new RegExp(field));
 });
 test('GED-UX03-B07/B08 audit cohérent, rollback DB et cleanup fichier', () => {
-  const sql = route.match(/const auditSql=`([^`]+)`/)?.[1] ?? '';
-  const placeholders = (sql.match(/\?/g) ?? []).length;
-  assert.equal(placeholders, 6);
-  assert.match(route, /connection\.execute\(auditSql,auditValues/);
+  assert.match(route, /writeAudit\(connection,r,\{module:['\"]documents['\"]/);
+  assert.match(route, /action:['\"]upload['\"]/);
   assert.match(route, /catch\(error\)\{await unlink\(stored\.absolute\)/);
 });
 test('GED-UX03-B09 téléchargement créé inchangé et hash vérifié', () => assert.match(route, /documents\/:id\/download[\s\S]*readDocumentFile\(doc\.file_url,doc\.file_hash\)/));

@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract.js';
 import test from'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');

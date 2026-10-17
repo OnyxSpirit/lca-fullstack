@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import{readContractFile as readFile}from'./helpers/source-contract';
 import test from 'node:test';
 
 const read=(path:string)=>readFile(new URL(path,import.meta.url),'utf8');
@@ -27,7 +27,7 @@ test('OPS-UX-01 conserve les indicateurs pending du planning',async()=>{
   assert.match(page,/loading=\{scheduleMutations\.cancel\.isPending\}/);
   assert.match(page,/loading=\{absenceMutations\.create\.isPending\}/);
   assert.match(page,/removingAbsenceId===item\.id/);
-  assert.match(page,/setAttribute\('disabled',''\)/);
+  assert.doesNotMatch(page,/setAttribute\('disabled',''\)/);
   assert.match(page,/disabled=\{scheduleMutations\.update\.isPending\}/);
   assert.match(page,/disabled=\{scheduleMutations\.cancel\.isPending\}/);
 });

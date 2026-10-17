@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from 'node:test';
 
 const page=readFileSync(new URL('../src/modules/hr/HrAdministrationPage.tsx',import.meta.url),'utf8');
 
 test('LOT14B2A-01 les sous-arbres RH lourds utilisent des imports dynamiques ciblés',()=>{
   for(const component of ['LeavesAdministration','BonusesAdministration','EmployeeRecordModal','BudgetExpenseDisbursement']){
-    assert.match(page,new RegExp(`const ${component}=lazy\\(\\(\\)=>import\\(`));
+    assert.match(page,new RegExp(`const\\s+${component}\\s*=\\s*lazy\\(\\(\\)\\s*=>[\\s\\S]*?import\\(`));
     assert.doesNotMatch(page,new RegExp(`import\\{${component}\\}from`));
   }
 });
 
 test('LOT14B2A-02 la vue d’ensemble reste immédiate et les onglets sensibles restent permissionnés',()=>{
-  assert.match(page,/tab==='overview'&&<HrOverviewDashboard/);
+  assert.match(page,/tab==='overview'&&[\s\S]*?<HrOverviewDashboard/);
   for(const permission of ['hr.employees.view','hr.leave.view','hr.bonus.view','hr.salary.view','hr.stock.view','hr.budget.view','hr.reporting.view']){
     assert.match(page,new RegExp(permission.replaceAll('.','\\.')));
   }
@@ -25,9 +25,9 @@ test('LOT14B2A-03 les états qui doivent survivre aux chargements restent dans l
 });
 
 test('LOT14B2A-04 le fallback local est accessible et ne bloque que la section',()=>{
-  assert.match(page,/const HrSectionBoundary=/);
-  assert.match(page,/Suspense fallback=/);
-  assert.match(page,/role="status" aria-live="polite"/);
+  assert.match(page,/const HrSectionBoundary\s*=/);
+  assert.match(page,/<Suspense[\s\S]{0,80}fallback=\{/);
+  assert.match(page,/role="status"[\s\S]{0,80}aria-live="polite"/);
   assert.match(page,/Chargement de la section RH…/);
 });
 

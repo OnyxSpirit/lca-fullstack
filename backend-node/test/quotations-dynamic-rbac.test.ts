@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract.js';
 import {test} from 'node:test';
 import type {Request} from 'express';
 import {assertPermission} from '../src/modules/rbac/rbac.service.js';
@@ -42,7 +42,7 @@ test('QUOTE-13/15/16/18 : calcul backend, remise dédiée et devis émis verroui
 
 test('QUOTE-19/20/21 : PDF, annulation et audit restent scopés',()=>{
   assert.match(routes,/quotations\/:id\/pdf',requirePermission\('quotations\.view'\)/);
-  assert.match(service,/sale_id|quotation_id/);assert.match(service,/Un devis déjà converti ne peut pas être annulé/);assert.match(service,/audit_logs/);
+  assert.match(service,/sale_id|quotation_id/);assert.match(service,/Un devis déjà converti ne peut pas être annulé/);assert.match(service,/writeAudit/);
 });
 
 test('QUOTE-22/23/25/26/27 : conversion exige Devis ET Ventes, statut émis, non expiré et propriétaire',()=>{

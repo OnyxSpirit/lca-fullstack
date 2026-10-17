@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract.js';
 import test from 'node:test';
 
 const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
@@ -53,8 +53,8 @@ test('AUD-LCA-009 poursuit la recherche GED au-delà du premier lot global',()=>
 
 test('AUD-LCA-010 rend les mutations GED et leur audit atomiques',()=>{
   const documents=source('src/modules/documents/document.routes.ts');
-  for(const action of ['archive','restore'])assert.match(documents,new RegExp(`auditValues\\(r,[^)]*,'${action}'`));
-  assert.match(documents,/,\s*'version',\{parentDocumentId/);
+  for(const action of ['archive','restore'])assert.match(documents,new RegExp(`action:\\s*['\"]${action}['\"]`));
+  assert.match(documents,/action:\s*['\"]version['\"]/);
   assert.match(documents,/version[\s\S]*transaction\(async connection/);
 });
 

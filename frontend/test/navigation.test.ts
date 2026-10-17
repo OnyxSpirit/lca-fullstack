@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import { test } from 'node:test';
 import { detailRoutes, MODULE_ROUTES, notificationRoute, ROUTES } from '../src/navigation/routes';
 import { canAccessModule, canPerformWorkflowAction, normalizeRole } from '../src/navigation/permissions';
@@ -98,14 +98,14 @@ test('la route demandée est conservée pendant la connexion', () => {
 test('le modal OR fermé ne peut plus déclencher une boucle de rendu', () => {
   const modal = readFileSync(new URL('../src/modules/service/NewRepairOrderModal.tsx', import.meta.url), 'utf8');
   assert.match(modal, /if \(!isOpen\) return;/);
-  assert.match(modal, /return current;/);
+  assert.match(modal, /current\.vehicleId===vehicleId\?current:/);
   assert.doesNotMatch(modal, /\[customers,vehicles,technicians\]/);
 });
 
 test('les compteurs notifications utilisent unreadCount serveur',()=>{const header=readFileSync(new URL('../src/components/layout/Header.tsx',import.meta.url),'utf8'),sidebar=readFileSync(new URL('../src/components/layout/Sidebar.tsx',import.meta.url),'utf8');assert.match(header,/unreadCount/);assert.match(sidebar,/unreadCount/);assert.doesNotMatch(sidebar,/badge: (8|20|3|2)/);assert.doesNotMatch(sidebar,/2 Alertes/);});
 
 test('Header et Dashboard marquent une notification avant navigation',()=>{const header=readFileSync(new URL('../src/components/layout/Header.tsx',import.meta.url),'utf8'),dashboard=readFileSync(new URL('../src/modules/dashboard/DashboardPage.tsx',import.meta.url),'utf8');assert.match(header,/markAsRead\.mutateAsync/);assert.match(dashboard,/markAsRead\.mutateAsync/);});
-test('les routes sensibles possèdent un garde alimenté par les permissions dynamiques',()=>{const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8'),store=readFileSync(new URL('../src/stores/authStore.ts',import.meta.url),'utf8');assert.match(app,/function ModuleGuard/);for(const module of ['users','billing','reports','documents'])assert.match(app,new RegExp(`ModuleGuard module="${module}"`));assert.match(app,/AccessDeniedPage/);assert.match(store,/hasDynamicPermission\(currentUser\.permissions/);assert.doesNotMatch(store,/canAccessModule\(currentUser\.roles/)});
+test('les routes sensibles possèdent un garde alimenté par les permissions dynamiques',()=>{const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8'),store=readFileSync(new URL('../src/stores/authStore.ts',import.meta.url),'utf8');assert.match(app,/function ModuleGuard/);for(const module of ['billing','reports','documents'])assert.match(app,new RegExp(`ModuleGuard module="${module}"`));assert.match(app,/function UsersRbacGuard/);assert.match(app,/path="users" element=\{<UsersRbacGuard>/);assert.match(app,/AccessDeniedPage/);assert.match(store,/hasDynamicPermission\(currentUser\.permissions/);assert.doesNotMatch(store,/canAccessModule\(currentUser\.roles/)});
 test('l’administration et l’annuaire Users sont séparés',()=>{const hooks=readFileSync(new URL('../src/api/erpHooks.ts',import.meta.url),'utf8'),admin=readFileSync(new URL('../src/api/userHooks.ts',import.meta.url),'utf8');assert.match(hooks,/\/users\/directory/);assert.match(admin,/\/users\?/);assert.match(admin,/\/users\/:id\/status|`\/users\/\$\{id\}\/status`/)});
 test('Paramètres possède un garde admin et des hooks dédiés typés',()=>{const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8'),hooks=readFileSync(new URL('../src/api/settingHooks.ts',import.meta.url),'utf8');assert.match(app,/ModuleGuard module="settings"/);assert.match(hooks,/interface ConcessionSettings/);assert.match(hooks,/interface WorkshopLaborRate/);assert.doesNotMatch(hooks,/apiRequest<any>/);});
 test('l’écran Paramètres ne simule aucune intégration et délègue les barèmes dynamiques',()=>{const page=readFileSync(new URL('../src/modules/settings/SettingsPage.tsx',import.meta.url),'utf8');assert.match(page,/WorkshopLaborRatesSettings/);assert.match(page,/Aucune intégration configurée/);assert.doesNotMatch(page,/Connecté|Certifié|SIRET|TVA Intracommunautaire/);assert.match(page,/\['taxIdentifier','NIU'\]/);});

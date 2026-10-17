@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import{test}from'node:test';
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
@@ -15,7 +15,7 @@ test('CORR-32 autorisation financière utilise la modale partagée sans dialogue
 
 test('CORR-31 rémunérations utilise la modale partagée et protège les soumissions',()=>{
  const source=read('src/modules/hr/RemunerationsAdministration.tsx');
- assert.match(source,/isOpen=\{dialog!==null\}/);
+ assert.match(source,/isOpen=\{dialog!==null&&dialog\.type!=='history'\}/);
  assert.match(source,/loading=\{mutate\.isPending\}/);
  assert.doesNotMatch(source,/window\.(prompt|confirm|alert)/);
 });

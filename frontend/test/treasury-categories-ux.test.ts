@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from'node:test';
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
@@ -44,12 +44,12 @@ test('CAT-UX-04 erreurs, chargements, succès et rafraîchissement sont gérés'
 test('CAT-UX-05 actions exigent permission et scope collectif',()=>{
  assert.match(page,/can\('treasury\.category\.manage'\)/);
  assert.match(page,/categoryScope==='CONCESSION'\|\|categoryScope==='GLOBAL'/);
- assert.match(page,/canManageCategories&&<Button/);
+ assert.match(page,/canManageCategories&&\(/);
 });
 
 test('CAT-UX-06 statut est confirmé sans suppression et préserve l’historique',()=>{
  assert.match(page,/Désactiver la catégorie/);
- assert.match(page,/Les écritures et l’historique existants seront intégralement conservés/);
+ assert.match(page,/Les écritures et l’historique existants seront intégralement[\s\S]*conservés/);
  assert.match(page,/usage_count/);
  assert.doesNotMatch(page,/DELETE|Supprimer la catégorie/);
  assert.match(hooks,/\/treasury\/categories\/\$\{id\}\/status/);
@@ -57,6 +57,6 @@ test('CAT-UX-06 statut est confirmé sans suppression et préserve l’historiqu
 
 test('CAT-UX-07 liste vide et changement de sens utilisé sont explicites',()=>{
  assert.match(page,/Aucune catégorie\. Créez la première catégorie/);
- assert.match(page,/Le nouveau sens s’appliquera uniquement aux futures opérations/);
+ assert.match(page,/Le nouveau[\s\S]*sens s’appliquera uniquement aux futures opérations/);
  assert.match(page,/category\.usage_count>0/);
 });

@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from'node:test';
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),service=read('src/modules/treasury/treasury-flow.service.ts'),routes=read('src/modules/treasury/treasury.routes.ts'),page=read('../frontend/src/modules/treasury/TreasuryFlowMappingsTable.tsx');

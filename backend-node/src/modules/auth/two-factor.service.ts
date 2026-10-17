@@ -127,6 +127,11 @@ export async function recoverLoginChallenge(challengeId:string,context:string,va
 export async function status(userId:string){const state=await requirement(userId),[codes]=await query<RowDataPacket[]>('SELECT COUNT(*) total FROM two_factor_recovery_codes WHERE user_id=? AND used_at IS NULL',[userId]);return{...state,recoveryCodesRemaining:Number(codes?.total??0)}}
 
 export async function assertSessionCurrent(userId:string,sessionId:string){
+  // An unconfigured server cannot decrypt or verify TOTP material. Keep
+  // existing authenticated sessions usable until an administrator injects
+  // the encryption key; setup and 2FA operations remain unavailable through
+  // their existing configuration guards.
+  if(!env.twoFactor.encryptionKey)return;
   const state=await requirement(userId);if(!state.enabled&&!state.required)return;
   const[session]=await query<RowDataPacket[]>('SELECT authenticated_at,two_factor_verified_at,two_factor_grandfathered FROM refresh_tokens WHERE id=? AND user_id=? AND revoked_at IS NULL',[sessionId,userId]);
   const grandfathered=Boolean(session?.two_factor_grandfathered&&session.authenticated_at)&&Date.now()-new Date(session!.authenticated_at).getTime()<=env.twoFactor.grandfatherGraceSeconds*1000;

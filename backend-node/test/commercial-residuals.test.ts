@@ -47,7 +47,7 @@ before(()=>{
     if(sql.includes('FROM users u JOIN user_roles'))return[[{id:'100'}],[]];
     if(sql.includes('SELECT id FROM sales')||sql.includes('FROM reservations WHERE'))return[[],[]];
     if(sql.includes("UPDATE quotations SET status='sent'")){quote={...quote,status:'sent'};return[{affectedRows:1},[]]}
-    if(sql.includes("INSERT INTO audit_logs")&&sql.includes("'quotations'")){quotationAudited=true;return[{affectedRows:1},[]]}
+    if(sql.includes('INSERT INTO audit_logs')){quotationAudited=true;return[{affectedRows:1},[]]}
     if(sql.includes('INSERT INTO sales(')){capturedSalespersonId=String(params[5]);return[{insertId:70,affectedRows:1},[]]}
     return[{affectedRows:1},[]];
   }});

@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from'node:test';
 const source=(value:string)=>readFileSync(new URL(`../${value}`,import.meta.url),'utf8');
 const component=source('src/modules/documents/DocumentPreview.tsx'),ged=source('src/modules/documents/DocumentsGedPage.tsx'),vehicle=source('src/modules/vehicles/VehicleDetailPage.tsx');

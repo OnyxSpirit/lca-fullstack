@@ -134,7 +134,7 @@ test('T8 une reconnexion du même utilisateur repart avec un cache vide', async 
   installSession('A');
   seedSensitiveA();
   useAuthStore.getState().logout();
-  globalThis.fetch = async () => json({ accessToken: 'fresh', refreshToken: 'fresh-r', user: profile('A') });
+  globalThis.fetch = async () => json({ status: 'authenticated', accessToken: 'fresh', refreshToken: 'fresh-r', user: profile('A') });
   assert.equal((await useAuthStore.getState().login('A@test.local', 'password')).success, true);
   assertAIsGone();
   assert.equal(useAuthStore.getState().currentUser?.id, 'A');

@@ -54,6 +54,12 @@ async function transaction<T>(work:(connection:{execute:typeof execute})=>Promis
 mock.module('../src/config/database.js', { namedExports: { query, execute, transaction } });
 mock.module('../src/modules/rbac/rbac.service.js', { namedExports: {
   resolveRbacContext: async () => ({ roleId: '1', roleCode: 'EMPLOYEE', isSuperAdmin: false, permissions: new Map(permissionEnabled ? [['documents.view', 'AGENCY']] : []) }),
+  rbac: async (request:any) => request.rbac ??= await Promise.resolve({ roleId: '1', roleCode: 'EMPLOYEE', isSuperAdmin: false, permissions: new Map(permissionEnabled ? [['documents.view', 'AGENCY']] : []) }),
+  assertPermission: async (request:any, permission:string) => {
+    const context=request.rbac ??= { roleId: '1', roleCode: 'EMPLOYEE', isSuperAdmin: false, permissions: new Map(permissionEnabled ? [['documents.view', 'AGENCY']] : []) };
+    if(!context.permissions.has(permission))throw Object.assign(new Error('Permission insuffisante'),{status:403});
+    return context.permissions.get(permission)??null;
+  },
 } });
 
 const service = await import('../src/modules/auth/auth.service.js');

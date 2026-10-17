@@ -14,7 +14,7 @@
 
     "build": "vite build",
 
-    "test": "tsx --test test/**/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 test/**/*.test.ts",
 
     "preview": "vite preview",
 

@@ -54,8 +54,8 @@ test('NOTIF-RBAC-02 sépare view, update, archive et delete avec ownership et au
     assert.equal((await call('delete','/api/notifications/999')).status,404);
     assert.ok(statements.some(x=>x.sql.includes('SET archived_at=NOW(),archived_by=?')));
     assert.ok(statements.some(x=>x.sql.includes('SET deleted_at=NOW(),deleted_by=?')));
-    assert.ok(statements.some(x=>x.sql.includes("'notification.archived'")));
-    assert.ok(statements.some(x=>x.sql.includes("'notification.deleted'")));
+    assert.ok(statements.some(x=>x.sql.includes("'notification.archived'")||x.params.includes('notification.archived')));
+    assert.ok(statements.some(x=>x.sql.includes("'notification.deleted'")||x.params.includes('notification.deleted')));
     assert.ok(statements.filter(x=>x.sql.includes('SELECT id,')).every(x=>x.sql.includes('user_id=?')));
     assert.ok(statements.every(x=>!x.sql.includes('DELETE FROM notifications')));
 

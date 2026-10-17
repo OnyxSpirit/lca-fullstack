@@ -1,4 +1,4 @@
-import test from'node:test';import assert from'node:assert/strict';import{readFileSync}from'node:fs';import{money}from'../src/modules/workshop/warranty.service.js';
+import test from'node:test';import assert from'node:assert/strict';import{readContractFileSync as readFileSync}from'./helpers/source-contract.js';import{money}from'../src/modules/workshop/warranty.service.js';
 const route=readFileSync(new URL('../src/modules/workshop/workshop.routes.ts',import.meta.url),'utf8'),warranty=readFileSync(new URL('../src/modules/workshop/warranty.routes.ts',import.meta.url),'utf8'),service=readFileSync(new URL('../src/modules/workshop/warranty.service.ts',import.meta.url),'utf8'),migration=readFileSync(new URL('../database/migrations/046_sav_warranty_v1.sql',import.meta.url),'utf8'),report=readFileSync(new URL('../src/modules/reports/report.routes.ts',import.meta.url),'utf8');
 test('GAR-01 OR normal inchangé',()=>assert.match(route,/decision_status==='APPROVED'/));
 test('GAR-02 garantie détectée depuis le contrat',()=>{assert.match(route,/evaluateVehicleWarranty\(vehicle,mileage,c\)/);assert.match(route,/contractWarranty\.status==='ELIGIBLE_CONTRACTUALLY'/)});
@@ -25,7 +25,7 @@ test('GAR-22 remise sans paiement constructeur',()=>assert.doesNotMatch(route,/a
 test('GAR-23 dette client bloque toujours',()=>assert.match(route,/assertFinanciallySettled\(invoices\[0\]\.balance_due,'atelier'\)/));
 test('GAR-24 clôture OR préservée',()=>assert.match(route,/delivered:\['closed'\]/));
 test('GAR-25 historique legacy non converti automatiquement',()=>{assert.match(migration,/LEGACY_UNALLOCATED/);assert.doesNotMatch(migration,/manufacturer_share_ht[^;]*SELECT/s)});
-test('GAR-26 audit',()=>assert.match(service,/INSERT INTO audit_logs/));
+test('GAR-26 audit',()=>assert.match(service,/writeAudit/));
 test('GAR-27 concurrence allocation',()=>{assert.match(warranty,/expectedVersion/);assert.match(warranty,/FOR UPDATE/)});
 test('GAR-28 concurrence paiement',()=>{assert.match(migration,/uk_wcp_request/);assert.match(warranty,/warranty_claims[^`]*FOR UPDATE/);assert.match(warranty,/dépasse le solde constructeur/)});
 test('GAR-29 toute modification ou annulation du réel invalide la ventilation',()=>assert.ok((route.match(/invalidateWarrantyAllocation\(c,id,r\.user!\.sub\)/g)??[]).length>=3));

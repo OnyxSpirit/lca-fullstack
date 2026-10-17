@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canNavigateWithPermissions, hasDynamicPermission } from '../src/navigation/permissions';
 import { documentEntitiesForPermissions } from '../src/modules/documents/documentPolicy';
-import { readFileSync } from 'node:fs';
+import { readContractFileSync as readFileSync } from './helpers/source-contract';
 
 const source=(path:string)=>readFileSync(new URL(`../src/${path}`,import.meta.url),'utf8');
 
@@ -58,5 +58,5 @@ test('RBAC-04 les créations Client et budgets RH ne déduisent aucun droit du r
   assert.doesNotMatch(customers,/isSystemSuperAdmin|assignedUserId:/);
   assert.doesNotMatch(hr,/isSystemSuperAdmin|SUPER_ADMIN/);
   assert.match(hr,/budgetManagementScope=permissionScope\('hr\.budget\.manage'\)/);
-  assert.match(hr,/budgetCategoryManagementScope=permissionScope\('hr\.budget\.category\.manage'\)/);
+  assert.match(hr,/budgetCategoryManagementScope=permissionScope\('hr\.budget\.category\.manage',?\)/);
 });

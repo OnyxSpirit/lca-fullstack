@@ -32,8 +32,8 @@ test('SUPER_ADMIN système ne contourne ni le catalogue ni la délégation',()=>
   assert.equal(can(director,'permission.inconnue'),false);
 });
 
-test('une permission sans scope ne permet pas de déléguer un scope de données',()=>{
+test('un scope NULL est invalide et ne permet pas de déléguer un scope de données',()=>{
   const actor=context({'roles.permissions.manage':null});
-  assert.doesNotThrow(()=>assertDelegablePermissions(actor,[{code:'roles.permissions.manage',scope:null}]));
+  assert.throws(()=>assertDelegablePermissions(actor,[{code:'roles.permissions.manage',scope:null}]),(error:unknown)=>error instanceof HttpError&&error.status===400);
   assert.throws(()=>assertDelegablePermissions(actor,[{code:'roles.permissions.manage',scope:'OWN'}]),(error:unknown)=>error instanceof HttpError&&error.status===403);
 });

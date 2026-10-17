@@ -78,7 +78,7 @@ consultez [DEPLOYMENT.md](DEPLOYMENT.md).
 
 Ne rejouez jamais le baseline sur une installation existante. La version de la
 baseline fraîche est indépendante du plan d'upgrade : une base historique applique
-toujours toutes les migrations absentes jusqu'à 079. Les migrations
+toujours toutes les migrations absentes jusqu'à 091. Les migrations
 `001` à `033` de `backend-node/database/legacy-migrations/` sont conservées uniquement pour la
 traçabilité. La procédure détaillée se trouve dans
 [`backend-node/database/README.md`](backend-node/database/README.md).
@@ -156,6 +156,9 @@ git diff --check
 
 Certaines suites d’intégration nécessitent une instance MySQL de test et des
 variables dédiées. Ne pointez jamais les tests destructifs vers la production.
+Les suites sont sérialisées entre fichiers pour isoler leurs mocks globaux et
+garantir un résumé TAP déterministe. La procédure et les scénarios MySQL opt-in
+sont décrits dans [`docs/STRATEGIE-DE-TESTS.md`](docs/STRATEGIE-DE-TESTS.md).
 
 ## Documentation complémentaire
 
@@ -166,6 +169,8 @@ variables dédiées. Ne pointez jamais les tests destructifs vers la production.
 - `docs/RBAC_MATRIX.md` : permissions et scopes dynamiques ;
 - `docs/CUSTOMERS_360_PRODUCTION.md` : diagnostic de la fiche Client 360° ;
 - `frontend/NAVIGATION_AUDIT.md` : historique de validation de navigation.
+- `docs/STRATEGIE-DE-TESTS.md` : familles, prérequis et exécution reproductible des tests ;
+- `docs/RAPPORT-CONSOLIDATION-GLOBALE-LOT-B2.md` : qualification technique consolidée B.2.
 
 Avant toute opération de production, sauvegardez MySQL, uploads et GED. Ne
 rejouez jamais le baseline, ne lancez jamais les migrations historiques 001–033

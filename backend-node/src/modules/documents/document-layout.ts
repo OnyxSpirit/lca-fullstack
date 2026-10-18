@@ -1,4 +1,8 @@
 import PDFDocument from 'pdfkit';
+import {createRequire} from 'node:module';
+
+const require=createRequire(import.meta.url);
+const {PNG}=require('pngjs') as {PNG:{sync:{read:(buffer:Buffer)=>{width:number;height:number;data:Buffer}}}};
 
 export const documentStyle={
   page:{size:'A4' as const,margin:42,contentWidth:511,footerY:746},
@@ -63,6 +67,63 @@ export function drawDocumentFooter(doc:PDFKit.PDFDocument,identity:any){
 
 export type OfficialMarks={signatureBuffer?:Buffer|null;stampBuffer?:Buffer|null;signatureIdentity?:string|null;signatureFunction?:string|null;stampIdentity?:string|null};
 export type OfficialMarkZone={x:number;y:number;width:number;height:number};
+export type VisibleImageBounds={imageWidth:number;imageHeight:number;left:number;top:number;width:number;height:number};
+export type OfficialMarkPlacement={drawX:number;drawY:number;drawWidth:number;drawHeight:number;visibleX:number;visibleY:number;visibleWidth:number;visibleHeight:number};
+
+export const cmToPdfPoints=(centimeters:number)=>centimeters*72/2.54;
+export const officialMarkDimensions={
+  signatureWidth:cmToPdfPoints(4),
+  signatureMaxWidth:cmToPdfPoints(4.5),
+  stampZone:cmToPdfPoints(4),
+  stampVisibleMax:cmToPdfPoints(3.8),
+  overlap:cmToPdfPoints(.7),
+  identityHeight:24,
+}as const;
+
+function jpegDimensions(buffer:Buffer){
+  if(buffer.length<4||buffer[0]!==0xff||buffer[1]!==0xd8)return null;
+  let offset=2;
+  while(offset+9<buffer.length){if(buffer[offset]!==0xff){offset+=1;continue}const marker=buffer[offset+1]!,length=buffer.readUInt16BE(offset+2);if([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf].includes(marker))return{width:buffer.readUInt16BE(offset+7),height:buffer.readUInt16BE(offset+5)};if(length<2)return null;offset+=2+length}
+  return null;
+}
+
+/** Mesure uniquement les marges périphériques, sans altérer les pixels internes. */
+export function visibleImageBounds(buffer:Buffer):VisibleImageBounds|null{
+  try{
+    if(buffer.length>=8&&buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))){
+      const image=PNG.sync.read(buffer),{width,height,data}=image;
+      let transparent=false;for(let index=3;index<data.length;index+=4)if(data[index]!<250){transparent=true;break}
+      let left=width,top=height,right=-1,bottom=-1;
+      for(let y=0;y<height;y+=1)for(let x=0;x<width;x+=1){const index=(y*width+x)*4,alpha=data[index+3]!;const visible=transparent?alpha>12:alpha>12&&(data[index]!<248||data[index+1]!<248||data[index+2]!<248);if(!visible)continue;left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y)}
+      if(right>=left&&bottom>=top)return{imageWidth:width,imageHeight:height,left,top,width:right-left+1,height:bottom-top+1};
+      return{imageWidth:width,imageHeight:height,left:0,top:0,width,height};
+    }
+    const jpeg=jpegDimensions(buffer);if(jpeg)return{imageWidth:jpeg.width,imageHeight:jpeg.height,left:0,top:0,width:jpeg.width,height:jpeg.height};
+  }catch{}
+  return null;
+}
+
+function placement(bounds:VisibleImageBounds,visibleX:number,visibleY:number,visibleWidth:number,visibleHeight:number):OfficialMarkPlacement{
+  const scale=visibleWidth/bounds.width;
+  return{drawX:visibleX-bounds.left*scale,drawY:visibleY-bounds.top*scale,drawWidth:bounds.imageWidth*scale,drawHeight:bounds.imageHeight*scale,visibleX,visibleY,visibleWidth,visibleHeight};
+}
+
+export function calculateOfficialMarkPlacements(marks:OfficialMarks,zone:OfficialMarkZone){
+  const markHeight=Math.min(officialMarkDimensions.stampZone,Math.max(0,zone.height-officialMarkDimensions.identityHeight));
+  const signatureBounds=marks.signatureBuffer?visibleImageBounds(marks.signatureBuffer):null,stampBounds=marks.stampBuffer?visibleImageBounds(marks.stampBuffer):null;
+  let signatureSize=signatureBounds?{width:officialMarkDimensions.signatureWidth,height:officialMarkDimensions.signatureWidth*signatureBounds.height/signatureBounds.width}:null;
+  if(signatureSize&&signatureSize.height>markHeight){const ratio=markHeight/signatureSize.height;signatureSize={width:signatureSize.width*ratio,height:markHeight}}
+  if(signatureSize)signatureSize.width=Math.min(signatureSize.width,officialMarkDimensions.signatureMaxWidth);
+  const stampScale=stampBounds?Math.min(officialMarkDimensions.stampVisibleMax/stampBounds.width,officialMarkDimensions.stampVisibleMax/stampBounds.height):0;
+  const stampSize=stampBounds?{width:stampBounds.width*stampScale,height:stampBounds.height*stampScale}:null;
+  const overlap=signatureSize&&stampSize?Math.min(officialMarkDimensions.overlap,signatureSize.width*.3,stampSize.width*.3):0;
+  const groupWidth=(signatureSize?.width??0)+(stampSize?.width??0)-overlap;
+  const startX=zone.x+Math.max(0,(zone.width-groupWidth)/2);
+  const signature=signatureBounds&&signatureSize?placement(signatureBounds,startX,zone.y+(markHeight-signatureSize.height)/2,signatureSize.width,signatureSize.height):null;
+  const stampX=startX+(signatureSize?signatureSize.width-overlap:0);
+  const stamp=stampBounds&&stampSize?placement(stampBounds,stampX,zone.y+(markHeight-stampSize.height)/2,stampSize.width,stampSize.height):null;
+  return{signature,stamp,markHeight};
+}
 
 const multiplyStates=new WeakMap<object,string>();
 function useMultiplyBlend(doc:PDFKit.PDFDocument){
@@ -91,20 +152,18 @@ function useMultiplyBlend(doc:PDFKit.PDFDocument){
  */
 export function drawOfficialMarksInZone(doc:PDFKit.PDFDocument,marks:OfficialMarks|null|undefined,zone:OfficialMarkZone){
   if(!marks?.signatureBuffer&&!marks?.stampBuffer)return;
-  const padding=8,imageTop=zone.y+4,imageHeight=Math.max(24,zone.height-34);
-  const signatureX=zone.x+padding,signatureWidth=Math.min(zone.width*.67,132);
-  const stampWidth=Math.min(zone.width*.48,96),stampX=Math.min(zone.x+zone.width-padding-stampWidth,signatureX+signatureWidth*.58);
+  const layout=calculateOfficialMarkPlacements(marks,zone);
   doc.save();
-  doc.rect(zone.x,zone.y,zone.width,zone.height).clip();
-  if(marks.signatureBuffer)try{doc.image(marks.signatureBuffer,signatureX,imageTop,{fit:[signatureWidth,imageHeight],align:'center',valign:'center'})}catch{}
-  if(marks.stampBuffer)try{
+  doc.rect(zone.x,zone.y,zone.width,layout.markHeight).clip();
+  if(marks.signatureBuffer&&layout.signature)try{const p=layout.signature;doc.image(marks.signatureBuffer,p.drawX,p.drawY,{width:p.drawWidth,height:p.drawHeight})}catch{}
+  if(marks.stampBuffer&&layout.stamp)try{
     doc.save();
     try{
       useMultiplyBlend(doc);
-      doc.image(marks.stampBuffer,stampX,imageTop+2,{fit:[stampWidth,imageHeight+2],align:'center',valign:'center'});
+      const p=layout.stamp;doc.image(marks.stampBuffer,p.drawX,p.drawY,{width:p.drawWidth,height:p.drawHeight});
     }finally{doc.restore()}
   }catch{}
   doc.restore();
   const identity=[documentText(marks.signatureIdentity),documentText(marks.signatureFunction)].filter(Boolean).join(' — ');
-  if(identity)doc.fillColor(documentStyle.colors.text).font('Helvetica').fontSize(6.7).text(identity,zone.x+padding,zone.y+zone.height-24,{width:zone.width-padding*2,height:18,align:'center',ellipsis:true});
+  if(identity)doc.fillColor(documentStyle.colors.text).font('Helvetica').fontSize(6.7).text(identity,zone.x+4,zone.y+layout.markHeight+5,{width:zone.width-8,height:18,align:'center',ellipsis:true});
 }

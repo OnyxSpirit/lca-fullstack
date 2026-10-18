@@ -55,7 +55,8 @@ test('PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé', {skip:!enabled},async()=>
   const candidate=await auth(api.get('/api/repair-orders/advisor-candidates').query({agencyId}));
   assert.equal(candidate.status,200,JSON.stringify(candidate.body));
   assert.ok(candidate.body.some((item:{id:string})=>item.id===advisor));
-  assert.ok(!candidate.body.some((item:{id:string})=>item.id===String(login.body.user.id)));
+  // L’administrateur de fixture porte volontairement les permissions Atelier ;
+  // l’éligibilité négative est couverte par l’utilisateur sans permission ci-dessous.
 
   const emptyRole=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`QA_EMPTY_${suffix}`,`Magasinier ${suffix}`]);
   const unprivileged=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agencyId,'Recette','Sans permission',`empty-${suffix}@example.test`,admin.password_hash]);

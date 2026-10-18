@@ -119,3 +119,10 @@ export async function ensureMysqlHttpAdministrator(permissionCodes:ReadonlyArray
   process.env.ADMIN_PASSWORD=password;
   return{...actor,email,password,agencyId};
 }
+
+export async function ensureMysqlSystemAdministrator(){
+  let[row]=await query<RowDataPacket[]>(`SELECT u.id,u.email,u.agency_id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.is_active=TRUE AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE LIMIT 1`);
+  if(!row){const base=await ensureMysqlHttpAdministrator([]),[role]=await query<RowDataPacket[]>("SELECT id FROM roles WHERE code='SUPER_ADMIN' AND is_system=TRUE AND is_active=TRUE");if(!role)throw new Error('Rôle SUPER_ADMIN système absent');const email=`b31-system-${randomUUID()}@test.local`,created=await execute("INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,'B31','System',?,'fixture-not-used',TRUE)",[base.agencyId,email]);await execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[created.insertId,role.id]);row={id:created.insertId,email,agency_id:base.agencyId} as RowDataPacket}
+  const session=await issueMysqlAccessToken({userId:String(row.id),email:String(row.email),agencyId:String(row.agency_id),twoFactorVerified:true});
+  return{userId:String(row.id),email:String(row.email),agencyId:String(row.agency_id),...session};
+}

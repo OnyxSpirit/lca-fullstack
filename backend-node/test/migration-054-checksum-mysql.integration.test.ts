@@ -1,38 +1,18 @@
-import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
-import{after,test}from'node:test';
-import type{ResultSetHeader,RowDataPacket}from'mysql2/promise';
-import{pool,query}from'../src/config/database.js';
-import{bootstrapDatabase}from'../src/scripts/database-bootstrap.js';
-import{executeResilientMigration,migrationChecksum}from'../src/scripts/mysql-migration-runner.js';
-
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import test from 'node:test';
+import mysql,{type RowDataPacket} from 'mysql2/promise';
+import {ensureMigrationStepJournal,executeResilientMigration,migrationChecksum} from '../src/scripts/mysql-migration-runner.js';
 const enabled=process.env.MIGRATION_054_MYSQL_TEST==='1';
-if(enabled)after(()=>pool.end());
-
-test('MIG-054 historique publié converge vers 056 sans mismatch ni perte',{skip:!enabled,timeout:300000},async()=>{
-  assert.equal((await bootstrapDatabase()).version,60);
-  const[existing]=await pool.execute<ResultSetHeader>("INSERT INTO concessions(name,code,currency_code) VALUES('Historique 054','HIST054','XAF')");
-  await pool.query('DROP TABLE treasury_account_mappings');
-  await pool.query('DROP TABLE treasury_flow_configurations');
-  await pool.query('ALTER TABLE warranty_claim_payments DROP FOREIGN KEY fk_wcp_payment_method, DROP COLUMN payment_method_id');
-  await pool.query('DROP TABLE treasury_movements');
-  await pool.query('DROP TABLE treasury_transfers');
-  await pool.query('DROP TABLE treasury_categories');
-  await pool.query('DROP TABLE treasury_accounts');
-  await pool.execute('DELETE FROM schema_migration_steps WHERE version BETWEEN 54 AND 56');
-  await pool.execute("UPDATE schema_migrations SET version=53,name='baseline_001_053' WHERE name='baseline_001_063'");
-
-  const sql=readFileSync(new URL('../database/migrations/054_treasury_foundation.sql',import.meta.url),'utf8'),connection=await pool.getConnection();
-  try{await executeResilientMigration(connection,{version:54,name:'054_treasury_foundation.sql',sql})}finally{connection.release()}
-  const[recorded]=await query<RowDataPacket[]>('SELECT checksum FROM schema_migrations WHERE version=54');
-  assert.equal(String(recorded[0]!.checksum),migrationChecksum(sql));
-  assert.equal(String(recorded[0]!.checksum),'1b560a67ab37dcae82bec44fe911da122e1a854007e691315fb233217f775758');
-
-  assert.equal((await bootstrapDatabase()).version,60);
-  assert.equal((await bootstrapDatabase()).version,60);
-  assert.equal(Number((await query<RowDataPacket[]>('SELECT COUNT(*) total FROM concessions WHERE id=?',[existing.insertId]))[0]!.total),1);
-  const[index]=await query<RowDataPacket[]>("SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index) columns_list FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='treasury_movements' AND index_name='uq_treasury_source_event' GROUP BY index_name");
-  assert.equal(index[0]!.columns_list,'source_type,source_id,event_type');
-  const versions=await query<RowDataPacket[]>('SELECT version,COUNT(*) total FROM schema_migrations WHERE version BETWEEN 54 AND 56 GROUP BY version ORDER BY version');
-  assert.deepEqual(versions.map(row=>[Number(row.version),Number(row.total)]),[[54,1],[55,1],[56,1]]);
+test('MIG-054 historique publié converge vers 056 sans mismatch ni perte',{skip:!enabled,timeout:300_000},async()=>{
+ const schema=`lca_migration_054_${process.pid}`,admin=await mysql.createConnection({host:process.env.MIGRATION_DB_HOST??'127.0.0.1',port:Number(process.env.MIGRATION_DB_PORT??3306),user:process.env.MIGRATION_DB_USER??'root',password:process.env.MIGRATION_DB_PASSWORD??'',multipleStatements:true});assert.match(schema,/^lca_migration_054_\d+$/);
+ try{await admin.query(`CREATE DATABASE \`${schema}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;USE \`${schema}\``);
+ await admin.query(`CREATE TABLE schema_migrations(version INT UNSIGNED PRIMARY KEY,name VARCHAR(190) NOT NULL UNIQUE,checksum CHAR(64) NOT NULL,applied_at DATETIME DEFAULT CURRENT_TIMESTAMP);CREATE TABLE concessions(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,name VARCHAR(150),code VARCHAR(50) UNIQUE,currency_code CHAR(3));CREATE TABLE agencies(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,concession_id BIGINT UNSIGNED NOT NULL,CONSTRAINT fk_a_c FOREIGN KEY(concession_id) REFERENCES concessions(id));CREATE TABLE users(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY);CREATE TABLE payment_methods(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY);CREATE TABLE roles(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,code VARCHAR(80),is_system BOOLEAN,is_active BOOLEAN);CREATE TABLE permissions(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,module VARCHAR(80),action VARCHAR(80),code VARCHAR(120) UNIQUE,label VARCHAR(190),group_name VARCHAR(120),description VARCHAR(1000),is_active BOOLEAN);CREATE TABLE role_permissions(role_id BIGINT UNSIGNED,permission_id BIGINT UNSIGNED,scope ENUM('OWN','AGENCY','CONCESSION','GLOBAL'),PRIMARY KEY(role_id,permission_id));CREATE TABLE warranty_claim_payments(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,claim_id BIGINT UNSIGNED NOT NULL);CREATE TABLE preserved_history(id INT PRIMARY KEY,note VARCHAR(80));INSERT INTO schema_migrations VALUES(53,'baseline_001_053',REPEAT('0',64),NOW());INSERT INTO concessions(name,code,currency_code) VALUES('Historique 054','HIST054','XAF');INSERT INTO users VALUES(1);INSERT INTO payment_methods VALUES(1);INSERT INTO roles VALUES(1,'SUPER_ADMIN',TRUE,TRUE);INSERT INTO preserved_history VALUES(1,'avant migration')`);
+ await ensureMigrationStepJournal(admin);const root=resolve(import.meta.dirname,'../database/migrations');
+ for(const [version,filename] of [[54,'054_treasury_foundation.sql'],[55,'055_treasury_flow_integration.sql'],[56,'056_treasury_source_event_global_uniqueness.sql']] as const){const sql=await readFile(resolve(root,filename),'utf8');await executeResilientMigration(admin,{version,name:filename,sql});const[recorded]=await admin.query<RowDataPacket[]>('SELECT checksum FROM schema_migrations WHERE version=?',[version]);assert.equal(String(recorded[0]!.checksum),migrationChecksum(sql))}
+ const sql054=await readFile(resolve(root,'054_treasury_foundation.sql'),'utf8');assert.equal(migrationChecksum(sql054),'1b560a67ab37dcae82bec44fe911da122e1a854007e691315fb233217f775758');
+ const[index]=await admin.query<RowDataPacket[]>("SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index) columns_list FROM information_schema.statistics WHERE table_schema=? AND table_name='treasury_movements' AND index_name='uq_treasury_source_event' GROUP BY index_name",[schema]);assert.equal(index[0]!.columns_list,'source_type,source_id,event_type');
+ const[history]=await admin.query<RowDataPacket[]>('SELECT note FROM preserved_history WHERE id=1');assert.equal(history[0]!.note,'avant migration');const[versions]=await admin.query<RowDataPacket[]>('SELECT version FROM schema_migrations ORDER BY version');assert.deepEqual(versions.map(x=>Number(x.version)),[53,54,55,56]);
+ }finally{await admin.query(`DROP DATABASE IF EXISTS \`${schema}\``);await admin.end()}
 });

@@ -44,7 +44,21 @@ Les réservations FIN utilisent désormais `DRAFT → SUBMITTED → ACTIVE`, un 
 
 ## Reliquat démontré
 
-Restent à requalifier après les derniers changements : migrations historiques 054/runner et flux 063, archive GED préalable du test PDF, préproduction avec véritable session `SUPER_ADMIN` 2FA, SAV UX03/OR04-09/OR16-18/pièces/garantie, intégrité showroom, RH rallonges selon le nouveau workflow, et WSS qui exige la pile proxy isolée. Les tests showroom 02D/02E modifiés doivent aussi être rejoués une dernière fois après fermeture explicite des deux pools.
+### Poursuite du 18 octobre 2026
+
+Les réserves suivantes ont été levées avec preuves ciblées :
+
+- migration historique 054→056 reconstruite dans une base indépendante : checksum publié, journal, index final et conservation de données PASS ;
+- runner courant : fresh 071→091, idempotence, reprises après coupures DDL/journal, détection d'un checksum 085 falsifié, conservation de données, verrou et deux runners concurrents PASS (2/2 sous-tests) ;
+- flux Treasury courant sur schéma 091 : transactions, rollback, idempotence, mapping et concurrence PASS ;
+- GED/session : PDF autonome dans le stockage temporaire, téléchargement autorisé, refus immédiat après révocation puis nouvelle session légitime PASS ;
+- préproduction : véritable rôle système `SUPER_ADMIN`, session persistée et 2FA vérifiée, scénario PASS ;
+- Showroom 02D et 02E : identifiants dynamiques, ressources autonomes et fermeture des deux pools, PASS ;
+- SAV/Pièces ciblé : PASS.
+
+Le SAV OR04-09 a progressé jusqu'aux préconditions d'atelier actuelles. L'inspection de réception est désormais correctement considérée comme immuable après son premier enregistrement et l'administrateur technique de fixture n'est plus utilisé comme cas négatif lorsqu'il porte explicitement les permissions Atelier. Un nouveau rejeu est encore requis après le dernier ajustement.
+
+Restent à traiter ou requalifier : RH rallonges budgétaires selon demande/approbation à quatre yeux, SAV UX03/OR04-09/OR16-18/garantie, intégrité Showroom, et WSS sur proxy TLS isolé. Le replay intégral 59 fichiers n'a donc pas encore été relancé après ces corrections supplémentaires.
 
 ## Verdict
 

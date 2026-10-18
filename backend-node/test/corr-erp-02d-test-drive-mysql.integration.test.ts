@@ -27,7 +27,7 @@ async function reserve(vehicleId:string,advisorId:string,visitId:string){
     try{
       await connection.beginTransaction();
       await assertTestDriveStartAvailable(connection,{vehicleId,advisorId,agencyId,visitId});
-      await connection.execute("INSERT INTO showroom_test_drives(visit_id,vehicle_id,agency_id,advisor_id,status) VALUES(?,?,?,?,'in_progress')",[visitId,vehicleId,agencyId,advisorId]);
+      await connection.execute("INSERT INTO showroom_test_drives(visit_id,vehicle_id,agency_id,advisor_id,driver_name,mileage_out,status) VALUES(?,?,?,?,'Conducteur B31',0,'in_progress')",[visitId,vehicleId,agencyId,advisorId]);
       await connection.commit();return'created' as const;
     }catch(error:any){await connection.rollback();if(error?.status===409)return'conflict' as const;if(error?.code!=='ER_LOCK_DEADLOCK'||attempt>=3)throw error}finally{connection.release()}
   }
@@ -55,7 +55,7 @@ test('CORR-ERP-02D MySQL 8.4 sérialise les ressources des essais actifs',{skip:
   await clear();
   assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle2,advisor2,visit2)])).sort(),['created','created'],'ressources indépendantes');
   await clear();
-  await pool.execute("INSERT INTO showroom_test_drives(visit_id,vehicle_id,agency_id,advisor_id,status) VALUES(?,?,?,?, 'in_progress')",[visit1,vehicle1,agencyId,advisor1]);
+  await pool.execute("INSERT INTO showroom_test_drives(visit_id,vehicle_id,agency_id,advisor_id,driver_name,mileage_out,status) VALUES(?,?,?,?,'Conducteur B31',0,'in_progress')",[visit1,vehicle1,agencyId,advisor1]);
   const[rows]=await pool.query<RowDataPacket[]>('SELECT id FROM showroom_test_drives LIMIT 1'),id=String(rows[0]!.id);
   const outcomes=await Promise.allSettled([cancel(id),reserve(vehicle1,advisor1,visit3)]);
   assert.equal(outcomes.every(result=>result.status==='fulfilled'),true);

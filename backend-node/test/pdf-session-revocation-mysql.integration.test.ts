@@ -6,13 +6,16 @@ import supertest from 'supertest';
 import type {RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {execute,pool,query} from '../src/config/database.js';
+import {archiveBusinessDocument,renderBusinessPdf} from '../src/modules/documents/business-document.service.js';
+import {ensureMysqlHttpAdministrator} from './helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PDF_SESSION_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
 
 test('PDF GED : une session révoquée perd immédiatement le téléchargement, une nouvelle session légitime le retrouve',{skip:!enabled},async()=>{
-  const [document]=await query<RowDataPacket[]>("SELECT id,agency_id,entity_type FROM documents WHERE mime_type='application/pdf' AND is_archived=FALSE ORDER BY id LIMIT 1");
-  assert.ok(document,'La recette GED doit avoir créé un PDF synthétique');
+  const admin=await ensureMysqlHttpAdministrator([]),customer=await execute("INSERT INTO customers(customer_code,agency_id,first_name,last_name,created_by) VALUES(?,?,'PDF','Session',?)",[`B31-PDF-${randomUUID()}`,admin.agencyId,admin.userId]),created=await archiveBusinessDocument({sourceKey:`b31:pdf-session:${randomUUID()}`,documentType:'Recette session',entityType:'customer',entityId:String(customer.insertId),fileName:'session-b31.pdf',agencyId:admin.agencyId,createdBy:admin.userId,buffer:await renderBusinessPdf('Recette session GED',[['Lot','B.3.1']])});
+  const [document]=await query<RowDataPacket[]>('SELECT id,agency_id,entity_type FROM documents WHERE id=?',[created.id]);
+  assert.ok(document,'La fixture doit avoir créé son PDF synthétique autonome');
   const suffix=randomUUID().slice(0,8);
   const role=String((await execute('INSERT INTO roles(name,code) VALUES(?,?)',[`PDF session ${suffix}`,`PDF_SESSION_${suffix}`])).insertId);
   const businessPermission:Record<string,string>={delivery:'delivery.view',invoice:'billing.invoice.view',sale:'sales.view',vehicle:'vehicles.view',customer:'customers.view',repair_order:'service.order.view'};

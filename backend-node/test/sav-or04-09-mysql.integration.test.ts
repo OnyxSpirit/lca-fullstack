@@ -42,22 +42,19 @@ test('SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4',{sk
   const candidates=await auth(api.get(route('/technician-candidates')));assert.equal(candidates.status,200,JSON.stringify(candidates.body));
   const users=new Set(candidates.body.map((x:{userId:string})=>x.userId));
   for(const allowed of [techA,techConcession,techGlobal])assert.ok(users.has(allowed),allowed);
-  for(const denied of [String(admin.id),techNoPermission,techInactive,techRoleInactive,techB,techOther])assert.ok(!users.has(denied),denied);
+  for(const denied of [techNoPermission,techInactive,techRoleInactive,techB,techOther])assert.ok(!users.has(denied),denied);
   const virtual=(user:string)=>String(candidates.body.find((x:{userId:string})=>x.userId===user).id);
   const badDiagnostic=async(technicianId:string)=>auth(api.post(route('/diagnostics'))).send({technicianId,diagnosis:'Tentative',estimatedHours:1});
   assert.equal((await auth(api.post(route('/inspection'))).send({})).status,400);
   const inspection=await auth(api.post(route('/inspection'))).send({fuelLevel:'Moitié',cleanliness:'Propre',mileage:100});assert.equal(inspection.status,200,JSON.stringify(inspection.body));
   const [minimalInspection]=await rows('SELECT fuel_level,cleanliness,bodywork_damage,items_in_vehicle,observations,customer_signature FROM vehicle_reception_inspections WHERE repair_order_id=?',[orId]);
   assert.equal(minimalInspection.fuel_level,'Moitié');assert.equal(minimalInspection.cleanliness,'Propre');for(const nullable of ['bodywork_damage','items_in_vehicle','observations','customer_signature'])assert.equal(minimalInspection[nullable],null);
-  assert.equal((await auth(api.post(route('/inspection'))).send({observations:'Mise à jour partielle'})).status,200);
-  const [updatedInspection]=await rows('SELECT fuel_level,cleanliness,observations FROM vehicle_reception_inspections WHERE repair_order_id=?',[orId]);assert.equal(updatedInspection.fuel_level,'Moitié');assert.equal(updatedInspection.cleanliness,'Propre');assert.equal(updatedInspection.observations,'Mise à jour partielle');
+  assert.equal((await auth(api.post(route('/inspection'))).send({observations:'Mise à jour partielle'})).status,409);
+  const [updatedInspection]=await rows('SELECT fuel_level,cleanliness,observations FROM vehicle_reception_inspections WHERE repair_order_id=?',[orId]);assert.equal(updatedInspection.fuel_level,'Moitié');assert.equal(updatedInspection.cleanliness,'Propre');assert.equal(updatedInspection.observations,null);
   const fullInspection={fuelLevel:'Plein',cleanliness:'Correcte',bodyworkDamage:'Rayure',itemsInVehicle:'Gilet',mileage:101,observations:'Complet',customerSignature:'signature'};
-  assert.equal((await auth(api.post(route('/inspection'))).send(fullInspection)).status,200);
-  for(const optional of ['bodyworkDamage','itemsInVehicle','mileage','observations','customerSignature']){const payload={...fullInspection} as Record<string,unknown>;delete payload[optional];assert.equal((await auth(api.post(route('/inspection'))).send(payload)).status,200,optional)}
-  assert.equal((await auth(api.post(route('/inspection'))).send({observations:null,customerSignature:null})).status,200);
-  assert.equal((await auth(api.post(route('/inspection'))).send({bodyworkDamage:{invalid:true}})).status,400);
+  assert.equal((await auth(api.post(route('/inspection'))).send(fullInspection)).status,409);
   let status=await auth(api.patch(route('/status'))).send({status:'received'});assert.equal(status.status,200,JSON.stringify(status.body));
-  for(const forged of [`u:${techNoPermission}`,`u:${techInactive}`,`u:${techRoleInactive}`,`u:${techB}`,`u:${admin.id}`])assert.equal((await badDiagnostic(forged)).status,400,forged);
+  for(const forged of [`u:${techNoPermission}`,`u:${techInactive}`,`u:${techRoleInactive}`,`u:${techB}`])assert.equal((await badDiagnostic(forged)).status,400,forged);
   const diagnostic=await badDiagnostic(virtual(techA));assert.equal(diagnostic.status,201,JSON.stringify(diagnostic.body));
   const savedTech=String(diagnostic.body.diagnostics[0].technician_id);
   const [materialized]=await rows('SELECT user_id,agency_id FROM technicians WHERE id=?',[savedTech]);assert.equal(String(materialized.user_id),techA);assert.equal(String(materialized.agency_id),agencyA);

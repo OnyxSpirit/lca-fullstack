@@ -58,7 +58,20 @@ Les réserves suivantes ont été levées avec preuves ciblées :
 
 Le SAV OR04-09 a progressé jusqu'aux préconditions d'atelier actuelles. L'inspection de réception est désormais correctement considérée comme immuable après son premier enregistrement et l'administrateur technique de fixture n'est plus utilisé comme cas négatif lorsqu'il porte explicitement les permissions Atelier. Un nouveau rejeu est encore requis après le dernier ajustement.
 
-Restent à traiter ou requalifier : RH rallonges budgétaires selon demande/approbation à quatre yeux, SAV UX03/OR04-09/OR16-18/garantie, intégrité Showroom, et WSS sur proxy TLS isolé. Le replay intégral 59 fichiers n'a donc pas encore été relancé après ces corrections supplémentaires.
+### Reprise de finalisation du 18 octobre 2026
+
+Quatre réserves SAV supplémentaires sont levées sur MySQL 8.4 réel :
+
+- **SAV OR04-09 : PASS (1/1)**. La fixture crée son propre barème actif, respecte la normalisation du code, fournit les clés d'idempotence et dérive les interventions des lignes de chiffrage acceptées.
+- **SAV UX03 : PASS (1/1)**. La reprise après contrôle qualité en échec fournit désormais un réel facturable confirmé avant le nouveau passage en contrôle qualité.
+- **SAV OR16-18 : PASS (1/1)**. L'intervention et la ligne facturable sont dérivées du chiffrage accepté ; le snapshot tarifaire serveur reste autoritaire. Les sessions sont arrêtées avant achèvement et la facture finale reste séparée du temps opérationnel.
+- **Garantie : PASS (1/1)**. Chaque véhicule possède un contrat actif et applicable ; la fixture configure un compte Treasury jetable, son mapping de moyen de paiement et les permissions de reporting réellement exercées. Les garanties totale et partielle, l'idempotence des règlements, le refus du surpaiement et le reporting sont validés.
+
+Les refus successivement observés (barème absent, intervention libre après acceptation, contrat véhicule absent, moyen de paiement absent, intégration Treasury inactive, permissions de reporting absentes) étaient conformes aux règles métier courantes. Aucune de ces protections n'a été affaiblie.
+
+Validation statique après ces corrections : `npm run lint` backend **PASS** et `git diff --check` **PASS**.
+
+Restent à traiter ou requalifier : RH rallonges budgétaires selon demande/approbation à quatre yeux, intégrité Showroom, et WSS sur proxy TLS isolé. Le replay intégral 59 fichiers n'a donc pas encore été relancé après ces corrections supplémentaires.
 
 ## Verdict
 

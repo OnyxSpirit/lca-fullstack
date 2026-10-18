@@ -42,7 +42,8 @@ test('SAV-OR-UX-03 persiste et isole les actions one-shot par OR',{skip:!enabled
   assert.equal((await auth(api.post(`/api/repair-orders/${qualityOrder}/quality-control`)).send(failed)).status,201);
   assert.equal((await auth(api.post(`/api/repair-orders/${qualityOrder}/quality-control`)).send(failed)).status,409);
   assert.equal((await auth(api.patch(`/api/repair-orders/${qualityOrder}/status`)).send({status:'in_progress'})).status,200);
-  assert.equal((await auth(api.patch(`/api/repair-orders/${qualityOrder}/status`)).send({status:'quality_control'})).status,200);
+  await pool.execute("INSERT INTO repair_order_items(repair_order_id,item_type,description,quantity,unit_price,discount,tax_rate,line_total) VALUES(?,'labor','Reprise contrôle qualité',1,1000,0,0,1000)",[qualityOrder]);
+  const qualityRetry=await auth(api.patch(`/api/repair-orders/${qualityOrder}/status`)).send({status:'quality_control'});assert.equal(qualityRetry.status,200,JSON.stringify(qualityRetry.body));
   const passed={plannedWorkCompleted:true,defectCorrected:true,roadTestPerformed:true,noLeaks:true,levelsChecked:true,cleanlinessChecked:true,result:'passed'};
   assert.equal((await auth(api.post(`/api/repair-orders/${qualityOrder}/quality-control`)).send(passed)).status,201);
   const[proof]=await rows('SELECT COUNT(*) total FROM repair_quality_controls WHERE repair_order_id=?',[qualityOrder]);assert.equal(Number(proof.total),2);

@@ -34,4 +34,6 @@ test('WSS Nginx : upgrade accepté avec session persistée et refusé avec jeton
   const token=jwt.sign({sub:user,sid,email:`wss-${suffix}@test.local`,roles:[],agencyId:String(agency.id)},process.env.JWT_ACCESS_SECRET!,{expiresIn:'15m'});
   const accepted=await socketIoConnect(token);assert.equal(accepted.accepted,true,accepted.message);
   const refused=await socketIoConnect('jeton-invalide');assert.equal(refused.accepted,false,refused.message);assert.match(refused.message,/Jeton invalide/);
+  await pool.execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE id=?',[sid]);
+  const revoked=await socketIoConnect(token);assert.equal(revoked.accepted,false,revoked.message);assert.match(revoked.message,/Jeton invalide/);
 });

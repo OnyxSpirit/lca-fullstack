@@ -189,7 +189,7 @@ export interface Vehicle {
   co2Emissions: number; // g/km
   status: VehicleStatus;
   location: string;
-  locationType?: 'PARC'|'SHOWROOM';
+  locationType?: 'PARC'|'SHOWROOM'|'GARAGE';
   locationActive?: boolean;
   agencyId: string;
   agencyName: string;

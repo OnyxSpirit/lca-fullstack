@@ -39,7 +39,7 @@ export const VehiclesListPage: React.FC = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
   const [selectedModel, setSelectedModel] = useState<string>('ALL');
   const [onlyDormant, setOnlyDormant] = useState(false);
-  const [locationType,setLocationType]=useState<''|'PARC'|'SHOWROOM'>('');
+  const [locationType,setLocationType]=useState<''|'PARC'|'SHOWROOM'|'GARAGE'>('');
   const [assignment,setAssignment]=useState('');
   const [page,setPage]=useState(1);
   const pageSize=20;
@@ -153,9 +153,9 @@ export const VehiclesListPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[
-        ['',`Tous ${locationCounts?.total??0}`],['PARC',`Parc automobile ${locationCounts?.park??0}`],['SHOWROOM',`Showroom ${locationCounts?.showroom??0}`],['UNASSIGNED',`Non affectés ${locationCounts?.unassigned??0}`],
-      ].map(([key,label])=>{const active=key==='UNASSIGNED'?assignment==='unassigned':locationType===key&&!assignment;return <button key={key} type="button" onClick={()=>{if(key==='UNASSIGNED'){setLocationType('');setAssignment('unassigned')}else{setLocationType(key as ''|'PARC'|'SHOWROOM');setAssignment('')}}} className={`rounded-xl border p-3 text-xs font-bold ${active?'border-[#8f1722] bg-red-50 text-[#8f1722]':'bg-white text-slate-600'}`}>{label}</button>})}</div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{[
+        ['',`Tous ${locationCounts?.total??0}`],['PARC',`Parc automobile ${locationCounts?.park??0}`],['SHOWROOM',`Showroom ${locationCounts?.showroom??0}`],['GARAGE',`Garage ${locationCounts?.garage??0}`],['UNASSIGNED',`Non affectés ${locationCounts?.unassigned??0}`],
+      ].map(([key,label])=>{const active=key==='UNASSIGNED'?assignment==='unassigned':locationType===key&&!assignment;return <button key={key} type="button" onClick={()=>{if(key==='UNASSIGNED'){setLocationType('');setAssignment('unassigned')}else{setLocationType(key as ''|'PARC'|'SHOWROOM'|'GARAGE');setAssignment('')}}} className={`rounded-xl border p-3 text-xs font-bold ${active?'border-[#8f1722] bg-red-50 text-[#8f1722]':'bg-white text-slate-600'}`}>{label}</button>})}</div>
 
       {/* Filter & Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
@@ -183,7 +183,7 @@ export const VehiclesListPage: React.FC = () => {
           <select value={selectedModel} onChange={(e)=>setSelectedModel(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Modèle">
             <option value="ALL">Tous modèles</option>{models.map(model=><option key={model.id} value={model.id}>{model.name}</option>)}
           </select>
-          <select value={locationType} onChange={e=>{setLocationType(e.target.value as ''|'PARC'|'SHOWROOM');setAssignment('')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Type d’affectation"><option value="">Parc et Showroom</option><option value="PARC">Parc automobile</option><option value="SHOWROOM">Showroom</option></select>
+          <select value={locationType} onChange={e=>{setLocationType(e.target.value as ''|'PARC'|'SHOWROOM'|'GARAGE');setAssignment('')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Type d’affectation"><option value="">Tous les emplacements</option><option value="PARC">Parc automobile</option><option value="SHOWROOM">Showroom</option><option value="GARAGE">Garage</option></select>
           <select value={assignment} onChange={e=>setAssignment(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Affectation précise"><option value="">Toutes les affectations</option><option value="unassigned">Non affecté</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name} · {location.agencyName}</option>)}</select>
           {/* Status Filter */}
           <select

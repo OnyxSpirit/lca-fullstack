@@ -38,6 +38,7 @@ import { openBusinessPdf } from '../../services/businessPdf';
 import { UploadModal } from '../documents/DocumentsGedPage';
 import { DocumentPreview, type PreviewDocument } from '../documents/DocumentPreview';
 import { VehicleTransferModal } from './VehicleTransferModal';
+import { vehicleLocationTypeLabel } from './vehicleLocationPresentation';
 
 export const VehicleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -222,7 +223,7 @@ export const VehicleDetailPage: React.FC = () => {
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Emplacement Parc</span>
-                <span className="font-semibold text-slate-800">{vehicle.location||'Non affecté'}{vehicle.locationType?` · ${vehicle.locationType==='PARC'?'Parc':'Showroom'}`:''}</span>
+                <span className="font-semibold text-slate-800">{vehicle.location||'Non affecté'}{vehicle.locationType?` · ${vehicleLocationTypeLabel(vehicle.locationType)}`:''}</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-slate-500">Fournisseur d'origine</span>

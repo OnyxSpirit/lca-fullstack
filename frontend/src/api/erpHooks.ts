@@ -493,7 +493,7 @@ export interface VehicleFilters {
   sort?: string;
   page?: number;
   pageSize?: number;
-  locationType?: 'PARC'|'SHOWROOM'|'';
+  locationType?: 'PARC'|'SHOWROOM'|'GARAGE'|'';
   assignment?: string;
 }
 export interface VehicleListResult {
@@ -530,7 +530,7 @@ export interface VehicleFilterOption { id:string; name:string }
 export interface VehicleModelFilterOption extends VehicleFilterOption { brandId:string }
 export const useVehicleFilterOptionsQuery=(filters:{agencyId?:string;view?:VehicleFilters['view'];brandId?:string;locationType?:string}={},requestEnabled=true)=>useQuery({
   queryKey:[...erpKeys.vehicles,'filter-options',filters],
-  queryFn:()=>{const params=new URLSearchParams();Object.entries(filters).forEach(([key,value])=>{if(value)params.set(key,value)});return apiRequest<{brands:VehicleFilterOption[];models:VehicleModelFilterOption[];locations:Array<{id:string;name:string;type:'PARC'|'SHOWROOM';agencyId:string;agencyName:string}>}>(`/vehicles/filter-options?${params}`)},
+  queryFn:()=>{const params=new URLSearchParams();Object.entries(filters).forEach(([key,value])=>{if(value)params.set(key,value)});return apiRequest<{brands:VehicleFilterOption[];models:VehicleModelFilterOption[];locations:Array<{id:string;name:string;type:'PARC'|'SHOWROOM'|'GARAGE';agencyId:string;agencyName:string}>}>(`/vehicles/filter-options?${params}`)},
   enabled:enabled()&&requestEnabled,
 });
 export interface VehicleStats {
@@ -542,12 +542,12 @@ export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({
   queryFn:()=>apiRequest<VehicleStats>(`/vehicles/stats${agencyId?`?agencyId=${encodeURIComponent(agencyId)}`:''}`),
   enabled:enabled(),
 });
-export const useVehicleLocationCountsQuery=(agencyId?:string,view:'active'|'sold'|'all'='active')=>useQuery({queryKey:[...erpKeys.vehicles,'location-counts',agencyId,view],queryFn:()=>{const params=new URLSearchParams({view});if(agencyId)params.set('agencyId',agencyId);return apiRequest<{total:number;park:number;showroom:number;unassigned:number}>(`/vehicles/location-counts?${params}`)},enabled:enabled()});
-export interface VehicleLocationRecord{id:string;agencyId:string;agencyName:string;name:string;type:'PARC'|'SHOWROOM';isActive:boolean}
+export const useVehicleLocationCountsQuery=(agencyId?:string,view:'active'|'sold'|'all'='active')=>useQuery({queryKey:[...erpKeys.vehicles,'location-counts',agencyId,view],queryFn:()=>{const params=new URLSearchParams({view});if(agencyId)params.set('agencyId',agencyId);return apiRequest<{total:number;park:number;showroom:number;garage:number;unassigned:number}>(`/vehicles/location-counts?${params}`)},enabled:enabled()});
+export interface VehicleLocationRecord{id:string;agencyId:string;agencyName:string;name:string;type:'PARC'|'SHOWROOM'|'GARAGE';isActive:boolean}
 export const useVehicleLocationsQuery=(filters:{agencyId?:string;type?:string;active?:boolean}={},requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'locations',filters],queryFn:()=>apiRequest<VehicleLocationRecord[]>(`/vehicle-locations?${pageParams(filters)}`),enabled:enabled()&&requestEnabled});
 export const useVehicleTransferAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-agencies'],queryFn:()=>apiRequest<Array<{id:string;name:string}>>('/vehicle-transfer-agencies'),enabled:enabled()&&requestEnabled});
 export const useVehicleTransferLocationsQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-locations'],queryFn:()=>apiRequest<VehicleLocationRecord[]>('/vehicle-transfer-locations'),enabled:enabled()&&requestEnabled});
-export const useVehicleLocationActions=()=>{const qc=useQueryClient(),done=()=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles})};return{create:useMutation({mutationFn:(body:{agencyId:string;name:string;type:'PARC'|'SHOWROOM'})=>apiRequest('/vehicle-locations',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),update:useMutation({mutationFn:({id,...body}:{id:string;name?:string;isActive?:boolean})=>apiRequest(`/vehicle-locations/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done})}};
+export const useVehicleLocationActions=()=>{const qc=useQueryClient(),done=()=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles})};return{create:useMutation({mutationFn:(body:{agencyId:string;name:string;type:'PARC'|'SHOWROOM'|'GARAGE'})=>apiRequest('/vehicle-locations',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),update:useMutation({mutationFn:({id,...body}:{id:string;name?:string;isActive?:boolean})=>apiRequest(`/vehicle-locations/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done})}};
 export interface VehicleCreateAgency {id:string;name:string;code:string;currencyCode:string;financialAllowed:boolean}
 export const useVehicleCreateAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'create-agencies'],queryFn:()=>apiRequest<VehicleCreateAgency[]>('/vehicles/agencies/create'),enabled:enabled()&&requestEnabled});
 export const useSalesQuery = (requestEnabled=true) => useQuery({queryKey:erpKeys.sales,queryFn:async()=>(await apiRequest<any[]>('/sales')).map(mapSale),enabled:enabled()&&requestEnabled});

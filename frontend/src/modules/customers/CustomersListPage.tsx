@@ -13,7 +13,7 @@ import {
   Receipt,
   ArrowRight,
 } from 'lucide-react';
-import { useCreateCustomer, useCustomersQuery } from '../../api/erpHooks';
+import { useCreateCustomer, useCustomersPageQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -41,9 +41,16 @@ export const CustomersListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedType, setSelectedType] = useState<'ALL' | 'Particulier' | 'Professionnel'>('ALL');
+  const [page,setPage]=useState(1);
+  const [pageSize,setPageSize]=useState(15);
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
-  const customersQuery = useCustomersQuery(debouncedSearch,selectedType==='ALL'?'':selectedType==='Particulier'?'individual':'company'); const customers = customersQuery.data ?? []; const createCustomer = useCreateCustomer();
+  const customersQuery=useCustomersPageQuery({search:debouncedSearch,type:selectedType==='ALL'?'':selectedType==='Particulier'?'individual':'company',page,pageSize});
+  const customers=customersQuery.data?.items??[],total=customersQuery.data?.total??0,currentPage=customersQuery.data?.page??page,totalPages=customersQuery.data?.totalPages??0;
+  const rangeStart=total===0?0:(currentPage-1)*(customersQuery.data?.pageSize??pageSize)+1,rangeEnd=total===0?0:Math.min(currentPage*(customersQuery.data?.pageSize??pageSize),total);
+  const createCustomer = useCreateCustomer();
   useEffect(()=>{const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);return()=>window.clearTimeout(timer)},[searchQuery]);
+  useEffect(()=>setPage(1),[debouncedSearch,selectedType]);
+  useEffect(()=>{if(customersQuery.data&&customersQuery.data.page!==page)setPage(customersQuery.data.page)},[customersQuery.data,page]);
 
   const initialCustomerForm=():CustomerForm=>({...INITIAL_CUSTOMER_FORM,city:currentAgency?.city||'Brazzaville'});
   const [newCustomerForm, setNewCustomerForm] = useState<CustomerForm>(initialCustomerForm);
@@ -126,7 +133,7 @@ export const CustomersListPage: React.FC = () => {
             onChange={(e) => setSelectedType(e.target.value as any)}
             className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium focus:outline-none"
           >
-            <option value="ALL">Tous types ({customers.length})</option>
+            <option value="ALL">Tous types ({total})</option>
             <option value="Particulier">Particuliers</option>
             <option value="Professionnel">Professionnels & Flottes</option>
           </select>
@@ -211,6 +218,19 @@ export const CustomersListPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        {!customersQuery.isLoading&&!customersQuery.isError&&<div className="flex flex-col gap-3 border-t border-slate-200 p-4 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <span>{total===0?'Aucun client à afficher':`Affichage de ${rangeStart} à ${rangeEnd} sur ${total} clients`}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2">Clients par page
+              <select aria-label="Clients par page" value={pageSize} onChange={event=>{setPageSize(Number(event.target.value));setPage(1)}} className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs font-medium focus:outline-none">
+                {[15,30,50].map(value=><option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            <Button size="xs" variant="outline" disabled={currentPage<=1||customersQuery.isFetching} onClick={()=>setPage(currentPage-1)}>Précédent</Button>
+            <span aria-live="polite">Page {currentPage} sur {Math.max(1,totalPages)}</span>
+            <Button size="xs" variant="outline" disabled={currentPage>=Math.max(1,totalPages)||customersQuery.isFetching} onClick={()=>setPage(currentPage+1)}>Suivant</Button>
+          </div>
+        </div>}
       </Card>
 
       {/* New Customer Modal */}

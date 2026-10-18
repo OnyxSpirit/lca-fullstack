@@ -451,6 +451,11 @@ export const useCustomersQuery = (search = "", type = "", requestEnabled = true)
     },
     enabled: enabled() && requestEnabled,
   });
+export const useCustomersPageQuery=(filters:{search?:string;type?:string;classification?:string;agencyId?:string;commercialId?:string;page:number;pageSize:number},requestEnabled=true)=>useQuery({
+  queryKey:[...erpKeys.customers,'page',filters],
+  queryFn:async()=>{const data=await apiRequest<PagedResult<any>>(`/customers?${pageParams(filters)}`);return{...data,items:data.items.map(mapCustomer)}},
+  enabled:enabled()&&requestEnabled,
+});
 export const useLeadsQuery = (search = "", priority = "", requestEnabled = true, stage = "", commercialId = "") =>
   useQuery({
     queryKey: leadQueryKey(search,priority,stage,commercialId),

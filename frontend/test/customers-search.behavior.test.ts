@@ -16,7 +16,7 @@ const ndiaye={id:'3',customerCode:'CLI-000003',customerType:'company',civility:'
 const awa={id:'2',customerCode:'CLI-000002',customerType:'individual',civility:'Mme',firstName:'Awa',lastName:'Diop',email:'awa@example.com',phone:'06 800 20 03',city:'Brazzaville',classification:'occasional'};
 const calls:string[]=[];
 const calledWith=(value:string)=>calls.some(url=>new URL(url,'http://localhost').searchParams.get('search')===value);
-globalThis.fetch=(async(input:RequestInfo|URL)=>{const url=String(input);calls.push(url);const search=new URL(url,'http://localhost').searchParams.get('search')??'';const payload=search==='Thabo'?[thabo]:search==='Ndiaye Logistique'?[ndiaye]:search==='CLI-000002'||search==='06 800 20 03'?[awa]:search==='AUCUN-CLIENT'?[]:[thabo,ndiaye,awa];return new Response(JSON.stringify(payload),{status:200,headers:{'Content-Type':'application/json'}})}) as typeof fetch;
+globalThis.fetch=(async(input:RequestInfo|URL)=>{const url=String(input);calls.push(url);const parsed=new URL(url,'http://localhost'),search=parsed.searchParams.get('search')??'',items=search==='Thabo'?[thabo]:search==='Ndiaye Logistique'?[ndiaye]:search==='CLI-000002'||search==='06 800 20 03'?[awa]:search==='AUCUN-CLIENT'?[]:[thabo,ndiaye,awa];const page=Number(parsed.searchParams.get('page')??1),pageSize=Number(parsed.searchParams.get('pageSize')??15);const payload={items,total:items.length,page,pageSize,totalPages:items.length?1:0};return new Response(JSON.stringify(payload),{status:200,headers:{'Content-Type':'application/json'}})}) as typeof fetch;
 
 after(()=>dom.window.close());
 

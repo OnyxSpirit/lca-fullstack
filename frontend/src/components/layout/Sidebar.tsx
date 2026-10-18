@@ -67,7 +67,7 @@ export const Sidebar: React.FC = () => {
       items: [
         {
           to: ROUTES.dashboard,
-          label: 'Dashboard Général',
+          label: 'Tableau de bord général',
           icon: <LayoutDashboard className="w-4 h-4" />,
           module: 'dashboard',
         },

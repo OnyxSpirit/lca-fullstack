@@ -179,7 +179,7 @@ export const DashboardPage: React.FC = () => {
           <div className="bg-white border border-[#dedbd7] rounded-md flex flex-col p-5">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="font-bold text-sm text-slate-800">Évolution du CA Hebdomadaire</h3>
+                <h3 className="font-bold text-sm text-slate-800">Évolution hebdomadaire du chiffre d’affaires</h3>
                 <p className="text-xs text-slate-400">Performances journalières VN/VO & SAV</p>
               </div>
               <span className="text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-md px-2.5 py-1 font-medium">

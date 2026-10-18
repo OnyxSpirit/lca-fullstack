@@ -29,6 +29,7 @@ import { useEntityDocuments } from '../../api/documentHooks';
 import { apiDownload } from '../../services/apiClient';
 import { useAuthStore } from '../../stores/authStore';
 import {CUSTOMER_360_PAGE_SIZES,newCustomer360Pages,synchronizeCustomer360Pages,type Customer360PageKey} from './customer360Pagination';
+import { quotationStatusLabel } from '../../lib/userFacingLabels';
 
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -254,7 +255,7 @@ export const CustomerDetailPage: React.FC = () => {
       {/* TAB 3: SALES */}
       {activeTab === 'sales' && (
         <Card padding="none">
-          {customerQuotations.length>0&&<div className="border-b bg-slate-50 p-4"><div className="mb-2 text-xs font-bold uppercase text-slate-500">Devis</div><div className="grid gap-2 md:grid-cols-2">{customerQuotations.map((quotation:any)=><div key={quotation.id} className="rounded-lg border bg-white p-3 text-xs"><div className="flex justify-between gap-3"><b>{quotation.quotationNumber}</b><span className="font-bold">{formatCurrency(quotation.total)}</span></div><div className="mt-1 text-slate-500">{quotation.vehicleLabel} · {quotation.status}</div><div className="mt-1 text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div>)}</div></div>}
+          {customerQuotations.length>0&&<div className="border-b bg-slate-50 p-4"><div className="mb-2 text-xs font-bold uppercase text-slate-500">Devis</div><div className="grid gap-2 md:grid-cols-2">{customerQuotations.map((quotation:any)=><div key={quotation.id} className="rounded-lg border bg-white p-3 text-xs"><div className="flex justify-between gap-3"><b>{quotation.quotationNumber}</b><span className="font-bold">{formatCurrency(quotation.total)}</span></div><div className="mt-1 text-slate-500">{quotation.vehicleLabel} · {quotationStatusLabel(quotation.status)}</div><div className="mt-1 text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div>)}</div></div>}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">

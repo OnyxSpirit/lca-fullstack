@@ -8,7 +8,7 @@ const hooks=read('../src/api/erpHooks.ts');
 const reports=read('../src/modules/reports/ReportsPage.tsx');
 
 test('SAV-FINANCE-03 affiche les trois montants SAV absolus',()=>{
-  for(const label of ['CA SAV net facturé','Encaissements SAV nets','Reste à encaisser actuel'])assert.ok(reports.includes(label),label);
+  for(const label of ["Chiffre d’affaires SAV net facturé",'Encaissements SAV nets','Reste à encaisser actuel'])assert.ok(reports.includes(label),label);
   for(const field of ['workshop_revenue','workshop_collected','workshop_outstanding'])assert.ok(reports.includes(field),field);
 });
 

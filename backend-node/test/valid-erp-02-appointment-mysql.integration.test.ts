@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test,{after} from 'node:test';
 import mysql,{type PoolConnection,type RowDataPacket} from 'mysql2/promise';
 
 const enabled=process.env.VALID_ERP_02_MYSQL==='1';
@@ -19,7 +19,8 @@ async function reserve(userId:string,start:Date,duration:number){
 }
 
 test('VALID-ERP-02 MySQL 8.4 sérialise deux créations identiques et accepte les bornes adjacentes',{skip:!enabled},async()=>{
-  const[users]=await pool.query<RowDataPacket[]>('SELECT id FROM users ORDER BY id LIMIT 1');
+  let[users]=await pool.query<RowDataPacket[]>('SELECT id FROM users ORDER BY id LIMIT 1');
+  if(!users[0]){const[group]=await pool.execute<any>("INSERT INTO groups_company(name,code) VALUES('B31 VALID','B31VALID')"),[concession]=await pool.execute<any>("INSERT INTO concessions(group_id,name,code) VALUES(?,'B31 VALID','B31VALID')",[group.insertId]),[agency]=await pool.execute<any>("INSERT INTO agencies(concession_id,name,code) VALUES(?,'B31 VALID','B31VALID')",[concession.insertId]);await pool.execute("INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,'B31','VALID','b31-valid@test.local','unused')",[agency.insertId]);[users]=await pool.query<RowDataPacket[]>('SELECT id FROM users ORDER BY id LIMIT 1')}
   const userId=String(users[0]!.id),start=new Date('2040-01-15T10:00:00Z');
   await pool.execute("DELETE FROM follow_ups WHERE notes='VALID-ERP-02'");
   const concurrent=await Promise.all([reserve(userId,start,30),reserve(userId,start,30)]);
@@ -28,5 +29,5 @@ test('VALID-ERP-02 MySQL 8.4 sérialise deux créations identiques et accepte le
   const[rows]=await pool.query<RowDataPacket[]>("SELECT COUNT(*) total FROM follow_ups WHERE notes='VALID-ERP-02'");
   assert.equal(Number(rows[0]!.total),2);
   await pool.execute("DELETE FROM follow_ups WHERE notes='VALID-ERP-02'");
-  await pool.end();
 });
+if(enabled)after(async()=>pool.end());

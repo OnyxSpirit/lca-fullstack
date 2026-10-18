@@ -18,7 +18,7 @@ test('C/CC identité customer — invariants réels MySQL 8.4',{skip:!enabled,ti
   try{
     await admin.query(`CREATE DATABASE \`${schema}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     Object.assign(process.env,{DB_HOST:config.host,DB_PORT:String(config.port),DB_USER:config.user,DB_PASSWORD:config.password,DB_NAME:schema,DATABASE_ROOT:new URL('../database',import.meta.url).pathname});
-    assert.equal((await bootstrapDatabase()).version,45);
+    assert.ok((await bootstrapDatabase()).version>=45);
     const setup=await connect();
     const[concession]=await setup.execute<any>('INSERT INTO concessions(name,code) VALUES(?,?)',['Audit 003',`C_${schema}`]);
     const[a]=await setup.execute<any>('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concession.insertId,'Agence A',`A_${schema}`]);

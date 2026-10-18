@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import {ensureMysqlHttpAdministrator,workshopPartsHttpPermissions} from './helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PR04_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -12,6 +13,7 @@ const rows=(sql:string,params:unknown[]=[])=>query<RowDataPacket[]>(sql,params);
 const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
 
 test('PR-04 restitue les emplacements de stock dans la liste sans fuite multi-agence',{skip:!enabled},async()=>{
+  await ensureMysqlHttpAdministrator(workshopPartsHttpPermissions);
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8),password=process.env.ADMIN_PASSWORD!;
   const adminLogin=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password});assert.equal(adminLogin.status,200,JSON.stringify(adminLogin.body));
   const [admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);

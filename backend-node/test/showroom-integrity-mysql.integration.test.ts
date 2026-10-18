@@ -18,7 +18,7 @@ async function ddl(sql:string){await pool.query(sql)}
 
 before(async()=>{
   if(!enabled)return;
-  for(const table of ['showroom_test_drives','opportunities','showroom_visits','vehicles','versions','models','brands','customers','leads','users','agencies'])await ddl(`DROP TABLE IF EXISTS ${table}`);
+  for(const table of ['activities','showroom_test_drives','opportunities','showroom_visits','vehicles','versions','models','brands','customers','leads','users','agencies'])await ddl(`DROP TABLE IF EXISTS ${table}`);
   await ddl('CREATE TABLE agencies(id BIGINT PRIMARY KEY,is_active BOOLEAN NOT NULL,concession_id BIGINT NOT NULL,name VARCHAR(100),code VARCHAR(30)) ENGINE=InnoDB');
   await ddl('CREATE TABLE users(id BIGINT PRIMARY KEY,first_name VARCHAR(100),last_name VARCHAR(100),agency_id BIGINT,is_active BOOLEAN DEFAULT TRUE) ENGINE=InnoDB');
   await ddl('CREATE TABLE customers(id BIGINT PRIMARY KEY,customer_code VARCHAR(30)) ENGINE=InnoDB');

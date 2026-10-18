@@ -39,7 +39,9 @@ test('SA4-SA11 et SA13-SA16 provisioning atomique sur MySQL jetable',{skip:!mysq
   });
   try{
     const[databaseRows]=await pool.execute<RowDataPacket[]>('SELECT DATABASE() database_name');
-    assert.equal(databaseRows[0]!.database_name,'lca_seed_test','ce test destructif exige la base jetable lca_seed_test');
+    const expectedDatabase=process.env.SEED_DB_NAME??'lca_seed_test';
+    assert.match(expectedDatabase,/^lca_[a-z0-9_]+$/,'le nom de la base de recette doit être explicitement isolé');
+    assert.equal(databaseRows[0]!.database_name,expectedDatabase,'ce test destructif exige la base jetable explicitement configurée');
     await pool.execute('DELETE FROM users WHERE email IN (?,?)',[validEmail,'ordinary-user@invalid.test']);
     await pool.execute("DELETE FROM roles WHERE code='SUPER_ADMIN_FAKE_SEED_TEST'");
     const config=adminProvisioningConfig({ADMIN_EMAIL:validEmail,ADMIN_PASSWORD:firstPassword});

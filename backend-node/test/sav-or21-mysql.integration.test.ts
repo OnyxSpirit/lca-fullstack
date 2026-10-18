@@ -1,3 +1,4 @@
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {after,test} from 'node:test';
@@ -9,7 +10,7 @@ const enabled=process.env.LCA_SAV21_DB_TEST==='1';if(enabled)after(async()=>pool
 const rows=(sql:string,p:unknown[]=[])=>query<RowDataPacket[]>(sql,p);const insert=async(sql:string,p:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,p))[0].insertId);
 
 test('SAV-OR-21 relie baseline acceptée et réel sans doublon',{skip:!enabled},async()=>{
- const api=supertest(createApp()),suffix=randomUUID().slice(0,8),login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200);const auth=(r:supertest.Test)=>r.set('Authorization',`Bearer ${login.body.accessToken}`);const[admin]=await rows('SELECT id,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
+ const api=supertest(createApp()),suffix=randomUUID().slice(0,8);await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200);const auth=(r:supertest.Test)=>r.set('Authorization',`Bearer ${login.body.accessToken}`);const[admin]=await rows('SELECT id,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
  const brand=await insert('INSERT INTO brands(name,code)VALUES(?,?)',[`S21 ${suffix}`,`S21B_${suffix}`]),model=await insert('INSERT INTO models(brand_id,name)VALUES(?,?)',[brand,'M']),version=await insert('INSERT INTO versions(model_id,name)VALUES(?,?)',[model,'V']),customer=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name)VALUES(?,?,?,?)',[`S21C_${suffix}`,agency,'Client','S21']),vehicle=await insert('INSERT INTO vehicles(version_id,agency_id,vin)VALUES(?,?,?)',[version,agency,`S21${suffix}VIN`]);
  const makeOrder=(label:string,status='in_progress')=>insert('INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,status,created_by)VALUES(?,?,?,?,?,?,?)',[`OR-S21-${label}-${suffix}`,customer,vehicle,agency,admin.id,status,admin.id]);const order=await makeOrder('MAIN'),other=await makeOrder('OTHER'),historical=await makeOrder('HIST');
  await pool.execute('INSERT INTO repair_approvals(repair_order_id,approved,approved_amount,customer_name,recorded_by)VALUES(?,TRUE,195000,?,?)',[order,'Client S21',admin.id]);

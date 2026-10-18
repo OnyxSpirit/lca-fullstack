@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {Request} from 'express';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 import type {RowDataPacket} from 'mysql2/promise';
 import {validateLeadAssignee} from '../src/modules/crm/crm-assignment.js';
 import {directory} from '../src/modules/users/user.service.js';
@@ -14,7 +15,7 @@ if(enabled)after(async()=>{await pool.end()});
 
 test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle de rôle', {skip:!enabled},async()=>{
   const api=supertest(createApp());
-  const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
+  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
   assert.equal(login.status,200,JSON.stringify(login.body));
   const token=login.body.accessToken as string;
   const actor=api;

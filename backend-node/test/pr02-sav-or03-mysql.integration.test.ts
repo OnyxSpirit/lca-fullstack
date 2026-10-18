@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PR02_SAV03_DB_TEST==='1';
 if(enabled)after(async()=>{await pool.end()});
@@ -14,7 +15,7 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
   const api=supertest(createApp());
   const suffix=randomUUID().slice(0,8);
-  const adminLogin=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
+  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const adminLogin=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
   assert.equal(adminLogin.status,200,JSON.stringify(adminLogin.body));
   const adminToken=adminLogin.body.accessToken as string;
   const auth=(request:supertest.Test,token=adminToken)=>request.set('Authorization',`Bearer ${token}`);

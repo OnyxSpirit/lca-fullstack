@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PR06_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -12,7 +13,7 @@ const rows=(sql:string,params:unknown[]=[])=>query<RowDataPacket[]>(sql,params);
 const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
 
 test('PR-06 annule sûrement commandes et reliquats sans inverser le stock',{skip:!enabled},async()=>{
-  const api=supertest(createApp()),suffix=randomUUID().slice(0,8),password=process.env.ADMIN_PASSWORD!;
+  const api=supertest(createApp()),suffix=randomUUID().slice(0,8);await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const password=process.env.ADMIN_PASSWORD!;
   const adminLogin=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password});assert.equal(adminLogin.status,200,JSON.stringify(adminLogin.body));const adminToken=adminLogin.body.accessToken as string;
   const [admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agencyA=String(admin.agency_id),[home]=await rows('SELECT concession_id FROM agencies WHERE id=?',[agencyA]);
   const agencyB=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[home.concession_id,`Agence B ${suffix}`,`PR06_B_${suffix}`]),concessionC=await insert('INSERT INTO concessions(name,code) VALUES(?,?)',[`Concession C ${suffix}`,`PR06_C_${suffix}`]),agencyC=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concessionC,`Agence C ${suffix}`,`PR06_AC_${suffix}`]);

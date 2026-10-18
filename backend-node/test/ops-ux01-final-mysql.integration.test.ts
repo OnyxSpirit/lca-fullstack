@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_OPS_UX01_FINAL_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -13,7 +14,7 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('OPS-UX-01 final: kilométrage strict et conflit Planning concurrent',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
-  const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
+  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
   assert.equal(login.status,200,JSON.stringify(login.body));
   const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${login.body.accessToken}`);
   const [admin]=await rows('SELECT id,agency_id,password_hash FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);

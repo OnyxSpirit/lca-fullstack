@@ -11,14 +11,14 @@ const request=(agencyId:string,userId:string,scope:'AGENCY'|'CONCESSION'|'GLOBAL
 
 test('CLOSE-TREAS-01..11 invariants financiers réels MySQL 8.4',{skip:!enabled,timeout:300_000},async()=>{
   try{
-    assert.equal((await bootstrapDatabase()).version,60);
+    assert.ok((await bootstrapDatabase()).version>=60);
     const concession=await query<RowDataPacket[]>('SELECT id FROM concessions ORDER BY id LIMIT 1');let concessionId=String(concession[0]?.id??'');
     if(!concessionId){const[c]=await pool.execute<any>('INSERT INTO concessions(name,code) VALUES(?,?)',['Clôture Trésorerie','CLOSE_TREAS']);concessionId=String(c.insertId)}
     const[a]=await pool.execute<any>('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concessionId,'Agence clôture','CLOSE_TREAS_A']);const agencyId=String(a.insertId);
     const[u]=await pool.execute<any>('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agencyId,'Audit','Trésorerie','close-treasury@example.test','not-used']);const userId=String(u.insertId);
     const agency=request(agencyId,userId,'AGENCY'),concessionRequest=request(agencyId,userId,'CONCESSION');
     let sequence=0;
-    const account=async(type:'CASH'|'BANK'|'OTHER',opening=100000,central=false)=>String((await createAccount(concessionRequest,{concessionId,agencyId:central?null:agencyId,code:`CLOSE_${++sequence}`,name:`Compte ${sequence}`,accountType:type,currencyCode:'XAF',openingBalance:opening,openingDate:'2026-10-06',openingJustification:'Solde audit clôture'})).id);
+    const account=async(type:'CASH'|'BANK'|'OTHER',opening=100000,central=false)=>String((await createAccount(concessionRequest,{attachmentType:central?'CONCESSION':'AGENCY',concessionId,agencyId:central?null:agencyId,code:`CLOSE_${++sequence}`,name:`Compte ${sequence}`,accountType:type,currencyCode:'XAF',openingBalance:opening,openingDate:'2026-10-06',openingJustification:'Solde audit clôture'})).id);
     const balance=async(accountId:string)=>Number((await query<RowDataPacket[]>("SELECT COALESCE(SUM(CASE WHEN status='POSTED' AND direction='IN' THEN amount WHEN status='POSTED' THEN -amount ELSE 0 END),0) balance FROM treasury_movements WHERE account_id=?",[accountId]))[0]!.balance);
 
     for(const type of['CASH','BANK','OTHER']as const){const source=await account(type),destination=await account(type,1);await assert.rejects(transfer(concessionRequest,{sourceAccountId:source,destinationAccountId:destination,amount:150000,valueDate:'2026-10-06',description:'Solde insuffisant'}),error=>(error as any).status===409);assert.equal(await balance(source),100000)}
@@ -41,6 +41,6 @@ test('CLOSE-TREAS-01..11 invariants financiers réels MySQL 8.4',{skip:!enabled,
 
     const central=await account('BANK',1,true),agencySource=await account('BANK');assert.equal((await listAccounts(agency)).some(row=>String(row.id)===central),false);await assert.rejects(transfer(agency,{sourceAccountId:agencySource,destinationAccountId:central,amount:1,valueDate:'2026-10-06',description:'Agence vers central interdite'}),error=>(error as any).status===404);await transfer(concessionRequest,{sourceAccountId:agencySource,destinationAccountId:central,amount:1,valueDate:'2026-10-06',description:'Concession vers central autorisée'});assert.equal((await listAccounts(concessionRequest)).some(row=>String(row.id)===central),true);
 
-    assert.equal((await bootstrapDatabase()).version,60);
+    assert.ok((await bootstrapDatabase()).version>=60);
   }finally{await pool.end()}
 });

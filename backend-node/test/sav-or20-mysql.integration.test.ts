@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import {ensureMysqlHttpAdministrator,workshopPartsHttpPermissions} from './helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_SAV20_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -13,9 +14,11 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('SAV-OR-20 chiffre côté serveur avant décision sans toucher au stock',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
+  await ensureMysqlHttpAdministrator(workshopPartsHttpPermissions);
   const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200,JSON.stringify(login.body));
   const token=login.body.accessToken as string,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
-  const[admin]=await rows('SELECT id,agency_id,password_hash FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
+  const[admin]=await rows('SELECT u.id,u.agency_id,u.password_hash,a.concession_id FROM users u JOIN agencies a ON a.id=u.agency_id WHERE u.email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
+  await pool.execute("INSERT INTO workshop_labor_rates(concession_id,code,label,hourly_rate,is_active,is_configured,created_by) VALUES(?,'T1','Main-d’œuvre T1',25000,TRUE,TRUE,?)",[admin.concession_id,admin.id]);
   await pool.execute("INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,updated_by) VALUES('agency',?,'workshop.rate_t1',JSON_ARRAY(?),?) ON DUPLICATE KEY UPDATE setting_value=JSON_ARRAY(?)",[agency,25000,admin.id,25000]);
   await pool.execute("INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,updated_by) VALUES('agency',?,'billing.default_vat_rate',JSON_ARRAY(?),?) ON DUPLICATE KEY UPDATE setting_value=JSON_ARRAY(?)",[agency,0,admin.id,0]);
   const brand=await insert('INSERT INTO brands(name,code) VALUES(?,?)',[`SAV20 ${suffix}`,`S20B_${suffix}`]),model=await insert('INSERT INTO models(brand_id,name) VALUES(?,?)',[brand,'Modèle']),version=await insert('INSERT INTO versions(model_id,name) VALUES(?,?)',[model,'Version']);

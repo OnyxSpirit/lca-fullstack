@@ -3,13 +3,14 @@ import {after,test} from 'node:test';
 import supertest from 'supertest';
 import {createApp} from '../src/app.js';
 import {pool} from '../src/config/database.js';
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_OPS_UX01_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
 
 test('OPS-UX-01 refuse les quantités physiques décimales par API réelle',{skip:!enabled},async()=>{
   const api=supertest(createApp());
-  const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
+  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
   assert.equal(login.status,200,JSON.stringify(login.body));
   const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${login.body.accessToken}`);
   const cases=[

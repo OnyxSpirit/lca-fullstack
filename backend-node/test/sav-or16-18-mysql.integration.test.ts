@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_SAV1618_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -13,7 +14,7 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('SAV-OR-16 à 18 sur MySQL 8.4 : étapes, annulation et finance séparée',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
-  const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200,JSON.stringify(login.body));
+  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200,JSON.stringify(login.body));
   const token=login.body.accessToken as string,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
   const[admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
   const brand=await insert('INSERT INTO brands(name,code) VALUES(?,?)',[`SAV1618 ${suffix}`,`S1618_${suffix}`]),model=await insert('INSERT INTO models(brand_id,name) VALUES(?,?)',[brand,'Modèle']),version=await insert('INSERT INTO versions(model_id,name) VALUES(?,?)',[model,'Version']);

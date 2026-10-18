@@ -5,6 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
+import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_SAV0409_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -13,7 +14,7 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
-  const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
+  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
   assert.equal(login.status,200,JSON.stringify(login.body));
   const token=login.body.accessToken as string,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
   const [admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);

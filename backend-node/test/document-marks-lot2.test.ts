@@ -58,9 +58,10 @@ test('LOT2 documents officiels intégrés et historique jamais recalculé', () =
   assert.match(archive, /existingArchive\(sourceKey\);if\(existing\)return existing/);
   assert.match(archive, /afterInsertOnly:true/);
   assert.match(archive, /snapshotResolvedMarks/);
-  assert.match(commercial, /drawOfficialMarks/);
-  assert.match(layout, /fit:\[180,85\]/);
-  assert.match(layout, /doc\.addPage\(\)/);
+  assert.match(commercial, /drawOfficialMarksInZone/);
+  assert.match(layout, /BM:'Multiply'/);
+  assert.match(layout, /signatureBuffer[\s\S]*stampBuffer/);
+  assert.doesNotMatch(layout, /VALIDATION OFFICIELLE/);
   assert.match(archive, /archiveDelivery/);
 });
 

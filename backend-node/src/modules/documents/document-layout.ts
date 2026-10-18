@@ -61,4 +61,50 @@ export function drawDocumentFooter(doc:PDFKit.PDFDocument,identity:any){
   for(let index=0;index<range.count;index++){doc.switchToPage(index);doc.moveTo(42,documentStyle.page.footerY-7).lineTo(553,documentStyle.page.footerY-7).strokeColor(documentStyle.colors.line).lineWidth(.5).stroke();doc.fillColor(documentStyle.colors.muted).font('Helvetica');if(lines.legal)doc.fontSize(footerFontSize(doc,lines.legal,511,2)).text(lines.legal,42,documentStyle.page.footerY,{width:511,height:18,align:'center'});if(lines.contact)doc.fontSize(footerFontSize(doc,lines.contact,511,1)).text(lines.contact,42,766,{width:511,height:9,align:'center',lineBreak:false});doc.fontSize(6).text(`Page ${index+1} / ${range.count}`,42,779,{width:511,height:8,align:'center',lineBreak:false})}
 }
 
-export function drawOfficialMarks(doc:PDFKit.PDFDocument,marks?:{signatureBuffer?:Buffer|null;stampBuffer?:Buffer|null;signatureIdentity?:string|null;stampIdentity?:string|null}|null){if(!marks?.signatureBuffer&&!marks?.stampBuffer)return;doc.addPage();const y=220;doc.fillColor(documentStyle.colors.primary).font('Helvetica-Bold').fontSize(14).text('VALIDATION OFFICIELLE',42,150,{width:511,align:'center'});if(marks.signatureBuffer){doc.fillColor(documentStyle.colors.muted).fontSize(7).text('SIGNATURE DU VALIDATEUR',80,y-22,{width:180,align:'center'});try{doc.image(marks.signatureBuffer,80,y,{fit:[180,85],align:'center',valign:'center'})}catch{}doc.fillColor(documentStyle.colors.text).font('Helvetica').fontSize(7).text(documentText(marks.signatureIdentity),80,y+92,{width:180,align:'center'})}if(marks.stampBuffer){doc.fillColor(documentStyle.colors.muted).font('Helvetica-Bold').fontSize(7).text('CACHET AUTORISÉ',335,y-22,{width:180,align:'center'});try{doc.image(marks.stampBuffer,335,y,{fit:[180,85],align:'center',valign:'center'})}catch{}doc.fillColor(documentStyle.colors.text).font('Helvetica').fontSize(7).text(documentText(marks.stampIdentity),335,y+92,{width:180,align:'center'})}}
+export type OfficialMarks={signatureBuffer?:Buffer|null;stampBuffer?:Buffer|null;signatureIdentity?:string|null;signatureFunction?:string|null;stampIdentity?:string|null};
+export type OfficialMarkZone={x:number;y:number;width:number;height:number};
+
+const multiplyStates=new WeakMap<object,string>();
+function useMultiplyBlend(doc:PDFKit.PDFDocument){
+  const internal=doc as any;
+  let name=multiplyStates.get(doc as object);
+  if(!name){
+    const state=internal.ref({Type:'ExtGState',BM:'Multiply'});
+    state.end();
+    name=`B33Multiply${state.id}`;
+    multiplyStates.set(doc as object,name);
+    internal.page.ext_gstates[name]=state;
+  }else if(!internal.page.ext_gstates[name]){
+    // Chaque page possède son propre dictionnaire de ressources.
+    const registry=(internal as any)._b33MultiplyReference;
+    if(registry)internal.page.ext_gstates[name]=registry;
+  }
+  const reference=internal.page.ext_gstates[name];
+  if(reference)(internal as any)._b33MultiplyReference=reference;
+  internal.addContent(`/${name} gs`);
+}
+
+/**
+ * Dessine les marques dans la zone officielle du modèle courant.
+ * Les deux fichiers restent des XObjects PDF indépendants : signature d'abord,
+ * puis cachet en mode Multiply, avec un état graphique strictement borné.
+ */
+export function drawOfficialMarksInZone(doc:PDFKit.PDFDocument,marks:OfficialMarks|null|undefined,zone:OfficialMarkZone){
+  if(!marks?.signatureBuffer&&!marks?.stampBuffer)return;
+  const padding=8,imageTop=zone.y+4,imageHeight=Math.max(24,zone.height-34);
+  const signatureX=zone.x+padding,signatureWidth=Math.min(zone.width*.67,132);
+  const stampWidth=Math.min(zone.width*.48,96),stampX=Math.min(zone.x+zone.width-padding-stampWidth,signatureX+signatureWidth*.58);
+  doc.save();
+  doc.rect(zone.x,zone.y,zone.width,zone.height).clip();
+  if(marks.signatureBuffer)try{doc.image(marks.signatureBuffer,signatureX,imageTop,{fit:[signatureWidth,imageHeight],align:'center',valign:'center'})}catch{}
+  if(marks.stampBuffer)try{
+    doc.save();
+    try{
+      useMultiplyBlend(doc);
+      doc.image(marks.stampBuffer,stampX,imageTop+2,{fit:[stampWidth,imageHeight+2],align:'center',valign:'center'});
+    }finally{doc.restore()}
+  }catch{}
+  doc.restore();
+  const identity=[documentText(marks.signatureIdentity),documentText(marks.signatureFunction)].filter(Boolean).join(' — ');
+  if(identity)doc.fillColor(documentStyle.colors.text).font('Helvetica').fontSize(6.7).text(identity,zone.x+padding,zone.y+zone.height-24,{width:zone.width-padding*2,height:18,align:'center',ellipsis:true});
+}

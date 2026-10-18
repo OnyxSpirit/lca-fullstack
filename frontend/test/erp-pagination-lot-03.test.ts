@@ -6,8 +6,10 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const hooks=read('../src/api/erpHooks.ts'),customer=read('../src/modules/customers/CustomerDetailPage.tsx'),showroom=read('../src/modules/showroom/ShowroomPage.tsx'),delivery=read('../src/modules/deliveries/DeliveriesPage.tsx');
 
 test('C360-PAG-01..10 utilise le contrat serveur compatible et conserve les actions',()=>{
- assert.match(hooks,/customers\/\$\{id\}\/360\?\$\{pageParams\(\{\.\.\.pages,pageSize:7\}\)\}/);
+ assert.match(hooks,/customers\/\$\{id\}\/360\?\$\{pageParams\(\{\.\.\.pages,pageSize\}\)\}/);
+ assert.match(hooks,/queryKey: \["customers", id, "360",pages,pageSize\]/);
  for(const section of['timeline','opportunities','vehicles','sales','quotations','repairOrders','invoices'])assert.match(customer,new RegExp(`${section}Page`));
+ for(const label of['Première page','Précédent','Suivant','Dernière page','Éléments par page'])assert.match(customer,new RegExp(label));
  assert.match(customer,/navigate\(`\/sales\/\$\{s\.id\}`\)/);assert.match(customer,/setActiveQuickActionModal\('or'/);assert.match(customer,/Aucun événement/);
 });
 

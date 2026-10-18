@@ -604,11 +604,11 @@ export const useCustomerDetailQuery = (id?: string) =>
     queryFn: async () => mapCustomer(await apiRequest<any>(`/customers/${id}`)),
     enabled: enabled() && Boolean(id),
   });
-export const useCustomer360Query = (id?: string,pages:Record<string,number>={}) =>
+export const useCustomer360Query = (id?: string,pages:Record<string,number>={},pageSize=7) =>
   useQuery({
-    queryKey: ["customers", id, "360",pages],
+    queryKey: ["customers", id, "360",pages,pageSize],
     queryFn: async () => {
-      const data = await apiRequest<any>(`/customers/${id}/360?${pageParams({...pages,pageSize:7})}`);
+      const data = await apiRequest<any>(`/customers/${id}/360?${pageParams({...pages,pageSize})}`);
       const mapPage=(value:any,mapper:(item:any)=>any)=>Array.isArray(value)?value.map(mapper):{...value,items:(value?.items??[]).map(mapper)};
       return {
         ...data,

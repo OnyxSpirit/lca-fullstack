@@ -28,12 +28,14 @@ import { Modal } from '../../components/ui/Modal';
 import { useEntityDocuments } from '../../api/documentHooks';
 import { apiDownload } from '../../services/apiClient';
 import { useAuthStore } from '../../stores/authStore';
+import {CUSTOMER_360_PAGE_SIZES,newCustomer360Pages,synchronizeCustomer360Pages,type Customer360PageKey} from './customer360Pagination';
 
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [pages,setPages]=useState({timelinePage:1,opportunitiesPage:1,vehiclesPage:1,salesPage:1,quotationsPage:1,repairOrdersPage:1,invoicesPage:1});
-  const customerQuery=useCustomer360Query(id,pages);const data=customerQuery.data;
+  const [pages,setPages]=useState(newCustomer360Pages);
+  const [pageSize,setPageSize]=useState<(typeof CUSTOMER_360_PAGE_SIZES)[number]>(7);
+  const customerQuery=useCustomer360Query(id,pages,pageSize);const data=customerQuery.data;
   const items=(value:any)=>Array.isArray(value)?value:value?.items??[],total=(value:any)=>Array.isArray(value)?value.length:value?.total??0;
   const timeline=items(data?.timeline),customerVehicles=items(data?.vehicles),customerSales=items(data?.sales),customerQuotations=items(data?.quotations),customerORs=items(data?.repairOrders),customerInvoices=items(data?.invoices),contacts=data?.contacts??[],opportunities=items(data?.opportunities);
   const { setActiveQuickActionModal,addToast } = useUiStore();
@@ -64,6 +66,12 @@ export const CustomerDetailPage: React.FC = () => {
     ...(canViewBilling?[{key:'billing',label:`Facturation (${total(data?.invoices)})`}]:[]),
     ...(canViewDocuments?[{key:'documents',label:`Documents (${documents.length})`}]:[]),
   ] as const;
+  const setCollectionPage=(key:Customer360PageKey,page:number)=>setPages(current=>({...current,[key]:page}));
+  const changePageSize=(value:number)=>{if(!CUSTOMER_360_PAGE_SIZES.includes(value as (typeof CUSTOMER_360_PAGE_SIZES)[number]))return;setPageSize(value as (typeof CUSTOMER_360_PAGE_SIZES)[number]);setPages(newCustomer360Pages())};
+  const activePaginationTotal=activeTab==='timeline'?total(data?.timeline):activeTab==='opportunities'?total(data?.opportunities):activeTab==='vehicles'?total(data?.vehicles):activeTab==='sales'?Math.max(total(data?.sales),total(data?.quotations)):activeTab==='sav'?total(data?.repairOrders):activeTab==='billing'?total(data?.invoices):0;
+  const showPageSize=pageSize!==7||activePaginationTotal>7;
+  useEffect(()=>{setPages(newCustomer360Pages())},[id]);
+  useEffect(()=>{if(data)setPages(current=>synchronizeCustomer360Pages(current,data))},[data]);
   useEffect(()=>{if(!tabs.some(tab=>tab.key===activeTab))setActiveTab('contacts')},[activeTab,canViewHistory,canViewCrm,canViewVehicles,canViewSales,canViewQuotations,canViewService,canViewBilling,canViewDocuments]);
   const downloadDocument=async(document:(typeof documents)[number])=>{try{const blob=await apiDownload(`/documents/${document.id}/download`),url=URL.createObjectURL(blob),link=window.document.createElement('a');link.href=url;link.download=document.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){addToast({type:'error',title:'Téléchargement impossible',description:error instanceof Error?error.message:'Erreur API'})}};
   const [contactOpen,setContactOpen]=useState(false);const createContact=useCreateCustomerContact(id);const[contact,setContact]=useState({firstName:'',lastName:'',roleTitle:'',email:'',phone:'',isPrimary:false});const[contactError,setContactError]=useState('');
@@ -174,8 +182,9 @@ export const CustomerDetailPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto">
-        {tabs.map((tab) => (
+      <div className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
@@ -187,7 +196,9 @@ export const CustomerDetailPage: React.FC = () => {
           >
             {tab.label}
           </button>
-        ))}
+          ))}
+        </div>
+        {showPageSize&&<label className="mb-1 flex shrink-0 items-center gap-2 text-[11px] font-semibold text-slate-500">Éléments par page<select aria-label="Éléments par page" className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700" value={pageSize} onChange={event=>changePageSize(Number(event.target.value))}>{CUSTOMER_360_PAGE_SIZES.map(value=><option key={value} value={value}>{value}</option>)}</select></label>}
       </div>
 
       {/* TAB 1: TIMELINE */}
@@ -197,13 +208,13 @@ export const CustomerDetailPage: React.FC = () => {
             <CardTitle>Journal d'Activité & Historique Relation Client 360°</CardTitle>
           </CardHeader>
           <div className="space-y-4 text-xs">{timeline.map((event:any)=><div key={`${event.event_type}-${event.reference_id}-${event.event_at}`} className="flex gap-3 items-start"><div className="w-8 h-8 rounded-full bg-slate-100 text-[#8f1722] flex items-center justify-center shrink-0"><Clock className="w-4 h-4"/></div><div><div className="font-bold text-slate-900">{event.title}</div><p className="text-slate-500 mt-0.5">{event.description||'—'}</p><span className="text-[10px] text-slate-400">{formatDate(event.event_at)}</span></div></div>)}{!timeline.length&&<p className="text-slate-500">Aucun événement enregistré pour ce client.</p>}</div>
-          <CustomerPager data={data?.timeline} page={pages.timelinePage} onPage={page=>setPages({...pages,timelinePage:page})} label="événement(s)"/>
+          <CustomerPager data={data?.timeline} onPage={page=>setCollectionPage('timelinePage',page)} label="événement(s)"/>
         </Card>
       )}
 
       {activeTab === 'contacts' && <Card><CardHeader><div className="flex items-center justify-between"><CardTitle>Contacts du client</CardTitle>{canUpdateCustomer&&<Button size="xs" variant="primary" onClick={()=>setContactOpen(true)}>Ajouter un contact</Button>}</div></CardHeader><div className="space-y-2">{contacts.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs"><div className="font-bold">{item.first_name} {item.last_name}{item.is_primary?' • Principal':''}</div><div className="text-slate-500">{item.role_title||'—'} • {item.phone||'—'} • {item.email||'—'}</div></div>)}{!contacts.length&&<p className="text-xs text-slate-500">Aucun contact enregistré.</p>}</div></Card>}
 
-      {activeTab === 'opportunities' && <Card><CardHeader><CardTitle>Opportunités liées</CardTitle></CardHeader><div className="space-y-2">{opportunities.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs flex justify-between"><div><div className="font-bold">{item.title}</div><div className="text-slate-500">Probabilité : {item.probability}%</div></div><div className="font-semibold">{item.stage}</div></div>)}{!opportunities.length&&<p className="text-xs text-slate-500">Aucune opportunité rattachée.</p>}</div><CustomerPager data={data?.opportunities} page={pages.opportunitiesPage} onPage={page=>setPages({...pages,opportunitiesPage:page})} label="opportunité(s)"/></Card>}
+      {activeTab === 'opportunities' && <Card><CardHeader><CardTitle>Opportunités liées</CardTitle></CardHeader><div className="space-y-2">{opportunities.map((item:any)=><div key={item.id} className="p-3 border border-slate-200 rounded-lg text-xs flex justify-between"><div><div className="font-bold">{item.title}</div><div className="text-slate-500">Probabilité : {item.probability}%</div></div><div className="font-semibold">{item.stage}</div></div>)}{!opportunities.length&&<p className="text-xs text-slate-500">Aucune opportunité rattachée.</p>}</div><CustomerPager data={data?.opportunities} onPage={page=>setCollectionPage('opportunitiesPage',page)} label="opportunité(s)"/></Card>}
 
       {activeTab === 'documents' && <Card><CardHeader><CardTitle>Documents client actifs</CardTitle></CardHeader><div className="divide-y text-xs">{documents.map(document=><div key={document.id} className="flex items-center justify-between py-3"><div><b>{document.fileName}</b><div className="text-slate-500">{document.documentType} · {Math.ceil(document.fileSize/1024)} Ko · {formatDate(document.createdAt)}</div></div><Button size="xs" variant="outline" onClick={()=>downloadDocument(document)}>Télécharger</Button></div>)}{!documents.length&&<p className="py-5 text-slate-500">Aucun document client actif.</p>}</div></Card>}
 
@@ -236,7 +247,7 @@ export const CustomerDetailPage: React.FC = () => {
               Aucun véhicule rattaché pour le moment.
             </div>
           )}
-          <CustomerPager data={data?.vehicles} page={pages.vehiclesPage} onPage={page=>setPages({...pages,vehiclesPage:page})} label="véhicule(s)"/>
+          <CustomerPager data={data?.vehicles} onPage={page=>setCollectionPage('vehiclesPage',page)} label="véhicule(s)"/>
         </div>
       )}
 
@@ -271,8 +282,8 @@ export const CustomerDetailPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <CustomerPager data={data?.sales} page={pages.salesPage} onPage={page=>setPages({...pages,salesPage:page})} label="vente(s)"/>
-          {customerQuotations.length>0&&<CustomerPager data={data?.quotations} page={pages.quotationsPage} onPage={page=>setPages({...pages,quotationsPage:page})} label="devis"/>}
+          <CustomerPager data={data?.sales} onPage={page=>setCollectionPage('salesPage',page)} label="vente(s)"/>
+          {customerQuotations.length>0&&<CustomerPager data={data?.quotations} onPage={page=>setCollectionPage('quotationsPage',page)} label="devis"/>}
         </Card>
       )}
 
@@ -304,7 +315,7 @@ export const CustomerDetailPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <CustomerPager data={data?.repairOrders} page={pages.repairOrdersPage} onPage={page=>setPages({...pages,repairOrdersPage:page})} label="ordre(s) de réparation"/>
+          <CustomerPager data={data?.repairOrders} onPage={page=>setCollectionPage('repairOrdersPage',page)} label="ordre(s) de réparation"/>
         </Card>
       )}
 
@@ -336,7 +347,7 @@ export const CustomerDetailPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <CustomerPager data={data?.invoices} page={pages.invoicesPage} onPage={page=>setPages({...pages,invoicesPage:page})} label="facture(s)"/>
+          <CustomerPager data={data?.invoices} onPage={page=>setCollectionPage('invoicesPage',page)} label="facture(s)"/>
         </Card>
       )}
       <Modal isOpen={contactOpen} onClose={()=>{setContactOpen(false);setContactError('')}} title="Ajouter un contact" maxWidth="lg">
@@ -350,4 +361,4 @@ export const CustomerDetailPage: React.FC = () => {
   );
 };
 
-const CustomerPager=({data,page,onPage,label}:{data:any;page:number;onPage:(page:number)=>void;label:string})=>{if(Array.isArray(data)||!data)return null;return <div className="mt-4 flex items-center justify-between border-t pt-3 text-xs"><span>{data.total??0} {label}</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>onPage(page-1)}>Précédent</Button><span>Page {page} / {Math.max(1,data.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(data.totalPages??1)} onClick={()=>onPage(page+1)}>Suivant</Button></div></div>};
+const CustomerPager=({data,onPage,label}:{data:any;onPage:(page:number)=>void;label:string})=>{if(Array.isArray(data)||!data)return null;const page=Math.max(1,Number(data.page)||1),totalPages=Math.max(1,Number(data.totalPages)||1);return <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs"><span>{data.total??0} {label}</span><div className="flex flex-wrap items-center justify-end gap-2"><Button size="xs" variant="outline" disabled={page<=1} aria-label="Première page" onClick={()=>onPage(1)}>Première</Button><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>onPage(page-1)}>Précédent</Button><span>Page {page} / {totalPages}</span><Button size="xs" variant="outline" disabled={page>=totalPages} onClick={()=>onPage(page+1)}>Suivant</Button><Button size="xs" variant="outline" disabled={page>=totalPages} aria-label="Dernière page" onClick={()=>onPage(totalPages)}>Dernière</Button></div></div>};

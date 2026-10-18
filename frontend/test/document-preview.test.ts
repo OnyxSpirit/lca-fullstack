@@ -3,7 +3,7 @@ import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from'node:test';
 const source=(value:string)=>readFileSync(new URL(`../${value}`,import.meta.url),'utf8');
 const component=source('src/modules/documents/DocumentPreview.tsx'),ged=source('src/modules/documents/DocumentsGedPage.tsx'),vehicle=source('src/modules/vehicles/VehicleDetailPage.tsx');
-test('UI-DOC-01/02 Visionner ouvre le composant commun',()=>{assert.match(ged,/>Visionner</);assert.match(ged,/setPreview\(d\)/);assert.match(ged,/<DocumentPreview/)});
+test('UI-DOC-01/02 Aperçu ouvre le composant commun',()=>{assert.match(ged,/>Aperçu</);assert.match(ged,/setPreview\(d\)/);assert.match(ged,/<DocumentPreview/)});
 test('UI-DOC-03/04 PDF et images utilisent une source backend sécurisée',()=>{assert.match(component,/\/documents\/\$\{document.id\}\/preview/);assert.match(component,/<iframe/);assert.match(component,/<img/)});
 test('UI-DOC-05/06 chargement, erreur et format non supporté sont explicites',()=>{assert.match(component,/Chargement de l’aperçu/);assert.match(component,/role="alert"/);assert.match(component,/Aperçu indisponible pour ce format/)});
 test('UI-DOC-07 téléchargement et fermeture restent disponibles',()=>{assert.match(component,/>Télécharger</);assert.match(component,/>Fermer</);assert.match(ged,/\/documents\/\$\{d.id\}\/download/)});

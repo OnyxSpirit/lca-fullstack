@@ -12,6 +12,8 @@ test('C360-PAG et DELIVERY-PAG: bornes 0, 7, 8 et page hors limites',()=>{
 
 test('pageRequest borne les tailles artificiellement volumineuses',()=>{
  assert.equal(pageRequest({page:1,pageSize:7}).pageSize,7);
+ assert.equal(pageRequest({page:1,pageSize:15}).pageSize,15);
+ assert.equal(pageRequest({page:1,pageSize:30}).pageSize,30);
  assert.equal(pageRequest({page:1,pageSize:500}).pageSize,100);
 });
 

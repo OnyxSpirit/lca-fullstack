@@ -85,6 +85,7 @@ stampLifecycleRouter.delete('/document-marks/stamps/:id', requirePermission('sta
       EXISTS(SELECT 1 FROM document_mark_policies WHERE default_stamp_id=?) policy_used`, [stamp.id, stamp.id, stamp.id, stamp.id]);
     if (dependencies[0] && Object.values(dependencies[0]).some(value => Number(value) > 0)) throw new HttpError(409, STAMP_USED_MESSAGE);
     await connection.execute('DELETE FROM service_stamp_role_authorizations WHERE stamp_id=?', [stamp.id]);
+    await connection.execute('DELETE FROM service_stamp_document_types WHERE stamp_id=?', [stamp.id]);
     await connection.execute('DELETE FROM service_stamp_versions WHERE stamp_id=?', [stamp.id]);
     await connection.execute('DELETE FROM service_stamps WHERE id=?', [stamp.id]);
     await writeAudit(connection, request, {

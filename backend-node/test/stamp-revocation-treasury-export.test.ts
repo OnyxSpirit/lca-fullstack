@@ -18,7 +18,7 @@ test('cachet : révocation traçable, définitive et historique préservé', () 
   assert.match(lifecycle, /stamp\.revoked/);
   assert.match(lifecycle, /UPDATE service_stamp_versions SET is_active=FALSE/);
   assert.match(lifecycle, /Un cachet révoqué ne peut pas être réactivé/);
-  assert.match(marks, /is_active=TRUE AND revoked_at IS NULL/);
+  assert.match(marks, /(?:st\.)?is_active=TRUE AND (?:st\.)?revoked_at IS NULL/);
   assert.match(ui, /Révoqué le/);
 });
 

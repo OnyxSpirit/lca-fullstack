@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const migration = source('database/migrations/080_document_mark_policies.sql');
+const multiDocumentMigration = source('database/migrations/092_service_stamp_document_types.sql');
 const routes = source('src/modules/document-marks/document-mark.routes.ts');
 const resolver = source('src/modules/document-marks/document-mark-policy.service.ts');
 const archive = source('src/modules/documents/business-document.service.ts');
@@ -37,8 +38,19 @@ test('LOT2 résolution déterministe et contrôle serveur des cachets', () => {
   assert.match(resolver, /Le cachet sélectionné n’est pas autorisé/);
   assert.match(resolver, /missing_mark_behavior==='BLOCK'/);
   assert.match(resolver, /service_stamp_role_authorizations/);
-  assert.match(resolver, /st\.document_context=\?/);
+  assert.match(resolver, /service_stamp_document_types/);
+  assert.match(resolver, /dt\.document_type=\?/);
   assert.match(resolver, /st\.is_active=TRUE/);
+});
+
+test('B3.2 affectations multi-documents additives et rétrocompatibles', () => {
+  assert.match(multiDocumentMigration, /PRIMARY KEY\(stamp_id,document_type\)/);
+  assert.match(multiDocumentMigration, /SELECT id,document_context,created_by FROM service_stamps/);
+  assert.doesNotMatch(multiDocumentMigration, /DROP TABLE|TRUNCATE|DELETE FROM/);
+  assert.match(routes, /documentContexts/);
+  assert.match(routes, /policyManaged:false/);
+  assert.match(settings, /stampSupported/);
+  assert.match(settings, /documentContexts\.includes\(type\.code\)/);
 });
 
 test('LOT2 documents officiels intégrés et historique jamais recalculé', () => {

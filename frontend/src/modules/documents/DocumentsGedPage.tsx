@@ -337,7 +337,7 @@ export const DocumentsGedPage: React.FC = () => {
                         icon={<Eye className="h-3 w-3" />}
                         onClick={() => setPreview(d)}
                       >
-                        Visionner
+                        Aperçu
                       </Button>
                       <Button
                         size="xs"

@@ -3,6 +3,7 @@ import type {PoolConnection,RowDataPacket} from 'mysql2/promise';
 import {query} from '../../config/database.js';
 import {HttpError} from '../../shared/http-error.js';
 import {assertPermission, type PermissionScope} from '../rbac/rbac.service.js';
+import {syncEmployeePersonnelIdentity} from './personnel-identity.service.js';
 
 type Input=Record<string,unknown>;
 export const hasEmployeeInput=(body:Input)=>['isEmployee','employeeNumber','employeePosition','employeeHireDate','employeeStatus'].some(key=>Object.hasOwn(body,key));
@@ -30,6 +31,7 @@ export async function syncEmployeeProfile(connection:PoolConnection,userId:strin
   const[rows]=await connection.execute<RowDataPacket[]>('SELECT id,employment_status FROM employee_profiles WHERE user_id=? FOR UPDATE',[userId]),existing=rows[0];
   if(!body.isEmployee){
     if(existing)await connection.execute("UPDATE employee_profiles SET employment_status='departed',updated_by=? WHERE id=?",[actorId,existing.id]);
+    if(existing)await syncEmployeePersonnelIdentity(connection,String(existing.id));
     return existing?{id:String(existing.id),status:'departed'}:null;
   }
   const[agencies]=await connection.execute<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=? AND is_active=TRUE',[identity.agencyId]),agency=agencies[0];
@@ -44,10 +46,12 @@ export async function syncEmployeeProfile(connection:PoolConnection,userId:strin
     if(Object.hasOwn(body,'employeePosition')||defaultPosition!==undefined){sets.push('position_title=?');values.push(position)}
     if(Object.hasOwn(body,'employeeHireDate')&&String(body.employeeHireDate??'').trim()){sets.push('hire_date=?');values.push(validDate(body.employeeHireDate))}
     await connection.execute(`UPDATE employee_profiles SET ${sets.join(',')} WHERE id=?`,[...values,existing.id]);
+    await syncEmployeePersonnelIdentity(connection,String(existing.id));
     return{id:String(existing.id),status};
   }
   const number=optional(body.employeeNumber,'Matricule',50)??`EMP-${userId.padStart(6,'0')}`;
   const hired=String(body.employeeHireDate??'').trim()?validDate(body.employeeHireDate):new Date().toISOString().slice(0,10);
   const[result]=await connection.execute<any>('INSERT INTO employee_profiles(user_id,concession_id,agency_id,first_name,last_name,email,phone,employee_number,position_title,hire_date,employment_status,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',[userId,...common,number,position,hired,status,actorId,actorId]);
+  await syncEmployeePersonnelIdentity(connection,String(result.insertId));
   return{id:String(result.insertId),status};
 }

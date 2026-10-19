@@ -27,6 +27,7 @@ import { writeAudit } from "../activity/audit-writer.js";
 import { notifyPermissions } from "../notifications/notification.service.js";
 import { documentMultipart, type MultipartRequest } from "../documents/document-multipart.js";
 import { readEmployeePhoto, removeEmployeePhoto, saveEmployeePhoto } from "./hr-employee-photo.js";
+import { syncEmployeePersonnelIdentity } from "./personnel-identity.service.js";
 
 export const hrRouter = Router();
 type Input = Record<string, unknown>;
@@ -511,6 +512,7 @@ hrRouter.post(
           r.user!.sub,
         ],
       );
+      await syncEmployeePersonnelIdentity(c, String(result.insertId));
       await audit(
         c,
         r,
@@ -594,6 +596,7 @@ hrRouter.post(
         if(current.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
         previous=current.photo_path;
         await c.execute('UPDATE employee_profiles SET photo_path=?,updated_by=? WHERE id=?',[next,r.user!.sub,employeeId]);
+        await syncEmployeePersonnelIdentity(c,employeeId);
         await audit(c,r,'employee',employeeId,'employee.photo_updated',{hadPhoto:Boolean(previous),hasPhoto:true});
       });
     }catch(error){await removeEmployeePhoto(next);throw error}
@@ -612,7 +615,7 @@ hrRouter.delete(
       const current=await employee(r,"hr.employees.manage",employeeId,c);
       if(current.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
       previous=current.photo_path;agencyId=current.agency_id==null?null:String(current.agency_id);
-      if(previous){await c.execute('UPDATE employee_profiles SET photo_path=NULL,updated_by=? WHERE id=?',[r.user!.sub,employeeId]);await audit(c,r,'employee',employeeId,'employee.photo_removed',{hadPhoto:true,hasPhoto:false})}
+      if(previous){await c.execute('UPDATE employee_profiles SET photo_path=NULL,updated_by=? WHERE id=?',[r.user!.sub,employeeId]);await syncEmployeePersonnelIdentity(c,employeeId);await audit(c,r,'employee',employeeId,'employee.photo_removed',{hadPhoto:true,hasPhoto:false})}
     });
     await removeEmployeePhoto(previous);
     emitEmployeeChange(employeeId,agencyId,'photo-removed');
@@ -711,6 +714,7 @@ hrRouter.post(
           "UPDATE employee_profiles SET user_id=?,updated_by=? WHERE id=?",
           [userId, r.user!.sub, employeeId],
         );
+        await syncEmployeePersonnelIdentity(c,employeeId);
       } catch (error: any) {
         if (error?.code === "ER_DUP_ENTRY")
           throw new HttpError(409, "Ce compte ERP est déjà lié à un employé.");
@@ -745,6 +749,7 @@ hrRouter.post(
           "UPDATE employee_profiles SET user_id=NULL,updated_by=? WHERE id=?",
           [r.user!.sub, employeeId],
         );
+        await syncEmployeePersonnelIdentity(c,employeeId);
         await audit(c, r, "employee", employeeId, "employee.user_unlinked", {
           userId: String(current.user_id),
         });
@@ -810,6 +815,7 @@ hrRouter.patch(
         `UPDATE employee_profiles SET ${sets.join(",")} WHERE id=?`,
         [...values, employeeId],
       );
+      await syncEmployeePersonnelIdentity(c,employeeId);
       await audit(c, r, "employee", employeeId, "employee.updated", {
         before: { status: current.employment_status },
         status,

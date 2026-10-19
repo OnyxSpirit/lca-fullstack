@@ -7,11 +7,14 @@ const identity={agencyId:'11',firstName:'Aline',lastName:'Mabiala',email:'aline@
 
 function connection(existing?:{id:number;employment_status:string}){
   const calls:{sql:string;params:unknown[]}[]=[];
+  let created=false;
   return{calls,db:{execute:async(sql:string,params:unknown[]=[])=>{
     calls.push({sql,params});
     if(sql.startsWith('SELECT id,employment_status FROM employee_profiles'))return[[...(existing?[existing]:[])],[]];
     if(sql.startsWith('SELECT concession_id FROM agencies'))return[[{concession_id:'C1'}],[]];
-    if(sql.startsWith('INSERT INTO employee_profiles'))return[{insertId:77,affectedRows:1},[]];
+    if(sql.startsWith('INSERT INTO employee_profiles')){created=true;return[{insertId:77,affectedRows:1},[]]}
+    if(sql.startsWith('SELECT ep.id,ep.personnel_identity_id'))return[[{id:created?77:existing?.id,personnel_identity_id:null,user_id:'42',concession_id:'C1',first_name:'Aline',last_name:'Mabiala',email:'aline@example.test',phone:'+242000000',photo_path:null,created_by:'1',updated_by:'1',created_at:'2026-10-01'}],[]];
+    if(sql.startsWith('INSERT INTO personnel_identities'))return[{insertId:88,affectedRows:1},[]];
     return[{affectedRows:1},[]];
   }} as any};
 }
@@ -30,13 +33,13 @@ test('B3420 met à jour la fiche liée sans créer de doublon',async()=>{
   const result=await syncEmployeeProfile(fake.db,'42',{isEmployee:true,employeePosition:'Directrice atelier',employeeStatus:'active'},'1','Directrice',identity);
   assert.deepEqual(result,{id:'9',status:'active'});
   assert.equal(fake.calls.filter(call=>call.sql.startsWith('INSERT INTO employee_profiles')).length,0);
-  assert.equal(fake.calls.filter(call=>call.sql.startsWith('UPDATE employee_profiles SET')).length,1);
+  assert.equal(fake.calls.filter(call=>call.sql.startsWith('UPDATE employee_profiles SET')&&call.sql.includes('employment_status=?')).length,1);
 });
 
 test('B3420 le passage à Non conserve la fiche historique et la marque sortie',async()=>{
   const fake=connection({id:9,employment_status:'active'});
   assert.deepEqual(await syncEmployeeProfile(fake.db,'42',{isEmployee:false},'1',undefined,identity),{id:'9',status:'departed'});
-  assert.match(fake.calls.at(-1)!.sql,/employment_status='departed'/);
+  assert.ok(fake.calls.some(call=>/employment_status='departed'/.test(call.sql)));
   assert.doesNotMatch(fake.calls.map(call=>call.sql).join('\n'),/DELETE FROM employee_profiles/);
 });
 

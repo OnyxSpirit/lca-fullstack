@@ -2167,6 +2167,11 @@ CREATE TABLE notifications (
     event_type VARCHAR(100) NULL,
     priority ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
     event_key VARCHAR(190) NULL,
+    actor_type ENUM('HUMAN','SYSTEM','UNKNOWN') NOT NULL DEFAULT 'UNKNOWN',
+    actor_user_id BIGINT UNSIGNED NULL,
+    actor_display_name_snapshot VARCHAR(201) NULL,
+    operation_agency_id BIGINT UNSIGNED NULL,
+    operation_agency_name_snapshot VARCHAR(150) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_notifications_user_read_date (user_id,read_at,created_at),
     INDEX idx_notifications_event_type (event_type),
@@ -2174,11 +2179,15 @@ CREATE TABLE notifications (
     INDEX idx_notifications_user_visible (user_id,channel,deleted_at,archived_at,read_at,created_at),
     INDEX idx_notifications_archived_by (archived_by),
     INDEX idx_notifications_deleted_by (deleted_by),
+    INDEX idx_notifications_actor_user (actor_user_id),
+    INDEX idx_notifications_operation_agency (operation_agency_id),
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_notification_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
     CONSTRAINT fk_notification_template FOREIGN KEY (template_id) REFERENCES notification_templates(id) ON DELETE SET NULL
     ,CONSTRAINT fk_notification_archived_by FOREIGN KEY (archived_by) REFERENCES users(id) ON DELETE SET NULL
     ,CONSTRAINT fk_notification_deleted_by FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
+    ,CONSTRAINT fk_notifications_actor_user FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+    ,CONSTRAINT fk_notifications_operation_agency FOREIGN KEY (operation_agency_id) REFERENCES agencies(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE document_categories (

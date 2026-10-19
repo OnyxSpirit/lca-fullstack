@@ -6,4 +6,4 @@ test('HR11C-04 API protège scopes, OWN et auto-approbation',()=>{assert.match(r
 test('HR11C-05 état et immutabilité',()=>{assert.match(r,/Brouillon uniquement/);assert.match(r,/Prime non en attente/);assert.match(r,/Code historique immuable/);assert.match(r,/is_active=TRUE FOR UPDATE/)});
 test('HR11C-06 aucun effet financier ou paie',()=>{assert.doesNotMatch(r,/treasury_movements|salary_history|budget_expenses|invoices|payments/);assert.doesNotMatch(m,/INSERT INTO employee_bonuses/)});
 test('HR11C-07 GED et confidentialité',()=>{assert.match(g,/'employee_bonus'/);assert.match(g,/employee_bonuses/);assert.match(g,/'hr\.bonus\.view'/)});
-test('HR11C-08 notifications post-décision',()=>{assert.match(r,/createUserNotification/);assert.match(r,/await notify\(x,status\)/);assert.match(r,/if\(!x\.user_id\)return/)});
+test('HR11C-08 notifications post-décision',()=>{assert.match(r,/createUserNotification/);assert.match(r,/await notify\(x,status,r\.user!\.sub\)/);assert.match(r,/if\(!x\.user_id\)return/);assert.match(r,/actorType:'human',actorUserId/)});

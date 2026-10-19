@@ -126,12 +126,13 @@ async function detail(id: string, request: Request, permission:DeliveryPermissio
 }
 async function notifyRoles(
   agencyId: string,
+  actorUserId: string,
   permissions: string[],
   subject: string,
   message: string,
   referenceId: string,
 ) {
-  await createPermissionNotifications({agencyId,permissions,subject,message,eventType:'delivery.status_changed',referenceType:'delivery',referenceId,priority:'normal'});
+  await createPermissionNotifications({agencyId,permissions,subject,message,eventType:'delivery.status_changed',referenceType:'delivery',referenceId,priority:'normal',actorType:'human',actorUserId});
 }
 async function audit(connection:PoolConnection,request:Request,deliveryId:string,action:string,oldValues:unknown,newValues:unknown){
   await writeAudit(connection,request,{module:'deliveries',entityType:'delivery',entityId:deliveryId,action,oldValues,newValues});
@@ -395,6 +396,7 @@ deliveryRouter.post(
     emitToAgency(agencyId, "deliveries:created", { id, deliveryNumber });
     await notifyRoles(
       agencyId,
+      request.user!.sub,
       ['delivery.prepare'],
       "Livraison à préparer",
       `${deliveryNumber} est planifiée le ${scheduledAt}`,
@@ -520,6 +522,7 @@ deliveryRouter.patch(
     });
     await notifyRoles(
       String(row.agency_id),
+      request.user!.sub,
       ['delivery.view'],
       "Livraison reportée",
       `${row.delivery_number}: ${reason}`,
@@ -708,6 +711,7 @@ deliveryRouter.post(
     if(result.documentId){emitToAgency(result.agencyId,'documents:created',{id:result.documentId,entityType:'delivery',entityId:id,origin:'generated'});if(process.env.NODE_ENV==='test')deliverySignTestHooks.afterDocumentRealtime?.(result.documentId)}
     await notifyRoles(
       result.agencyId,
+      request.user!.sub,
       ['delivery.view'],
       "Véhicule livré",
       `${result.deliveryNumber} a été signé par ${signer}`,

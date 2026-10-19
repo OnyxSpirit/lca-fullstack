@@ -2279,6 +2279,8 @@ hrRouter.post(
       referenceId:expenseId,
       eventKey:`hr.expense.cancelled:${expenseId}`,
       priority:'normal',
+      actorType:'human',
+      actorUserId:r.user!.sub,
     });
     res.json({ success: true, status: "cancelled" });
   }),

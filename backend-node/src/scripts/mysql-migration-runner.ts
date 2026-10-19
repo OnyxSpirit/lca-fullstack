@@ -50,6 +50,9 @@ async function objectExists(connection:Connection,type:'table'|'column'|'index'|
 
 const normalizedSqlType=(value:string)=>value.trim().toLowerCase().replace(/^boolean$/,'tinyint(1)').replace(/\s+/g,' ').replace(/\s*,\s*/g,',');
 type ExpectedColumn={name:string;type:string;nullable:boolean};
+function expectedAddedColumns(statement:string):ExpectedColumn[]{
+  return [...statement.matchAll(/\bADD\s+COLUMN\s+`?([a-zA-Z0-9_]+)`?\s+((?:ENUM\s*\([^)]*\)|[a-zA-Z]+(?:\s*\([^)]*\))?)(?:\s+UNSIGNED)?)\s+(NOT\s+NULL|NULL)\b/gi)].map(match=>({name:identifier(match[1]!),type:normalizedSqlType(match[2]!),nullable:!/^NOT\s+NULL$/i.test(match[3]!)}));
+}
 function expectedModifiedColumn(statement:string):ExpectedColumn|null{
   const match=/^ALTER\s+TABLE\s+`?[a-zA-Z0-9_]+`?\s+MODIFY(?:\s+COLUMN)?\s+`?([a-zA-Z0-9_]+)`?\s+([a-zA-Z]+(?:\s*\([^;]*?\))?(?:\s+UNSIGNED)?)\s+(NOT\s+NULL|NULL)(?:\s|$)/i.exec(statement.trim());
   return match?{name:identifier(match[1]!),type:normalizedSqlType(match[2]!),nullable:!/^NOT\s+NULL$/i.test(match[3]!)}:null;
@@ -72,15 +75,15 @@ export async function ddlState(connection:Connection,statement:string):Promise<'
   const table=identifier(alter[1]!),objects:Array<Promise<boolean>>=[];
   const modified=expectedModifiedColumn(statement);
   const modifiedState=modified?await modifiedColumnState(connection,table,modified):null;
+  const addedColumnStates=await Promise.all(expectedAddedColumns(statement).map(column=>modifiedColumnState(connection,table,column)));
   const droppedConstraints:Array<Promise<boolean>>=[];
   for(const match of statement.matchAll(/\bDROP\s+FOREIGN\s+KEY\s+(`?[a-zA-Z0-9_]+`?)/gi))droppedConstraints.push(objectExists(connection,'constraint',table,identifier(match[1]!)));
-  for(const match of statement.matchAll(/\bADD\s+COLUMN\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'column',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+(?:UNIQUE\s+)?(?:INDEX|KEY)\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'index',table,identifier(match[1]!)));
   for(const match of statement.matchAll(/\bADD\s+CONSTRAINT\s+(`?[a-zA-Z0-9_]+`?)/gi))objects.push(objectExists(connection,'constraint',table,identifier(match[1]!)));
-  if(!objects.length&&!droppedConstraints.length)return modifiedState??'AMBIGUOUS';
+  if(!objects.length&&!droppedConstraints.length&&!addedColumnStates.length)return modifiedState??'AMBIGUOUS';
   const[states,droppedStates]=await Promise.all([Promise.all(objects),Promise.all(droppedConstraints)]),additionsSatisfied=states.every(Boolean),dropsSatisfied=droppedStates.every(value=>!value);
-  if(additionsSatisfied&&dropsSatisfied&&(modifiedState==null||modifiedState==='SATISFIED'))return'SATISFIED';
-  if(states.every(value=>!value)&&droppedStates.every(Boolean)&&(modifiedState==null||modifiedState==='ABSENT'))return'ABSENT';
+  if(additionsSatisfied&&addedColumnStates.every(value=>value==='SATISFIED')&&dropsSatisfied&&(modifiedState==null||modifiedState==='SATISFIED'))return'SATISFIED';
+  if(states.every(value=>!value)&&addedColumnStates.every(value=>value==='ABSENT')&&droppedStates.every(Boolean)&&(modifiedState==null||modifiedState==='ABSENT'))return'ABSENT';
   return'AMBIGUOUS';
 }
 

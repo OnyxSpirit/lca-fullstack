@@ -7,11 +7,11 @@ export interface RolePermission{id:string|number;module:string;action:string;cod
 export interface PermissionCatalogItem extends RolePermission{is_active:boolean;allowedScopes:RbacScope[];delegable:boolean;maxDelegableScope:RbacScope|null}
 export interface Role{id:string|number;code:string;name:string;description:string|null;is_system?:boolean;is_active?:boolean;user_count?:number;permissions?:RolePermission[]}
 export interface UserFilters{active?:''|'true'|'false';agencyId?:string;role?:string;search?:string;page?:number;pageSize?:number}
-export interface CreateUserPayload{firstName:string;lastName:string;email:string;phone?:string;jobTitle?:string;agencyId:string;roles:string[];password:string}
+export interface CreateUserPayload{firstName:string;lastName:string;email:string;phone?:string;jobTitle?:string;agencyId:string;roles:string[];password:string;isEmployee?:boolean;employeeNumber?:string;employeePosition?:string;employeeHireDate?:string;employeeStatus?:'active'|'inactive'|'departed'}
 export type UpdateUserPayload=Omit<CreateUserPayload,'password'>;
 export const userKeys={all:['users-admin']as const,detail:(id:string)=>['user',id]as const,directory:['user-directory']as const,roles:['roles']as const,permissions:['permissions']as const};
 const params=(f:UserFilters)=>{const p=new URLSearchParams();Object.entries(f).forEach(([k,v])=>{if(v)p.set(k,v)});return p.toString()};
-const invalidate=(qc:ReturnType<typeof useQueryClient>)=>{void qc.invalidateQueries({queryKey:userKeys.all});void qc.invalidateQueries({queryKey:['users']});void qc.invalidateQueries({queryKey:userKeys.directory});void qc.invalidateQueries({queryKey:['technicians']})};
+const invalidate=(qc:ReturnType<typeof useQueryClient>)=>{void qc.invalidateQueries({queryKey:userKeys.all});void qc.invalidateQueries({queryKey:['users']});void qc.invalidateQueries({queryKey:userKeys.directory});void qc.invalidateQueries({queryKey:['technicians']});void qc.invalidateQueries({queryKey:['hr']})};
 export interface AdminUserPage{items:AdminUser[];total:number;page:number;pageSize:number;totalPages:number}
 export const useUsersAdminQuery=(filters:UserFilters,enabled=true)=>useQuery({queryKey:[...userKeys.all,filters],queryFn:()=>apiRequest<AdminUserPage>(`/users?${params(filters)}`),enabled});
 export const useUserQuery=(id?:string)=>useQuery({queryKey:userKeys.detail(id??''),queryFn:()=>apiRequest<AdminUser>(`/users/${id}`),enabled:Boolean(id)});

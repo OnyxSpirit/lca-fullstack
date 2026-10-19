@@ -743,6 +743,14 @@ export function useHrActions() {
         }),
       onSuccess: () => invalidate(qc),
     }),
+    uploadEmployeePhoto: useMutation({
+      mutationFn: ({id,file}:{id:string;file:File}) => {const body=new FormData();body.append('file',file);return apiRequest<Employee>(`/hr/employees/${id}/photo`,{method:'POST',body})},
+      onSuccess: employee => {invalidate(qc);qc.setQueryData(["hr","employee",employee.id],employee)},
+    }),
+    removeEmployeePhoto: useMutation({
+      mutationFn: (id:string) => apiRequest<Employee>(`/hr/employees/${id}/photo`,{method:'DELETE'}),
+      onSuccess: employee => {invalidate(qc);qc.setQueryData(["hr","employee",employee.id],employee)},
+    }),
     linkEmployeeUser: useMutation({
       mutationFn: ({ id, userId }: { id: string; userId: string }) =>
         apiRequest<Employee>(`/hr/employees/${id}/link-user`, {

@@ -44,6 +44,7 @@ import {
   defaultStockConcessionId,
 } from "./stockCategoryAccess";
 import { stockItemCreationPayload } from "./stockItemValidation";
+import { EmployeePhotoField } from "./EmployeePhotoField";
 
 const BudgetExpenseDisbursement = lazy(() =>
   import("./BudgetExpenseDisbursement").then((module) => ({
@@ -181,6 +182,8 @@ export const HrAdministrationPage: React.FC = () => {
     [reportFrom, setReportFrom] = useState(initialReportRange.from),
     [reportTo, setReportTo] = useState(initialReportRange.to);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee>(),
+    [employeePhoto,setEmployeePhoto]=useState<File|null>(null),
+    [removeEmployeePhoto,setRemoveEmployeePhoto]=useState(false),
     [selectedStock, setSelectedStock] = useState<StockItem>(),
     [selectedBudget, setSelectedBudget] = useState<Budget>(),
     [selectedExpense, setSelectedExpense] = useState<Expense>(),
@@ -290,6 +293,8 @@ export const HrAdministrationPage: React.FC = () => {
       );
   const form = (e: React.FormEvent<HTMLFormElement>) =>
     Object.fromEntries(new FormData(e.currentTarget).entries());
+  const createEmployee=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();try{const created=await actions.createEmployee.mutateAsync(form(e));if(employeePhoto)await actions.uploadEmployeePhoto.mutateAsync({id:created.id,file:employeePhoto});toast({type:'success',title:'Employé créé',description:employeePhoto?'Le dossier et sa photographie ont été enregistrés.':'Le dossier a été enregistré sans photographie.'});setEmployeePhoto(null);setModal(null)}catch(error){toast({type:'error',title:'Création incomplète',description:error instanceof Error?error.message:'Erreur API'})}};
+  const updateEmployee=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();const b=form(e);try{await actions.updateEmployee.mutateAsync({id:selectedEmployee!.id,body:{firstName:b.firstName,lastName:b.lastName,email:b.email,phone:b.phone,employeeNumber:b.employeeNumber,positionTitle:b.positionTitle,hireDate:b.hireDate,status:b.status}});if(employeePhoto)await actions.uploadEmployeePhoto.mutateAsync({id:selectedEmployee!.id,file:employeePhoto});else if(removeEmployeePhoto)await actions.removeEmployeePhoto.mutateAsync(selectedEmployee!.id);toast({type:'success',title:'Dossier employé modifié',description:'Les données ont été actualisées.'});setEmployeePhoto(null);setRemoveEmployeePhoto(false);setModal(null)}catch(error){toast({type:'error',title:'Action impossible',description:error instanceof Error?error.message:'Erreur API'})}};
   const employeeRows = employees.data?.items ?? [],
     activeStockCategories =
       stockCategories.data?.filter((category) => category.is_active) ?? [],
@@ -385,7 +390,7 @@ export const HrAdministrationPage: React.FC = () => {
               <Button
                 size="sm"
                 icon={<Plus className="h-4 w-4" />}
-                onClick={() => setModal("employee-create")}
+                onClick={() => {setEmployeePhoto(null);setRemoveEmployeePhoto(false);setModal("employee-create")}}
               >
                 Nouvel employé
               </Button>
@@ -479,7 +484,7 @@ export const HrAdministrationPage: React.FC = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
-                                  setSelectedEmployee(x);
+                                  setSelectedEmployee(x);setEmployeePhoto(null);setRemoveEmployeePhoto(false);
                                   setModal("employee");
                                 }}
                               >
@@ -900,13 +905,7 @@ export const HrAdministrationPage: React.FC = () => {
       >
         <form
           className="grid gap-3 sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void notify(
-              actions.createEmployee.mutateAsync(form(e)),
-              "Employé créé",
-            );
-          }}
+          onSubmit={e=>void createEmployee(e)}
         >
           <label className="text-xs">
             Prénom *<input name="firstName" required className={input} />
@@ -947,6 +946,7 @@ export const HrAdministrationPage: React.FC = () => {
                 ))}
             </select>
           </label>
+          <EmployeePhotoField file={employeePhoto} onChange={file=>{setEmployeePhoto(file);if(file)setRemoveEmployeePhoto(false)}}/>
           <div className="sm:col-span-2">
             <p className="mb-3 text-xs text-slate-500">
               Aucun compte ERP ni mot de passe n’est créé. La liaison reste une
@@ -963,26 +963,7 @@ export const HrAdministrationPage: React.FC = () => {
       >
         <form
           className="grid gap-3 sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const b = form(e);
-            void notify(
-              actions.updateEmployee.mutateAsync({
-                id: selectedEmployee!.id,
-                body: {
-                  firstName: b.firstName,
-                  lastName: b.lastName,
-                  email: b.email,
-                  phone: b.phone,
-                  employeeNumber: b.employeeNumber,
-                  positionTitle: b.positionTitle,
-                  hireDate: b.hireDate,
-                  status: b.status,
-                },
-              }),
-              "Dossier employé modifié",
-            );
-          }}
+          onSubmit={e=>void updateEmployee(e)}
         >
           <label className="text-xs">
             Prénom *
@@ -1058,6 +1039,7 @@ export const HrAdministrationPage: React.FC = () => {
               <option value="departed">Sorti</option>
             </select>
           </label>
+          {selectedEmployee?.user_id?<p className="rounded-md bg-slate-50 p-3 text-xs text-slate-500 sm:col-span-2">La photographie de cet employé est gérée depuis son profil utilisateur.</p>:<EmployeePhotoField file={employeePhoto} onChange={file=>{setEmployeePhoto(file);if(file)setRemoveEmployeePhoto(false)}} hasCurrent={Boolean(selectedEmployee?.avatar_path)&&!removeEmployeePhoto} onRemoveCurrent={()=>setRemoveEmployeePhoto(true)}/>}
           <div className="sm:col-span-2">
             <Submit />
           </div>

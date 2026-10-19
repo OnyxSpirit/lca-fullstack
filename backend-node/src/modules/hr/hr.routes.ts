@@ -25,6 +25,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { writeAudit } from "../activity/audit-writer.js";
 import { notifyPermissions } from "../notifications/notification.service.js";
+import { documentMultipart, type MultipartRequest } from "../documents/document-multipart.js";
+import { readEmployeePhoto, removeEmployeePhoto, saveEmployeePhoto } from "./hr-employee-photo.js";
 
 export const hrRouter = Router();
 type Input = Record<string, unknown>;
@@ -317,7 +319,7 @@ async function employee(
     if (!locked[0])
       throw new HttpError(404, "Employé introuvable dans votre périmètre.");
   }
-  const sql = `SELECT ep.*,a.name agency_name,c.name concession_name,u.email account_email,u.is_active account_active,u.agency_id account_agency_id,u.avatar_path,aa.name account_agency_name,(SELECT GROUP_CONCAT(DISTINCT role.code ORDER BY role.code) FROM user_roles ur JOIN roles role ON role.id=ur.role_id WHERE ur.user_id=u.id) account_roles FROM employee_profiles ep JOIN concessions c ON c.id=ep.concession_id LEFT JOIN agencies a ON a.id=ep.agency_id LEFT JOIN users u ON u.id=ep.user_id LEFT JOIN agencies aa ON aa.id=u.agency_id WHERE ep.id=? AND ${p.sql}`;
+  const sql = `SELECT ep.*,a.name agency_name,c.name concession_name,u.email account_email,u.is_active account_active,u.agency_id account_agency_id,CASE WHEN ep.user_id IS NOT NULL THEN u.avatar_path ELSE ep.photo_path END avatar_path,aa.name account_agency_name,(SELECT GROUP_CONCAT(DISTINCT role.code ORDER BY role.code) FROM user_roles ur JOIN roles role ON role.id=ur.role_id WHERE ur.user_id=u.id) account_roles FROM employee_profiles ep JOIN concessions c ON c.id=ep.concession_id LEFT JOIN agencies a ON a.id=ep.agency_id LEFT JOIN users u ON u.id=ep.user_id LEFT JOIN agencies aa ON aa.id=u.agency_id WHERE ep.id=? AND ${p.sql}`;
   const rows = lock
     ? (await lock.execute<RowDataPacket[]>(sql, [employeeId, ...p.params]))[0]
     : await query<RowDataPacket[]>(sql, [employeeId, ...p.params]);
@@ -425,7 +427,7 @@ hrRouter.get(
         params,
       ),
       query<RowDataPacket[]>(
-        `SELECT ep.*,a.name agency_name,c.name concession_name,u.email account_email,u.is_active account_active,u.agency_id account_agency_id,GROUP_CONCAT(DISTINCT r.code ORDER BY r.code) account_roles${salarySelection} FROM employee_profiles ep JOIN concessions c ON c.id=ep.concession_id LEFT JOIN agencies a ON a.id=ep.agency_id LEFT JOIN users u ON u.id=ep.user_id LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id WHERE ${where} GROUP BY ep.id ORDER BY ep.last_name,ep.first_name,ep.id LIMIT ? OFFSET ?`,
+        `SELECT ep.*,a.name agency_name,c.name concession_name,u.email account_email,u.is_active account_active,u.agency_id account_agency_id,CASE WHEN ep.user_id IS NOT NULL THEN u.avatar_path ELSE ep.photo_path END avatar_path,GROUP_CONCAT(DISTINCT r.code ORDER BY r.code) account_roles${salarySelection} FROM employee_profiles ep JOIN concessions c ON c.id=ep.concession_id LEFT JOIN agencies a ON a.id=ep.agency_id LEFT JOIN users u ON u.id=ep.user_id LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id WHERE ${where} GROUP BY ep.id ORDER BY ep.last_name,ep.first_name,ep.id LIMIT ? OFFSET ?`,
         [...(salaryVisibility?.params ?? []), ...params, pageSize, offset],
       ),
     ]);
@@ -565,6 +567,60 @@ hrRouter.get(
 );
 
 hrRouter.get(
+  "/hr/employees/:id/photo",
+  requirePermission("hr.employees.view"),
+  asyncHandler(async (r, res) => {
+    const current=await employee(r,"hr.employees.view",id(r.params.id));
+    if(current.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
+    const photo=await readEmployeePhoto(current.photo_path);
+    res.setHeader('Content-Type',photo.mime);
+    res.setHeader('Cache-Control','private, max-age=300');
+    res.end(photo.buffer);
+  }),
+);
+
+hrRouter.post(
+  "/hr/employees/:id/photo",
+  requirePermission("hr.employees.manage"),
+  documentMultipart,
+  asyncHandler(async (r, res) => {
+    const employeeId=id(r.params.id),before=await employee(r,"hr.employees.manage",employeeId);
+    if(before.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
+    const next=await saveEmployeePhoto((r as MultipartRequest).documentFile);
+    let previous:unknown;
+    try{
+      await transaction(async c=>{
+        const current=await employee(r,"hr.employees.manage",employeeId,c);
+        if(current.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
+        previous=current.photo_path;
+        await c.execute('UPDATE employee_profiles SET photo_path=?,updated_by=? WHERE id=?',[next,r.user!.sub,employeeId]);
+        await audit(c,r,'employee',employeeId,'employee.photo_updated',{hadPhoto:Boolean(previous),hasPhoto:true});
+      });
+    }catch(error){await removeEmployeePhoto(next);throw error}
+    await removeEmployeePhoto(previous);
+    emitEmployeeChange(employeeId,before.agency_id==null?null:String(before.agency_id),'photo-updated');
+    res.status(201).json(employeeJson(await employee(r,"hr.employees.manage",employeeId)));
+  }),
+);
+
+hrRouter.delete(
+  "/hr/employees/:id/photo",
+  requirePermission("hr.employees.manage"),
+  asyncHandler(async (r,res)=>{
+    const employeeId=id(r.params.id);let previous:unknown,agencyId:string|null=null;
+    await transaction(async c=>{
+      const current=await employee(r,"hr.employees.manage",employeeId,c);
+      if(current.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
+      previous=current.photo_path;agencyId=current.agency_id==null?null:String(current.agency_id);
+      if(previous){await c.execute('UPDATE employee_profiles SET photo_path=NULL,updated_by=? WHERE id=?',[r.user!.sub,employeeId]);await audit(c,r,'employee',employeeId,'employee.photo_removed',{hadPhoto:true,hasPhoto:false})}
+    });
+    await removeEmployeePhoto(previous);
+    emitEmployeeChange(employeeId,agencyId,'photo-removed');
+    res.json(employeeJson(await employee(r,"hr.employees.manage",employeeId)));
+  }),
+);
+
+hrRouter.get(
   "/hr/employees/:id/pdf",
   requirePermission("hr.employees.view"),
   asyncHandler(async (r, res) => {
@@ -586,7 +642,7 @@ hrRouter.get(
       [employeeId],
     );
     let avatar: Buffer | null = null;
-    if (current.avatar_path?.startsWith("/uploads/avatars/")) {
+    if (current.user_id!=null&&current.avatar_path?.startsWith("/uploads/avatars/")) {
       const root = path.resolve(process.env.UPLOAD_DIR ?? "uploads", "avatars"),
         target = path.resolve(
           process.env.UPLOAD_DIR ?? "uploads",
@@ -594,6 +650,8 @@ hrRouter.get(
         );
       if (target.startsWith(`${root}${path.sep}`))
         avatar = await readFile(target).catch(() => null);
+    } else if(current.user_id==null&&current.photo_path){
+      avatar=(await readEmployeePhoto(current.photo_path).catch(()=>null))?.buffer??null;
     }
     const identity = await getBusinessIdentity(
         String(current.agency_id ?? r.user!.agencyId),

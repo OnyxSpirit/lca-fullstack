@@ -224,6 +224,11 @@ export interface Vehicle {
   transportCost?: number;
   administrativeCost?: number;
   additionalCosts?: number;
+  hasReceptionDefect: boolean;
+  receptionDefectDescription?: string;
+  receptionInitialSalePrice?: number;
+  receptionDefectDiscount?: number;
+  receptionDefectDiscountReason?: string;
   assignedCustomerId?: string;
   assignedSaleId?: string;
   createdAt: string;

@@ -15,6 +15,7 @@ import {
   clearVehicleFinancialValues,
   vehiclePayloadForAgency,
 } from "./vehicleScopePolicy";
+import { receptionPricing } from "./vehicleReceptionPricing";
 
 interface Props {
   isOpen: boolean;
@@ -56,6 +57,10 @@ const initial = {
   catalogPrice: "",
   salePrice: "",
   minimumPrice: "",
+  hasReceptionDefect: false,
+  receptionDefectDescription: "",
+  receptionDefectDiscount: "0",
+  receptionDefectDiscountReason: "",
   features: "",
   notes: "",
 };
@@ -73,6 +78,7 @@ const numericFields = [
   "catalogPrice",
   "salePrice",
   "minimumPrice",
+  "receptionDefectDiscount",
 ] as const;
 
 export async function optimizeImage(file: File): Promise<CatalogImage> {
@@ -115,6 +121,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
     currencyCode = selectedAgency?.currencyCode ?? "XAF",
     financialAllowed = Boolean(selectedAgency?.financialAllowed),
     references = useVehicleReferencesQuery(selectedAgencyId);
+  const receptionPrice=receptionPricing(form);
   const vinRef = useRef<HTMLInputElement>(null),
     normalizedVin = normalizeVin(form.vin),
     vinValid = VIN_PATTERN.test(normalizedVin);
@@ -187,6 +194,8 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
       {
         ...form,
         ...numbers,
+        receptionInitialSalePrice:numbers.salePrice,
+        salePrice:receptionPrice.final,
         agencyId: selectedAgencyId,
         vin: normalizedVin,
         registrationNumber: form.registrationNumber.trim().toUpperCase(),
@@ -227,7 +236,8 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
     !vinValid ||
     !form.brand.trim() ||
     !form.model.trim() ||
-    images.length === 0;
+    images.length === 0 ||
+    (financialAllowed&&Boolean(receptionPrice.error));
   return (
     <Modal
       isOpen={isOpen}
@@ -477,6 +487,20 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
             ))}
           </section>
         )}
+        {financialAllowed&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
+          <div><h4 className="text-sm font-bold uppercase tracking-wide">État du véhicule à la réception</h4><p className="text-xs text-slate-500">Déclarez uniquement le constat réalisé lors de cette entrée en stock.</p></div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+            <label className="flex items-center gap-2 text-xs font-semibold"><input type="radio" name="reception-defect" checked={!form.hasReceptionDefect} onChange={()=>setForm(current=>({...current,hasReceptionDefect:false,receptionDefectDescription:'',receptionDefectDiscount:'0',receptionDefectDiscountReason:''}))}/> Aucun défaut constaté</label>
+            <label className="flex items-center gap-2 text-xs font-semibold"><input type="radio" name="reception-defect" checked={form.hasReceptionDefect} onChange={()=>setForm(current=>({...current,hasReceptionDefect:true}))}/> Défaut constaté</label>
+          </div>
+          {form.hasReceptionDefect&&<div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs font-semibold sm:col-span-2">Description du défaut *<textarea required maxLength={2000} value={form.receptionDefectDescription} onChange={field('receptionDefectDescription')} placeholder="Ex. Phare avant droit cassé" className="mt-1 min-h-20 w-full rounded-lg border p-2.5"/></label>
+            <label className="text-xs font-semibold">Réduction liée au défaut ({currencyCode})<input type="number" min="0" step="0.01" value={form.receptionDefectDiscount} onChange={field('receptionDefectDiscount')} className="mt-1 w-full rounded-lg border p-2.5"/></label>
+            <label className="text-xs font-semibold">Motif de la réduction {receptionPrice.discount>0?'*':''}<textarea required={receptionPrice.discount>0} maxLength={2000} value={form.receptionDefectDiscountReason} onChange={field('receptionDefectDiscountReason')} placeholder="Justification commerciale" className="mt-1 min-h-20 w-full rounded-lg border p-2.5"/></label>
+          </div>}
+          <div className="grid gap-2 rounded-lg bg-slate-50 p-3 text-xs sm:grid-cols-3"><div>Prix avant réduction<br/><b>{receptionPrice.initial.toLocaleString('fr-FR')} {currencyCode}</b></div><div>Réduction liée au défaut<br/><b className="text-red-700">- {receptionPrice.discount.toLocaleString('fr-FR')} {currencyCode}</b></div><div>Prix après réduction<br/><b className="text-emerald-700">{receptionPrice.final.toLocaleString('fr-FR')} {currencyCode}</b></div></div>
+          {receptionPrice.error&&<p role="alert" className="text-xs text-red-700">{receptionPrice.error}</p>}
+        </section>}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>

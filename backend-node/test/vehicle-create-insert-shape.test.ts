@@ -11,7 +11,7 @@ test('vehicle creation INSERT has one value for every column',()=>{
   const placeholders=(match[2]!.match(/\?/g)??[]).length;
   const sqlConstants=(match[2]!.match(/'CONCESSION'|'MANUAL'|TRUE|CURDATE\(\)/g)??[]).length;
   assert.equal(placeholders+sqlConstants,columns);
-  assert.equal(placeholders,30);
+  assert.equal(placeholders,35);
 });
 
 test('vehicle creation can execute atomically without an image',async()=>{

@@ -374,6 +374,10 @@ export const VehicleDetailPage: React.FC = () => {
               <div className="text-lg font-bold text-emerald-700 mt-1">{vehicle.targetMarginHT==null?'—':`+${formatCurrency(vehicle.targetMarginHT,vehicle.currencyCode)}`}</div>
             </div>
           </div>
+          <div className="rounded-xl border border-slate-200 p-4 text-xs">
+            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">État à la réception</h3>
+            {!vehicle.hasReceptionDefect?<p className="text-slate-600">Aucun défaut constaté.</p>:<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><div><span className="text-slate-500">Défaut constaté</span><p className="font-semibold">Oui</p></div><div className="sm:col-span-2"><span className="text-slate-500">Description</span><p className="font-semibold whitespace-pre-wrap">{vehicle.receptionDefectDescription}</p></div><div><span className="text-slate-500">Prix de vente initial</span><p className="font-semibold">{vehicle.receptionInitialSalePrice==null?'—':formatCurrency(vehicle.receptionInitialSalePrice,vehicle.currencyCode)}</p></div><div><span className="text-slate-500">Réduction liée au défaut</span><p className="font-semibold">{formatCurrency(vehicle.receptionDefectDiscount??0,vehicle.currencyCode)}</p></div>{Boolean(vehicle.receptionDefectDiscount)&&<div><span className="text-slate-500">Motif</span><p className="font-semibold whitespace-pre-wrap">{vehicle.receptionDefectDiscountReason}</p></div>}<div><span className="text-slate-500">Prix de vente courant</span><p className="font-semibold text-emerald-700">{formatCurrency(vehicle.sellingPriceHT,vehicle.currencyCode)}</p></div></div>}
+          </div>
         </Card>
       )}
 

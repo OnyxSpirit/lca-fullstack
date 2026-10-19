@@ -153,6 +153,11 @@ const mapVehicle = (r: any): Vehicle => ({
   transportCost: optionalNumber(r.transportCost),
   administrativeCost: optionalNumber(r.administrativeCost),
   additionalCosts: optionalNumber(r.additionalCosts),
+  hasReceptionDefect: Boolean(r.hasReceptionDefect),
+  receptionDefectDescription: r.receptionDefectDescription ?? undefined,
+  receptionInitialSalePrice: optionalNumber(r.receptionInitialSalePrice),
+  receptionDefectDiscount: optionalNumber(r.receptionDefectDiscount),
+  receptionDefectDiscountReason: r.receptionDefectDiscountReason ?? undefined,
   createdAt: r.createdAt ?? "",
 });
 const leadPriorityFromDb: Record<string, Lead["priority"]> = {

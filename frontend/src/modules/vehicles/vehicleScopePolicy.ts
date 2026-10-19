@@ -1,6 +1,6 @@
 import type { EffectivePermissionScope } from '../../types';
 
-export const VEHICLE_FINANCIAL_FIELDS=['purchasePrice','refurbishmentCost','transportCost','administrativeCost','additionalCosts','catalogPrice','salePrice','minimumPrice'] as const;
+export const VEHICLE_FINANCIAL_FIELDS=['purchasePrice','refurbishmentCost','transportCost','administrativeCost','additionalCosts','catalogPrice','salePrice','minimumPrice','hasReceptionDefect','receptionDefectDescription','receptionInitialSalePrice','receptionDefectDiscount','receptionDefectDiscountReason'] as const;
 
 export function implicitVehicleAgencyFilter(scope:EffectivePermissionScope|null|undefined,currentAgencyId?:string){
   return scope==='AGENCY'||scope==='OWN'?currentAgencyId:undefined;
@@ -12,5 +12,5 @@ export function vehiclePayloadForAgency<T extends Record<string,unknown>>(payloa
 }
 
 export function clearVehicleFinancialValues<T extends Record<string,unknown>>(form:T){
-  return {...form,...Object.fromEntries(VEHICLE_FINANCIAL_FIELDS.map(field=>[field,'']))};
+  return {...form,...Object.fromEntries(VEHICLE_FINANCIAL_FIELDS.map(field=>[field,''])),hasReceptionDefect:false,receptionDefectDiscount:'0'};
 }

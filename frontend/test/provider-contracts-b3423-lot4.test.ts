@@ -1,0 +1,9 @@
+import assert from'node:assert/strict';
+import{readFileSync}from'node:fs';
+import test from'node:test';
+const read=(file:string)=>readFileSync(new URL(`../${file}`,import.meta.url),'utf8'),section=read('src/modules/hr/ProviderContractsSection.tsx'),profile=read('src/modules/hr/ProviderProfileModal.tsx'),policy=read('src/modules/documents/documentPolicy.ts');
+test('LOT4 intègre les contrats dans la fiche prestataire sans module autonome',()=>{assert.match(profile,/ProviderContractsSection/);assert.match(section,/Contrats prestataires/);assert.match(section,/Nouveau contrat prestataire/);assert.match(section,/hr\.provider\.contract\.view/);assert.match(section,/hr\.provider\.contract\.manage/)});
+test('LOT4 présente agence, modalités XAF, échéancier et exigences',()=>{assert.match(section,/Agence contractante/);assert.match(section,/Périodique/);assert.match(section,/Forfaitaire/);assert.match(section,/Par échéances/);assert.match(section,/Montant contractuel XAF/);assert.match(section,/Échéancier/);assert.match(section,/Exigences documentaires/)});
+test('LOT4 expose le cycle de vie et l’historique sans fenêtres natives',()=>{for(const label of['Activer','Suspendre','Réactiver','Terminer','Annuler','Détails et historique'])assert.match(section,new RegExp(label));assert.doesNotMatch(section,/window\.(?:alert|confirm|prompt)/)});
+test('LOT4 réutilise la GED centrale avec aperçu, téléchargement et permissions',()=>{assert.match(section,/useEntityDocuments\('provider_contract'/);assert.match(section,/UploadModal/);assert.match(section,/DocumentPreview/);assert.match(section,/ged\.view/);assert.match(section,/ged\.upload/);assert.match(policy,/provider_contract.*Contrat prestataire/)});
+test('LOT4 rappelle explicitement l’absence de flux financier',()=>{assert.match(section,/ne crée ni dette, ni dépense, ni paiement/)});

@@ -1025,6 +1025,7 @@ export async function budgetExpenseDisburse(
         reservationId: b?.reservationId ?? null,
         createdBy: r.user!.sub,
       });
+    if(b?.providerPaymentSnapshot){const s=b.providerPaymentSnapshot;await c.execute('INSERT INTO provider_remuneration_payment_snapshots(provider_remuneration_id,budget_expense_disbursement_id,provider_payment_instrument_id,instrument_type,label_snapshot,masked_reference_snapshot,encrypted_payload_snapshot,payload_iv_snapshot,payload_tag_snapshot,key_version_snapshot,payment_reference,created_by)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',[s.remunerationId,disbursementId,s.instrumentId,s.instrumentType,s.label,s.maskedReference,s.encryptedPayload,s.iv,s.tag,s.keyVersion,reference,r.user!.sub])}
     await consumeReservation(
       c,
       r,

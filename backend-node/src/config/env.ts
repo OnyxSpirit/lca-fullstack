@@ -54,6 +54,7 @@ export const env = {
     maxAttempts: boundedInteger('TWO_FACTOR_MAX_ATTEMPTS', 5, 20),
     grandfatherGraceSeconds: boundedInteger('TWO_FACTOR_EXISTING_SESSION_GRACE_SECONDS', 7 * 24 * 60 * 60, 30 * 24 * 60 * 60),
   },
+  providerPayment: {encryptionKey:process.env.PROVIDER_PAYMENT_ENCRYPTION_KEY?.trim()||null,keyVersion:process.env.PROVIDER_PAYMENT_KEY_VERSION?.trim()||'v1'},
 };
 
 if (env.trustProxyHops > 5) throw new Error('TRUST_PROXY_HOPS doit être inférieur ou égal à 5');
@@ -64,3 +65,4 @@ if(env.twoFactor.encryptionKey){
   try{decoded=Buffer.from(env.twoFactor.encryptionKey,'base64')}catch{throw new Error('TWO_FACTOR_ENCRYPTION_KEY doit être une clé Base64 de 32 octets')}
   if(decoded.length!==32)throw new Error('TWO_FACTOR_ENCRYPTION_KEY doit être une clé Base64 de 32 octets');
 }
+if(env.providerPayment.encryptionKey&&Buffer.from(env.providerPayment.encryptionKey,'base64').length!==32)throw new Error('PROVIDER_PAYMENT_ENCRYPTION_KEY doit être une clé Base64 de 32 octets');

@@ -9,6 +9,7 @@ import { Card } from "../../components/ui/Card";
 import { Modal } from "../../components/ui/Modal";
 import { apiRequest } from "../../services/apiClient";
 import { useAuthStore } from "../../stores/authStore";
+import { ProviderRemunerationsAdministration } from "./ProviderRemunerationsAdministration";
 
 type R={id:string;employee_profile_id:string;first_name:string;last_name:string;employee_number:string;agency_id:string|null;agency_name:string|null;concession_id:string;concession_name:string;period_start:string;period_end:string;salary_amount:number;bonus_amount:number;payable_amount:number;currency_code:string;validation_status:'DRAFT'|'SUBMITTED'|'VALIDATED'|'REJECTED'|'CANCELLED';budget_id:string|null;budget_label:string|null;budget_expense_id:string|null;expense_status:'draft'|'submitted'|'approved'|'rejected'|'cancelled'|null;paid_amount:number;remaining_amount:number;payment_status:'UNPAID'|'PARTIAL'|'PAID'};
 type Employee={id:string;first_name:string;last_name:string;employee_number:string};
@@ -17,7 +18,7 @@ type PrepareResult={ids:string[];count:number;candidates:number;totalExcluded:nu
 type Dialog={type:'reject'|'engage'|'pay'|'adjust'|'history';row:R}|null;
 const input='w-full rounded-md border border-slate-300 px-3 py-2 text-xs',money=(v:number,c='XAF')=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:c,maximumFractionDigits:2}).format(v),validation:Record<string,string>={DRAFT:'Brouillon',SUBMITTED:'Soumise',VALIDATED:'Validée',REJECTED:'Rejetée',CANCELLED:'Annulée'},payment:Record<string,string>={UNPAID:'Non payée',PARTIAL:'Partiellement payée',PAID:'Payée'};
 
-export function RemunerationsAdministration(){
+function EmployeeRemunerationsAdministration(){
   const can=useAuthStore(s=>s.can),qc=useQueryClient(),[period,setPeriod]=useState(new Date().toISOString().slice(0,7)),[status,setStatus]=useState(''),[employee,setEmployee]=useState(''),[agency,setAgency]=useState(''),[selected,setSelected]=useState<string[]>([]),[dialog,setDialog]=useState<Dialog>(null),[error,setError]=useState(''),[prepareResult,setPrepareResult]=useState<PrepareResult>();
   const query=new URLSearchParams({period});if(status)query.set('status',status);if(employee)query.set('employeeId',employee);if(agency)query.set('agencyId',agency);
   const rows=useQuery({queryKey:['hr','remunerations',query.toString()],queryFn:()=>apiRequest<R[]>(`/hr/remunerations?${query}`)}),employees=useQuery({queryKey:['hr','remuneration-employees'],queryFn:()=>apiRequest<{items:Employee[]}>("/hr/employees?status=active&pageSize=100"),enabled:can('hr.employees.view')}),agencyOptions=useQuery({queryKey:['hr','remuneration-agencies'],queryFn:()=>apiRequest<{id:string;name:string}[]>('/hr/remunerations/agencies/options')}),compatibleBudgets=useQuery({queryKey:['hr','remuneration',dialog?.row.id,'compatible-budgets'],queryFn:()=>apiRequest<CompatibleBudget[]>(`/hr/remunerations/${dialog!.row.id}/compatible-budgets`),enabled:dialog?.type==='engage'}),accounts=useTreasuryAccounts(Boolean(dialog?.type==='pay')),categories=useTreasuryCategories(Boolean(dialog?.type==='pay')),reservations=useTreasuryReservations(Boolean(dialog?.type==='pay')&&can('treasury.reservation.view'));
@@ -33,3 +34,5 @@ export function RemunerationsAdministration(){
   <Modal isOpen={dialog?.type==='history'} onClose={()=>setDialog(null)} title="Historique de la rémunération"><div className="space-y-4"><OperationTimeline entries={history.data} loading={history.isLoading}/>{payments.data?.items.length?<div><h3 className="mb-2 text-xs font-bold">Paiements</h3>{payments.data.items.map(p=><p key={p.id} className="border-t py-2 text-xs">{p.value_date} · {money(p.amount,p.currency_code)} · {p.account_name} · {p.reference??'sans référence'}{p.is_reversed?' · contrepassé':''}</p>)}</div>:null}</div></Modal>
   </div>;
 }
+
+export function RemunerationsAdministration(){const can=useAuthStore(s=>s.can),[view,setView]=useState<'employees'|'providers'>(can('hr.remuneration.view')?'employees':'providers');return <div className="space-y-4"><div className="flex gap-2 border-b pb-2">{can('hr.remuneration.view')&&<Button variant={view==='employees'?'primary':'outline'} onClick={()=>setView('employees')}>Salaires des employés</Button>}{can('hr.provider.remuneration.view')&&<Button variant={view==='providers'?'primary':'outline'} onClick={()=>setView('providers')}>Rémunérations des prestataires</Button>}</div>{view==='employees'?<EmployeeRemunerationsAdministration/>:<ProviderRemunerationsAdministration/>}</div>}

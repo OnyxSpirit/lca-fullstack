@@ -151,8 +151,8 @@ export const HrAdministrationPage: React.FC = () => {
         },
         {
           id: "remunerations" as Tab,
-          label: "Rémunérations",
-          show: can("hr.salary.view") && can("hr.remuneration.view"),
+          label: "Salaires & rémunérations",
+          show: can("hr.remuneration.view") || can("hr.provider.remuneration.view"),
         },
         {
           id: "stock" as Tab,

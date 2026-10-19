@@ -46,6 +46,8 @@ import {
 import { stockItemCreationPayload } from "./stockItemValidation";
 import { EmployeePhotoField } from "./EmployeePhotoField";
 import { ProviderProfileModal } from "./ProviderProfileModal";
+import { UnifiedPersonnelTable } from "./UnifiedPersonnelTable";
+import { apiRequest } from "../../services/apiClient";
 
 const BudgetExpenseDisbursement = lazy(() =>
   import("./BudgetExpenseDisbursement").then((module) => ({
@@ -134,7 +136,7 @@ export const HrAdministrationPage: React.FC = () => {
         {
           id: "employees" as Tab,
           label: "Personnel",
-          show: can("hr.employees.view"),
+          show: can("hr.employees.view") || can("hr.providers.view"),
         },
         {
           id: "leaves" as Tab,
@@ -182,7 +184,7 @@ export const HrAdministrationPage: React.FC = () => {
     ),
     [reportFrom, setReportFrom] = useState(initialReportRange.from),
     [reportTo, setReportTo] = useState(initialReportRange.to);
-  const [providerModal,setProviderModal]=useState(false);
+  const [providerModal,setProviderModal]=useState(false),[selectedProviderId,setSelectedProviderId]=useState<string>();
   const [selectedEmployee, setSelectedEmployee] = useState<Employee>(),
     [employeePhoto,setEmployeePhoto]=useState<File|null>(null),
     [removeEmployeePhoto,setRemoveEmployeePhoto]=useState(false),
@@ -223,7 +225,7 @@ export const HrAdministrationPage: React.FC = () => {
     overview = useHrOverviewQuery(tab === "overview"),
     employees = useEmployeesQuery(
       { search, status, agencyId, page, pageSize: 20 },
-      (tab === "employees" || tab === "salaries") && can("hr.employees.view"),
+      tab === "salaries" && can("hr.employees.view"),
     ),
     stock = useStockQuery(
       {
@@ -296,6 +298,7 @@ export const HrAdministrationPage: React.FC = () => {
   const form = (e: React.FormEvent<HTMLFormElement>) =>
     Object.fromEntries(new FormData(e.currentTarget).entries());
   const createEmployee=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();try{const created=await actions.createEmployee.mutateAsync(form(e));if(employeePhoto)await actions.uploadEmployeePhoto.mutateAsync({id:created.id,file:employeePhoto});toast({type:'success',title:'Employé créé',description:employeePhoto?'Le dossier et sa photographie ont été enregistrés.':'Le dossier a été enregistré sans photographie.'});setEmployeePhoto(null);setModal(null)}catch(error){toast({type:'error',title:'Création incomplète',description:error instanceof Error?error.message:'Erreur API'})}};
+  const openEmployee=async(employeeId:string,edit=false)=>{try{const employee=await apiRequest<Employee>(`/hr/employees/${employeeId}`);setSelectedEmployee(employee);if(edit){setEmployeePhoto(null);setRemoveEmployeePhoto(false);setModal('employee')}else setModal('employee-record')}catch(error){toast({type:'error',title:'Dossier indisponible',description:error instanceof Error?error.message:'Erreur API'})}};
   const updateEmployee=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();const b=form(e);try{await actions.updateEmployee.mutateAsync({id:selectedEmployee!.id,body:{firstName:b.firstName,lastName:b.lastName,email:b.email,phone:b.phone,employeeNumber:b.employeeNumber,positionTitle:b.positionTitle,hireDate:b.hireDate,status:b.status}});if(employeePhoto)await actions.uploadEmployeePhoto.mutateAsync({id:selectedEmployee!.id,file:employeePhoto});else if(removeEmployeePhoto)await actions.removeEmployeePhoto.mutateAsync(selectedEmployee!.id);toast({type:'success',title:'Dossier employé modifié',description:'Les données ont été actualisées.'});setEmployeePhoto(null);setRemoveEmployeePhoto(false);setModal(null)}catch(error){toast({type:'error',title:'Action impossible',description:error instanceof Error?error.message:'Erreur API'})}};
   const employeeRows = employees.data?.items ?? [],
     activeStockCategories =
@@ -367,7 +370,8 @@ export const HrAdministrationPage: React.FC = () => {
           <RemunerationsAdministration />
         </HrSectionBoundary>
       )}
-      {(tab === "employees" || tab === "salaries") && (
+      {tab === "employees"&&<UnifiedPersonnelTable agencies={agencies.data??[]} onEmployee={(id,edit)=>void openEmployee(id,edit)} onProvider={id=>{setSelectedProviderId(id);setProviderModal(true)}} onCreateEmployee={()=>{setEmployeePhoto(null);setRemoveEmployeePhoto(false);setModal('employee-create')}} onCreateProvider={()=>{setSelectedProviderId(undefined);setProviderModal(true)}}/>}
+      {tab === "salaries" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Filters
@@ -388,22 +392,6 @@ export const HrAdministrationPage: React.FC = () => {
               }}
               agencies={agencies.data ?? []}
             />
-            <div className="flex flex-wrap gap-2">
-            {tab === "employees" && can("hr.providers.manage") && (
-              <Button size="sm" variant="outline" icon={<Plus className="h-4 w-4"/>} onClick={()=>setProviderModal(true)}>
-                Nouveau prestataire
-              </Button>
-            )}
-            {tab === "employees" && can("hr.employees.manage") && (
-              <Button
-                size="sm"
-                icon={<Plus className="h-4 w-4" />}
-                onClick={() => {setEmployeePhoto(null);setRemoveEmployeePhoto(false);setModal("employee-create")}}
-              >
-                Nouvel employé
-              </Button>
-            )}
-            </div>
           </div>
           <Card padding="none">
             <div className="overflow-x-auto">
@@ -487,19 +475,6 @@ export const HrAdministrationPage: React.FC = () => {
                           >
                             Fiche
                           </Button>
-                          {tab === "employees" &&
-                            can("hr.employees.manage") && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedEmployee(x);setEmployeePhoto(null);setRemoveEmployeePhoto(false);
-                                  setModal("employee");
-                                }}
-                              >
-                                Modifier
-                              </Button>
-                            )}
                           {tab === "salaries" && (
                             <Button
                               size="sm"
@@ -1920,7 +1895,7 @@ export const HrAdministrationPage: React.FC = () => {
           }
         />
       </Modal>
-      <ProviderProfileModal isOpen={providerModal} onClose={()=>setProviderModal(false)} agencies={agencies.data??[]}/>
+      <ProviderProfileModal isOpen={providerModal} onClose={()=>{setProviderModal(false);setSelectedProviderId(undefined)}} agencies={agencies.data??[]} initialProviderId={selectedProviderId}/>
     </div>
   );
 };

@@ -102,6 +102,7 @@ export interface Lead {
   createdAt: string;
   opportunityId?: string;
   canStartTestDrive?: boolean;
+  activeAppointment?: {id:string;scheduledAt:string;durationMinutes:number;subject:string}|null;
   testDriveStatus?: 'planned' | 'in_progress' | 'completed' | 'cancelled' | null;
   testDriveReturnedAt?: string;
   canCreateQuotation?: boolean;

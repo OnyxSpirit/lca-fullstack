@@ -23,3 +23,10 @@ export function appointmentIso(value:string):string{
   if(error)throw new Error(error);
   return parseLocalAppointment(value)!.toISOString();
 }
+
+export function appointmentInputValue(value:string):string{
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return '';
+  const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
+  return local.toISOString().slice(0,16);
+}

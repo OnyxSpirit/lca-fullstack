@@ -3,7 +3,7 @@ import {query} from '../../config/database.js';
 import {emitToUser} from '../../realtime/socket.js';
 import {crmLeadAgencySql,selectCrmLeadRealtimeRecipients,type CrmLeadVisibilityCandidate,type CrmLeadVisibilityResource} from './crm-visibility.js';
 
-export type CrmLeadChangeType='created'|'updated'|'stage'|'appointment'|'test_drive'|'quotation'|'sale'|'activity';
+export type CrmLeadChangeType='created'|'updated'|'stage'|'appointment'|'appointment_updated'|'appointment_cancelled'|'test_drive'|'quotation'|'sale'|'activity';
 export interface CrmLeadUpdatedPayload{leadId:string;opportunityId:string;changeType:CrmLeadChangeType;customerChanged:boolean}
 
 /**

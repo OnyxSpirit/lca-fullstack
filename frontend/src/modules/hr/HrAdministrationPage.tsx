@@ -45,6 +45,7 @@ import {
 } from "./stockCategoryAccess";
 import { stockItemCreationPayload } from "./stockItemValidation";
 import { EmployeePhotoField } from "./EmployeePhotoField";
+import { ProviderProfileModal } from "./ProviderProfileModal";
 
 const BudgetExpenseDisbursement = lazy(() =>
   import("./BudgetExpenseDisbursement").then((module) => ({
@@ -181,6 +182,7 @@ export const HrAdministrationPage: React.FC = () => {
     ),
     [reportFrom, setReportFrom] = useState(initialReportRange.from),
     [reportTo, setReportTo] = useState(initialReportRange.to);
+  const [providerModal,setProviderModal]=useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee>(),
     [employeePhoto,setEmployeePhoto]=useState<File|null>(null),
     [removeEmployeePhoto,setRemoveEmployeePhoto]=useState(false),
@@ -386,6 +388,12 @@ export const HrAdministrationPage: React.FC = () => {
               }}
               agencies={agencies.data ?? []}
             />
+            <div className="flex flex-wrap gap-2">
+            {tab === "employees" && can("hr.providers.manage") && (
+              <Button size="sm" variant="outline" icon={<Plus className="h-4 w-4"/>} onClick={()=>setProviderModal(true)}>
+                Nouveau prestataire
+              </Button>
+            )}
             {tab === "employees" && can("hr.employees.manage") && (
               <Button
                 size="sm"
@@ -395,6 +403,7 @@ export const HrAdministrationPage: React.FC = () => {
                 Nouvel employé
               </Button>
             )}
+            </div>
           </div>
           <Card padding="none">
             <div className="overflow-x-auto">
@@ -1911,6 +1920,7 @@ export const HrAdministrationPage: React.FC = () => {
           }
         />
       </Modal>
+      <ProviderProfileModal isOpen={providerModal} onClose={()=>setProviderModal(false)} agencies={agencies.data??[]}/>
     </div>
   );
 };

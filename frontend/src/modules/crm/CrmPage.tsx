@@ -37,7 +37,7 @@ import { QuotationModal } from './QuotationModal';
 import { CrmTestDriveModal } from './CrmTestDriveModal';
 import { SaleWizardModal } from '../sales/SaleWizardModal';
 import type { Quotation } from '../../types';
-import { appointmentDateError, appointmentInputValue, appointmentIso } from './crmAppointmentPolicy';
+import { appointmentDateError, appointmentInputValue, appointmentIso, canManageCrmAppointment, canPlanCrmAppointment } from './crmAppointmentPolicy';
 import { openBusinessPdf } from '../../services/businessPdf';
 import { hasDynamicPermission } from '../../navigation/permissions';
 import { activityStatusLabel, activityTypeLabel, quotationStatusLabel } from '../../lib/userFacingLabels';
@@ -277,14 +277,13 @@ export const CrmPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Next action and independent commercial indicators */}
+                      {/* Next action and commercial progression */}
                       <div className="flex items-start justify-between gap-2 text-[10px] pt-1 text-slate-500 border-t border-slate-100">
                         <div className="flex items-center gap-1 truncate max-w-[140px]">
                           <Clock className="w-3 h-3 text-amber-500 shrink-0" />
                           <span className="truncate">{lead.nextActionDate || 'À relancer'}</span>
                         </div>
-                        <div className="shrink-0 space-y-1 text-right text-[9px]">
-                          <div className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Qualification : {lead.score} %</div>
+                        <div className="shrink-0 text-right text-[9px]">
                           <div className="font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">Progression : {commercialProgressLabel(lead)}</div>
                         </div>
                       </div>
@@ -337,7 +336,6 @@ export const CrmPage: React.FC = () => {
                   <th className="py-3 px-4">Véhicule Cible</th>
                   <th className="py-3 px-4">Budget</th>
                   <th className="py-3 px-4">Étape Pipeline</th>
-                  <th className="py-3 px-4">Score de qualification</th>
                   <th className="py-3 px-4">Progression commerciale</th>
                   <th className="py-3 px-4">Conseiller</th>
                   <th className="py-3 px-4">Priorité</th>
@@ -346,11 +344,11 @@ export const CrmPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {leadsQuery.isLoading && (
-                  <TableEmptyState colSpan={10} message="Chargement des prospects..." isLoading />
+                  <TableEmptyState colSpan={9} message="Chargement des prospects..." isLoading />
                 )}
                 {!leadsQuery.isLoading && !leadsQuery.isError && filteredLeads.length === 0 && (
                   <TableEmptyState
-                    colSpan={10}
+                    colSpan={9}
                     message={hasActiveFilters ? 'Aucun prospect ne correspond à vos critères' : 'Aucun prospect'}
                   />
                 )}
@@ -375,7 +373,6 @@ export const CrmPage: React.FC = () => {
                     <td className="py-3 px-4">
                       <StatusBadge status={lead.stage} type="lead" />
                     </td>
-                    <td className="py-3 px-4 font-semibold text-blue-700">{lead.score} %</td>
                     <td className="py-3 px-4 font-semibold text-violet-700">{commercialProgressLabel(lead)}</td>
                     <td className="py-3 px-4 text-slate-600">{lead.assignedToName}</td>
                     <td className="py-3 px-4">
@@ -468,7 +465,6 @@ export const CrmPage: React.FC = () => {
               <div className="p-3 bg-white rounded-xl border border-slate-200">
                 <span className="text-slate-400 block mb-1">Budget prévisionnel</span>
                 <div className="font-bold text-blue-700 text-sm">{formatCurrency(selectedLead.targetBudget)}</div>
-                <div className="text-blue-700 mt-1">Score de qualification : <b>{selectedLead.score} %</b></div>
                 <div className="text-violet-700 mt-1">Progression commerciale : <b>{commercialProgressLabel(selectedLead)}</b></div>
                 <div className="text-slate-500 mt-1">Enregistré par : {selectedLead.createdByName || 'Non renseigné'}</div>
               </div>
@@ -526,8 +522,8 @@ export const CrmPage: React.FC = () => {
 
             {selectedLead.activeAppointment&&<div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-950"><b>Rendez-vous actif</b><span className="ml-2">{formatDateTime(selectedLead.activeAppointment.scheduledAt)} · {selectedLead.activeAppointment.durationMinutes} min</span></div>}
             {(canCreateAppointment||canCreateTestDrive||canCreateQuotation||canUpdateStage||canLoseLead||canConvertQuotation) && <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              {canCreateAppointment&&['QUALIFIE','RDV'].includes(selectedLead.stage)&&!selectedLead.activeAppointment&&<Button size="sm" variant="outline" onClick={()=>{setEditingAppointmentId(null);setScheduledAt('');setAppointmentDuration(30);setAppointmentLead(selectedLead)}}>Planifier un RDV</Button>}
-              {canUpdateLead&&selectedLead.activeAppointment&&<><Button size="sm" variant="outline" onClick={()=>editAppointment(selectedLead)}>Reporter le RDV</Button><Button size="sm" variant="danger" loading={cancelAppointmentMutation.isPending} onClick={()=>void cancelAppointment(selectedLead)}>Annuler le RDV</Button></>}
+              {canCreateAppointment&&canPlanCrmAppointment(selectedLead)&&<Button size="sm" variant="outline" onClick={()=>{setEditingAppointmentId(null);setScheduledAt('');setAppointmentDuration(30);setAppointmentLead(selectedLead)}}>Planifier un RDV</Button>}
+              {canUpdateLead&&canManageCrmAppointment(selectedLead)&&<><Button size="sm" variant="outline" onClick={()=>editAppointment(selectedLead)}>Reporter le RDV</Button><Button size="sm" variant="danger" loading={cancelAppointmentMutation.isPending} onClick={()=>void cancelAppointment(selectedLead)}>Annuler le RDV</Button></>}
               {canCreateTestDrive&&selectedLead.stage==='RDV'&&<Button size="sm" disabled={!selectedLead.canStartTestDrive} title={selectedLead.canStartTestDrive?'Démarrer le véritable essai Showroom':'Un rendez-vous commercial réel est requis'} onClick={async()=>{setTestDriveLead(selectedLead);setSelectedLead(null)}}>Démarrer un essai</Button>}
               {selectedLead.stage==='ESSAI'&&!quotations.length&&canCreateQuotation&&<div className="flex flex-col items-end gap-1"><Badge variant={selectedLead.canCreateQuotation?'success':'warning'}>{selectedLead.canCreateQuotation?'Essai terminé':'Essai en cours'}</Badge><Button size="sm" disabled={!selectedLead.canCreateQuotation} title={!selectedLead.canCreateQuotation?'En attente du retour de l’essai routier.':undefined} onClick={()=>setQuotationLead(selectedLead)}>Créer un devis</Button>{!selectedLead.canCreateQuotation&&<span className="text-xs text-amber-700">En attente du retour de l’essai routier.</span>}</div>}
               {canUpdateStage&&selectedLead.stage==='OFFRE'&&<Button size="sm" variant="outline" loading={stageMutation.isPending} onClick={()=>void handleStageChange(selectedLead.id,'NEGOCIATION')}>Entrer en négociation</Button>}

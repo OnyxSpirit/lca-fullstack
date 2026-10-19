@@ -30,11 +30,11 @@ async function renderCrm(){
   return{...testing,client};
 }
 
-test('B346-FE-01 affiche simultanément qualification 85 % et progression rendez-vous 40 %',async()=>{
+test('B3461-FE-01 masque la qualification et conserve la progression rendez-vous 40 %',async()=>{
   lead=rawLead('appointment',40,'ACTIVE');const{screen,fireEvent,cleanup,client}=await renderCrm();
-  assert.ok(await screen.findByText('Qualification : 85 %'));assert.ok(screen.getByText('Progression : 40 %'));
+  assert.ok(await screen.findByText('Progression : 40 %'));assert.equal(screen.queryByText(/Qualification/),null);
   fireEvent.click(screen.getByRole('button',{name:/Ouvrir le prospect/}));
-  assert.ok(screen.getByText(/Score de qualification :/));assert.ok(screen.getByText(/Progression commerciale :/));assert.equal(screen.getAllByText('85 %').length>=1,true);assert.equal(screen.getAllByText('40 %').length>=1,true);
+  assert.equal(screen.queryByText(/Score de qualification/),null);assert.ok(screen.getByText(/Progression commerciale :/));assert.equal(screen.getAllByText('40 %').length>=1,true);
   cleanup();client.clear();
 });
 
@@ -43,9 +43,9 @@ test('B346-FE-02 une vente gagnée vaut 100 % et une perte n’est jamais prése
   lead=rawLead('lost',null,'LOST');context=await renderCrm();assert.ok(await context.screen.findByText('Progression : Vente perdue'));assert.equal(context.screen.queryByText('Progression : 100 %'),null);context.cleanup();context.client.clear();
 });
 
-test('B346-FE-03 une progression absente ou inconnue est explicite et la liste nomme les deux indicateurs',async()=>{
+test('B3461-FE-03 une progression absente est explicite et la liste ne réintroduit pas le score',async()=>{
   lead=rawLead('future_stage',null,'UNAVAILABLE');const{screen,fireEvent,cleanup,client}=await renderCrm();assert.ok(await screen.findByText('Progression : Indisponible'));
-  fireEvent.click(screen.getByRole('button',{name:'Liste'}));assert.ok(screen.getByText('Score de qualification'));assert.ok(screen.getByText('Progression commerciale'));cleanup();client.clear();
+  fireEvent.click(screen.getByRole('button',{name:'Liste'}));assert.equal(screen.queryByText('Score de qualification'),null);assert.ok(screen.getByText('Progression commerciale'));cleanup();client.clear();
 });
 
 afterEach(async()=>{const{useUiStore}=await import('../src/stores/uiStore.js');useUiStore.setState({toasts:[]})});

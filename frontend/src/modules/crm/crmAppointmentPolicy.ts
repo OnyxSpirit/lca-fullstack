@@ -1,3 +1,5 @@
+import type { Lead } from '../../types';
+
 const LOCAL_DATETIME=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
 export function parseLocalAppointment(value:string):Date|null{
@@ -30,3 +32,9 @@ export function appointmentInputValue(value:string):string{
   const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
   return local.toISOString().slice(0,16);
 }
+
+export const canPlanCrmAppointment=(lead:Pick<Lead,'stage'|'activeAppointment'>)=>
+  ['QUALIFIE','RDV'].includes(lead.stage)&&!lead.activeAppointment;
+
+export const canManageCrmAppointment=(lead:Pick<Lead,'stage'|'activeAppointment'>)=>
+  lead.stage==='RDV'&&Boolean(lead.activeAppointment);

@@ -672,24 +672,24 @@ export const TreasuryPage: React.FC = () => {
         <>
           {(summary.data?.byCurrency??[]).map(kpi=><div key={kpi.currencyCode} className="grid gap-4 md:grid-cols-4">
             <Card>
-              <p className="text-xs text-slate-500">Solde externe net · {kpi.currencyCode}</p>
+              <p className="text-xs text-slate-500">Solde interne net · {kpi.currencyCode}</p>
               <p className="text-2xl font-bold">
                 {formatCurrency(kpi.balance,kpi.currencyCode)}
               </p>
             </Card>
             <Card>
-              <p className="text-xs text-slate-500">Entrées externes · {kpi.currencyCode}</p>
+              <p className="text-xs text-slate-500">Entrées internes · {kpi.currencyCode}</p>
               <p className="text-xl font-bold text-emerald-700">
                 {formatCurrency(kpi.totalIn,kpi.currencyCode)}
               </p>
             </Card>
             <Card>
-              <p className="text-xs text-slate-500">Sorties externes · {kpi.currencyCode}</p>
+              <p className="text-xs text-slate-500">Sorties internes · {kpi.currencyCode}</p>
               <p className="text-xl font-bold text-red-700">
                 {formatCurrency(kpi.totalOut,kpi.currencyCode)}
               </p>
             </Card>
-            <Card><p className="text-xs text-slate-500">Transferts internes · {kpi.currencyCode}</p><p className="text-xl font-bold">{formatCurrency(kpi.internalTransfers,kpi.currencyCode)}</p></Card>
+            <Card><p className="text-xs text-slate-500">Transactions internes · {kpi.currencyCode}</p><p className="text-xl font-bold">{formatCurrency(kpi.internalTransfers,kpi.currencyCode)}</p></Card>
           </div>)}
           <Card>
             <h2 className="mb-3 font-bold">Comptes accessibles</h2>

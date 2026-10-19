@@ -13,8 +13,11 @@ test('le formulaire expose le rattachement, la concession et l’agence filtrée
 
 test('les KPI sont ventilés par devise et séparent les transferts internes',()=>{
   assert.match(page,/summary\.data\?\.byCurrency/);
-  assert.match(page,/Entrées externes/);
-  assert.match(page,/Transferts internes/);
+  assert.match(page,/Solde interne net/);
+  assert.match(page,/Entrées internes/);
+  assert.match(page,/Sorties internes/);
+  assert.match(page,/Transactions internes/);
+  assert.doesNotMatch(page,/(Solde|Entrées|Sorties) externes/);
 });
 
 test('les événements ciblent les familles de clés RH et Trésorerie',()=>{

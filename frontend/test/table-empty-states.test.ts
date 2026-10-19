@@ -5,7 +5,7 @@ import { test } from 'node:test';
 const readSource = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 const cases = [
-  ['CRM', '../src/modules/crm/CrmPage.tsx', 8, 'Aucun prospect', 'Aucun prospect ne correspond à vos critères'],
+  ['CRM', '../src/modules/crm/CrmPage.tsx', 10, 'Aucun prospect', 'Aucun prospect ne correspond à vos critères'],
   ['Clients', '../src/modules/customers/CustomersListPage.tsx', 7, 'Aucun client', 'Aucun client ne correspond à vos critères'],
   ['Ventes', '../src/modules/sales/SalesListPage.tsx', 8, 'Aucune vente', 'Aucune vente ne correspond à vos critères'],
   ['SAV', '../src/modules/service/ServiceDashboardPage.tsx', 8, 'Aucun ordre de réparation', 'Aucun ordre de réparation ne correspond à vos critères'],

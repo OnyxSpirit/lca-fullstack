@@ -109,7 +109,9 @@ export interface Lead {
   customerId?: string;
   lostReason?: string;
   updatedAt: string;
-  score: number; // 0-100 lead score
+  score: number; // 0-100 qualification score persisted as opportunities.probability
+  commercialProgress: number | null;
+  commercialProgressState: 'ACTIVE' | 'WON' | 'LOST' | 'UNAVAILABLE';
 }
 
 export interface CrmActivity {id:string;leadId:string;opportunityId?:string;assignedUserId:string;assignedUserName:string;createdById?:string;createdByName?:string;type:string;subject:string;description:string;status:string;dueAt?:string;completedAt?:string;createdAt:string}

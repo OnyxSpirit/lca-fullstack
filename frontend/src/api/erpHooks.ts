@@ -189,6 +189,8 @@ const mapLead = (r: any): Lead => ({
   createdAt: r.createdAt ?? "",
   updatedAt: r.updatedAt ?? "",
   score: n(r.probability),
+  commercialProgress: typeof r.commercialProgress === 'number' ? r.commercialProgress : null,
+  commercialProgressState: ['ACTIVE','WON','LOST'].includes(r.commercialProgressState) ? r.commercialProgressState : 'UNAVAILABLE',
   canStartTestDrive: Boolean(r.canStartTestDrive),
   activeAppointment: r.activeAppointment ?? null,
   testDriveStatus: r.testDriveStatus ?? null,

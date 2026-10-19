@@ -42,6 +42,8 @@ import { openBusinessPdf } from '../../services/businessPdf';
 import { hasDynamicPermission } from '../../navigation/permissions';
 import { activityStatusLabel, activityTypeLabel, quotationStatusLabel } from '../../lib/userFacingLabels';
 
+export const commercialProgressLabel=(lead:Pick<Lead,'commercialProgress'|'commercialProgressState'>)=>lead.commercialProgressState==='LOST'?'Vente perdue':lead.commercialProgress==null?'Indisponible':`${lead.commercialProgress} %`;
+
 export const CrmPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
@@ -275,14 +277,15 @@ export const CrmPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Next Action & Score */}
-                      <div className="flex items-center justify-between text-[10px] pt-1 text-slate-500 border-t border-slate-100">
+                      {/* Next action and independent commercial indicators */}
+                      <div className="flex items-start justify-between gap-2 text-[10px] pt-1 text-slate-500 border-t border-slate-100">
                         <div className="flex items-center gap-1 truncate max-w-[140px]">
                           <Clock className="w-3 h-3 text-amber-500 shrink-0" />
                           <span className="truncate">{lead.nextActionDate || 'À relancer'}</span>
                         </div>
-                        <div className="font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[9px]">
-                          Score: {lead.score}/100
+                        <div className="shrink-0 space-y-1 text-right text-[9px]">
+                          <div className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Qualification : {lead.score} %</div>
+                          <div className="font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">Progression : {commercialProgressLabel(lead)}</div>
                         </div>
                       </div>
 
@@ -334,6 +337,8 @@ export const CrmPage: React.FC = () => {
                   <th className="py-3 px-4">Véhicule Cible</th>
                   <th className="py-3 px-4">Budget</th>
                   <th className="py-3 px-4">Étape Pipeline</th>
+                  <th className="py-3 px-4">Score de qualification</th>
+                  <th className="py-3 px-4">Progression commerciale</th>
                   <th className="py-3 px-4">Conseiller</th>
                   <th className="py-3 px-4">Priorité</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -341,11 +346,11 @@ export const CrmPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {leadsQuery.isLoading && (
-                  <TableEmptyState colSpan={8} message="Chargement des prospects..." isLoading />
+                  <TableEmptyState colSpan={10} message="Chargement des prospects..." isLoading />
                 )}
                 {!leadsQuery.isLoading && !leadsQuery.isError && filteredLeads.length === 0 && (
                   <TableEmptyState
-                    colSpan={8}
+                    colSpan={10}
                     message={hasActiveFilters ? 'Aucun prospect ne correspond à vos critères' : 'Aucun prospect'}
                   />
                 )}
@@ -370,6 +375,8 @@ export const CrmPage: React.FC = () => {
                     <td className="py-3 px-4">
                       <StatusBadge status={lead.stage} type="lead" />
                     </td>
+                    <td className="py-3 px-4 font-semibold text-blue-700">{lead.score} %</td>
+                    <td className="py-3 px-4 font-semibold text-violet-700">{commercialProgressLabel(lead)}</td>
                     <td className="py-3 px-4 text-slate-600">{lead.assignedToName}</td>
                     <td className="py-3 px-4">
                       <Badge
@@ -461,7 +468,8 @@ export const CrmPage: React.FC = () => {
               <div className="p-3 bg-white rounded-xl border border-slate-200">
                 <span className="text-slate-400 block mb-1">Budget prévisionnel</span>
                 <div className="font-bold text-blue-700 text-sm">{formatCurrency(selectedLead.targetBudget)}</div>
-                <div className="text-slate-500 mt-1">Score opportunité : {selectedLead.score}/100</div>
+                <div className="text-blue-700 mt-1">Score de qualification : <b>{selectedLead.score} %</b></div>
+                <div className="text-violet-700 mt-1">Progression commerciale : <b>{commercialProgressLabel(selectedLead)}</b></div>
                 <div className="text-slate-500 mt-1">Enregistré par : {selectedLead.createdByName || 'Non renseigné'}</div>
               </div>
             </div>

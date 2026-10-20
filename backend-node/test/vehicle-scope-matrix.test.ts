@@ -39,6 +39,8 @@ function withFinancialFlag(sql:string,params:unknown[],rows:VehicleRow[]){
   return rows.map(vehicle=>({...vehicle,financial_allowed:sql.includes('NULL financial_allowed')?null:sql.includes('IF(1=1')?'1':sql.includes('IF(v.agency_id=?')&&vehicle.agency_id===String(params[0])?'1':sql.includes('IF(v.agency_id IN')&&concession(vehicle.agency_id)===concession(String(params[0]))?'1':null}));
 }
 async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
+  if(sql.includes("SELECT id,TRIM(CONCAT(first_name,' ',last_name)) display_name FROM users"))return[{id:String(params[0]),display_name:'Acteur Stock Test'}];
+  if(sql.includes('SELECT id,name FROM agencies WHERE id=?'))return[{id:String(params[0]),name:`Agence ${String(params[0])}`}];
   if(sql.includes('JOIN refresh_tokens rt'))return auth.authRows(params);
   if(sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles'))return roleRows(String(params[0]));
   if(sql.includes('SELECT p.code,rp.scope FROM role_permissions'))return auth.roles.get(String(params[0]))?.permissions??[];

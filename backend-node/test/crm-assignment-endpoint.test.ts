@@ -16,6 +16,8 @@ const leadRow=()=>({lead_id:String(nextId),opportunity_id:String(nextId+1),custo
 
 before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
+    if(sql.includes("SELECT id,TRIM(CONCAT(first_name,' ',last_name)) display_name FROM users"))return[[{id:String(params[0]),display_name:'Acteur CRM Test'}],[]];
+    if(sql.includes('SELECT id,name FROM agencies WHERE id=?'))return[[{id:String(params[0]),name:'Agence A'}],[]];
     if(sql.includes('SELECT r.id,r.code,r.is_system')){const id=String(params[0]),role=users[id]?.roles[0]??(id==='10'?'RECEPTIONIST':id==='20'?'SALES_AGENT':id==='40'?'DIRECTOR':'CRM_TEST_DYNAMIC');return[[{id:`role-${id}`,code:role,is_system:role==='SUPER_ADMIN'?1:0}],[]]}
     if(sql.includes('SELECT p.code,rp.scope')){const role=String(params[0]).replace('role-','')==='10'?'RECEPTIONIST':String(params[0]).replace('role-','')==='20'?'SALES_AGENT':String(params[0]).replace('role-','')==='40'?'DIRECTOR':'CRM_TEST_DYNAMIC';return[permissions(role).map(code=>({code,scope:'AGENCY'})),[]]}
     if(sql.includes("p.code IN('sales.create','crm.prospect.update')")){const user=users[String(params[0])];return[user?[{id:user.id,agency_id:user.agencyId,concession_id:'1',is_active:user.active,eligible:user.roles.some(role=>['SALES_AGENT','SALES_MANAGER'].includes(role))?1:0}]:[],[]]}

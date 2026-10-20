@@ -8,7 +8,7 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 test('VEH-LOC-01..06 sépare dynamiquement les emplacements véhicules des magasins et ateliers',()=>{
   const vehicles=read('../src/modules/vehicles/vehicle.routes.ts'),parts=read('../src/modules/parts/part.routes.ts');
   assert.match(vehicles,/FROM vehicle_locations WHERE id=\? AND agency_id=\?/);
-  assert.match(vehicles,/\['PARC','SHOWROOM'\]/);
+  assert.match(vehicles,/isVehicleLocationType/);
   assert.match(vehicles,/agency_id=\?/);
   assert.match(vehicles,/vehicleLocation\(connection,agencyId,request\.body\.locationId\)/);
   assert.match(vehicles,/vehicle_location_id=\?/);

@@ -121,6 +121,16 @@ export async function executeResilientMigration(connection:Connection,migration:
       }
       if(state==='AMBIGUOUS')throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; état automatique non prouvable, intervention requise`);
     }
+    if(!previous&&kind==='DDL'){
+      const state=await ddlState(connection,statement);
+      if(state==='SATISFIED'){
+        await connection.execute(`INSERT INTO schema_migration_steps(version,migration_name,step_no,statement_checksum,kind,status,applied_at) VALUES(?,?,?,?,?,'APPLIED',NOW())`,[migration.version,migration.name,step,statementHash,kind]);
+        console.log(`Migration ${migration.name} étape ${step}: ALREADY SATISFIED`);continue;
+      }
+      // Un état partiellement présent mais non journalisé est encore exécuté : MySQL
+      // reste l'autorité et l'échec est alors tracé FAILED_PARTIAL. Seule une
+      // postcondition entièrement satisfaite peut être adoptée sans exécuter le DDL.
+    }
     await faultHook?.({phase:'before-step',version:migration.version,step,kind});
     if(kind==='DDL'){
       await connection.execute(`INSERT INTO schema_migration_steps(version,migration_name,step_no,statement_checksum,kind,status) VALUES(?,?,?,?,?,'RUNNING') ON DUPLICATE KEY UPDATE status='RUNNING',error_message=NULL,started_at=NOW(),applied_at=NULL`,[migration.version,migration.name,step,statementHash,kind]);

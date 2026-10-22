@@ -54,6 +54,11 @@ export async function startPlannedTestDrive(connection:PoolConnection,id:string,
   return{agencyId:String(drive.agency_id),visitId:String(drive.visit_id),visitorName:String(drive.visitor_name),leadId:drive.lead_id==null?null:String(drive.lead_id),opportunityId:drive.opportunity_id==null?null:String(drive.opportunity_id)};
 }
 
+export function assertTestDriveReturnAllowed(drive:Record<string,unknown>,mileageIn:number){
+  if(drive.status!=='in_progress')throw new HttpError(409,'Essai non actif ou retour déjà enregistré');
+  if(!Number.isInteger(mileageIn)||mileageIn<Number(drive.mileage_out))throw new HttpError(400,'Kilométrage de retour invalide');
+}
+
 export async function assertTestDriveStartAvailable(connection:PoolConnection,input:{vehicleId:string;advisorId:string;agencyId:string;visitId?:string;scheduledAt?:Date;durationMinutes?:number;excludeDriveId?:string}){
   if(input.visitId){
     const[visits]=await connection.execute<RowDataPacket[]>('SELECT id FROM showroom_visits WHERE id=? FOR UPDATE',[input.visitId]);

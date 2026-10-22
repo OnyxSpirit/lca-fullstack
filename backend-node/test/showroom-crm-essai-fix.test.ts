@@ -44,7 +44,7 @@ test('TX-01..04 retour, activité CRM et clôture partagent la transaction exist
   assert.match(handler,/INSERT INTO activities/);
   assert.match(handler,/completeCrmShowroomVisit\(connection/);
   assert.ok(handler.indexOf('mileage<Number(row.mileage_out)')<handler.indexOf("UPDATE showroom_test_drives SET status='completed'"));
-  assert.match(handler,/row\.status!=='in_progress'/);
+  assert.match(handler,/assertTestDriveReturnAllowed\(row,mileage\)/);
 });
 
 test('HIST-01..03 migration additive et conservatrice',()=>{

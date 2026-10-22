@@ -30,6 +30,13 @@ export const plannedDriveStartState=(status:string,canManage:boolean,scheduledAt
   return scheduled&&scheduled.getTime()<=now.getTime()+60_000?'ready':'too_early';
 };
 
+export const testDriveTiming=(drive:{scheduledAt?:string|null;startedAt?:string|null;returnedAt?:string|null;durationMinutes?:number|null},now=new Date())=>{
+  const scheduled=parseApiInstant(drive.scheduledAt??''),started=parseApiInstant(drive.startedAt??''),returned=parseApiInstant(drive.returnedAt??''),durationMinutes=Math.max(0,Number(drive.durationMinutes??0));
+  const plannedEnd=scheduled&&durationMinutes?new Date(scheduled.getTime()+durationMinutes*60_000):null;
+  const elapsedMinutes=started?Math.max(0,Math.floor(((returned??now).getTime()-started.getTime())/60_000)):null;
+  return{scheduled,started,returned,plannedEnd,durationMinutes,elapsedMinutes,actualDurationMinutes:started&&returned?elapsedMinutes:null};
+};
+
 export const classifyShowroomVisits=<T extends ClassifiedVisit>(visits:T[])=>({
   waiting:visits.filter(isWaitingShowroomVisit),
   assigned:visits.filter(isAssignedShowroomVisit),

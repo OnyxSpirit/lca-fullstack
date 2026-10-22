@@ -615,7 +615,7 @@ export interface Invoice {
 }
 export interface InvoiceLine{id:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;taxAmount:number;lineTotal:number}
 export interface InvoicePayment{id:string;paymentNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;paymentMethodId:string;paymentMethod:string;reference:string;status:string;paymentDate:string;receivedByName:string;receiptArchiveAvailable?:boolean;receiptArchiveStatus?:BusinessArchiveStatus}
-export interface CreditNote{id:string;creditNoteNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;reason:string;status:string;issueDate:string;createdByName:string}
+export interface CreditNote{id:string;creditNoteNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;reason:string;status:string;issueDate:string;createdByName:string;archiveAvailable?:boolean;archiveStatus?:BusinessArchiveStatus}
 
 // Showroom Visitors
 export interface ShowroomVisitor {

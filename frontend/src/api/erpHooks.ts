@@ -407,7 +407,7 @@ const mapInvoice = (r: any): Invoice => ({
   agencyId:s(r.agency_id),agencyName:r.agency_name??'',currencyCode:r.currency_code??undefined,notes:r.notes??'',archiveAvailable:r.archive_available==null?undefined:Boolean(r.archive_available),archiveStatus:r.archive_status??undefined,
   items:(r.items??[]).map((x:any)=>({id:s(x.id),description:x.description,quantity:n(x.quantity),unitPrice:n(x.unit_price),discount:n(x.discount),taxRate:n(x.tax_rate),taxAmount:n(x.tax_amount),lineTotal:n(x.line_total)})),
   payments:(r.payments??[]).map((x:any)=>({id:s(x.id),paymentNumber:x.payment_number,amount:n(x.amount),refundedAmount:n(x.refunded_amount),refundableRemaining:Math.max(0,n(x.amount)-n(x.refunded_amount)),paymentMethodId:s(x.payment_method_id),paymentMethod:x.payment_method,reference:x.reference??'',status:x.effective_status??x.status,paymentDate:x.payment_date,receivedByName:x.received_by_name??'',receiptArchiveAvailable:Boolean(x.receipt_archive_available),receiptArchiveStatus:x.receipt_archive_status??undefined})),
-  creditNotes:(r.creditNotes??[]).map((x:any)=>({id:s(x.id),creditNoteNumber:x.credit_note_number,amount:n(x.amount),refundedAmount:n(x.refunded_amount),refundableRemaining:Math.max(0,n(x.amount)-n(x.refunded_amount)),reason:x.reason,status:x.status,issueDate:x.issue_date,createdByName:x.created_by_name??''})),
+  creditNotes:(r.creditNotes??[]).map((x:any)=>({id:s(x.id),creditNoteNumber:x.credit_note_number,amount:n(x.amount),refundedAmount:n(x.refunded_amount),refundableRemaining:Math.max(0,n(x.amount)-n(x.refunded_amount)),reason:x.reason,status:x.status,issueDate:x.issue_date,createdByName:x.created_by_name??'',archiveAvailable:Boolean(x.archive_available),archiveStatus:x.archive_status??undefined})),
 });
 
 function resource<T>(key: readonly string[], path: string, map: (r: any) => T,requestEnabled=true) {
@@ -1219,16 +1219,18 @@ export function useAssignRepairOrder() {
 }
 export const useVehicleReturnQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['vehicle-return',id],queryFn:()=>apiRequest<any>(`/vehicle-returns/${id}`),enabled:enabled()&&requestEnabled&&Boolean(id)});
 export const useVehicleReturnOptions=(id?:string,requestEnabled=true)=>useQuery({queryKey:['vehicle-return-options',id],queryFn:()=>apiRequest<any>(`/vehicle-returns/${id}/options`),enabled:enabled()&&requestEnabled&&Boolean(id)});
-export const useVehicleReturnActions=()=>{const qc=useQueryClient(),done=(_:unknown,v:any)=>{void qc.invalidateQueries({queryKey:['vehicle-return',String(v.returnId??v.id??'')]});void qc.invalidateQueries({queryKey:['vehicle-return-options',String(v.returnId??v.id??'')]});void qc.invalidateQueries({queryKey:['vehicle-returns']});void qc.invalidateQueries({queryKey:erpKeys.deliveries});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.invoices})};return{
- create:useMutation({mutationFn:(body:any)=>apiRequest<any>('/vehicle-returns',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- inspect:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/inspection`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- approve:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/approve`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- reject:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/reject`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- addDeduction:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/deductions`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- resolve:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/financial-resolution`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- receive:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/receive`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- stock:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/stock-decision`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
- close:useMutation({mutationFn:({returnId}:any)=>apiRequest(`/vehicle-returns/${returnId}/close`,{method:'POST'}),onSuccess:done}),
+export const useVehicleReturnActions=()=>{const qc=useQueryClient(),done=(_:unknown,_error:unknown,v:any)=>{void qc.invalidateQueries({queryKey:['vehicle-return',String(v.returnId??v.id??'')]});void qc.invalidateQueries({queryKey:['vehicle-return-options',String(v.returnId??v.id??'')]});void qc.invalidateQueries({queryKey:['vehicle-returns']});void qc.invalidateQueries({queryKey:erpKeys.deliveries});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.invoices})};return{
+ create:useMutation({mutationFn:(body:any)=>apiRequest<any>('/vehicle-returns',{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ inspect:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/inspection`,{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ approve:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/approve`,{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ reject:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/reject`,{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ addDeduction:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/deductions`,{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ resolve:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/financial-resolution`,{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ receive:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/receive`,{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ stock:useMutation({mutationFn:({returnId,...body}:any)=>apiRequest(`/vehicle-returns/${returnId}/stock-decision`,{method:'POST',body:JSON.stringify(body)}),onSettled:done}),
+ close:useMutation({mutationFn:({returnId}:any)=>apiRequest(`/vehicle-returns/${returnId}/close`,{method:'POST'}),onSettled:done}),
+ archive:useMutation({mutationFn:({returnId}:any)=>apiRequest(`/vehicle-returns/${returnId}/archive`,{method:'POST'}),onSettled:done}),
+ archiveCreditNote:useMutation({mutationFn:({returnId,creditNoteId}:any)=>apiRequest(`/vehicle-returns/${returnId}/credit-notes/${creditNoteId}/archive`,{method:'POST'}),onSettled:done}),
 }}
 
 export function useInvoiceRepairOrder() {

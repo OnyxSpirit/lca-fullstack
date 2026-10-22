@@ -70,7 +70,7 @@ test('CRM-NEG-UI-08 clic ouvre le parcours de conversion avec les identifiants l
 });
 
 test('LOT1 archive absente : reprise visible, PDF et conversion bloqués',async()=>{
-  quotation.archiveAvailable=false;quotation.archiveStatus='MISSING';
+  quotation.archiveAvailable=false;quotation.archiveStatus='MISSING_RECORD';
   try{const{screen,cleanup,client}=await openNegotiation('AGENCY');assert.ok(screen.getByText('Archive absente'));assert.ok(screen.getByRole('button',{name:'Finaliser l’archivage'}));assert.equal((screen.getByRole('button',{name:'PDF'})as HTMLButtonElement).disabled,true);assert.equal((screen.getByRole('button',{name:'Transformer en Vente / Bon de Commande'})as HTMLButtonElement).disabled,true);cleanup();client.clear()}finally{quotation.archiveAvailable=true;quotation.archiveStatus='AVAILABLE'}
 });
 

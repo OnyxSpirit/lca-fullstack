@@ -15,7 +15,7 @@ test('ERP17 GED facture Atelier : échec rendu, échec insertion, reprise et rej
   mock.module('../src/realtime/socket.js',{namedExports:{emitToAgency:()=>undefined}});
   const render=async()=>{if(renderFails)throw new Error('rendu simulé');return Buffer.from('%PDF-ERP17');};
   mock.module('../src/modules/documents/commercial-document.js',{namedExports:{renderDeliveryDocument:render,renderInvoiceDocument:render,renderPaymentReceiptData:render,renderQuotationDocument:render,renderSaleOrderDocument:render}});
-  mock.module('../src/modules/documents/document-storage.js',{namedExports:{documentHash:()=> 'hash',readDocumentFile:render,storeDocument:async()=>{const absolute=`/tmp/erp17-simulation-${++sequence}`;files.add(absolute);return{absolute,storageKey:absolute};}}});
+  mock.module('../src/modules/documents/document-storage.js',{namedExports:{documentHash:()=> 'hash',inspectDocumentFile:async()=> 'AVAILABLE',readDocumentFile:render,storeDocument:async()=>{const absolute=`/tmp/erp17-simulation-${++sequence}`;files.add(absolute);return{absolute,storageKey:absolute};}}});
   try{
     const {archiveInvoice,requireBusinessArchive}=await import('../src/modules/documents/business-document.service.js');
     const run=()=>requireBusinessArchive('invoice:17:issued',()=>archiveInvoice('17','1'));

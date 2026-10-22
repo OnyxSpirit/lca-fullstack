@@ -233,6 +233,7 @@ const mapSale = (r: any): Sale => ({
   financialStatus: r.invoice_status ?? undefined,
   financiallyCleared: Boolean(r.financially_cleared),
   archiveAvailable: Boolean(r.archive_available),
+  archiveStatus: r.archive_status,
   financingType: ({ cash: "Comptant", credit: "Crédit Classique", loa: "LOA", lld: "LLD", Comptant: "Comptant", "Crédit Classique": "Crédit Classique", LOA: "LOA", LLD: "LLD" } as Record<string, Sale['financingType']>)[r.financing_type] ?? "Comptant",
   financingPartner: r.financier_name ?? undefined,
   financingAmount: r.financed_amount == null ? undefined : n(r.financed_amount),

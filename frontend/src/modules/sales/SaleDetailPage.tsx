@@ -26,6 +26,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate, formatDateTime } from '../../lib/utils';
 import { openBusinessPdf } from '../../services/businessPdf';
 import { useAuthStore } from '../../stores/authStore';
+import{businessArchiveStatusLabel}from'../../services/businessArchiveStatus';
 import {DeliveryFinancialAuthorizationPanel} from '../deliveries/DeliveryFinancialAuthorizationPanel';
 
 export const SaleDetailPage: React.FC = () => {
@@ -96,7 +97,7 @@ export const SaleDetailPage: React.FC = () => {
             >
               Imprimer Bon de Commande
             </Button>
-            {sale.status==='FINANCEMENT_VALIDE'&&!sale.archiveAvailable&&<Button variant="primary" size="sm" loading={retrySaleArchive.isPending} disabled={retrySaleArchive.isPending} onClick={()=>retrySaleArchive.mutateAsync(sale.id).then(()=>addToast({type:'success',title:'Bon de commande archivé'})).catch(error=>addToast({type:'error',title:'Archivage toujours indisponible',description:error instanceof Error?error.message:'Erreur API'}))}>Finaliser l’archivage</Button>}
+            {sale.status==='FINANCEMENT_VALIDE'&&sale.archiveStatus==='MISSING_RECORD'&&<Button variant="primary" size="sm" loading={retrySaleArchive.isPending} disabled={retrySaleArchive.isPending} onClick={()=>retrySaleArchive.mutateAsync(sale.id).then(()=>addToast({type:'success',title:'Bon de commande archivé'})).catch(error=>addToast({type:'error',title:'Archivage toujours indisponible',description:error instanceof Error?error.message:'Erreur API'}))}>Finaliser l’archivage</Button>}
 
             {next&&canConfirm&&<div title={financialBlocked?financialBlockReason:undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={financialBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
             {sale.status === 'PRET_LIVRAISON'&&canPlanDelivery&&<Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
@@ -104,7 +105,7 @@ export const SaleDetailPage: React.FC = () => {
           </div>
         }
       />
-      {sale.status==='FINANCEMENT_VALIDE'&&<div className={sale.archiveAvailable?'rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800':'rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900'}>{retrySaleArchive.isPending?'Archivage en cours…':retrySaleArchive.isError?'Archivage en échec — vous pouvez relancer la finalisation.':sale.archiveAvailable?'Archive officielle du bon de commande disponible.':'Archive officielle absente — finalisez l’archivage avant de poursuivre le workflow.'}</div>}
+      {sale.status==='FINANCEMENT_VALIDE'&&<div className={sale.archiveAvailable?'rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800':'rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900'}>{retrySaleArchive.isPending?'Archivage en cours…':retrySaleArchive.isError?'Archivage en échec — vous pouvez relancer la finalisation.':businessArchiveStatusLabel(sale.archiveStatus)}</div>}
 
       {canCancelSale&&financialRegularizationRequired&&<Card><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"/><div><h2 className="font-bold text-amber-900">Régularisation financière requise</h2><p className="mt-1 text-sm text-slate-700">Cette vente a reçu des encaissements et ne peut pas être annulée tant que les sommes encaissées n’ont pas été remboursées.</p><dl className="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2"><div><dt className="text-slate-500">Total facture</dt><dd className="font-semibold">{formatCurrency(invoice?.amountTTC??sale.totalSaleTTC)}</dd></div><div><dt className="text-slate-500">Encaissement net</dt><dd className="font-semibold">{formatCurrency(netCollected)}</dd></div><div><dt className="text-slate-500">Reste dû</dt><dd className="font-semibold">{formatCurrency(invoice?.remainingAmountTTC??sale.remainingBalanceTTC)}</dd></div>{canViewPayments&&<div><dt className="text-slate-500">Déjà remboursé</dt><dd className="font-semibold">{formatCurrency(refundedAmount)}</dd></div>}<div><dt className="text-slate-500">Reste à régulariser</dt><dd className="font-semibold text-amber-800">{formatCurrency(netCollected)}</dd></div></dl><ol className="mt-3 list-decimal space-y-1 pl-4 text-xs text-slate-600"><li>Créer l’avoir nécessaire sur la facture.</li><li>Rembourser les sommes encaissées.</li><li>Revenir sur cette vente et relancer l’annulation.</li></ol></div></div>{canViewInvoice&&invoice&&<Button variant="outline" size="sm" onClick={()=>navigate(`/billing/${invoice.id}`)}>Accéder à la facture</Button>}</div></Card>}
 

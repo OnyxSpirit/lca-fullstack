@@ -727,7 +727,7 @@ deliveryRouter.get(
   requirePermission('delivery.documents.view'),
   asyncHandler(async (request, response) => {
     const row = await detail(idOf(request.params.id), request,'delivery.documents.view');
-    const buffer = row.status==='delivered'?await requiredHistoricalBusinessPdf(`delivery:${row.id}:finalized:`):await renderDeliveryDocument(String(row.id));
+    const buffer = row.status==='delivered'?await requiredHistoricalBusinessPdf(`delivery:${row.id}:finalized:v2`,`delivery:${row.id}:finalized:`):await renderDeliveryDocument(String(row.id));
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader(
       "Content-Disposition",

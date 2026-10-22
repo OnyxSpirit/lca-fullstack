@@ -18,5 +18,15 @@ function safeUnder(root:string,value:string){const candidate=path.resolve(root,v
 export function resolveDocumentPath(fileUrl:string){if(fileUrl.startsWith('ged:'))return safeUnder(storageRoot,fileUrl.slice(4));const clean=fileUrl.replace(/^https?:\/\/[^/]+/,'').replace(/^\/uploads\//,'');return safeUnder(legacyRoot,clean)}
 const storageError=(error:unknown)=>{const code=(error as NodeJS.ErrnoException)?.code;if(code==='ENOENT'||code==='ENOTDIR')return new HttpError(410,'Fichier documentaire indisponible');return new HttpError(503,'Stockage documentaire temporairement indisponible')};
 export async function requireDocumentFile(fileUrl:string){const absolute=resolveDocumentPath(fileUrl);try{await access(absolute)}catch(error){throw storageError(error)}return absolute}
+export type DocumentFileStatus='AVAILABLE'|'FILE_MISSING'|'STORAGE_UNAVAILABLE'|'INTEGRITY_ERROR';
+export async function inspectDocumentFile(fileUrl:string,expectedHash?:unknown,verifyIntegrity=false):Promise<DocumentFileStatus>{
+  let absolute:string;
+  try{absolute=resolveDocumentPath(fileUrl)}catch{return'FILE_MISSING'}
+  try{
+    if(!verifyIntegrity){await access(absolute);return'AVAILABLE'}
+    const buffer=await readFile(absolute);
+    return expectedHash&&documentHash(buffer)!==String(expectedHash)?'INTEGRITY_ERROR':'AVAILABLE';
+  }catch(error){const code=(error as NodeJS.ErrnoException)?.code;return code==='ENOENT'||code==='ENOTDIR'?'FILE_MISSING':'STORAGE_UNAVAILABLE'}
+}
 export async function readDocumentFile(fileUrl:string,expectedHash?:unknown){const absolute=resolveDocumentPath(fileUrl);let buffer:Buffer;try{buffer=await readFile(absolute)}catch(error){throw storageError(error)}if(expectedHash&&documentHash(buffer)!==String(expectedHash))throw new HttpError(409,'Intégrité de l’archive officielle invalide');return buffer}
 export function verifiedPreviewMime(buffer:Buffer,declared:unknown){const mime=String(declared??'').toLowerCase(),head=buffer.subarray(0,12);if(mime==='application/pdf'&&head.subarray(0,5).toString()==='%PDF-')return mime;if(mime==='image/png'&&head.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return mime;if(mime==='image/jpeg'&&head[0]===0xff&&head[1]===0xd8)return mime;throw new HttpError(415,'Aperçu indisponible pour ce format documentaire')}

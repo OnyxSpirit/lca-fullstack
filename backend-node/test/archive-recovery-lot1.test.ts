@@ -30,6 +30,7 @@ test('LOT1 reprise devis/vente : panne, idempotence, concurrence, immutabilité 
   mock.module('../src/modules/documents/commercial-document.js',{namedExports:{renderDeliveryDocument:render,renderInvoiceDocument:render,renderPaymentReceiptData:render,renderQuotationDocument:render,renderSaleOrderDocument:render}});
   mock.module('../src/modules/documents/document-storage.js',{namedExports:{
     documentHash:(buffer:Buffer)=>`hash-${buffer.toString()}`,
+    inspectDocumentFile:async()=> 'AVAILABLE',
     readDocumentFile:async(fileUrl:string)=>files.get(fileUrl.replace('ged:',''))!,
     storeDocument:async(file:{buffer:Buffer})=>{const storageKey=`lot1-${++sequence}.pdf`;files.set(storageKey,file.buffer);return{absolute:storageKey,storageKey};},
   }});

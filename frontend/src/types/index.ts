@@ -610,9 +610,11 @@ export interface Invoice {
   items?: InvoiceLine[];
   payments?: InvoicePayment[];
   creditNotes?: CreditNote[];
+  archiveAvailable?: boolean;
+  archiveStatus?: BusinessArchiveStatus;
 }
 export interface InvoiceLine{id:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;taxAmount:number;lineTotal:number}
-export interface InvoicePayment{id:string;paymentNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;paymentMethodId:string;paymentMethod:string;reference:string;status:string;paymentDate:string;receivedByName:string}
+export interface InvoicePayment{id:string;paymentNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;paymentMethodId:string;paymentMethod:string;reference:string;status:string;paymentDate:string;receivedByName:string;receiptArchiveAvailable?:boolean;receiptArchiveStatus?:BusinessArchiveStatus}
 export interface CreditNote{id:string;creditNoteNumber:string;amount:number;refundedAmount:number;refundableRemaining:number;reason:string;status:string;issueDate:string;createdByName:string}
 
 // Showroom Visitors

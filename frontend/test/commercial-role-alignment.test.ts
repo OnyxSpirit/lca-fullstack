@@ -47,7 +47,7 @@ test('COM-RM-05 conditionne la gestion d’équipe par crm.prospect.assign',()=>
 
 test('le devis exige quotations.validate, expose le PDF et conserve le propriétaire',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx'),pdf=read('../src/services/businessPdf.ts');
-  assert.match(page,/canValidateQuotation&&quotation\.status==='draft'/);
+  assert.match(page,/canValidateQuotation&&!quotation\.identitySnapshot&&\['draft','negotiation'\]\.includes\(quotation\.status\)/);
   assert.match(page,/Émettre le devis/);
   assert.match(page,/useValidateQuotation/);
   assert.match(page,/openBusinessPdf\('quotation'/);

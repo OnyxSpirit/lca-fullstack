@@ -16,4 +16,5 @@ quotationRouter.get('/quotations/:id',requirePermission('quotations.view'),async
 quotationRouter.post('/quotations',requirePermission('quotations.create'),asyncHandler(async(request,response)=>response.status(201).json(await service.create(request.body,request))));
 quotationRouter.patch('/quotations/:id',requirePermission('quotations.update'),asyncHandler(async(request,response)=>response.json(await service.update(request.params.id,request.body,request))));
 quotationRouter.post('/quotations/:id/validate',requirePermission('quotations.validate'),asyncHandler(async(request,response)=>response.json(await service.validate(request.params.id,request))));
+quotationRouter.post('/quotations/:id/archive',requirePermission('quotations.validate'),asyncHandler(async(request,response)=>response.json(await service.retryArchive(request.params.id,request))));
 quotationRouter.post('/quotations/:id/cancel',requirePermission('quotations.cancel'),asyncHandler(async(request,response)=>response.json(await service.cancel(request.params.id,request.body?.status,request.body?.reason,request))));

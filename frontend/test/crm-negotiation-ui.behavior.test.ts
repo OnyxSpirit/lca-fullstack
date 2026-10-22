@@ -12,7 +12,7 @@ Object.defineProperty(globalThis,'localStorage',{value:dom.window.localStorage,c
 localStorage.setItem('lca-access-token','crm-negotiation-ui-token');
 
 const opportunity={id:'101',opportunityId:'201',customerId:'301',firstName:'Awa',lastName:'Négociation',companyName:null,email:'awa.negociation@test.local',phone:'+242060000001',source:'Web',stage:'negotiation',title:'SUV Test',expectedValue:25000000,probability:80,priority:'high',assignedUserId:'401',assignedUserName:'Rôle dynamique CRM',createdById:'401',createdByName:'Rôle dynamique CRM',agencyId:'1',notes:'',createdAt:'2026-10-01',updatedAt:'2026-10-01'};
-const quotation={id:'501',quotationNumber:'DEV-CRM-NEG-UI',opportunityId:'201',customerId:'301',customerName:'Awa Négociation',agencyId:'1',salespersonId:'401',salespersonName:'Rôle dynamique CRM',createdById:'401',createdByName:'Rôle dynamique CRM',status:'negotiation',validUntil:'2099-12-31',subtotal:25000000,discountTotal:0,taxTotal:0,total:25000000,taxMode:'TAXABLE',priceInputMode:'HT',taxRate:18.9,currencyCode:'XAF',notes:'',createdAt:'2026-10-01',vehicleId:'601',vehicleLabel:'Marque Modèle Version',stockNumber:'STK-CRM-NEG-UI'};
+const quotation={id:'501',quotationNumber:'DEV-CRM-NEG-UI',opportunityId:'201',customerId:'301',customerName:'Awa Négociation',agencyId:'1',salespersonId:'401',salespersonName:'Rôle dynamique CRM',createdById:'401',createdByName:'Rôle dynamique CRM',status:'negotiation',validUntil:'2099-12-31',subtotal:25000000,discountTotal:0,taxTotal:0,total:25000000,taxMode:'TAXABLE',priceInputMode:'HT',taxRate:18.9,currencyCode:'XAF',identitySnapshot:{tradeName:'LCA'},archiveAvailable:true,archiveStatus:'AVAILABLE',notes:'',createdAt:'2026-10-01',vehicleId:'601',vehicleLabel:'Marque Modèle Version',stockNumber:'STK-CRM-NEG-UI'};
 
 globalThis.fetch=(async(input:RequestInfo|URL)=>{
   const url=String(input);
@@ -23,7 +23,7 @@ globalThis.fetch=(async(input:RequestInfo|URL)=>{
 const scopes=['AGENCY','CONCESSION','GLOBAL'] as const;
 type Scope=(typeof scopes)[number];
 const permissions=(scope:Scope,without?:'quotations.convert'|'sales.create')=>Object.fromEntries([
-  ['crm.prospect.view',scope],['crm.pipeline.advance',scope],['crm.prospect.lose',scope],['quotations.view',scope],['quotations.convert',scope],['sales.create',scope],
+  ['crm.prospect.view',scope],['crm.pipeline.advance',scope],['crm.prospect.lose',scope],['quotations.view',scope],['quotations.validate',scope],['quotations.convert',scope],['sales.create',scope],
 ].filter(([code])=>code!==without));
 
 async function renderCrm(scope:Scope,without?:'quotations.convert'|'sales.create'){
@@ -67,6 +67,11 @@ test('CRM-NEG-UI-08 clic ouvre le parcours de conversion avec les identifiants l
   fireEvent.click(screen.getByRole('button',{name:'Transformer en Vente / Bon de Commande'}));
   assert.ok(await screen.findByText('Créer une vente automobile'));
   cleanup();client.clear();
+});
+
+test('LOT1 archive absente : reprise visible, PDF et conversion bloqués',async()=>{
+  quotation.archiveAvailable=false;quotation.archiveStatus='MISSING';
+  try{const{screen,cleanup,client}=await openNegotiation('AGENCY');assert.ok(screen.getByText('Archive absente'));assert.ok(screen.getByRole('button',{name:'Finaliser l’archivage'}));assert.equal((screen.getByRole('button',{name:'PDF'})as HTMLButtonElement).disabled,true);assert.equal((screen.getByRole('button',{name:'Transformer en Vente / Bon de Commande'})as HTMLButtonElement).disabled,true);cleanup();client.clear()}finally{quotation.archiveAvailable=true;quotation.archiveStatus='AVAILABLE'}
 });
 
 test('CRM-NEG-UI F5 réhydrate les permissions serveur avant de décider l’action',async()=>{

@@ -19,3 +19,4 @@ saleRouter.patch('/sales/:id/status',asyncHandler(async(request,response)=>{
   await assertPermission(request,permission);
   response.json(await service.updateStatus(String(request.params.id),request.body?.status,request.body?.reason,request,permission));
 }));
+saleRouter.post('/sales/:id/archive',requirePermission('sales.confirm'),asyncHandler(async(request,response)=>response.json(await service.retryArchive(String(request.params.id),request))));

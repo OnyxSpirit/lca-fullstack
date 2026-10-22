@@ -232,6 +232,7 @@ const mapSale = (r: any): Sale => ({
   invoiceId: r.invoice_id == null ? undefined : s(r.invoice_id),
   financialStatus: r.invoice_status ?? undefined,
   financiallyCleared: Boolean(r.financially_cleared),
+  archiveAvailable: Boolean(r.archive_available),
   financingType: ({ cash: "Comptant", credit: "Crédit Classique", loa: "LOA", lld: "LLD", Comptant: "Comptant", "Crédit Classique": "Crédit Classique", LOA: "LOA", LLD: "LLD" } as Record<string, Sale['financingType']>)[r.financing_type] ?? "Comptant",
   financingPartner: r.financier_name ?? undefined,
   financingAmount: r.financed_amount == null ? undefined : n(r.financed_amount),
@@ -490,7 +491,8 @@ export const useQuotationVehicleContext=(opportunityId?:string,testDriveId?:stri
 export const useQuotationConfig=()=>useQuery({queryKey:[...erpKeys.quotations,'config'],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string;defaultTaxMode:'TAXABLE';defaultPriceInputMode:'HT'}>('/quotations/config'),enabled:enabled()});
 export const useCreateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(body:{opportunityId:string;vehicleId:string;discount:number;validUntil?:string;notes?:string;taxMode:'TAXABLE'|'TAX_EXEMPT';priceInputMode:'HT'|'TTC';taxRate:number})=>apiRequest<Quotation>('/quotations',{method:'POST',body:JSON.stringify(body)}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.customers})}})};
 export const useUpdateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;discount?:number;validUntil?:string;notes?:string})=>apiRequest<Quotation>(`/quotations/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
-export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/validate`,{method:'POST'}),onSuccess:quote=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,quote.opportunityId,'activities']})}})};
+export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/validate`,{method:'POST'}),onSettled:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
+export const useRetryQuotationArchive=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/archive`,{method:'POST'}),onSettled:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useCancelQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,status='cancelled',reason}:{id:string;status?:'cancelled'|'rejected';reason:string})=>apiRequest<Quotation>(`/quotations/${id}/cancel`,{method:'POST',body:JSON.stringify({status,reason})}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:Record<string,unknown>&{id:string})=>apiRequest(`/leads/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.leads})})};
 export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;durationMinutes?:number;subject?:string;description?:string;overrideConflict?:boolean;overrideReason?:string})=>apiRequest(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
@@ -799,9 +801,10 @@ export function useSaleStatusMutation() {
         method: "PATCH",
         body: JSON.stringify({ status,reason }),
       }),
-    onSuccess: () => {void qc.invalidateQueries({ queryKey: erpKeys.sales });void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.invoices});},
+    onSettled: () => {void qc.invalidateQueries({ queryKey: erpKeys.sales });void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.invoices});},
   });
 }
+export function useRetrySaleArchive(){const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Sale>(`/sales/${id}/archive`,{method:'POST'}),onSettled:(_data,_error,id)=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:[...erpKeys.sales,id]})}})}
 export function useUpdateSale() {
   const qc=useQueryClient();
   return useMutation({mutationFn:({id,...body}:{id:string;notes?:string;salespersonId?:string})=>apiRequest(`/sales/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(_,input)=>{void qc.invalidateQueries({queryKey:erpKeys.sales});void qc.invalidateQueries({queryKey:[...erpKeys.sales,input.id]})}});

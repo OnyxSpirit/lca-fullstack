@@ -11,6 +11,6 @@ test('B341 concurrence sérialise le contexte métier avant le contrôle et l’
   assert.match(creation,/CRM_APPOINTMENT_DUPLICATE/);
 });
 
-test('B341 le chevauchement dérogeable ne peut jamais contourner le doublon métier',()=>{
-  assert.ok(creation.indexOf('CRM_APPOINTMENT_DUPLICATE')<creation.indexOf("if\(!override\)throw new HttpError"));
+test('B341 le doublon exact reste bloquant avant les avertissements de chevauchement',()=>{
+  assert.ok(creation.indexOf('CRM_APPOINTMENT_DUPLICATE')<creation.indexOf("warnings.push('Un autre rendez-vous"));
 });

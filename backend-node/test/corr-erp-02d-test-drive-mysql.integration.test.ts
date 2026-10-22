@@ -47,11 +47,11 @@ async function cancel(id:string){
 
 async function clear(){await pool.execute('DELETE FROM showroom_test_drives')}
 
-test('CORR-ERP-02D MySQL 8.4 sérialise les ressources des essais actifs',{skip:!enabled},async()=>{
+test('CRM-02 MySQL 8.4 sérialise la réservation exclusive des véhicules',{skip:!enabled},async()=>{
   await clear();
   assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle1,advisor2,visit2)])).sort(),['conflict','created'],'même véhicule');
   await clear();
-  assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle2,advisor1,visit2)])).sort(),['conflict','created'],'même commercial');
+  assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle2,advisor1,visit2)])).sort(),['created','created'],'un commercial peut planifier deux véhicules au même horaire');
   await clear();
   assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle2,advisor2,visit2)])).sort(),['created','created'],'ressources indépendantes');
   await clear();
@@ -59,7 +59,7 @@ test('CORR-ERP-02D MySQL 8.4 sérialise les ressources des essais actifs',{skip:
   const[rows]=await pool.query<RowDataPacket[]>('SELECT id FROM showroom_test_drives LIMIT 1'),id=String(rows[0]!.id);
   const outcomes=await Promise.allSettled([cancel(id),reserve(vehicle1,advisor1,visit3)]);
   assert.equal(outcomes.every(result=>result.status==='fulfilled'),true);
-  const[active]=await pool.query<RowDataPacket[]>("SELECT COUNT(*) total FROM showroom_test_drives WHERE status='in_progress' AND (vehicle_id=? OR advisor_id=?)",[vehicle1,advisor1]);
+  const[active]=await pool.query<RowDataPacket[]>("SELECT COUNT(*) total FROM showroom_test_drives WHERE status IN ('planned','in_progress') AND vehicle_id=?",[vehicle1]);
   assert.ok(Number(active[0]!.total)<=1,'annulation et nouvelle réservation laissent au plus un essai actif');
   await clear();
 });

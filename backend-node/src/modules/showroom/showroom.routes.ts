@@ -85,7 +85,8 @@ showroomRouter.post('/showroom/crm/leads/:leadId/test-drives',requirePermission(
     return{visitId:String(visit.insertId),id:String(drive.insertId),opportunityId};
   });
   await publishCrmLeadUpdated({leadId,changeType:'test_drive'});
-  await notify(String(lead.agency_id),'showroom:test-drive-started',result.visitId,'Essai routier démarré',`Le prospect #${leadId} essaie le véhicule #${vehicleId}`,request.user!.sub,String(lead.assigned_user_id));
+  const event=period.status==='planned'?'showroom:test-drive-planned':'showroom:test-drive-started';
+  await notify(String(lead.agency_id),event,result.visitId,period.status==='planned'?'Essai routier planifié':'Essai routier démarré',period.status==='planned'?`Le véhicule #${vehicleId} est réservé pour le prospect #${leadId}`:`Le prospect #${leadId} essaie le véhicule #${vehicleId}`,request.user!.sub,String(lead.assigned_user_id));
   response.status(201).json({...result,leadId,status:period.status,stage:period.status==='in_progress'?'test_drive':'appointment',scheduledAt:period.scheduledAt.toISOString(),durationMinutes:period.durationMinutes});
 }));
 
@@ -116,7 +117,8 @@ showroomRouter.post('/showroom/:id/test-drives',requirePermission('showroom.visi
     if(period.status==='in_progress')await markCrmTestDriveStarted(connection,opportunityId);
     return String(result.insertId);
   });
-  await notify(String(visit.agency_id),'showroom:test-drive-started',visitId,'Essai routier démarré',`${visit.visitor_name} essaie le véhicule #${vehicleId}`,request.user!.sub);
+  const event=period.status==='planned'?'showroom:test-drive-planned':'showroom:test-drive-started';
+  await notify(String(visit.agency_id),event,visitId,period.status==='planned'?'Essai routier planifié':'Essai routier démarré',period.status==='planned'?`Le véhicule #${vehicleId} est réservé pour ${visit.visitor_name}`:`${visit.visitor_name} essaie le véhicule #${vehicleId}`,request.user!.sub);
   response.status(201).json({id:driveId,status:period.status,scheduledAt:period.scheduledAt.toISOString(),durationMinutes:period.durationMinutes});
 }));
 

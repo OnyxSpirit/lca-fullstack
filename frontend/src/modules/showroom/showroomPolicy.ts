@@ -24,11 +24,7 @@ export const isActiveShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='En E
 export const isCompletedShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='Terminé';
 export const canConvertShowroomVisitToLead=(visit:ConvertibleVisit,canUpdateVisitor:boolean)=>canUpdateVisitor&&visit.status==='Terminé'&&!visit.leadId;
 
-export const plannedDriveStartState=(status:string,canManage:boolean,scheduledAt:string,now=new Date()):'hidden'|'too_early'|'ready'=>{
-  if(status!=='planned'||!canManage)return'hidden';
-  const scheduled=parseApiInstant(scheduledAt);
-  return scheduled&&scheduled.getTime()<=now.getTime()+60_000?'ready':'too_early';
-};
+export const plannedDriveStartState=(status:string,canManage:boolean):'hidden'|'ready'=>status==='planned'&&canManage?'ready':'hidden';
 
 export const testDriveTiming=(drive:{scheduledAt?:string|null;startedAt?:string|null;returnedAt?:string|null;durationMinutes?:number|null},now=new Date())=>{
   const scheduled=parseApiInstant(drive.scheduledAt??''),started=parseApiInstant(drive.startedAt??''),returned=parseApiInstant(drive.returnedAt??''),durationMinutes=Math.max(0,Number(drive.durationMinutes??0));

@@ -32,20 +32,26 @@ test('un essai planifié démarre et fait passer atomiquement le CRM à test_dri
   assert.match(calls[drive]!.sql,/status='in_progress'.+status='planned'/);
 });
 
-test('un essai trop tôt est refusé sans aucune écriture',async()=>{
+test('un essai peut démarrer avant son horaire planifié',async()=>{
   const{connection,calls}=connectionFor({...planned,scheduled_at:'2026-10-23 10:00:00'});
-  await assert.rejects(()=>startPlannedTestDrive(connection,'42',new Date('2026-10-23T08:00:00.000Z')),/n’a pas encore commencé/);
-  assert.equal(calls.some(call=>call.sql.startsWith('UPDATE ')),false);
+  await startPlannedTestDrive(connection,'42');
+  assert.equal(calls.some(call=>call.sql.startsWith('UPDATE showroom_test_drives')),true);
+});
+
+test('un essai planifié la veille peut démarrer tardivement',async()=>{
+  const{connection,calls}=connectionFor({...planned,scheduled_at:'2026-10-22 09:00:00'});
+  await startPlannedTestDrive(connection,'42');
+  assert.equal(calls.some(call=>call.sql.startsWith('UPDATE showroom_test_drives')),true);
 });
 
 test('un double démarrage est refusé sans aucune écriture',async()=>{
   const{connection,calls}=connectionFor({...planned,status:'in_progress'});
-  await assert.rejects(()=>startPlannedTestDrive(connection,'42',new Date('2026-10-23T09:00:30.000Z')),/non planifié/);
+  await assert.rejects(()=>startPlannedTestDrive(connection,'42'),/non planifié/);
   assert.equal(calls.some(call=>call.sql.startsWith('UPDATE ')),false);
 });
 
 test('une transition CRM concurrente échouée empêche la mise à jour de l’essai',async()=>{
   const{connection,calls}=connectionFor(planned,0);
-  await assert.rejects(()=>startPlannedTestDrive(connection,'42',new Date('2026-10-23T09:00:30.000Z')),/rendez-vous CRM n’est plus valide/);
+  await assert.rejects(()=>startPlannedTestDrive(connection,'42'),/rendez-vous CRM n’est plus valide/);
   assert.equal(calls.some(call=>call.sql.startsWith('UPDATE showroom_test_drives')),false);
 });

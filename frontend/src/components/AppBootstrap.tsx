@@ -21,7 +21,7 @@ const eventKeys: Record<string, readonly string[]> = {
   'billing:invoice-updated': erpKeys.invoices, 'billing:credit-note': erpKeys.invoices, 'billing:payment-refunded': erpKeys.invoices,
   'showroom:visitor-created': ['showroom'], 'showroom:assigned': ['showroom'], 'showroom:takeover': ['showroom'],
   'showroom:completed': ['showroom'], 'showroom:cancelled': ['showroom'], 'showroom:converted': ['showroom'],
-  'showroom:test-drive-started': ['showroom'], 'showroom:test-drive-completed': ['showroom'], 'showroom:test-drive-cancelled': ['showroom'],
+  'showroom:test-drive-planned': ['showroom'], 'showroom:test-drive-started': ['showroom'], 'showroom:test-drive-completed': ['showroom'], 'showroom:test-drive-cancelled': ['showroom'],
   'documents:created':['documents'],'documents:archived':['documents'],'documents:restored':['documents'],'documents:versioned':['documents'],
   'users:created':['users'],'users:updated':['users'],'users:status-changed':['users'],
   'settings:updated':['settings'],'agencies:updated':['agencies'],

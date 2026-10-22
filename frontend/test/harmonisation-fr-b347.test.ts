@@ -37,7 +37,7 @@ test('B347-SHOWROOM francise le mode tableau et tous les statuts d’essai connu
  const showroom=read('src/modules/showroom/ShowroomPage.tsx');
  assert.match(showroom,/>Tableau<\/Button>/);
  assert.match(showroom,/testDriveStatusLabel\(item\.status\)/);
- assert.match(showroom,/plannedDriveStartState\(item\.status,canManageTestDrive,item\.scheduled_at\)/);
+ assert.match(showroom,/plannedDriveStartState\(item\.status,canManageTestDrive\)/);
  assert.match(showroom,/Démarrer l’essai/);
 });
 

@@ -20,12 +20,12 @@ test('VALID-ERP-02 conversion : une entreprise reste un client entreprise',()=>{
   assert.match(quotation,/temporary,customerType,agencyId/);
 });
 
-test('VALID-ERP-02D/02E protège les créneaux d’essai par véhicule, commercial et rendez-vous',()=>{
+test('CRM-02 protège la réservation du véhicule sans verrou temporel commercial',()=>{
   const policy=source('src/modules/showroom/showroom-test-drive.ts');
   assert.match(policy,/FROM vehicles WHERE id=\? FOR UPDATE/);
   assert.match(policy,/FROM users WHERE id=\? FOR UPDATE/);
-  assert.match(policy,/showroom_test_drives WHERE vehicle_id=\? AND \$\{overlap\}/);
-  assert.match(policy,/showroom_test_drives WHERE advisor_id=\? AND \$\{overlap\}/);
-  assert.match(policy,/scheduled_at<\? AND DATE_ADD/);
+  assert.match(policy,/showroom_test_drives WHERE vehicle_id=\? AND status IN \('planned','in_progress'\)/);
+  assert.doesNotMatch(policy,/showroom_test_drives WHERE advisor_id=/);
+  assert.doesNotMatch(policy,/DATE_ADD\(scheduled_at/);
   assert.match(showroom,/assertTestDriveStartAvailable\(connection/);
 });

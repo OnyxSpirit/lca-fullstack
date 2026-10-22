@@ -5,10 +5,11 @@ import {readFileSync} from 'node:fs';
 const crm=readFileSync(new URL('../src/modules/crm/crm.routes.ts',import.meta.url),'utf8');
 const migration=readFileSync(new URL('../database/migrations/077_crm_appointment_reliability.sql',import.meta.url),'utf8');
 
-test('CRM-04 verrouille le commercial et refuse les chevauchements',()=>{
+test('CRM-02 verrouille le commercial et signale les chevauchements sans bloquer',()=>{
   assert.match(crm,/SELECT id FROM users WHERE id=\? FOR UPDATE/);
   assert.match(crm,/DATE_ADD\(f\.scheduled_at,INTERVAL COALESCE\(f\.duration_minutes,30\) MINUTE\)>\?/);
-  assert.match(crm,/CRM_APPOINTMENT_CONFLICT/);
+  assert.match(crm,/warnings\.push\('Un autre rendez-vous est déjà planifié/);
+  assert.doesNotMatch(crm,/code:'CRM_APPOINTMENT_CONFLICT'/);
 });
 
 test('CRM-04 exige permission et motif pour forcer un conflit',()=>{

@@ -30,13 +30,7 @@ export async function markCrmTestDriveStarted(connection:PoolConnection,opportun
   if(!('affectedRows'in result)||Number(result.affectedRows)!==1)throw new HttpError(409,'Le rendez-vous CRM n’est plus valide pour cet essai');
 }
 
-const storedUtcDate=(value:unknown)=>{
-  const raw=String(value??''),normalized=/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?$/.test(raw)?`${raw.replace(' ','T')}Z`:raw,date=new Date(normalized);
-  if(Number.isNaN(date.getTime()))throw new HttpError(409,'Le créneau de cet essai est invalide');
-  return date;
-};
-
-export async function startPlannedTestDrive(connection:PoolConnection,id:string,now=new Date()){
+export async function startPlannedTestDrive(connection:PoolConnection,id:string){
   const[rows]=await connection.execute<RowDataPacket[]>(`SELECT td.*,sv.visitor_name,o.id opportunity_id
     FROM showroom_test_drives td
     JOIN showroom_visits sv ON sv.id=td.visit_id
@@ -45,9 +39,7 @@ export async function startPlannedTestDrive(connection:PoolConnection,id:string,
   const drive=rows[0];
   if(!drive)throw new HttpError(404,'Essai introuvable');
   if(drive.status!=='planned')throw new HttpError(409,'Essai non planifié');
-  const scheduledAt=storedUtcDate(drive.scheduled_at);
-  if(scheduledAt.getTime()>now.getTime()+60_000)throw new HttpError(409,'Le créneau de cet essai n’a pas encore commencé');
-  await assertTestDriveStartAvailable(connection,{vehicleId:String(drive.vehicle_id),advisorId:String(drive.advisor_id),agencyId:String(drive.agency_id),visitId:String(drive.visit_id),scheduledAt,durationMinutes:Number(drive.duration_minutes),excludeDriveId:id});
+  await assertTestDriveStartAvailable(connection,{vehicleId:String(drive.vehicle_id),advisorId:String(drive.advisor_id),agencyId:String(drive.agency_id),visitId:String(drive.visit_id),excludeDriveId:id});
   await markCrmTestDriveStarted(connection,drive.opportunity_id==null?null:String(drive.opportunity_id));
   const[result]=await connection.execute<ResultSetHeader>("UPDATE showroom_test_drives SET status='in_progress',started_at=NOW() WHERE id=? AND status='planned'",[id]);
   if(result.affectedRows!==1)throw new HttpError(409,'Cet essai ne peut plus être démarré');
@@ -68,14 +60,9 @@ export async function assertTestDriveStartAvailable(connection:PoolConnection,in
   if(!vehicle||String(vehicle.agency_id)!==input.agencyId||!Boolean(vehicle.is_commercial_stock)||vehicle.archived_at||vehicle.status!=='available')throw new HttpError(409,'Véhicule indisponible pour un essai');
   const[advisors]=await connection.execute<RowDataPacket[]>('SELECT id FROM users WHERE id=? FOR UPDATE',[input.advisorId]);
   if(!advisors[0])throw new HttpError(409,'Commercial indisponible pour un essai');
-  const scheduledAt=input.scheduledAt??new Date(),durationMinutes=input.durationMinutes??30,end=new Date(scheduledAt.getTime()+durationMinutes*60000),exclude=input.excludeDriveId??'0';
-  const overlap=`status IN ('planned','in_progress') AND id<>? AND ((scheduled_at IS NULL AND status='in_progress') OR (scheduled_at<? AND DATE_ADD(scheduled_at,INTERVAL duration_minutes MINUTE)>?))`;
-  const[vehicleDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE vehicle_id=? AND ${overlap} FOR UPDATE`,[input.vehicleId,exclude,end,scheduledAt]);
-  if(vehicleDrives.length)throw new HttpError(409,'Ce véhicule est déjà réservé pour un essai en cours',{code:'TEST_DRIVE_VEHICLE_CONFLICT'});
-  const[advisorDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE advisor_id=? AND ${overlap} FOR UPDATE`,[input.advisorId,exclude,end,scheduledAt]);
-  if(advisorDrives.length)throw new HttpError(409,'Ce commercial est déjà affecté à un essai en cours',{code:'TEST_DRIVE_ADVISOR_CONFLICT'});
-  if(input.visitId){const[visitDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE visit_id=? AND ${overlap} FOR UPDATE`,[input.visitId,exclude,end,scheduledAt]);if(visitDrives.length)throw new HttpError(409,'Cette visite possède déjà un essai incompatible',{code:'TEST_DRIVE_VISIT_CONFLICT'})}
-  const[appointments]=await connection.execute<RowDataPacket[]>(`SELECT f.id FROM follow_ups f WHERE f.assigned_user_id=? AND f.status='pending' AND f.scheduled_at<? AND DATE_ADD(f.scheduled_at,INTERVAL COALESCE(f.duration_minutes,30) MINUTE)>? FOR UPDATE`,[input.advisorId,end,scheduledAt]);
-  if(appointments.length)throw new HttpError(409,'Ce commercial possède un rendez-vous sur ce créneau',{code:'TEST_DRIVE_APPOINTMENT_CONFLICT'});
+  const exclude=input.excludeDriveId??'0';
+  const[vehicleDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE vehicle_id=? AND status IN ('planned','in_progress') AND id<>? FOR UPDATE`,[input.vehicleId,exclude]);
+  if(vehicleDrives.length)throw new HttpError(409,'Ce véhicule est déjà réservé pour un essai',{code:'TEST_DRIVE_VEHICLE_CONFLICT'});
+  if(input.visitId){const[visitDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE visit_id=? AND status IN ('planned','in_progress') AND id<>? FOR UPDATE`,[input.visitId,exclude]);if(visitDrives.length)throw new HttpError(409,'Cette visite possède déjà un essai actif',{code:'TEST_DRIVE_VISIT_CONFLICT'})}
   return vehicle;
 }

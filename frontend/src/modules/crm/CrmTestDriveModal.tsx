@@ -8,7 +8,7 @@ import type{Lead}from'../../types';
 import{businessLocalDateTimeToIso,businessNowInput}from'../../lib/businessDateTime';
 
 export const CrmTestDriveModal:React.FC<{lead:Lead|null;onClose:()=>void;onStarted:()=>void}>=({lead,onClose,onStarted})=>{
- const agencyId=useAuthStore(s=>s.currentAgency?.id),vehiclesQuery=useVehiclesQuery({status:'available'}),config=useTestDriveConfigQuery(Boolean(lead)),start=useCreateCrmTestDrive(),toast=useUiStore(s=>s.addToast);
+ const agencyId=useAuthStore(s=>s.currentAgency?.id),vehiclesQuery=useVehiclesQuery({status:'available',excludeTestDriveReserved:true}),config=useTestDriveConfigQuery(Boolean(lead)),start=useCreateCrmTestDrive(),toast=useUiStore(s=>s.addToast);
  const vehicles=useMemo(()=>vehiclesQuery.data?.filter(v=>v.agencyId===agencyId&&v.status==='DISPONIBLE')??[],[vehiclesQuery.data,agencyId]);
  const[vehicleId,setVehicleId]=useState(''),[licenseNumber,setLicenseNumber]=useState(''),[mileageOut,setMileageOut]=useState(0),[scheduledAt,setScheduledAt]=useState(''),[durationMinutes,setDurationMinutes]=useState(30);
  useEffect(()=>{if(lead){setVehicleId('');setLicenseNumber('');setMileageOut(0);setScheduledAt(localDateTime());setDurationMinutes(config.data?.defaultDurationMinutes??30)}},[lead,config.data?.defaultDurationMinutes]);

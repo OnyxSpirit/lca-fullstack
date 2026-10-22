@@ -14,12 +14,11 @@ const connection=(active:Row[]=[],appointments:Row[]=[])=>({execute:async(sql:st
   return[[{id:3}],[]];
 }} as unknown as PoolConnection);
 
-test('CORR-ERP-02D refuse séparément véhicule, commercial, visite et rendez-vous actifs',async()=>{
+test('CRM-02 refuse le véhicule et la visite actifs sans bloquer sur le planning du commercial',async()=>{
   const base={vehicleId:'1',advisorId:'2',agencyId:'1',visitId:'3'};
   await assert.rejects(()=>assertTestDriveStartAvailable(connection([{vehicle_id:1,advisor_id:9,visit_id:8}]),base),(error:any)=>error.details?.code==='TEST_DRIVE_VEHICLE_CONFLICT');
-  await assert.rejects(()=>assertTestDriveStartAvailable(connection([{vehicle_id:9,advisor_id:2,visit_id:8}]),base),(error:any)=>error.details?.code==='TEST_DRIVE_ADVISOR_CONFLICT');
   await assert.rejects(()=>assertTestDriveStartAvailable(connection([{vehicle_id:9,advisor_id:8,visit_id:3}]),base),(error:any)=>error.details?.code==='TEST_DRIVE_VISIT_CONFLICT');
-  await assert.rejects(()=>assertTestDriveStartAvailable(connection([],[{id:4}]),base),(error:any)=>error.details?.code==='TEST_DRIVE_APPOINTMENT_CONFLICT');
+  assert.equal(String((await assertTestDriveStartAvailable(connection([{vehicle_id:9,advisor_id:2,visit_id:8}],[{id:4}]),base)).id),'1');
 });
 
 test('CORR-ERP-02D accepte des ressources indépendantes disponibles',async()=>{

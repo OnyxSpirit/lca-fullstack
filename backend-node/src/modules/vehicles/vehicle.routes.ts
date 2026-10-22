@@ -137,6 +137,9 @@ vehicleRouter.get('/vehicles',requirePermission('vehicles.view'),asyncHandler(as
   const scoped=vehicleScope(request,'vehicles.view'),clauses=[scoped.sql,commercialStockPredicate(),'v.archived_at IS NULL'],params=[...scoped.params];
   const requestedStatus=txt(request.query.status),view=txt(request.query.view)||'active';
   vehicleInventoryViewSql(view);
+  const excludeTestDriveReserved=txt(request.query.excludeTestDriveReserved);
+  if(excludeTestDriveReserved&&excludeTestDriveReserved!=='true')throw new HttpError(400,'Filtre de disponibilité essai invalide');
+  if(excludeTestDriveReserved==='true')clauses.push("NOT EXISTS(SELECT 1 FROM showroom_test_drives active_drive WHERE active_drive.vehicle_id=v.id AND active_drive.status IN('planned','in_progress'))");
   if(!requestedStatus){if(view==='active')clauses.push("v.status NOT IN('sold','delivered')");if(view==='sold')clauses.push("v.status IN('sold','delivered')");}
   for(const [key,column,allowed] of [['status','v.status',DB_STATUSES],['type','v.vehicle_type',ACTIVE_TYPES]] as const){const value=txt(request.query[key]);if(value){if(!allowed.includes(value as never))throw new HttpError(400,`Filtre ${key} invalide`);clauses.push(`${column}=?`);params.push(value)}}
   for(const [key,column,label] of [['brandId','b.id','marque'],['modelId','m.id','modèle']] as const){const value=txt(request.query[key]);if(value){if(!/^[1-9]\d*$/.test(value))throw new HttpError(400,`Filtre ${label} invalide`);clauses.push(`${column}=?`);params.push(value)}}

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useAuthStore } from './stores/authStore';
 import { ROUTES } from './navigation/routes';
 import type { ModuleKey } from './navigation/routes';
-import { SECURITY_CENTER_PERMISSIONS } from './navigation/permissions';
+import { canAccessSettings,SECURITY_CENTER_PERMISSIONS } from './navigation/permissions';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 import { BusinessDialogHost } from './components/ui/BusinessDialog';
@@ -35,6 +35,7 @@ const DocumentsGedPage=lazy(()=>import('./modules/documents/DocumentsGedPage').t
 const HrAdministrationPage=lazy(()=>import('./modules/hr/HrAdministrationPage').then(module=>({default:module.HrAdministrationPage})));
 const UsersManagementPage=lazy(()=>import('./modules/users/UsersManagementPage').then(module=>({default:module.UsersManagementPage})));
 const SettingsPage=lazy(()=>import('./modules/settings/SettingsPage').then(module=>({default:module.SettingsPage})));
+const MySignaturePage=lazy(()=>import('./modules/settings/MySignaturePage').then(module=>({default:module.MySignaturePage})));
 const NotificationsPage=lazy(()=>import('./modules/notifications/NotificationsPage').then(module=>({default:module.NotificationsPage})));
 const ActivityPage=lazy(()=>import('./modules/activity/ActivityPage').then(module=>({default:module.ActivityPage})));
 const LoginPage=lazy(()=>import('./modules/auth/LoginPage').then(module=>({default:module.LoginPage})));
@@ -64,6 +65,7 @@ function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNod
 function PermissionGuard({permission,children}:{permission:string;children:React.ReactNode}){const can=useAuthStore(state=>state.can);return can(permission)?<>{children}</>:<AccessDeniedPage/>}
 function SecurityCenterGuard({children}:{children:React.ReactNode}){const can=useAuthStore(state=>state.can);return SECURITY_CENTER_PERMISSIONS.some(can)?<>{children}</>:<AccessDeniedPage/>}
 function UsersRbacGuard({children}:{children:React.ReactNode}){const can=useAuthStore(state=>state.can);return can('users.view')||can('roles.view')||SECURITY_CENTER_PERMISSIONS.some(can)?<>{children}</>:<AccessDeniedPage/>}
+function SettingsGuard({children}:{children:React.ReactNode}){const permissions=useAuthStore(state=>state.currentUser?.permissions);return canAccessSettings(permissions)?<>{children}</>:<AccessDeniedPage/>}
 
 export default function App() {
   return (
@@ -103,7 +105,8 @@ export default function App() {
           <Route path="documents" element={<ModuleGuard module="documents">{lazyPage(<DocumentsGedPage />)}</ModuleGuard>} />
           <Route path="hr" element={<ModuleGuard module="hr">{lazyPage(<HrAdministrationPage />)}</ModuleGuard>} />
           <Route path="users" element={<UsersRbacGuard>{lazyPage(<UsersManagementPage />)}</UsersRbacGuard>} />
-          <Route path="settings" element={<ModuleGuard module="settings">{lazyPage(<SettingsPage />)}</ModuleGuard>} />
+          <Route path="settings" element={<SettingsGuard>{lazyPage(<SettingsPage />)}</SettingsGuard>} />
+          <Route path="profile/signature" element={<PermissionGuard permission="signature.view.self">{lazyPage(<MySignaturePage />)}</PermissionGuard>} />
           <Route path="activity" element={<ModuleGuard module="activity">{lazyPage(<ActivityPage />)}</ModuleGuard>} />
           <Route path="security/2fa" element={<SecurityCenterGuard>{lazyPage(<UsersManagementPage />)}</SecurityCenterGuard>} />
           <Route path="security/devices/me" element={<Navigate to="/security/2fa?section=mine" replace />} />

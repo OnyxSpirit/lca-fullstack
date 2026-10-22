@@ -21,7 +21,7 @@ test('LOT14B2B-02 identité, fiscalité et agences restent dans le parent',()=>{
 });
 
 test('LOT14B2B-03 les onglets sensibles restent conditionnés par leurs permissions',()=>{
-  for(const permission of ['settings.view','settings.update','settings.manufacturers.view','delivery.service.view','delivery.service.manage','delivery.checklist.config.view','delivery.checklist.config.manage','workshop.resources.view','workshop.resources.manage','parts.suppliers.view','parts.suppliers.manage','vehicles.assignments.view'])assert.match(page,new RegExp(permission.replaceAll('.','\\.')));
+  for(const permission of ['settings.general.view','settings.general.manage','settings.documents.view','settings.documents.manage','settings.workshop_rates.view','settings.agencies.view','settings.agencies.manage','settings.manufacturers.view','delivery.service.view','delivery.service.manage','delivery.checklist.config.view','delivery.checklist.config.manage','workshop.resources.view','workshop.resources.manage','parts.suppliers.view','parts.suppliers.manage','vehicles.assignments.view'])assert.match(page,new RegExp(permission.replaceAll('.','\\.')));
 });
 
 test('LOT14B2B-04 le fallback local est accessible',()=>{

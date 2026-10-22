@@ -22,6 +22,10 @@ const collectivePrefixes = [
   "hr.reporting.",
   "supplier.",
   "treasury.",
+  "settings.general.",
+  "settings.documents.",
+  "settings.workshop_rates.",
+  "settings.agencies.",
 ] as const;
 
 const collectiveCodes = new Set([
@@ -48,6 +52,17 @@ const globalOnlyCodes = new Set([
   "auth.2fa.settings.view",
   "auth.2fa.settings.manage",
 ]);
+
+const legacyDelegationParents: Record<string,string> = {
+  'settings.general.view':'settings.view','settings.general.manage':'settings.update',
+  'settings.documents.view':'settings.view','settings.documents.manage':'settings.update',
+  'settings.workshop_rates.view':'settings.view','settings.workshop_rates.manage':'settings.update',
+  'settings.agencies.view':'settings.view','settings.agencies.manage':'settings.update',
+};
+
+export function delegableGrant(context:RbacContext,code:string):PermissionScope|null{
+  return context.permissions.get(code)??context.permissions.get(legacyDelegationParents[code]??'')??null;
+}
 
 /**
  * Source de vérité des scopes attribuables. Les routes restent responsables de
@@ -98,7 +113,7 @@ const scopeRank: Record<PermissionScope, number> = {
 };
 
 export function delegationMetadata(context: RbacContext, code: string) {
-  const granted = context.permissions.get(code) ?? null;
+  const granted = delegableGrant(context,code);
   const allowedScopes = [...allowedScopesForPermission(code)];
   const delegableScopes = granted
     ? allowedScopes.filter((scope) => scopeRank[scope] <= scopeRank[granted])

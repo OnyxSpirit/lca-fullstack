@@ -10,16 +10,16 @@ const field='w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-s
 const empty={code:'',label:'',hourlyRate:'',displayOrder:0};
 
 export const WorkshopLaborRatesSettings:React.FC<{currencyCode:string}>=({currencyCode})=>{
- const can=useAuthStore(s=>s.can),permissionScope=useAuthStore(s=>s.permissionScope('settings.update')),currentAgency=useAuthStore(s=>s.currentAgency),canUpdate=can('settings.update')&&permissionScope!=='OWN',canEditConcession=canUpdate&&(permissionScope==='CONCESSION'||permissionScope==='GLOBAL'),agencies=useSettingsAgenciesQuery(can('settings.view'));
+ const can=useAuthStore(s=>s.can),permissionScope=useAuthStore(s=>s.permissionScope('settings.workshop_rates.manage')),viewScope=useAuthStore(s=>s.permissionScope('settings.workshop_rates.view')),currentAgency=useAuthStore(s=>s.currentAgency),canUpdate=can('settings.workshop_rates.manage')&&permissionScope!=='OWN',canEditConcession=canUpdate&&(permissionScope==='CONCESSION'||permissionScope==='GLOBAL'),agencies=useSettingsAgenciesQuery(can('settings.agencies.view'));
  const[agencyId,setAgencyId]=useState(currentAgency?.id??''),[draft,setDraft]=useState(empty),[editing,setEditing]=useState<WorkshopLaborRate|null>(null),[overrideDraft,setOverrideDraft]=useState<Record<string,string>>({});
- const query=useWorkshopLaborRatesQuery(agencyId,can('settings.view')),actions=useWorkshopLaborRateActions(),toast=useUiStore(s=>s.addToast);
+ const query=useWorkshopLaborRatesQuery(agencyId,can('settings.workshop_rates.view')),actions=useWorkshopLaborRateActions(),toast=useUiStore(s=>s.addToast);
  useEffect(()=>{if(!agencyId&&currentAgency?.id)setAgencyId(currentAgency.id)},[agencyId,currentAgency?.id]);
  const success=(title:string)=>toast({type:'success',title}),fail=(error:unknown)=>toast({type:'error',title:'Opération impossible',description:error instanceof Error?error.message:'Erreur API'});
  const run=async(work:()=>Promise<unknown>,title:string)=>{try{await work();success(title)}catch(error){fail(error)}};
  const create=async(e:React.FormEvent)=>{e.preventDefault();await run(()=>actions.create.mutateAsync({...draft,hourlyRate:Number(draft.hourlyRate),displayOrder:Number(draft.displayOrder)}),'Barème créé');setDraft(empty)};
  const save=async(e:React.FormEvent)=>{e.preventDefault();if(!editing)return;await run(()=>actions.update.mutateAsync({id:editing.id,code:editing.code,label:editing.label,hourlyRate:Number(editing.concessionHourlyRate),displayOrder:Number(editing.displayOrder)}),'Barème modifié');setEditing(null)};
  const override=async(rate:WorkshopLaborRate)=>run(()=>actions.override.mutateAsync({id:rate.id,agencyId,hourlyRate:Number(overrideDraft[rate.id]??rate.agencyOverride?.hourlyRate??rate.concessionHourlyRate),isActive:rate.agencyOverride?.isActive??true}),'Surcharge agence enregistrée');
- const mayChooseAgency=permissionScope==='CONCESSION'||permissionScope==='GLOBAL';
+ const mayChooseAgency=viewScope==='CONCESSION'||viewScope==='GLOBAL';
  return <div className="space-y-4">
   <div className="flex flex-wrap items-end gap-3 rounded-md bg-slate-50 p-3"><label className="min-w-64 text-xs font-semibold text-slate-700">Agence de simulation / surcharge<select className={`${field} mt-1`} value={agencyId} disabled={!mayChooseAgency} onChange={e=>setAgencyId(e.target.value)}>{agencies.data?.map(agency=><option key={agency.id} value={agency.id}>{agency.name}</option>)}</select></label><p className="pb-2 text-xs text-slate-500">La valeur effective est celle proposée aux nouveaux chiffrages de cette agence.</p></div>
   {query.isError&&<p className="rounded border border-red-200 p-3 text-sm text-red-700">{query.error instanceof Error?query.error.message:'Chargement impossible'}</p>}

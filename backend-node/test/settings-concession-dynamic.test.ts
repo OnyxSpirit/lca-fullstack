@@ -9,9 +9,9 @@ const service=source('src/modules/settings/setting.service.ts');
 const resolver=source('src/modules/settings/setting-resolver.ts');
 
 test('SETTINGS-01 lecture et écriture utilisent des permissions distinctes',()=>{
-  assert.match(routes,/get\('\/settings',requirePermission\('settings\.view'\)/);
-  assert.match(routes,/put\('\/settings',requirePermission\('settings\.update'\)/);
-  assert.match(routes,/patch\('\/concessions\/current',requirePermission\('settings\.update'\)/);
+  assert.match(routes,/get\('\/settings',requirePermission\('settings\.general\.view'\)/);
+  assert.match(routes,/put\('\/settings',requirePermission\('settings\.general\.manage'\)/);
+  assert.match(routes,/patch\('\/concessions\/current',requirePermission\('settings\.general\.manage'\)/);
 });
 
 test('SETTINGS-02 OWN est refusé pour les paramètres collectifs',()=>{
@@ -27,7 +27,7 @@ test('SETTINGS-03 une écriture concession exige CONCESSION ou GLOBAL',()=>{
 
 test('SETTINGS-04 AGENCY ne peut modifier que sa propre agence',()=>{
   assert.match(service,/scope === "AGENCY" && String\(row\.id\) === String\(r\.user!\.agencyId\)/);
-  assert.match(service,/Agence hors du scope settings\.update/);
+  assert.match(service,/Agence hors du scope settings\.agencies\.manage/);
 });
 
 test('SETTINGS-05 CONCESSION compare la concession persistée et ignore concessionId hors GLOBAL',()=>{

@@ -36,7 +36,7 @@ test('RBAC-11 un administrateur limité ne délègue ni permission absente ni sc
 test('RBAC-12 Settings et GED n’autorisent plus par nom de rôle',()=>{
   const settings=source('src/modules/settings/setting.routes.ts'),documents=source('src/modules/documents/document.routes.ts'),access=source('src/modules/documents/document-access.ts');
   assert.doesNotMatch(settings,/authorize\(|DIRECTOR/);
-  assert.match(settings,/requirePermission\('settings\.update'\)/);
+  assert.match(settings,/requirePermission\('settings\.(?:general|documents|workshop_rates|agencies)\.manage'\)/);
   assert.doesNotMatch(documents,/authorize\(|READ_ROLES|UPLOAD_ROLES|ARCHIVE_ROLES/);
   assert.doesNotMatch(access,/SALES_MANAGER|PARTS_MANAGER|DIRECTOR/);
 });

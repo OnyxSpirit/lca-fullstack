@@ -30,7 +30,7 @@ import { useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { ROUTES } from '../../navigation/routes';
-import { canAccessSecurityCenter, canNavigateWithPermissions } from '../../navigation/permissions';
+import { canAccessSecurityCenter,canAccessSettings, canNavigateWithPermissions } from '../../navigation/permissions';
 
 export const Sidebar: React.FC = () => {
   const { currentUser, can } = useAuthStore();
@@ -208,6 +208,7 @@ export const Sidebar: React.FC = () => {
           label: 'Paramètres Concession',
           icon: <Settings className="w-4 h-4" />,
           module: 'settings',
+          visible: canAccessSettings(currentUser.permissions),
         },
       ],
     },

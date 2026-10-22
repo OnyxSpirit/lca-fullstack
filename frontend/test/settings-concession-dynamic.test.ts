@@ -8,23 +8,23 @@ const hooks=source('src/api/settingHooks.ts');
 const resources=source('src/modules/settings/OperationalResourcesSettings.tsx');
 const laborRates=source('src/modules/settings/WorkshopLaborRatesSettings.tsx');
 
-test('SETTINGS-FE-01 accès et queries reposent sur settings.view',()=>{
-  assert.match(page,/canView=can\('settings\.view'\)/);
+test('SETTINGS-FE-01 accès et queries reposent sur la permission générale dédiée',()=>{
+  assert.match(page,/canView=can\('settings\.general\.view'\)/);
   assert.match(page,/useSettingsQuery\(canView\)/);
   assert.match(page,/useCurrentConcessionQuery\(canView\)/);
-  assert.match(page,/useSettingsAgenciesQuery\(canView\)/);
+  assert.match(page,/useSettingsAgenciesQuery\(canViewAgencies\)/);
 });
 
-test('SETTINGS-FE-02 lecture seule conserve les onglets et désactive les champs',()=>{
-  assert.match(page,/tabs:Tab\[]=\['general','documents'/);
+test('SETTINGS-FE-02 lecture seule conserve les sections autorisées et désactive les champs',()=>{
+  assert.match(page,/canView\?\['general' as const\]/);
   assert.match(page,/disabled=\{!admin\}/);
   assert.match(page,/\{admin&&<div className="flex items-end gap-2"/);
 });
 
-test('SETTINGS-FE-03 actions agence sont absentes sans settings.update',()=>{
-  assert.match(page,/\{admin&&<Card><CardHeader><div><CardTitle>Créer une agence/);
-  assert.match(page,/\{admin&&<div className="mt-4 flex gap-2 border-t pt-3"/);
-  assert.match(page,/\{admin&&editedAgency/);
+test('SETTINGS-FE-03 actions agence sont absentes sans settings.agencies.manage',()=>{
+  assert.match(page,/\{canManageAgencies&&<Card><CardHeader><div><CardTitle>Créer une agence/);
+  assert.match(page,/\{canManageAgencies&&<div className="mt-4 flex gap-2 border-t pt-3"/);
+  assert.match(page,/\{canManageAgencies&&editedAgency/);
 });
 
 test('SETTINGS-FE-04 ressources opérationnelles séparent view et manage',()=>{

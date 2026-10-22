@@ -2,7 +2,7 @@ import type { Request } from 'express';
 import type { RowDataPacket } from 'mysql2/promise';
 import { query } from '../../config/database.js';
 import { HttpError } from '../../shared/http-error.js';
-import { isCompatiblePermissionScope } from './permission-scope-policy.js';
+import { delegableGrant,isCompatiblePermissionScope } from './permission-scope-policy.js';
 
 export type PermissionScope = 'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
 export interface GrantedPermission { code:string; scope:PermissionScope|null }
@@ -41,9 +41,9 @@ export function can(context:RbacContext,permission:string){return context.permis
 const scopeRank:Record<PermissionScope,number>={OWN:1,AGENCY:2,CONCESSION:3,GLOBAL:4};
 export function assertDelegablePermissions(context:RbacContext,assignments:{code:string;scope:PermissionScope|null}[]){
   for(const assignment of assignments){
-    if(!context.permissions.has(assignment.code))throw new HttpError(403,`Permission non délégable : ${assignment.code}`);
+    const own=delegableGrant(context,assignment.code);
+    if(!own)throw new HttpError(403,`Permission non délégable : ${assignment.code}`);
     if(!isCompatiblePermissionScope(assignment.code,assignment.scope))throw new HttpError(400,`Cette permission n'est pas compatible avec le périmètre sélectionné : ${assignment.code}`);
-    const own=context.permissions.get(assignment.code)??null;
     if(assignment.scope!==null&&(own===null||scopeRank[assignment.scope]>scopeRank[own]))throw new HttpError(403,`Scope non délégable : ${assignment.code}`);
   }
 }

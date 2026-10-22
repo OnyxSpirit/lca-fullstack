@@ -1,4 +1,4 @@
-import type {PoolConnection,RowDataPacket} from 'mysql2/promise';
+import type {PoolConnection,ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {HttpError} from '../../shared/http-error.js';
 
 export async function requireCrmAppointmentForTestDrive(connection:PoolConnection,leadId:string|null|undefined){
@@ -28,6 +28,30 @@ export async function markCrmTestDriveStarted(connection:PoolConnection,opportun
   if(!opportunityId)return;
   const[result]=await connection.execute("UPDATE opportunities SET stage='test_drive' WHERE id=? AND stage='appointment'",[opportunityId]);
   if(!('affectedRows'in result)||Number(result.affectedRows)!==1)throw new HttpError(409,'Le rendez-vous CRM n’est plus valide pour cet essai');
+}
+
+const storedUtcDate=(value:unknown)=>{
+  const raw=String(value??''),normalized=/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?$/.test(raw)?`${raw.replace(' ','T')}Z`:raw,date=new Date(normalized);
+  if(Number.isNaN(date.getTime()))throw new HttpError(409,'Le créneau de cet essai est invalide');
+  return date;
+};
+
+export async function startPlannedTestDrive(connection:PoolConnection,id:string,now=new Date()){
+  const[rows]=await connection.execute<RowDataPacket[]>(`SELECT td.*,sv.visitor_name,o.id opportunity_id
+    FROM showroom_test_drives td
+    JOIN showroom_visits sv ON sv.id=td.visit_id
+    LEFT JOIN opportunities o ON o.lead_id=td.lead_id
+    WHERE td.id=? ORDER BY o.id DESC LIMIT 1 FOR UPDATE`,[id]);
+  const drive=rows[0];
+  if(!drive)throw new HttpError(404,'Essai introuvable');
+  if(drive.status!=='planned')throw new HttpError(409,'Essai non planifié');
+  const scheduledAt=storedUtcDate(drive.scheduled_at);
+  if(scheduledAt.getTime()>now.getTime()+60_000)throw new HttpError(409,'Le créneau de cet essai n’a pas encore commencé');
+  await assertTestDriveStartAvailable(connection,{vehicleId:String(drive.vehicle_id),advisorId:String(drive.advisor_id),agencyId:String(drive.agency_id),visitId:String(drive.visit_id),scheduledAt,durationMinutes:Number(drive.duration_minutes),excludeDriveId:id});
+  await markCrmTestDriveStarted(connection,drive.opportunity_id==null?null:String(drive.opportunity_id));
+  const[result]=await connection.execute<ResultSetHeader>("UPDATE showroom_test_drives SET status='in_progress',started_at=NOW() WHERE id=? AND status='planned'",[id]);
+  if(result.affectedRows!==1)throw new HttpError(409,'Cet essai ne peut plus être démarré');
+  return{agencyId:String(drive.agency_id),visitId:String(drive.visit_id),visitorName:String(drive.visitor_name),leadId:drive.lead_id==null?null:String(drive.lead_id),opportunityId:drive.opportunity_id==null?null:String(drive.opportunity_id)};
 }
 
 export async function assertTestDriveStartAvailable(connection:PoolConnection,input:{vehicleId:string;advisorId:string;agencyId:string;visitId?:string;scheduledAt?:Date;durationMinutes?:number;excludeDriveId?:string}){

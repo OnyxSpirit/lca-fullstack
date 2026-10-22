@@ -1,15 +1,8 @@
 import type { Lead } from '../../types';
-
-const LOCAL_DATETIME=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+import {businessDateTimeInputValue,businessLocalDateTimeToDate,businessLocalDateTimeToIso} from '../../lib/businessDateTime';
 
 export function parseLocalAppointment(value:string):Date|null{
-  const match=LOCAL_DATETIME.exec(value);
-  if(!match)return null;
-  const [,year,month,day,hour,minute,second='0']=match;
-  const parts=[year,month,day,hour,minute,second].map(Number);
-  const date=new Date(parts[0]!,parts[1]!-1,parts[2]!,parts[3]!,parts[4]!,parts[5]!);
-  if(date.getFullYear()!==parts[0]||date.getMonth()!==parts[1]!-1||date.getDate()!==parts[2]||date.getHours()!==parts[3]||date.getMinutes()!==parts[4]||date.getSeconds()!==parts[5])return null;
-  return date;
+  return businessLocalDateTimeToDate(value);
 }
 
 export function appointmentDateError(value:string,now=new Date()):string|null{
@@ -23,14 +16,11 @@ export function appointmentDateError(value:string,now=new Date()):string|null{
 export function appointmentIso(value:string):string{
   const error=appointmentDateError(value);
   if(error)throw new Error(error);
-  return parseLocalAppointment(value)!.toISOString();
+  return businessLocalDateTimeToIso(value);
 }
 
 export function appointmentInputValue(value:string):string{
-  const date=new Date(value);
-  if(Number.isNaN(date.getTime()))return '';
-  const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
-  return local.toISOString().slice(0,16);
+  return businessDateTimeInputValue(value);
 }
 
 export const canPlanCrmAppointment=(lead:Pick<Lead,'stage'|'activeAppointment'>)=>

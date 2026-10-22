@@ -1,3 +1,5 @@
+import{parseApiInstant}from'../../lib/businessDateTime';
+
 type ShowroomUser={id?:string;name?:string;status:string;agencyId:string;isSystemSuperAdmin?:boolean;permissions?:Record<string,unknown>|string[];roles?:string[];role?:string};
 type ClassifiedVisit={status:string;assignedUserId?:string|null};
 type ConvertibleVisit={status:string;leadId?:string|null};
@@ -21,6 +23,12 @@ export const isAssignedShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='Af
 export const isActiveShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='En Entretien'||visit.status==='En Essai';
 export const isCompletedShowroomVisit=(visit:ClassifiedVisit)=>visit.status==='Terminé';
 export const canConvertShowroomVisitToLead=(visit:ConvertibleVisit,canUpdateVisitor:boolean)=>canUpdateVisitor&&visit.status==='Terminé'&&!visit.leadId;
+
+export const plannedDriveStartState=(status:string,canManage:boolean,scheduledAt:string,now=new Date()):'hidden'|'too_early'|'ready'=>{
+  if(status!=='planned'||!canManage)return'hidden';
+  const scheduled=parseApiInstant(scheduledAt);
+  return scheduled&&scheduled.getTime()<=now.getTime()+60_000?'ready':'too_early';
+};
 
 export const classifyShowroomVisits=<T extends ClassifiedVisit>(visits:T[])=>({
   waiting:visits.filter(isWaitingShowroomVisit),

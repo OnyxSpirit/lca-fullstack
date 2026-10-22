@@ -1037,7 +1037,7 @@ export function useShowroomActions() {
       onSuccess: done,
     }),
     updateDrive: useMutation({mutationFn:({id,...body}:any)=>apiRequest(`/showroom/test-drives/${id}/schedule`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
-    startPlannedDrive: useMutation({mutationFn:(id:string)=>apiRequest(`/showroom/test-drives/${id}/start`,{method:'PATCH'}),onSuccess:done}),
+    startPlannedDrive: useMutation({mutationFn:(id:string)=>apiRequest(`/showroom/test-drives/${id}/start`,{method:'PATCH'}),onSuccess:()=>{void done();void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:erpKeys.notifications});}}),
   };
 }
 export interface ShowroomDuplicateMatch {id:string;visitorName:string;phone:string|null;status:string;arrivalAt:string;assignedUserName:string|null;agencyId:string;phoneMatch:boolean;nameMatch:boolean;strength:'strong'|'potential'}

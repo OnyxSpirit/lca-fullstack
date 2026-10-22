@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {BUSINESS_TIME_ZONE,parseApiInstant} from "./businessDateTime";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -32,12 +33,14 @@ export function formatDate(dateString: string): string {
 
 export function formatDateTime(dateString: string): string {
   try {
-    const date = new Date(dateString);
+    const date = parseApiInstant(dateString);
+    if(!date)return dateString;
     return new Intl.DateTimeFormat("fr-FR", {
       day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: BUSINESS_TIME_ZONE,
     }).format(date);
   } catch {
     return dateString;

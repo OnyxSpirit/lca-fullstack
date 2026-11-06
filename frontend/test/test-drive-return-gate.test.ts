@@ -4,17 +4,16 @@ import {test} from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
-test('TEST-DRIVE-03 le CRM affiche l’essai en cours et désactive le devis avec explication',()=>{
+test('TEST-DRIVE-03 le CRM dissocie le devis de l’étape technique de l’essai',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx');
-  assert.match(page,/Essai en cours/);
-  assert.match(page,/disabled=\{!selectedLead\.canCreateQuotation\}/);
-  assert.match(page,/En attente du retour de l’essai routier\./);
   assert.match(page,/canCreateQuotation=can\('quotations\.create'\)/);
+  assert.match(page,/canCreateQuotation&&selectedLead\.stage!==['"]GAGNE['"]&&selectedLead\.stage!==['"]PERDU['"]/);
+  assert.doesNotMatch(page,/disabled=\{!selectedLead\.canCreateQuotation\}/);
 });
 
-test('TEST-DRIVE-05 le retour débloque le devis et synchronise Showroom, CRM et véhicules',()=>{
+test('TEST-DRIVE-05 le retour synchronise Showroom, CRM et véhicules sans piloter le devis',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx'),hooks=read('../src/api/erpHooks.ts'),bootstrap=read('../src/components/AppBootstrap.tsx');
-  assert.match(page,/selectedLead\.canCreateQuotation\?'Essai terminé':'Essai en cours'/);
+  assert.match(page,/setQuotationLead\(selectedLead\)/);
   const completeDrive=hooks.slice(hooks.indexOf('completeDrive: useMutation'),hooks.indexOf('cancelDrive: useMutation'));
   assert.match(completeDrive,/erpKeys\.leads/);
   assert.match(completeDrive,/erpKeys\.vehicles/);

@@ -49,8 +49,9 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
     return ids.map(id=>({id,name:`Agence ${id}`,code:`A${id}`,concession_id:concession(id),actor_concession_id:concession(actor)}));
   }
   if(sql.startsWith('SELECT id FROM agencies WHERE id=? AND concession_id=')){const target=String(params[0]),actor=String(params[1]);return concession(target)===concession(actor)?[{id:target}]:[]}
-  if(sql.includes('FROM vehicles v JOIN versions')&&sql.includes('COUNT(*) total'))return[{total:matching(sql,params).length}];
-  if(sql.includes('FROM vehicles v JOIN versions'))return withFinancialFlag(sql,params,matching(sql,params));
+  const vehicleReferenceJoin=sql.includes('FROM vehicles v JOIN versions')||sql.includes('FROM vehicles v LEFT JOIN versions');
+  if(vehicleReferenceJoin&&sql.includes('COUNT(*) total'))return[{total:matching(sql,params).length}];
+  if(vehicleReferenceJoin)return withFinancialFlag(sql,params,matching(sql,params));
   if(sql.startsWith('SELECT COUNT(*) total')&&sql.includes('FROM vehicles v WHERE')){
     const visible=matching(sql,params),count=(status:string)=>visible.filter(v=>v.status===status).length;
     return[{total:visible.length,ordered:count('ordered'),in_transit:count('in_transit'),received:count('received'),preparation:count('preparation'),available:count('available'),reserved:count('reserved'),sold:count('sold'),delivered:count('delivered'),dormant:0,stock_value:visible.reduce((n,v)=>n+v.sale_price,0)}];

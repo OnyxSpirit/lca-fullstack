@@ -116,7 +116,8 @@ export interface Lead {
 
 export interface CrmActivity {id:string;leadId:string;opportunityId?:string;assignedUserId:string;assignedUserName:string;createdById?:string;createdByName?:string;type:string;subject:string;description:string;status:string;dueAt?:string;completedAt?:string;createdAt:string}
 export type BusinessArchiveStatus='AVAILABLE'|'MISSING_RECORD'|'FILE_MISSING'|'INTEGRITY_ERROR'|'STORAGE_UNAVAILABLE'|'HISTORICAL_ONLY'|'ARCHIVING'|'FAILED';
-export interface Quotation {id:string;quotationNumber:string;opportunityId:string;customerId:string;customerName:string;agencyId:string;salespersonId:string;salespersonName:string;createdById?:string;createdByName?:string;status:string;validUntil?:string;subtotal:number;discountTotal:number;taxTotal:number;total:number;taxMode:'TAXABLE'|'TAX_EXEMPT';priceInputMode:'HT'|'TTC';taxRate:number;currencyCode:string;identitySnapshot?:unknown;archiveAvailable:boolean;archiveStatus:BusinessArchiveStatus;notes:string;createdAt:string;vehicleId:string;vehicleLabel:string;stockNumber:string}
+export interface QuotationItem{id:string;vehicleId?:string|null;commercialModelId?:string|null;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number;availability?:string|null}
+export interface Quotation {id:string;quotationNumber:string;opportunityId:string;customerId:string;customerName:string;agencyId:string;salespersonId:string;salespersonName:string;createdById?:string;createdByName?:string;status:string;validUntil?:string;subtotal:number;discountTotal:number;taxTotal:number;total:number;taxMode:'TAXABLE'|'TAX_EXEMPT';priceInputMode:'HT'|'TTC';taxRate:number;currencyCode:string;identitySnapshot?:unknown;archiveAvailable:boolean;archiveStatus:BusinessArchiveStatus;notes:string;createdAt:string;vehicleId:string;vehicleLabel:string;stockNumber:string;items?:QuotationItem[]}
 
 // Customer 360
 export interface Customer {

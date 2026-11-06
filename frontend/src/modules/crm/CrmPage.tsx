@@ -19,7 +19,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { useCancelCrmAppointment, useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCrmTeamMembersQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useRetryQuotationArchive, useUpdateCrmAppointment, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
+import { useCancelCrmAppointment, useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCreateProforma, useCrmTeamMembersQuery, useKanbanColumnsQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useRetryQuotationArchive, useUpdateCrmAppointment, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -44,15 +44,17 @@ import { activityStatusLabel, activityTypeLabel, quotationStatusLabel } from '..
 import{businessArchiveStatusLabel}from'../../services/businessArchiveStatus';
 
 export const commercialProgressLabel=(lead:Pick<Lead,'commercialProgress'|'commercialProgressState'>)=>lead.commercialProgressState==='LOST'?'Vente perdue':lead.commercialProgress==null?'Indisponible':`${lead.commercialProgress} %`;
+const kanbanDbStages=['new','contacted','qualified','appointment','test_drive','offer','negotiation','won','lost'] as const;
 
 export const CrmPage: React.FC = () => {
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('ALL');
   const [selectedStage,setSelectedStage]=useState('');
   const [selectedCommercial,setSelectedCommercial]=useState('');
   const [page,setPage]=useState(1);
+  const [kanbanLimits,setKanbanLimits]=useState<Record<string,number>>(()=>Object.fromEntries(kanbanDbStages.map(stage=>[stage,10])));
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [newInteractionNote, setNewInteractionNote] = useState('');
@@ -65,10 +67,10 @@ export const CrmPage: React.FC = () => {
   const canViewQuotations=can('quotations.view'),canCreateQuotation=can('quotations.create'),canUpdateQuotation=can('quotations.update'),canValidateQuotation=can('quotations.validate'),canCancelQuotation=can('quotations.cancel'),canConvertQuotation=can('quotations.convert')&&can('sales.create');
   const salesUsers=useCrmTeamMembersQuery(canAssignLead).data??[];
   const priority=selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority];
-  const leadsQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,page,pageSize:viewMode==='kanban'?50:7}),leads=leadsQuery.data?.items??[],leadTotal=leadsQuery.data?.total??0;
+  const leadsQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,page,pageSize:7},viewMode==='list'),kanbanQueries=useKanbanColumnsQuery({search:debouncedSearch,priority,commercialId:selectedCommercial},kanbanLimits,viewMode==='kanban'),leads=leadsQuery.data?.items??[],leadTotal=leadsQuery.data?.total??0;
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
-  const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment(),updateAppointmentMutation=useUpdateCrmAppointment(),cancelAppointmentMutation=useCancelCrmAppointment(),updateQuotation=useUpdateQuotation(),validateQuotation=useValidateQuotation(),retryQuotationArchive=useRetryQuotationArchive(),cancelQuotation=useCancelQuotation();
+  const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment(),updateAppointmentMutation=useUpdateCrmAppointment(),cancelAppointmentMutation=useCancelCrmAppointment(),updateQuotation=useUpdateQuotation(),validateQuotation=useValidateQuotation(),retryQuotationArchive=useRetryQuotationArchive(),cancelQuotation=useCancelQuotation(),createProforma=useCreateProforma();
   const canViewActivities=can('crm.activity.view');
   const activitiesQuery=useLeadActivitiesQuery(selectedLead?.id,canViewActivities),quotationsQuery=useLeadQuotationsQuery(selectedLead?.opportunityId,canViewQuotations),quotations=quotationsQuery.data??[];
   const { addToast } = useUiStore();
@@ -81,7 +83,7 @@ export const CrmPage: React.FC = () => {
     const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);
     return()=>window.clearTimeout(timer);
   },[searchQuery]);
-  useEffect(()=>setPage(1),[debouncedSearch,selectedPriority,selectedStage,selectedCommercial]);
+  useEffect(()=>{setPage(1);setKanbanLimits(Object.fromEntries(kanbanDbStages.map(stage=>[stage,10])))},[debouncedSearch,selectedPriority,selectedStage,selectedCommercial]);
   useEffect(()=>{if(leadsQuery.data&&page>Math.max(1,leadsQuery.data.totalPages))setPage(Math.max(1,leadsQuery.data.totalPages))},[leadsQuery.data,page]);
   useEffect(()=>setPage(1),[viewMode]);
 
@@ -97,7 +99,7 @@ export const CrmPage: React.FC = () => {
     { stage: 'PERDU', label: 'Perdu', color: 'border-slate-400 bg-slate-50/50' },
   ];
 
-  const filteredLeads = leads;
+  const filteredLeads = viewMode==='kanban'?kanbanQueries.flatMap(result=>result.data?.items??[]):leads;
   const hasActiveFilters = Boolean(debouncedSearch) || selectedPriority !== 'ALL'||Boolean(selectedStage)||Boolean(selectedCommercial);
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
@@ -198,13 +200,13 @@ export const CrmPage: React.FC = () => {
         </div>
       </div>
 
-      {leadsQuery.isError && (
+      {(viewMode==='list'?leadsQuery.isError:kanbanQueries.some(query=>query.isError)) && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          Chargement des prospects impossible : {leadsQuery.error instanceof Error ? leadsQuery.error.message : 'Erreur API'}
+          Chargement des prospects impossible.
         </div>
       )}
 
-      {viewMode === 'kanban' && leadsQuery.isLoading && (
+      {viewMode === 'kanban' && kanbanQueries.some(query=>query.isLoading) && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
           Chargement des prospects...
         </div>
@@ -213,9 +215,9 @@ export const CrmPage: React.FC = () => {
       {/* KANBAN PIPELINE VIEW */}
       {viewMode === 'kanban' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-4">
-          {stages.map(({ stage, label, color }) => {
+          {stages.filter(({stage})=>!selectedStage||opportunityStageToDb[stage]===selectedStage).map(({ stage, label, color }) => {
             const stageLeads = filteredLeads.filter((l) => l.stage === stage);
-            const aggregate=leadsQuery.data?.stageSummary?.[opportunityStageToDb[stage]],stageTotalBudget=aggregate?.budget??0;
+            const dbStage=opportunityStageToDb[stage],columnQuery=kanbanQueries[kanbanDbStages.indexOf(dbStage as typeof kanbanDbStages[number])],aggregate=columnQuery?.data?.stageSummary?.[dbStage],stageTotalBudget=aggregate?.budget??0,columnTotal=columnQuery?.data?.total??0;
 
             return (
               <div key={stage} className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]">
@@ -313,18 +315,18 @@ export const CrmPage: React.FC = () => {
                     </div>
                   ))}
 
-                  {!leadsQuery.isLoading && !leadsQuery.isError && stageLeads.length === 0 && (
+                  {!columnQuery?.isLoading && !columnQuery?.isError && stageLeads.length === 0 && (
                     <div className="py-8 text-center text-slate-400 text-[11px]">
                       Aucun prospect à ce stade
                     </div>
                   )}
+                  {stageLeads.length<columnTotal&&<Button size="xs" variant="outline" loading={columnQuery?.isFetching} onClick={()=>setKanbanLimits(current=>({...current,[dbStage]:(current[dbStage]??10)+10}))}>Afficher 10 de plus</Button>}
                 </div>
               </div>
             );
           })}
         </div>
       )}
-      {viewMode==='kanban'&&<div className="flex items-center justify-between rounded-xl border bg-white p-3 text-xs"><span>{leadTotal} prospect(s) — page de 50</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button><span>Page {page} / {Math.max(1,leadsQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(leadsQuery.data?.totalPages??1)} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>}
 
       {/* TABLE / LIST VIEW */}
       {viewMode === 'list' && (
@@ -519,15 +521,15 @@ export const CrmPage: React.FC = () => {
 
             {canViewQuotations&&quotations.length>0&&<div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Devis liés à l’opportunité</div>
-              <div className="space-y-2">{quotations.map(quotation=><div key={quotation.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs"><div><b>{quotation.quotationNumber}</b><div className="text-slate-500">{quotation.vehicleLabel} · {quotationStatusLabel(quotation.status)}</div>{quotation.identitySnapshot&&<div className={quotation.archiveAvailable?'text-[10px] text-emerald-700':'text-[10px] text-amber-700'}>{quotationArchiveLabel(quotation)}</div>}<div className="text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div><div className="flex items-center gap-2"><b>{formatCurrency(quotation.total)}</b><Button size="xs" variant="outline" disabled={Boolean(quotation.identitySnapshot&&!quotation.archiveAvailable)} onClick={()=>openBusinessPdf('quotation',quotation.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button>{canUpdateQuotation&&quotation.status==='draft'&&<Button size="xs" variant="outline" loading={updateQuotation.isPending} onClick={async()=>{const notes=await promptAction('Notes du devis',quotation.notes);if(notes!==null)void updateQuotation.mutateAsync({id:quotation.id,notes}).then(()=>addToast({type:'success',title:'Devis modifié'})).catch(error=>addToast({type:'error',title:'Modification impossible',description:error.message}))}}>Modifier</Button>}{canValidateQuotation&&!quotation.identitySnapshot&&['draft','negotiation'].includes(quotation.status)&&<Button size="xs" loading={validateQuotation.isPending} onClick={()=>validateQuotation.mutateAsync(quotation.id).then(()=>addToast({type:'success',title:'Devis émis'})).catch(error=>addToast({type:'error',title:'Émission enregistrée, archivage à reprendre',description:error.message}))}>Émettre le devis</Button>}{canValidateQuotation&&Boolean(quotation.identitySnapshot)&&quotation.archiveStatus==='MISSING_RECORD'&&['sent','negotiation'].includes(quotation.status)&&<Button size="xs" loading={retryQuotationArchive.isPending&&retryQuotationArchive.variables===quotation.id} disabled={retryQuotationArchive.isPending} onClick={()=>retryQuotationArchive.mutateAsync(quotation.id).then(()=>addToast({type:'success',title:'Archive officielle finalisée'})).catch(error=>addToast({type:'error',title:'Archivage toujours indisponible',description:error instanceof Error?error.message:'Erreur API'}))}>Finaliser l’archivage</Button>}{canCancelQuotation&&['draft','sent','negotiation'].includes(quotation.status)&&<Button size="xs" variant="outline" loading={cancelQuotation.isPending} onClick={async()=>{const reason=await promptAction("Motif d’annulation du devis");if(reason?.trim())void cancelQuotation.mutateAsync({id:quotation.id,reason:reason.trim()}).then(()=>addToast({type:'success',title:'Devis annulé'})).catch(error=>addToast({type:'error',title:'Annulation impossible',description:error.message}))}}>Annuler</Button>}</div></div>)}</div>
+              <div className="space-y-2">{quotations.map(quotation=><div key={quotation.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs"><div><b>{quotation.quotationNumber}</b><div className="text-slate-500">{quotation.items?.length??1} véhicule(s) · {quotationStatusLabel(quotation.status)}</div>{quotation.identitySnapshot&&<div className={quotation.archiveAvailable?'text-[10px] text-emerald-700':'text-[10px] text-amber-700'}>{quotationArchiveLabel(quotation)}</div>}<div className="text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div><div className="flex items-center gap-2"><b>{formatCurrency(quotation.total)}</b><Button size="xs" variant="outline" disabled={Boolean(quotation.identitySnapshot&&!quotation.archiveAvailable)} onClick={()=>openBusinessPdf('quotation',quotation.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button>{can('proformas.create')&&<Button size="xs" variant="outline" loading={createProforma.isPending} onClick={()=>void createProforma.mutateAsync({sourceQuotationId:quotation.id,clientRequestId:crypto.randomUUID()}).then(()=>addToast({type:'success',title:'Brouillon pro forma créé'})).catch(error=>addToast({type:'error',title:'Transformation impossible',description:error instanceof Error?error.message:'Erreur API'}))}>Transformer en pro forma</Button>}{canUpdateQuotation&&quotation.status==='draft'&&<Button size="xs" variant="outline" loading={updateQuotation.isPending} onClick={async()=>{const notes=await promptAction('Notes du devis',quotation.notes);if(notes!==null)void updateQuotation.mutateAsync({id:quotation.id,notes}).then(()=>addToast({type:'success',title:'Devis modifié'})).catch(error=>addToast({type:'error',title:'Modification impossible',description:error.message}))}}>Modifier</Button>}{canValidateQuotation&&!quotation.identitySnapshot&&['draft','negotiation'].includes(quotation.status)&&<Button size="xs" loading={validateQuotation.isPending} onClick={()=>validateQuotation.mutateAsync(quotation.id).then(()=>addToast({type:'success',title:'Devis émis'})).catch(error=>addToast({type:'error',title:'Émission enregistrée, archivage à reprendre',description:error.message}))}>Émettre le devis</Button>}{canValidateQuotation&&Boolean(quotation.identitySnapshot)&&quotation.archiveStatus==='MISSING_RECORD'&&['sent','negotiation'].includes(quotation.status)&&<Button size="xs" loading={retryQuotationArchive.isPending&&retryQuotationArchive.variables===quotation.id} disabled={retryQuotationArchive.isPending} onClick={()=>retryQuotationArchive.mutateAsync(quotation.id).then(()=>addToast({type:'success',title:'Archive officielle finalisée'})).catch(error=>addToast({type:'error',title:'Archivage toujours indisponible',description:error instanceof Error?error.message:'Erreur API'}))}>Finaliser l’archivage</Button>}{canCancelQuotation&&['draft','sent','negotiation'].includes(quotation.status)&&<Button size="xs" variant="outline" loading={cancelQuotation.isPending} onClick={async()=>{const reason=await promptAction("Motif d’annulation du devis");if(reason?.trim())void cancelQuotation.mutateAsync({id:quotation.id,reason:reason.trim()}).then(()=>addToast({type:'success',title:'Devis annulé'})).catch(error=>addToast({type:'error',title:'Annulation impossible',description:error.message}))}}>Annuler</Button>}</div></div>)}</div>
             </div>}
 
             {selectedLead.activeAppointment&&<div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-950"><b>Rendez-vous actif</b><span className="ml-2">{formatDateTime(selectedLead.activeAppointment.scheduledAt)} · {selectedLead.activeAppointment.durationMinutes} min</span></div>}
             {(canCreateAppointment||canCreateTestDrive||canCreateQuotation||canUpdateStage||canLoseLead||canConvertQuotation) && <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
               {canCreateAppointment&&canPlanCrmAppointment(selectedLead)&&<Button size="sm" variant="outline" onClick={()=>{setEditingAppointmentId(null);setScheduledAt('');setAppointmentDuration(30);setAppointmentLead(selectedLead)}}>Planifier un RDV</Button>}
               {canUpdateLead&&canManageCrmAppointment(selectedLead)&&<><Button size="sm" variant="outline" onClick={()=>editAppointment(selectedLead)}>Reporter le RDV</Button><Button size="sm" variant="danger" loading={cancelAppointmentMutation.isPending} onClick={()=>void cancelAppointment(selectedLead)}>Annuler le RDV</Button></>}
-              {canCreateTestDrive&&selectedLead.stage==='RDV'&&<Button size="sm" disabled={!selectedLead.canStartTestDrive} title={selectedLead.canStartTestDrive?'Démarrer le véritable essai Showroom':'Un rendez-vous commercial réel est requis'} onClick={async()=>{setTestDriveLead(selectedLead);setSelectedLead(null)}}>Démarrer un essai</Button>}
-              {selectedLead.stage==='ESSAI'&&!quotations.length&&canCreateQuotation&&<div className="flex flex-col items-end gap-1"><Badge variant={selectedLead.canCreateQuotation?'success':'warning'}>{selectedLead.canCreateQuotation?'Essai terminé':'Essai en cours'}</Badge><Button size="sm" disabled={!selectedLead.canCreateQuotation} title={!selectedLead.canCreateQuotation?'En attente du retour de l’essai routier.':undefined} onClick={()=>setQuotationLead(selectedLead)}>Créer un devis</Button>{!selectedLead.canCreateQuotation&&<span className="text-xs text-amber-700">En attente du retour de l’essai routier.</span>}</div>}
+              {canCreateTestDrive&&selectedLead.stage!=='GAGNE'&&selectedLead.stage!=='PERDU'&&<Button size="sm" onClick={async()=>{setTestDriveLead(selectedLead);setSelectedLead(null)}}>Créer un essai</Button>}
+              {canCreateQuotation&&selectedLead.stage!=='GAGNE'&&selectedLead.stage!=='PERDU'&&<Button size="sm" onClick={()=>setQuotationLead(selectedLead)}>Créer un devis</Button>}
               {canUpdateStage&&selectedLead.stage==='OFFRE'&&<Button size="sm" variant="outline" loading={stageMutation.isPending} onClick={()=>void handleStageChange(selectedLead.id,'NEGOCIATION')}>Entrer en négociation</Button>}
               {canConvertQuotation&&['OFFRE','NEGOCIATION'].includes(selectedLead.stage)&&quotations[0]&&<Button variant="primary" size="sm" disabled={!quotationCanConvert(quotations[0])} title={!quotations[0].archiveAvailable?'Finalisez d’abord l’archivage officiel du devis.':!quotationCanConvert(quotations[0])?'Le devis doit être émis, non expiré et non déjà converti.':undefined} onClick={()=>setSaleQuotation(quotations[0])}>Transformer en Vente / Bon de Commande</Button>}
               {canUpdateStage&&canLoseLead&&!['GAGNE','PERDU'].includes(selectedLead.stage)&&<Button variant="outline" size="sm" onClick={()=>handleStageChange(selectedLead.id,'PERDU')}>Marquer comme perdu</Button>}

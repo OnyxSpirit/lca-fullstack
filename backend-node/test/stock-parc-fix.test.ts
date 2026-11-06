@@ -27,7 +27,7 @@ test('SPV-01 baseline 058 absorbe la GED 049 et le schéma Stock',()=>{
 
 test('SPV-03 une modification non financière conserve les snapshots du devis',()=>{
   const service=read('../src/modules/quotations/quotation.service.ts');
-  assert.match(service,/if\(!financialChange\)/);
+  assert.match(service,/if\(!rawItems\)/);
   assert.match(service,/UPDATE quotations SET valid_until=\?,notes=\? WHERE id=\?/);
   assert.doesNotMatch(service,/UPDATE quotations SET valid_until=\?,notes=\?[^;]+subtotal/);
 });

@@ -4,12 +4,7 @@ import {readFileSync} from 'node:fs';
 import {CRM_STAGE_TRANSITIONS,isCrmStageTransitionAllowed,type CrmStage} from '../src/modules/crm/crm.routes.js';
 
 const stages=Object.keys(CRM_STAGE_TRANSITIONS) as CrmStage[];
-const expected=new Set([
-  'new>contacted','new>lost',
-  'contacted>qualified','contacted>lost',
-  'qualified>lost','appointment>lost','test_drive>lost',
-  'offer>negotiation','offer>lost','negotiation>lost',
-]);
+const expected=new Set(stages.flatMap(source=>['won','lost'].includes(source)?[]:stages.filter(target=>target!==source).map(target=>`${source}>${target}`)));
 
 test('CRM-01 couvre explicitement les 81 couples de la matrice 9 x 9',()=>{
   assert.equal(stages.length,9);

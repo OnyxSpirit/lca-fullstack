@@ -8,9 +8,10 @@ const modal=readFileSync(new URL('../src/modules/crm/NewLeadModal.tsx',import.me
 const customers=readFileSync(new URL('../src/modules/customers/CustomersListPage.tsx',import.meta.url),'utf8');
 const detail=readFileSync(new URL('../src/modules/customers/CustomerDetailPage.tsx',import.meta.url),'utf8');
 
-test('CRM-03 le Kanban utilise la pagination serveur et les agrégats globaux',()=>{
+test('CRM-03 le Kanban utilise une pagination serveur indépendante par colonne',()=>{
   assert.match(crm,/useLeadsPageQuery/);
-  assert.match(crm,/pageSize:viewMode==='kanban'\?50:7/);
+  assert.match(crm,/useKanbanColumnsQuery/);
+  assert.match(crm,/kanbanLimits/);
   assert.match(crm,/stageSummary/);
   assert.match(crm,/Page \{page\}/);
   assert.match(hooks,/stageSummary:LeadStageSummary/);

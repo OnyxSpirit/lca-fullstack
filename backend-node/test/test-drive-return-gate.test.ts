@@ -21,12 +21,12 @@ test('TEST-DRIVE-01/02 un essai démarré reste en cours et bloque le devis avec
   assert.throws(()=>assertTestDriveReturned(row('in_progress',null)),error=>Boolean(error&&typeof error==='object'&&'status'in error&&(error as any).status===409&&/retour du véhicule doit être enregistré/.test((error as Error).message)));
 });
 
-test('TEST-DRIVE-04/05 un retour completed daté débloque le prérequis devis',()=>{
+test('TEST-DRIVE-04/05 un retour completed daté reste exposé sans coupler la disponibilité du devis',()=>{
   assert.doesNotThrow(()=>assertTestDriveReturned(row('completed','2026-09-10T12:00:00.000Z')));
   const showroom=read('../src/modules/showroom/showroom.routes.ts'),crm=read('../src/modules/crm/crm.routes.ts');
   assert.match(showroom,/status='completed',mileage_in=\?,returned_at=NOW\(\)/);
   assert.match(showroom,/Retour essai routier confirmé/);
-  assert.match(crm,/canCreateQuotation:row\.stage==='test_drive'&&row\.test_drive_status==='completed'/);
+  assert.match(crm,/canCreateQuotation:!\['won','lost'\]\.includes\(row\.stage\)/);
 });
 
 test('TEST-DRIVE-06 aucun essai terminé ne permet de créer un devis',()=>{

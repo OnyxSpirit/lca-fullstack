@@ -49,7 +49,8 @@ test('FIN-01..19 coût, minimum, snapshots et fallback legacy sont cohérents',(
   assert.match(quotations,/assertVehicleMinimumPrice\(vehicle,calculated\.netHt\)/);
   assert.match(sales,/assertVehicleMinimumPrice\(vehicle,quotation\?effectiveSubtotal-effectiveDiscount:directTax!\.netHt\)/);
   assert.match(sales,/directEnteredSubtotal=effectiveSubtotal\*\(input\.taxMode/);
-  assert.match(quotations,/enteredPrice=Math\.round\(Number\(quotation\.subtotal\)\*factor\*100\)\/100/);
+  assert.match(quotations,/unitPrice:amount\(raw\.unitPrice\?\?source\.sale_price\?\?source\.catalog_price/);
+  assert.match(quotations,/assertVehicleMinimumPrice\(source,calculated\.netHt\)/);
   assert.doesNotMatch(quotations,/subtotal=Number\(quotation\.sale_price\)/);
   for(const token of ['purchase_price_snapshot','refurbishment_cost_snapshot','transport_cost_snapshot','administrative_cost_snapshot','additional_costs_snapshot','total_cost_snapshot'])assert.match(baseline,new RegExp(token));
   assert.match(sales,/status==='confirmed'[^;]+UPDATE sale_items/s);

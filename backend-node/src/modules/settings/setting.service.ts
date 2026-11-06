@@ -123,6 +123,7 @@ export async function get(r: Request, enforceRead = true) {
       id: String(c.id),
       name: c.name,
       legalName: c.legal_name,
+      legalForm: c.legal_form,
       taxIdentifier: c.tax_identifier,
       rccm: c.rccm,
       rib: c.rib,
@@ -228,6 +229,7 @@ export function validateConcession(body: unknown): ConcessionIdentityPayload {
   return {
     name: text(b.name, "Nom commercial", true, 150)!,
     legalName: text(b.legalName, "Raison sociale", false, 200),
+    legalForm: text(b.legalForm, "Forme juridique", false, 120),
     taxIdentifier: text(b.taxIdentifier, "NIU", false, 100),
     rccm: text(b.rccm, "RCCM", false, 190),
     rib: text(b.rib, "RIB", false, 500),
@@ -249,10 +251,11 @@ export async function updateConcession(body: unknown, r: Request) {
       [concessionId],
     );
     await c.execute(
-      "UPDATE concessions SET name=?,legal_name=?,tax_identifier=?,rccm=?,rib=?,website=?,address=?,city=?,country=?,currency_code=?,timezone=? WHERE id=?",
+      "UPDATE concessions SET name=?,legal_name=?,legal_form=?,tax_identifier=?,rccm=?,rib=?,website=?,address=?,city=?,country=?,currency_code=?,timezone=? WHERE id=?",
       [
         v.name,
         v.legalName ?? null,
+        v.legalForm ?? null,
         v.taxIdentifier ?? null,
         v.rccm ?? null,
         v.rib ?? null,
@@ -287,7 +290,7 @@ export async function updateDocumentLogo(body:unknown,r:Request){
   const concessionId=await currentConcessionId(r);await transaction(async c=>{await c.execute('UPDATE concessions SET document_logo=?,document_logo_mime=? WHERE id=?',[buffer,mime,concessionId]);await audit(c,r,'concession',concessionId,'document_logo.updated',null,{mime,size:buffer.length})});return currentConcession(r,false);
 }
 export async function deleteDocumentLogo(r:Request){assertConcessionWrite(r);const concessionId=await currentConcessionId(r);await transaction(async c=>{await c.execute('UPDATE concessions SET document_logo=NULL,document_logo_mime=NULL WHERE id=?',[concessionId]);await audit(c,r,'concession',concessionId,'document_logo.deleted',null,{})});return currentConcession(r,false)}
-export async function agencies(r: Request,permission='settings.view') {
+export async function agencies(r: Request,permission='settings.agencies.view') {
   const scope = assertCollectiveRead(r,permission),
     concessionId = await currentConcessionId(r),
     rows = await query<RowDataPacket[]>(

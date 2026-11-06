@@ -12,10 +12,10 @@ test('PREPROD-FRONT: la facture a un libellé explicite et les rôles une suppre
   assert.match(roles,/Aucun utilisateur ne sera supprimé/);
 });
 
-test('PREPROD-FRONT: ventes et devis aident sur le coût sans remplacer la validation serveur',()=>{
+test('PREPROD-FRONT: ventes et devis conservent les contrôles de remise et la validation serveur',()=>{
   const sale=source('modules/sales/SaleWizardModal.tsx'),quote=source('modules/crm/QuotationModal.tsx');
   assert.match(sale,/pricingGuard\.data\?\.maxDiscount/);assert.match(sale,/maxDiscount/);assert.match(sale,/Remise maximale autorisée/);
-  assert.match(quote,/acquisitionCost/);assert.match(quote,/maxDiscount/);assert.match(quote,/Remise maximale autorisée/);
+  assert.match(quote,/canManageDiscount/);assert.match(quote,/discount:Number/);assert.match(quote,/useCreateQuotation/);
 });
 
 test('PREPROD-FRONT: les candidats locaux excluent le Super Admin et Livraison consomme la liste backend filtrée',()=>{

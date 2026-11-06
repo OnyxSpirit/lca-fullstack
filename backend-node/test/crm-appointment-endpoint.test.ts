@@ -22,28 +22,26 @@ before(()=>{
 after(()=>{(pool as any).execute=originalExecute;(pool as any).getConnection=originalGetConnection});
 beforeEach(()=>{stage='qualified';writes=[]});
 
-test('qualified crée le vrai rendez-vous, son activité et passe l’opportunité à appointment',async()=>{
+test('qualified crée le vrai rendez-vous sans imposer une transition du pipeline',async()=>{
   const scheduledAt=new Date(Date.now()+86_400_000).toISOString();
   const response=await request(createApp()).post('/api/leads/10/appointments').set('Authorization',`Bearer ${token()}`).send({scheduledAt,subject:'Présentation SUV',description:'Essai à préparer'});
   assert.equal(response.status,201);
-  assert.equal(response.body.stage,'appointment');
+  assert.equal(response.body.stage,'qualified');
   assert.equal(response.body.id,'501');
   assert.ok(writes.some(({sql})=>sql.includes('INSERT INTO activities')));
   assert.ok(writes.some(({sql})=>sql.includes('INSERT INTO follow_ups')));
-  assert.ok(writes.some(({sql,params})=>sql.includes("UPDATE opportunities SET stage='appointment'")&&params[0]==='20'));
+  assert.equal(writes.some(({sql})=>sql.includes("UPDATE opportunities SET stage='appointment'")),false);
 });
 
-test('qualified ne peut toujours pas passer manuellement à test_drive',async()=>{
+test('qualified peut passer manuellement à test_drive',async()=>{
   const response=await request(createApp()).patch('/api/leads/10/stage').set('Authorization',`Bearer ${token()}`).send({stage:'test_drive'});
-  assert.equal(response.status,409);
-  assert.match(response.body.message,/Transition CRM interdite|action métier/);
-  assert.equal(writes.length,0);
+  assert.equal(response.status,200);
+  assert.ok(writes.some(({sql})=>sql.includes('UPDATE opportunities SET stage=')));
 });
 
-test('new ne peut pas créer arbitrairement un rendez-vous',async()=>{
+test('new peut planifier un rendez-vous sans transition automatique',async()=>{
   stage='new';
   const response=await request(createApp()).post('/api/leads/10/appointments').set('Authorization',`Bearer ${token()}`).send({scheduledAt:new Date(Date.now()+86_400_000).toISOString()});
-  assert.equal(response.status,409);
-  assert.match(response.body.message,/doit être qualifié/);
-  assert.equal(writes.length,0);
+  assert.equal(response.status,201);
+  assert.equal(response.body.stage,'new');
 });

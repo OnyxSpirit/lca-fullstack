@@ -178,15 +178,6 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
       vinRef.current?.focus();
       return;
     }
-    if (images.length === 0) {
-      addToast({
-        type: "error",
-        title: "Photo principale requise",
-        description:
-          "Ajoutez au moins une photo pour publier le véhicule dans le catalogue.",
-      });
-      return;
-    }
     const numbers = Object.fromEntries(
       numericFields.map((name) => [name, numberOrUndefined(form[name])]),
     );
@@ -236,7 +227,6 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
     !vinValid ||
     !form.brand.trim() ||
     !form.model.trim() ||
-    images.length === 0 ||
     (financialAllowed&&Boolean(receptionPrice.error));
   return (
     <Modal
@@ -504,10 +494,9 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-bold">Photos du catalogue *</h4>
+              <h4 className="text-sm font-bold">Photos du catalogue</h4>
               <p className="text-xs text-slate-500">
-                1 à 8 images JPEG, PNG ou WebP. La première est l’image
-                principale.
+                Jusqu’à 8 images JPEG, PNG ou WebP. Elles peuvent être ajoutées ultérieurement.
               </p>
             </div>
             <label className="inline-flex items-center gap-2 px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold cursor-pointer">

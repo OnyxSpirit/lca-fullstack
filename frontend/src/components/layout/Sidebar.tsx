@@ -101,10 +101,24 @@ export const Sidebar: React.FC = () => {
           module: 'vehicles',
         },
         {
+          to: '/vehicles/catalog',
+          label: 'Catalogue commercial',
+          icon: <Layers className="w-4 h-4" />,
+          module: 'vehicles',
+          visible: can('vehicles.catalog.view'),
+        },
+        {
           to: ROUTES.sales,
           label: 'Ventes & Devis',
           icon: <BadgePercent className="w-4 h-4" />,
           module: 'sales',
+        },
+        {
+          to: '/proformas',
+          label: 'Factures pro forma',
+          icon: <FileText className="w-4 h-4" />,
+          module: 'crm',
+          visible: can('proformas.view'),
         },
         {
           to: ROUTES.showroom,

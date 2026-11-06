@@ -37,7 +37,7 @@ test('QUOTE-07/08/09/11/12 : création verrouillée, cohérente agence, essai re
 test('QUOTE-13/15/16/18 : calcul backend, remise dédiée et devis émis verrouillé',()=>{
   assert.match(service,/discount>0\)await assertPermission\(request,'quotations\.discount\.manage'\)/);
   assert.match(service,/salePriceHt=amount\(vehicle\.sale_price/);assert.match(service,/calculated=calculateTaxLine/);assert.match(service,/assertVehicleMinimumPrice\(vehicle,calculated\.netHt\)/);assert.match(service,/tax_total,total/);
-  assert.match(service,/Seul un devis brouillon peut être modifié/);assert.match(service,/Seul un devis brouillon peut être émis/);
+  assert.match(service,/Seul un devis brouillon non émis peut être modifié/);assert.match(service,/Seul un devis brouillon ou en négociation peut être émis/);
 });
 
 test('QUOTE-19/20/21 : PDF, annulation et audit restent scopés',()=>{

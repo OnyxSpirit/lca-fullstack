@@ -10,13 +10,13 @@ const bootstrap=read('src/components/AppBootstrap.tsx');
 test('CRM-NEG-09 Pipeline reflète Gagné et Perdu',()=>{
   assert.match(page,/stage: 'GAGNE', label: 'Gagné \(Vente\)'/);
   assert.match(page,/stage: 'PERDU', label: 'Perdu'/);
-  assert.match(page,/filteredLeads\.filter\(\(l\) => l\.stage === stage\)/);
+  assert.match(page,/kanbanQueries\[kanbanDbStages\.indexOf/);
 });
 
 test('CRM-NEG-10 la fiche et la vue Liste utilisent la même source autoritaire',()=>{
   assert.match(page,/const leadsQuery=useLeadsPageQuery\(/);
-  assert.match(page,/pageSize:viewMode==='kanban'\?50:7/);
-  assert.match(page,/const filteredLeads = leads/);
+  assert.match(page,/pageSize:7/);
+  assert.match(page,/const filteredLeads = viewMode==='kanban'\?kanbanQueries\.flatMap/);
   assert.match(page,/setSelectedLead\(lead\)/);
   assert.match(page,/Transformer en Vente \/ Bon de Commande/);
   assert.match(page,/Marquer comme perdu/);

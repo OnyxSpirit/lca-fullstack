@@ -80,11 +80,11 @@ test('B341 modification/annulation : un rendez-vous terminal ne peut pas être r
   assert.equal(update.status,409);assert.equal(cancel.status,409);
 });
 
-test('B3461 report/annulation : une étape postérieure est refusée sous verrou sans écriture',async()=>{
+test('B3461 report/annulation : une étape non terminale reste indépendante du pipeline',async()=>{
   lockedStage='test_drive';
   const update=await request(createApp()).patch('/api/leads/10/appointments/7').set('Authorization',`Bearer ${token()}`).send({scheduledAt:'2099-10-23T10:00:00.000Z',durationMinutes:30});
   const cancel=await request(createApp()).post('/api/leads/10/appointments/7/cancel').set('Authorization',`Bearer ${token()}`).send({reason:'Trop tard'});
-  assert.equal(update.status,409);assert.equal(update.body.details.code,'CRM_APPOINTMENT_STAGE_CONFLICT');
-  assert.equal(cancel.status,409);assert.equal(cancel.body.details.code,'CRM_APPOINTMENT_STAGE_CONFLICT');
-  assert.equal(writes.some(item=>item.sql.startsWith('UPDATE follow_ups')||item.sql.startsWith('UPDATE activities')),false);
+  assert.equal(update.status,200);assert.equal(cancel.status,200);
+  assert.equal(writes.some(item=>item.sql.startsWith('UPDATE follow_ups')),true);
+  assert.equal(writes.some(item=>item.sql.startsWith('UPDATE opportunities')),false);
 });

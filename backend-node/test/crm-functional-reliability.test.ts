@@ -28,11 +28,11 @@ test('CRM-02 la détection informative est scopée et ne bloque pas la création
   assert.doesNotMatch(create,/duplicates|duplicateConfirmation/);
 });
 
-test('CRM-01 les étapes structurantes restent produites par leurs opérations métier',()=>{
+test('CRM-01 les opérations métier conservent leurs transitions sans les imposer au pipeline manuel',()=>{
   const showroom=readFileSync(new URL('../src/modules/showroom/showroom-test-drive.ts',import.meta.url),'utf8');
   const quotation=readFileSync(new URL('../src/modules/quotations/quotation.service.ts',import.meta.url),'utf8');
   const sale=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
-  assert.match(crm,/UPDATE opportunities SET stage='appointment'/);
+  assert.doesNotMatch(crm,/UPDATE opportunities SET stage='appointment'/);
   assert.match(showroom,/stage='test_drive'/);
   assert.match(quotation,/UPDATE opportunities SET stage='offer'/);
   assert.match(sale,/UPDATE opportunities SET stage='won'/);

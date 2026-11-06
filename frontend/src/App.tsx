@@ -13,8 +13,10 @@ const ModulesPortalPage=lazy(()=>import('./modules/modules-portal/ModulesPortalP
 const CrmPage=lazy(()=>import('./modules/crm/CrmPage').then(module=>({default:module.CrmPage})));
 const ShowroomPage=lazy(()=>import('./modules/showroom/ShowroomPage').then(module=>({default:module.ShowroomPage})));
 const VehiclesListPage=lazy(()=>import('./modules/vehicles/VehiclesListPage').then(module=>({default:module.VehiclesListPage})));
+const CommercialCatalogPage=lazy(()=>import('./modules/vehicles/CommercialCatalogPage').then(module=>({default:module.CommercialCatalogPage})));
 const VehicleDetailPage=lazy(()=>import('./modules/vehicles/VehicleDetailPage').then(module=>({default:module.VehicleDetailPage})));
 const SalesListPage=lazy(()=>import('./modules/sales/SalesListPage').then(module=>({default:module.SalesListPage})));
+const ProformasPage=lazy(()=>import('./modules/proformas/ProformasPage').then(module=>({default:module.ProformasPage})));
 const SaleDetailPage=lazy(()=>import('./modules/sales/SaleDetailPage').then(module=>({default:module.SaleDetailPage})));
 const DeliveriesPage=lazy(()=>import('./modules/deliveries/DeliveriesPage').then(module=>({default:module.DeliveriesPage})));
 const DeliveryDetailPage=lazy(()=>import('./modules/deliveries/DeliveryDetailPage').then(module=>({default:module.DeliveryDetailPage})));
@@ -82,8 +84,10 @@ export default function App() {
           <Route path="crm" element={<ModuleGuard module="crm">{lazyPage(<CrmPage />)}</ModuleGuard>} />
           <Route path="showroom" element={<ModuleGuard module="showroom">{lazyPage(<ShowroomPage />)}</ModuleGuard>} />
           <Route path="vehicles" element={<ModuleGuard module="vehicles">{lazyPage(<VehiclesListPage />)}</ModuleGuard>} />
+          <Route path="vehicles/catalog" element={<PermissionGuard permission="vehicles.catalog.view">{lazyPage(<CommercialCatalogPage />)}</PermissionGuard>} />
           <Route path="vehicles/:id" element={<ModuleGuard module="vehicles">{lazyPage(<VehicleDetailPage />)}</ModuleGuard>} />
           <Route path="sales" element={<ModuleGuard module="sales">{lazyPage(<SalesListPage />)}</ModuleGuard>} />
+          <Route path="proformas" element={<PermissionGuard permission="proformas.view">{lazyPage(<ProformasPage />)}</PermissionGuard>} />
           <Route path="sales/:id" element={<ModuleGuard module="sales">{lazyPage(<SaleDetailPage />)}</ModuleGuard>} />
           <Route path="deliveries" element={<ModuleGuard module="deliveries">{lazyPage(<DeliveriesPage />)}</ModuleGuard>} />
           <Route path="deliveries/:id" element={<ModuleGuard module="deliveries">{lazyPage(<DeliveryDetailPage />)}</ModuleGuard>} />

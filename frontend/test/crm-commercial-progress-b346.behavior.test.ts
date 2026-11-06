@@ -16,7 +16,7 @@ const rawLead=(stage:string,commercialProgress:number|null,commercialProgressSta
 let lead=rawLead('appointment',40,'ACTIVE');
 
 globalThis.fetch=(async(input:RequestInfo|URL)=>{
-  const url=String(input),body=url.includes('/auth/me')?{user:{id:'10',firstName:'Commercial',lastName:'CRM',email:'commercial@test.local',agencyId:'1',agencyName:'Agence',agencyCode:'AG1',avatar:null,roles:['CRM'],role:{id:'1',code:'CRM',isSystemSuperAdmin:false},permissions:permissionEntries.map(([code,scope])=>({code,scope}))}}:url.includes('/activities')?[]:{items:[lead],page:1,pageSize:50,total:1,totalPages:1,stageSummary:{}};
+  const url=String(input),requestedStage=new URL(url,'http://localhost').searchParams.get('stage'),items=!requestedStage||requestedStage===lead.stage||lead.stage==='future_stage'&&requestedStage==='new'?[lead]:[],body=url.includes('/auth/me')?{user:{id:'10',firstName:'Commercial',lastName:'CRM',email:'commercial@test.local',agencyId:'1',agencyName:'Agence',agencyCode:'AG1',avatar:null,roles:['CRM'],role:{id:'1',code:'CRM',isSystemSuperAdmin:false},permissions:permissionEntries.map(([code,scope])=>({code,scope}))}}:url.includes('/activities')?[]:{items,page:1,pageSize:50,total:items.length,totalPages:1,stageSummary:{}};
   return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
 }) as typeof fetch;
 
@@ -32,6 +32,7 @@ async function renderCrm(){
 
 test('B3461-FE-01 masque la qualification et conserve la progression rendez-vous 40 %',async()=>{
   lead=rawLead('appointment',40,'ACTIVE');const{screen,fireEvent,cleanup,client}=await renderCrm();
+  fireEvent.click(screen.getByRole('button',{name:'Kanban'}));
   assert.ok(await screen.findByText('Progression : 40 %'));assert.equal(screen.queryByText(/Qualification/),null);
   fireEvent.click(screen.getByRole('button',{name:/Ouvrir le prospect/}));
   assert.equal(screen.queryByText(/Score de qualification/),null);assert.ok(screen.getByText(/Progression commerciale :/));assert.equal(screen.getAllByText('40 %').length>=1,true);
@@ -39,12 +40,12 @@ test('B3461-FE-01 masque la qualification et conserve la progression rendez-vous
 });
 
 test('B346-FE-02 une vente gagnée vaut 100 % et une perte n’est jamais présentée à 100 %',async()=>{
-  lead=rawLead('won',100,'WON');let context=await renderCrm();assert.ok(await context.screen.findByText('Progression : 100 %'));context.cleanup();context.client.clear();
-  lead=rawLead('lost',null,'LOST');context=await renderCrm();assert.ok(await context.screen.findByText('Progression : Vente perdue'));assert.equal(context.screen.queryByText('Progression : 100 %'),null);context.cleanup();context.client.clear();
+  lead=rawLead('won',100,'WON');let context=await renderCrm();context.fireEvent.click(context.screen.getByRole('button',{name:'Kanban'}));assert.ok(await context.screen.findByText('Progression : 100 %'));context.cleanup();context.client.clear();
+  lead=rawLead('lost',null,'LOST');context=await renderCrm();context.fireEvent.click(context.screen.getByRole('button',{name:'Kanban'}));assert.ok(await context.screen.findByText('Progression : Vente perdue'));assert.equal(context.screen.queryByText('Progression : 100 %'),null);context.cleanup();context.client.clear();
 });
 
 test('B3461-FE-03 une progression absente est explicite et la liste ne réintroduit pas le score',async()=>{
-  lead=rawLead('future_stage',null,'UNAVAILABLE');const{screen,fireEvent,cleanup,client}=await renderCrm();assert.ok(await screen.findByText('Progression : Indisponible'));
+  lead=rawLead('future_stage',null,'UNAVAILABLE');const{screen,fireEvent,cleanup,client}=await renderCrm();fireEvent.click(screen.getByRole('button',{name:'Kanban'}));assert.ok(await screen.findByText('Progression : Indisponible'));
   fireEvent.click(screen.getByRole('button',{name:'Liste'}));assert.equal(screen.queryByText('Score de qualification'),null);assert.ok(screen.getByText('Progression commerciale'));cleanup();client.clear();
 });
 

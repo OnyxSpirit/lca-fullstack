@@ -28,7 +28,7 @@ test('SAV, CRM, facturation et paramètres conservent la chaîne vide pendant la
   const rates=source('modules/settings/WorkshopLaborRatesSettings.tsx');
   assert.match(repair,/mileage:''/);
   assert.match(repair,/mileage:e\.target\.value/);
-  assert.match(quotation,/setDiscount\(e\.target\.value\)/);
+  assert.match(quotation,/discount:e\.target\.value/);
   assert.match(invoice,/quantity: '', unitPrice: '', discount: ''/);
   assert.match(rates,/hourlyRate:''/);
 });

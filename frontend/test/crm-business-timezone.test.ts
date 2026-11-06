@@ -4,21 +4,21 @@ import{appointmentDateError,appointmentInputValue,appointmentIso}from'../src/mod
 import{businessDateTimeInputValue,businessLocalDateTimeToIso,businessNowInput}from'../src/lib/businessDateTime.ts';
 
 const expected=new Map([
-  ['08:00','2026-10-23T07:00:00.000Z'],
-  ['10:00','2026-10-23T09:00:00.000Z'],
-  ['15:30','2026-10-23T14:30:00.000Z'],
-  ['23:55','2026-10-23T22:55:00.000Z'],
-  ['00:05','2026-10-22T23:05:00.000Z'],
+  ['08:00','2099-10-23T07:00:00.000Z'],
+  ['10:00','2099-10-23T09:00:00.000Z'],
+  ['15:30','2099-10-23T14:30:00.000Z'],
+  ['23:55','2099-10-23T22:55:00.000Z'],
+  ['00:05','2099-10-22T23:05:00.000Z'],
 ]);
 
 for(const timezone of['Africa/Brazzaville','UTC','America/New_York']){
   test(`les horaires métier restent identiques avec un navigateur ${timezone}`,()=>{
     process.env.TZ=timezone;
     for(const[time,iso]of expected){
-      assert.equal(businessLocalDateTimeToIso(`2026-10-23T${time}`),iso);
-      assert.equal(appointmentIso(`2026-10-23T${time}`),iso);
-      assert.equal(businessDateTimeInputValue(iso),`2026-10-23T${time}`);
-      assert.equal(appointmentInputValue(iso),`2026-10-23T${time}`);
+      assert.equal(businessLocalDateTimeToIso(`2099-10-23T${time}`),iso);
+      assert.equal(appointmentIso(`2099-10-23T${time}`),iso);
+      assert.equal(businessDateTimeInputValue(iso),`2099-10-23T${time}`);
+      assert.equal(appointmentInputValue(iso),`2099-10-23T${time}`);
     }
   });
 }

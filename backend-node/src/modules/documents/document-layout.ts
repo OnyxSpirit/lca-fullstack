@@ -26,7 +26,7 @@ export function drawCompanyIdentity(doc:PDFKit.PDFDocument,identity:any){
   let logoDrawn=false;
   for(const logo of identity.logoCandidates??[identity.logoBase64]){try{doc.image(Buffer.from(String(logo),'base64'),documentStyle.logo.x,documentStyle.logo.y,{fit:[documentStyle.logo.width,documentStyle.logo.height],valign:'center'});logoDrawn=true;break}catch{continue}}
   const x=logoDrawn?155:42,width=logoDrawn?398:511,align=logoDrawn?'right':'left';
-  const name=documentText(identity.legalName||identity.tradeName),names=new Set([name.toLocaleLowerCase()]);
+  const baseName=documentText(identity.legalName||identity.tradeName),legalForm=documentText(identity.legalForm),name=[baseName,legalForm].filter(Boolean).join(' — '),names=new Set([name.toLocaleLowerCase(),baseName.toLocaleLowerCase()]);
   if(!logoDrawn&&name)doc.fillColor(documentStyle.colors.text).font('Helvetica-Bold').fontSize(13).text(name,x,40,{width,align});
   const lines:unknown[]=[];
   if(!logoDrawn){const trade=documentText(identity.tradeName);if(trade&&!names.has(trade.toLocaleLowerCase())){lines.push(trade);names.add(trade.toLocaleLowerCase())}}

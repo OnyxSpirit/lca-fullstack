@@ -12,8 +12,8 @@ const request=(scope:'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL',user='10',agency='1')=
   user:{sub:user,agencyId:agency},query:{},rbac:{permissions:new Map([['crm.pipeline.advance',scope]])},
 }) as unknown as Request;
 
-test('CRM-NEG-01 Négociation vers Gagné passe par la vente réelle',()=>{
-  assert.match(crm,/\['appointment','test_drive','offer','won'\]\.includes\(stage\).*action métier/);
+test('CRM-NEG-01 la vente réelle conserve sa transition Gagné, sans bloquer la matrice manuelle validée',()=>{
+  assert.match(crm,/negotiation:\['new','contacted','qualified','appointment','test_drive','offer','won','lost'\]/);
   assert.match(sales,/if\(input\.quotationId\)await assertPermission\(request,'quotations\.convert'\)/);
   assert.match(sales,/UPDATE opportunities SET stage='won',won_at=NOW\(\)/);
   assert.match(sales,/UPDATE leads SET status='converted',converted_at=NOW\(\)/);

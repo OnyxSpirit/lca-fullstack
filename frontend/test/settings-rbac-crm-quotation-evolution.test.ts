@@ -15,8 +15,8 @@ test('paramètres affiche uniquement les sections autorisées',()=>{
   assert.match(page,/canManageDocuments/);assert.match(page,/canManageAgencies/);
 });
 
-test('devis préselectionne seulement la recommandation serveur et conserve le choix manuel',()=>{
+test('devis multivéhicule conserve le choix manuel et les références normalisées',()=>{
   const modal=source('src/modules/crm/QuotationModal.tsx'),hooks=source('src/api/erpHooks.ts');
-  assert.match(hooks,/vehicle-context/);assert.match(modal,/recommendedVehicleId/);assert.match(modal,/setVehicleId\(current=>current\|\|recommended\)/);
-  assert.match(modal,/Plusieurs véhicules ont été essayés/);assert.match(modal,/VIN \{v\.vin\}/);assert.match(modal,/onChange=\{e=>setVehicleId\(e\.target\.value\)\}/);
+  assert.match(hooks,/useCommercialModelsQuery/);assert.match(modal,/items,clientRequestId/);assert.match(modal,/setLine\(line\.key/);
+  assert.match(modal,/Stock physique/);assert.match(modal,/VIN \{v\.vin\}/);assert.match(modal,/onChange=\{event=>choose\(line,event\.target\.value\)\}/);
 });

@@ -9,16 +9,19 @@ import{formatCurrency,formatDate}from'../../lib/utils';
 import{openBusinessPdf}from'../../services/businessPdf';
 import{useAuthStore}from'../../stores/authStore';
 import{useUiStore}from'../../stores/uiStore';
+import{useSearchParams}from'react-router-dom';
 
 type Line={key:string;reference:string;quantity:string;unitPrice:string;discount:string;imageIds:string[]};
 const emptyLine=():Line=>({key:crypto.randomUUID(),reference:'',quantity:'1',unitPrice:'',discount:'0',imageIds:[]});
 
 export const ProformasPage:React.FC=()=>{
+ const[searchParams,setSearchParams]=useSearchParams(),initialVehicleId=searchParams.get('vehicleId');
  const can=useAuthStore(s=>s.can),toast=useUiStore(s=>s.addToast),[search,setSearch]=useState(''),[status,setStatus]=useState(''),[page,setPage]=useState(1),[editingId,setEditingId]=useState<string>(),[formOpen,setFormOpen]=useState(false);
  const list=useProformasQuery({search,status,page,pageSize:20},can('proformas.view')),detail=useProformaQuery(editingId),create=useCreateProforma(),update=useUpdateProforma(),issue=useIssueProforma(),customers=useCustomersQuery('', '',formOpen),prospects=useLeadsQuery('','',formOpen),vehicles=useVehiclesQuery({status:'available'}),models=useCommercialModelsQuery(formOpen),config=useQuotationConfig();
  const[recipientType,setRecipientType]=useState<'customer'|'prospect'>('customer'),[customerId,setCustomerId]=useState(''),[opportunityId,setOpportunityId]=useState(''),[validUntil,setValidUntil]=useState(''),[notes,setNotes]=useState(''),[paymentTerms,setPaymentTerms]=useState(''),[warrantyTerms,setWarrantyTerms]=useState(''),[deliveryTerms,setDeliveryTerms]=useState(''),[lines,setLines]=useState<Line[]>([emptyLine()]);
  const existing=useProformasQuery({customerId,page:1,pageSize:5},formOpen&&recipientType==='customer'&&Boolean(customerId));
  const openNew=()=>{setEditingId(undefined);setRecipientType('customer');setCustomerId('');setOpportunityId('');setValidUntil('');setNotes('');setPaymentTerms('');setWarrantyTerms('');setDeliveryTerms('');setLines([emptyLine()]);setFormOpen(true)};
+ useEffect(()=>{if(!initialVehicleId||!can('proformas.create')||!vehicles.data)return;const vehicle=vehicles.data.find(item=>item.id===initialVehicleId);if(!vehicle)return;setEditingId(undefined);setLines([{...emptyLine(),reference:`vehicle:${vehicle.id}`,unitPrice:String(vehicle.sellingPriceHT??'')}]);setFormOpen(true);setSearchParams({}, {replace:true})},[initialVehicleId,vehicles.data,can,setSearchParams]);
  useEffect(()=>{const value=detail.data;if(!value||!editingId)return;setCustomerId(String(value.customer_id));setValidUntil(value.valid_until?.slice(0,10)??'');setNotes((value as any).notes??'');setPaymentTerms((value as any).payment_terms??'');setWarrantyTerms((value as any).warranty_terms??'');setDeliveryTerms((value as any).delivery_terms??'');setLines((value.items??[]).map(item=>({key:item.id,reference:item.vehicleId?`vehicle:${item.vehicleId}`:`model:${item.commercialModelId}`,quantity:String(item.quantity),unitPrice:String(item.unit_price),discount:String(item.discount),imageIds:item.selectedImageIds??[]})));setFormOpen(true)},[detail.data,editingId]);
  const setLine=(key:string,patch:Partial<Line>)=>setLines(current=>current.map(line=>line.key===key?{...line,...patch}:line));
  const choose=(line:Line,reference:string)=>{const vehicle=vehicles.data?.find(item=>`vehicle:${item.id}`===reference),model=models.data?.find(item=>`model:${item.id}`===reference);setLine(line.key,{reference,quantity:vehicle?'1':line.quantity,unitPrice:String(vehicle?.sellingPriceHT??model?.catalogPrice??''),imageIds:[]})};

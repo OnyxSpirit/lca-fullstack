@@ -18,16 +18,16 @@ export async function requireCrmAppointmentForTestDrive(connection:PoolConnectio
     ORDER BY o.id DESC
     LIMIT 1 FOR UPDATE`,[leadId]);
   const opportunity=rows[0];
-  if(!opportunity||opportunity.stage!=='appointment'||!Boolean(opportunity.has_valid_appointment)){
+  if(!opportunity||!Boolean(opportunity.has_valid_appointment)){
     throw new HttpError(409,'Un rendez-vous doit être enregistré avant de démarrer l’essai');
   }
   return String(opportunity.id);
 }
 
 export async function markCrmTestDriveStarted(connection:PoolConnection,opportunityId:string|null){
-  if(!opportunityId)return;
-  const[result]=await connection.execute("UPDATE opportunities SET stage='test_drive' WHERE id=? AND stage='appointment'",[opportunityId]);
-  if(!('affectedRows'in result)||Number(result.affectedRows)!==1)throw new HttpError(409,'Le rendez-vous CRM n’est plus valide pour cet essai');
+  // L'essai et le pipeline sont indépendants. Cette fonction reste exportée pour
+  // compatibilité avec les routes historiques, mais ne déplace plus l'opportunité.
+  void connection;void opportunityId;
 }
 
 export async function startPlannedTestDrive(connection:PoolConnection,id:string){

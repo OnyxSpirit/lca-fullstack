@@ -20,7 +20,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Layers,
   Landmark,
   X,
   History,
@@ -99,13 +98,6 @@ export const Sidebar: React.FC = () => {
           label: 'Stock Véhicules (VN/VO)',
           icon: <Car className="w-4 h-4" />,
           module: 'vehicles',
-        },
-        {
-          to: '/vehicles/catalog',
-          label: 'Catalogue commercial',
-          icon: <Layers className="w-4 h-4" />,
-          module: 'vehicles',
-          visible: can('vehicles.catalog.view'),
         },
         {
           to: ROUTES.sales,

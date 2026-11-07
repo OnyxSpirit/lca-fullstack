@@ -2,8 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus, Star, Trash2 } from "lucide-react";
 import {
   useCreateVehicle,
+  useCommercialModelsQuery,
+  useCommercialModelImpact,
   useVehicleCreateAgenciesQuery,
   useVehicleReferencesQuery,
+  useEligibleVehicleWarrantyProviders,
 } from "../../api/erpHooks";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -16,6 +19,8 @@ import {
   vehiclePayloadForAgency,
 } from "./vehicleScopePolicy";
 import { receptionPricing } from "./vehicleReceptionPricing";
+import {confirmAction}from'../../components/ui/BusinessDialog';
+import {TechnicalCharacteristicsForm,technicalOverrides,technicalProfileValues,type TechnicalValues,type VehicleWarrantyDraft}from'./TechnicalCharacteristicsForm';
 
 interface Props {
   isOpen: boolean;
@@ -33,6 +38,7 @@ const initial = {
   brand: "",
   model: "",
   version: "",
+  versionId: "",
   vehicleType: "used",
   bodyType: "SUV",
   year: String(new Date().getFullYear()),
@@ -110,10 +116,14 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
     agenciesQuery = useVehicleCreateAgenciesQuery(isOpen),
     currentAgency = useAuthStore((s) => s.currentAgency),
     addToast = useUiStore((s) => s.addToast);
+  const canViewProfiles=useAuthStore(s=>s.can('vehicles.catalog.view')||s.can('vehicles.catalog.manage'));
+  const canManageProfile=useAuthStore(s=>s.can('vehicles.catalog.manage'));
   const [form, setForm] = useState(initial),
     [images, setImages] = useState<CatalogImage[]>([]),
     [isProcessingImages, setIsProcessingImages] = useState(false),
     [vinError, setVinError] = useState("");
+  const[technicalValues,setTechnicalValues]=useState<TechnicalValues>({}),[technicalScope,setTechnicalScope]=useState<'vehicle'|'profile'>('vehicle');
+  const[warranty,setWarranty]=useState<VehicleWarrantyDraft>({hasWarranty:null,providerId:''});
   const agencies = agenciesQuery.data ?? [],
     selectedAgencyId =
       form.agencyId || agencies[0]?.id || currentAgency?.id || "",
@@ -121,6 +131,10 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
     currencyCode = selectedAgency?.currencyCode ?? "XAF",
     financialAllowed = Boolean(selectedAgency?.financialAllowed),
     references = useVehicleReferencesQuery(selectedAgencyId);
+  const warrantyProviders=useEligibleVehicleWarrantyProviders(isOpen);
+  const profiles=useCommercialModelsQuery(isOpen&&canViewProfiles,false);
+  const selectedProfile=profiles.data?.find(profile=>profile.versionId===form.versionId);
+  const impact=useCommercialModelImpact(form.versionId,isOpen&&technicalScope==='profile'&&canManageProfile);
   const receptionPrice=receptionPricing(form);
   const vinRef = useRef<HTMLInputElement>(null),
     normalizedVin = normalizeVin(form.vin),
@@ -178,6 +192,10 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
       vinRef.current?.focus();
       return;
     }
+    if(technicalScope==='profile'){
+      const changed=Object.keys(technicalOverrides(technicalValues,selectedProfile));
+      if(changed.length&&!await confirmAction('Modifier le profil commun de cette version',`${impact.data?.versionLabel??`${form.brand} ${form.model} — ${form.version}`} : ${impact.data?.affectedVehicles??0} véhicule(s) encore en stock peuvent utiliser ces valeurs. Champs modifiés : ${changed.join(', ')}. Les exceptions individuelles seront conservées.`))return;
+    }
     const numbers = Object.fromEntries(
       numericFields.map((name) => [name, numberOrUndefined(form[name])]),
     );
@@ -195,6 +213,11 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
           .map((value) => value.trim())
           .filter(Boolean),
         images: images.map(({ dataUrl, name }) => ({ dataUrl, name })),
+        technicalScope,
+        technicalValues:technicalScope==='profile'?technicalValues:technicalOverrides(technicalValues,selectedProfile),
+        profileRevision:selectedProfile?.revision,
+        confirmSharedProfile:technicalScope==='profile',
+        ...(warranty.hasWarranty==null?{}:{warrantyAssignment:warranty}),
       },
       financialAllowed,
     );
@@ -207,6 +230,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
       setForm(initial);
       setImages([]);
+      setTechnicalValues({});setTechnicalScope('vehicle');setWarranty({hasWarranty:null,providerId:''});
       onClose();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erreur API";
@@ -233,11 +257,12 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
       isOpen={isOpen}
       onClose={onClose}
       title="Enregistrer un véhicule VN / VO"
-      description="Identification, données financières et photos du catalogue."
+      description="Entrée progressive : unité physique, version commune, informations commerciales et photographies facultatives."
       maxWidth="2xl"
     >
       <form onSubmit={submit} className="space-y-5">
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-3"><h3 className="text-sm font-bold uppercase tracking-wide text-slate-800">A — Identification et rattachement</h3><p className="text-xs text-slate-500">Commencez par l’unité physique et sa version normalisée. Les champs avancés restent facultatifs.</p></div>
           {agencies.length > 1 && (
             <label className="text-xs font-semibold">
               Agence de rattachement
@@ -297,8 +322,10 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
               required
               value={form.model}
               onChange={field("model")}
+              list="vehicle-models"
               className="mt-1 w-full p-2.5 border rounded-lg"
             />
+            <datalist id="vehicle-models">{references.data?.models?.filter((item:any)=>!form.brand||String(item.brand_id)===String(references.data?.brands?.find((brand:any)=>brand.name===form.brand)?.id)).map((item:any)=><option key={item.id} value={item.name}/>)}</datalist>
           </label>
           <label className="text-xs font-semibold">
             Version / finition
@@ -307,6 +334,10 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
               onChange={field("version")}
               className="mt-1 w-full p-2.5 border rounded-lg"
             />
+          </label>
+          <label className="text-xs font-semibold sm:col-span-3">Version normalisée et profil commun
+            <select value={form.versionId} onChange={event=>{const versionId=event.target.value,version=references.data?.versions?.find((item:any)=>String(item.id)===versionId),model=version&&references.data?.models?.find((item:any)=>String(item.id)===String(version.model_id)),brand=model&&references.data?.brands?.find((item:any)=>String(item.id)===String(model.brand_id)),profile=profiles.data?.find(item=>item.versionId===versionId);setTechnicalValues(technicalProfileValues(profile));setTechnicalScope('vehicle');setForm(current=>({...current,versionId,version:version?.name??current.version,model:model?.name??current.model,brand:brand?.name??current.brand,engine:profile?.engine_power??version?.engine??current.engine,fuelType:version?.fuel_type??current.fuelType,transmission:version?.transmission??current.transmission,realPower:String(profile?.power_ch??version?.power??current.realPower),catalogPrice:String(profile?.catalogPrice??current.catalogPrice)}))}} className="mt-1 w-full rounded-lg border p-2.5"><option value="">Saisie libre / version à créer</option>{references.data?.versions?.filter((version:any)=>!form.model||String(version.model_id)===String(references.data?.models?.find((model:any)=>model.name===form.model)?.id)).map((version:any)=><option key={version.id} value={version.id}>{references.data?.brands?.find((brand:any)=>String(brand.id)===String(references.data?.models?.find((model:any)=>String(model.id)===String(version.model_id))?.brand_id))?.name} · {references.data?.models?.find((model:any)=>String(model.id)===String(version.model_id))?.name} · {version.name}</option>)}</select>
+            {selectedProfile?<span className="mt-1 block rounded bg-emerald-50 p-2 font-normal text-emerald-800">Profil technique commun trouvé : les valeurs connues sont proposées automatiquement. Sa modification reste séparée et gouvernée.</span>:form.versionId?<span className="mt-1 block font-normal text-amber-700">Aucun profil commun : l’entrée en stock reste autorisée.</span>:null}
           </label>
           <label className="text-xs font-semibold">
             VIN (17 caractères) *
@@ -405,6 +436,10 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <option>Double Débrayage</option>
             </select>
           </label>
+          <label className="text-xs font-semibold">Moteur<input value={form.engine} onChange={field("engine")} className="mt-1 w-full rounded-lg border p-2.5"/></label>
+          <label className="text-xs font-semibold">Puissance fiscale (CV)<input type="number" min="0" value={form.fiscalPower} onChange={field("fiscalPower")} className="mt-1 w-full rounded-lg border p-2.5"/></label>
+          <label className="text-xs font-semibold">Puissance réelle (ch)<input type="number" min="0" value={form.realPower} onChange={field("realPower")} className="mt-1 w-full rounded-lg border p-2.5"/></label>
+          <label className="text-xs font-semibold">Émissions CO₂ (g/km)<input type="number" min="0" value={form.co2Emissions} onChange={field("co2Emissions")} className="mt-1 w-full rounded-lg border p-2.5"/></label>
           <label className="text-xs font-semibold">
             Couleur extérieure
             <input
@@ -440,8 +475,10 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </label>
           <label className="text-xs font-semibold">Fournisseur véhicule<select value={form.supplierId} onChange={field("supplierId")} className="mt-1 w-full p-2.5 border rounded-lg"><option value="">Non renseigné</option>{references.data?.suppliers?.map((item:{id:string;name:string;code:string})=><option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
         </section>
+        <TechnicalCharacteristicsForm values={technicalValues} onChange={setTechnicalValues} profile={selectedProfile} scope={technicalScope} onScope={setTechnicalScope} canManageProfile={canManageProfile} versionLabel={form.versionId?`${form.brand} ${form.model} — ${form.version}`:undefined} warranty={warranty} onWarrantyChange={setWarranty} warrantyProviders={warrantyProviders.data??[]}/>
         {financialAllowed && (
           <section className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border">
+            <div className="col-span-2 sm:col-span-3"><h3 className="text-sm font-bold uppercase tracking-wide">G — Informations commerciales et financières</h3><p className="text-xs text-slate-500">Visible uniquement selon les permissions financières de l’agence.</p></div>
             {(
               [
                 [
@@ -494,7 +531,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-bold">Photos du catalogue</h4>
+              <h4 className="text-sm font-bold">H — Photographies individuelles du véhicule</h4>
               <p className="text-xs text-slate-500">
                 Jusqu’à 8 images JPEG, PNG ou WebP. Elles peuvent être ajoutées ultérieurement.
               </p>
@@ -552,7 +589,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           ) : (
             <div className="p-8 text-center border-2 border-dashed rounded-xl text-xs text-slate-500">
-              Aucune photo : le véhicule ne peut pas être publié.
+              Aucune photographie. Vous pourrez en ajouter après l’enregistrement.
             </div>
           )}
         </section>

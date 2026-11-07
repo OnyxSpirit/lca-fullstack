@@ -13,7 +13,6 @@ const ModulesPortalPage=lazy(()=>import('./modules/modules-portal/ModulesPortalP
 const CrmPage=lazy(()=>import('./modules/crm/CrmPage').then(module=>({default:module.CrmPage})));
 const ShowroomPage=lazy(()=>import('./modules/showroom/ShowroomPage').then(module=>({default:module.ShowroomPage})));
 const VehiclesListPage=lazy(()=>import('./modules/vehicles/VehiclesListPage').then(module=>({default:module.VehiclesListPage})));
-const CommercialCatalogPage=lazy(()=>import('./modules/vehicles/CommercialCatalogPage').then(module=>({default:module.CommercialCatalogPage})));
 const VehicleDetailPage=lazy(()=>import('./modules/vehicles/VehicleDetailPage').then(module=>({default:module.VehicleDetailPage})));
 const SalesListPage=lazy(()=>import('./modules/sales/SalesListPage').then(module=>({default:module.SalesListPage})));
 const ProformasPage=lazy(()=>import('./modules/proformas/ProformasPage').then(module=>({default:module.ProformasPage})));
@@ -84,7 +83,7 @@ export default function App() {
           <Route path="crm" element={<ModuleGuard module="crm">{lazyPage(<CrmPage />)}</ModuleGuard>} />
           <Route path="showroom" element={<ModuleGuard module="showroom">{lazyPage(<ShowroomPage />)}</ModuleGuard>} />
           <Route path="vehicles" element={<ModuleGuard module="vehicles">{lazyPage(<VehiclesListPage />)}</ModuleGuard>} />
-          <Route path="vehicles/catalog" element={<PermissionGuard permission="vehicles.catalog.view">{lazyPage(<CommercialCatalogPage />)}</PermissionGuard>} />
+          <Route path="vehicles/catalog" element={<Navigate to="/vehicles" replace />} />
           <Route path="vehicles/:id" element={<ModuleGuard module="vehicles">{lazyPage(<VehicleDetailPage />)}</ModuleGuard>} />
           <Route path="sales" element={<ModuleGuard module="sales">{lazyPage(<SalesListPage />)}</ModuleGuard>} />
           <Route path="proformas" element={<PermissionGuard permission="proformas.view">{lazyPage(<ProformasPage />)}</PermissionGuard>} />

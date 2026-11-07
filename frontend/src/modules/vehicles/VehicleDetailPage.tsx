@@ -49,6 +49,7 @@ export const VehicleDetailPage: React.FC = () => {
   const canEdit=can('vehicles.update');
   const canManageImages=can('vehicles.images.manage');
   const canCreateSale=can('sales.create');
+  const canCreateProforma=can('proformas.create');
   const canCreateRepairOrder=can('service.order.create');
   const canViewDocuments=can('ged.view');
   const canUploadDocuments=can('ged.upload');
@@ -69,6 +70,8 @@ export const VehicleDetailPage: React.FC = () => {
   const [previewDocument,setPreviewDocument]=useState<PreviewDocument|null>(null);
   const [transferOpen,setTransferOpen]=useState(false);
   const galleryImages=vehicleQuery.data?.images??[];
+  const technicalProfile=vehicleQuery.data?.technicalProfile;
+  const technicalValues=vehicleQuery.data?.effectiveTechnical?.values??technicalProfile;
   const selectedImage=galleryImages.find((image:any)=>String(image.id)===selectedImageId);
   useEffect(()=>{
     const selectedIndex=selectedImageId?galleryImages.findIndex((image:any)=>String(image.id)===selectedImageId):-1;
@@ -120,6 +123,7 @@ export const VehicleDetailPage: React.FC = () => {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canEdit&&!stockLocked&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
+            {canCreateProforma&&<Button variant="primary" size="sm" icon={<FileText className="w-4 h-4"/>} onClick={()=>navigate(`/proformas?vehicleId=${vehicle.id}`)}>Générer une pro forma</Button>}
             {canTransfer&&!stockLocked&&<Button variant="outline" size="sm" onClick={()=>setTransferOpen(true)}>Transférer</Button>}
             {/* Quick Status Selector */}
             {canChangeStatus&&!stockLocked&&manualStatusOptions.length>0&&<select
@@ -320,6 +324,17 @@ export const VehicleDetailPage: React.FC = () => {
             </div>
           </Card>
 
+          <Card className="md:col-span-2">
+            <CardHeader><CardTitle>Profil technique commun de la version</CardTitle></CardHeader>
+            {technicalValues?<><p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Valeurs effectives de {vehicle.version}. Les particularités de ce véhicule remplacent le profil commun sans modifier les autres unités.{(vehicleQuery.data?.vehicle as any)?.technicalFrozenAt?' Fiche technique historique figée.':''}</p>{[
+              ['Identification',[['Catégorie',technicalValues.technical_category||technicalValues.vehicle_type],['Configuration',technicalValues.configuration],['Carrosserie technique',technicalValues.technical_body_type]]],
+              ['Motorisation et performances',[['Moteur',technicalValues.engine_power],['Cylindrée',technicalValues.displacement_cc&&`${technicalValues.displacement_cc} cm³`],['Cylindres',technicalValues.cylinder_count],['Puissance combinée',technicalValues.combined_power_kw&&`${technicalValues.combined_power_kw} kW`],['Puissance',technicalValues.power_ch&&`${technicalValues.power_ch} ch`],['Couple',technicalValues.maximum_torque_nm&&`${technicalValues.maximum_torque_nm} Nm`],['0–100 km/h',technicalValues.acceleration_0_100_seconds&&`${technicalValues.acceleration_0_100_seconds} s`],['Vitesse maximale',technicalValues.maximum_speed_kmh&&`${technicalValues.maximum_speed_kmh} km/h`],['Consommation',technicalValues.fuel_consumption_l_100km&&`${technicalValues.fuel_consumption_l_100km} L/100 km`],['Réservoir',technicalValues.fuel_tank_capacity_l&&`${technicalValues.fuel_tank_capacity_l} L`],['Autonomie électrique',technicalValues.electric_range_km&&`${technicalValues.electric_range_km} km`],['Autonomie combinée',technicalValues.combined_range_km&&`${technicalValues.combined_range_km} km`]]],
+              ['Transmission, dimensions et habitabilité',[['Motricité',technicalValues.drive_method],['Rapports',technicalValues.gear_count],['Conduite',technicalValues.driving_configuration],['Dimensions',technicalValues.length_mm&&`${technicalValues.length_mm} × ${technicalValues.width_mm??'—'} × ${technicalValues.height_mm??'—'} mm`],['Places',technicalValues.seat_count],['Revêtement',technicalValues.interior_trim],['Pneumatiques',technicalValues.tire_dimensions]]],
+              ['Châssis, sécurité et technologies',[['Suspension avant',technicalValues.front_suspension],['Suspension arrière',technicalValues.rear_suspension],['Freins avant',technicalValues.front_brakes],['Freins arrière',technicalValues.rear_brakes],['Direction',technicalValues.steering_system],['Capteurs avancés',technicalValues.advanced_sensors],['Refroidissement batterie',technicalValues.battery_cooling_function],['Sécurité',technicalValues.safety_features],['Écran / tableau de bord',technicalValues.central_screen_dashboard],['Technologies',technicalValues.embedded_technologies],['Connectivité',technicalValues.connectivity],['Multimédia',technicalValues.multimedia_system],['Autres technologies',technicalValues.other_technologies]]],
+              ['Garantie et disponibilité',[['Garantie',technicalValues.warranty_text],['Durée',technicalValues.warranty_duration_months&&`${technicalValues.warranty_duration_months} mois`],['Limite',technicalValues.warranty_mileage_limit_km&&`${technicalValues.warranty_mileage_limit_km} km`],['Disponibilité',technicalValues.availability_text],['Délai',technicalValues.delivery_lead_time]]],
+            ].map(([title,items]:any)=><div key={title} className="mb-4"><h4 className="mb-2 text-xs font-bold uppercase text-slate-600">{title}</h4><div className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">{items.filter(([,value]:any)=>value!==null&&value!==undefined&&value!=='').map(([label,value]:any)=><div key={label} className="rounded-lg bg-slate-50 p-3"><span className="block text-slate-500">{label}</span><b>{String(value)}</b></div>)}</div></div>)}{Array.isArray(technicalValues.additional_specs)&&technicalValues.additional_specs.length>0&&<div><h4 className="mb-2 text-xs font-bold uppercase text-slate-600">Caractéristiques supplémentaires</h4><div className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">{technicalValues.additional_specs.map((item:any,index:number)=><div key={index} className="rounded-lg bg-slate-50 p-3"><span className="block text-slate-500">{item.category?`${item.category} · `:''}{item.label}</span><b>{item.value} {item.unit??''}</b></div>)}</div></div>}{technicalProfile?.images?.length>0&&<div className="mt-4"><h4 className="mb-2 text-xs font-bold">Photographies communes de la version</h4><div className="flex flex-wrap gap-2">{technicalProfile.images.map((image:any)=><img key={image.id} src={image.thumbnailUrl||image.url} alt={`${vehicle.brand} ${vehicle.model}`} className="h-20 w-28 rounded-lg border object-cover"/>)}</div></div>}</>:<p className="text-sm text-slate-500">Aucune caractéristique technique n’est renseignée.</p>}
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Équipements & Options Incluses</CardTitle>
@@ -413,7 +428,7 @@ export const VehicleDetailPage: React.FC = () => {
       <Card><CardHeader><CardTitle>Dossiers associés</CardTitle></CardHeader><div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">{vehicleQuery.data?.reservations?.map((item:any)=><div key={`r-${item.id}`} className="rounded border p-3 text-xs"><b>Réservation</b><p>{item.customer_name||'Client protégé'} · {item.status}</p></div>)}{vehicleQuery.data?.sales?.map((item:any)=><div key={`s-${item.id}`} className="rounded border p-3 text-xs"><b>Vente {item.sale_number}</b><p>{item.customer_name||'Client protégé'} · {item.status}</p><Link className="font-bold text-[#8f1722]" to={`/sales/${item.id}`}>Voir la vente</Link></div>)}{vehicleQuery.data?.deliveries?.map((item:any)=><div key={`d-${item.id}`} className="rounded border p-3 text-xs"><b>Livraison {item.delivery_number}</b><p>{item.status}</p><Link className="font-bold text-[#8f1722]" to={`/deliveries/${item.id}`}>Voir la livraison</Link></div>)}{vehicleQuery.data?.repairOrders?.map((item:any)=><div key={`o-${item.id}`} className="rounded border p-3 text-xs"><b>OR {item.order_number}</b><p>{item.status}</p><Link className="font-bold text-[#8f1722]" to={`/service/repair-orders/${item.id}`}>Voir l’OR</Link></div>)}{vehicleQuery.data?.warranty&&<div className="rounded border p-3 text-xs"><b>Garantie constructeur</b><p>{vehicleQuery.data.warranty.provider_name_snapshot||vehicleQuery.data.warranty.provider_name||'Fournisseur non renseigné'}</p><p>{vehicleQuery.data.warranty.status} · échéance {vehicleQuery.data.warranty.expiry_date?formatDate(vehicleQuery.data.warranty.expiry_date):'à déterminer'}</p></div>}</div></Card>
       {canViewFinancials&&Boolean(vehicleQuery.data?.priceHistory?.length)&&<Card><CardHeader><CardTitle>Historique des prix</CardTitle></CardHeader><div className="divide-y text-xs">{vehicleQuery.data.priceHistory.map((item:any)=><div key={item.id} className="grid gap-1 py-3 sm:grid-cols-4"><span>{formatDate(item.changed_at)}</span><span>Vente : {formatCurrency(Number(item.old_sale_price),vehicle.currencyCode)} → {formatCurrency(Number(item.new_sale_price),vehicle.currencyCode)}</span><span>Minimum : {formatCurrency(Number(item.old_minimum_price),vehicle.currencyCode)} → {formatCurrency(Number(item.new_minimum_price),vehicle.currencyCode)}</span><span>{item.reason||'Sans motif'} · {item.changed_by_name||'Système'}</span></div>)}</div></Card>}
       <VehicleTransferModal open={transferOpen} close={()=>setTransferOpen(false)} vehicle={vehicle}/>
-      <EditVehicleModal isOpen={editOpen} onClose={()=>setEditOpen(false)} vehicle={vehicle}/>
+      <EditVehicleModal isOpen={editOpen} onClose={()=>setEditOpen(false)} vehicle={vehicle} technicalProfile={technicalProfile} effectiveTechnical={vehicleQuery.data?.effectiveTechnical}/>
       <DocumentPreview document={previewDocument} onClose={()=>setPreviewDocument(null)} onDownload={downloadDocument}/>
     </div>
   );

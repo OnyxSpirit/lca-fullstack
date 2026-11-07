@@ -102,6 +102,7 @@ const mapVehicle = (r: any): Vehicle => ({
   brand: r.brand ?? "",
   model: r.model ?? "",
   version: r.version ?? "",
+  versionId: s(r.versionId),
   type: vehicleType[r.vehicleType] ?? r.type ?? "Neuf",
   bodyType: r.bodyType ?? "SUV",
   year: n(r.year),
@@ -158,6 +159,7 @@ const mapVehicle = (r: any): Vehicle => ({
   receptionInitialSalePrice: optionalNumber(r.receptionInitialSalePrice),
   receptionDefectDiscount: optionalNumber(r.receptionDefectDiscount),
   receptionDefectDiscountReason: r.receptionDefectDiscountReason ?? undefined,
+  warrantyAssignment: r.warrantyAssignment ?? null,
   createdAt: r.createdAt ?? "",
 });
 const leadPriorityFromDb: Record<string, Lead["priority"]> = {
@@ -491,8 +493,9 @@ export const useLeadQuotationsQuery=(opportunityId?:string,requestEnabled=true)=
 export interface QuotationVehicleContext{opportunityId:string;testDriveId:string|null;recommendedVehicleId:string|null;ambiguous:boolean;testedVehicles:Array<{testDriveId:string;vehicleId:string;vin:string;stockNumber:string;vehicleLabel:string;returnedAt:string;eligible:boolean}>}
 export const useQuotationVehicleContext=(opportunityId?:string,testDriveId?:string)=>useQuery({queryKey:[...erpKeys.quotations,'vehicle-context',opportunityId,testDriveId],queryFn:()=>apiRequest<QuotationVehicleContext>(`/quotations/opportunity/${opportunityId}/vehicle-context${testDriveId?`?testDriveId=${encodeURIComponent(testDriveId)}`:''}`),enabled:enabled()&&Boolean(opportunityId)});
 export const useQuotationConfig=()=>useQuery({queryKey:[...erpKeys.quotations,'config'],queryFn:()=>apiRequest<{defaultVatRate:number;currencyCode:string;defaultTaxMode:'TAXABLE';defaultPriceInputMode:'HT'}>('/quotations/config'),enabled:enabled()});
-export interface CommercialModel{id:string;versionId:string;brand:string;model:string;version:string;vehicle_type?:string;configuration?:string;engine_power?:string;combined_power_kw?:number;maximum_torque_nm?:number;power_ch?:number;acceleration_0_100_seconds?:number;electric_range_km?:number;combined_range_km?:number;seat_count?:number;drive_method?:string;length_mm?:number;width_mm?:number;height_mm?:number;warranty_text?:string;availability_text?:string;delivery_lead_time?:string;catalogPrice:number;currency_code:string;is_commercially_available:boolean;images:Array<{id:string;url:string;thumbnailUrl?:string;isPrimary:boolean;sortOrder:number}>}
+export interface CommercialModel{id:string;versionId:string;brand:string;model:string;version:string;revision:number;vehicle_type?:string;technical_category?:string;configuration?:string;technical_body_type?:string;engine_power?:string;displacement_cc?:number;cylinder_count?:number;powertrain_type?:string;combined_power_kw?:number;maximum_torque_nm?:number;power_ch?:number;acceleration_0_100_seconds?:number;maximum_speed_kmh?:number;electric_range_km?:number;combined_range_km?:number;fuel_tank_capacity_l?:number;fuel_consumption_l_100km?:number;seat_count?:number;interior_trim?:string;tire_dimensions?:string;drive_method?:string;gear_count?:number;driving_configuration?:string;length_mm?:number;width_mm?:number;height_mm?:number;advanced_sensors?:string;battery_cooling_function?:string;front_suspension?:string;rear_suspension?:string;front_brakes?:string;rear_brakes?:string;ventilated_front_discs?:boolean;ventilated_rear_discs?:boolean;central_screen_dashboard?:string;remote_app_control?:boolean;embedded_technologies?:string;connectivity?:string;multimedia_system?:string;other_technologies?:string;steering_system?:string;safety_features?:string;warranty_text?:string;warranty_duration_months?:number;warranty_mileage_limit_km?:number;availability_text?:string;delivery_lead_time?:string;additional_specs?:Record<string,unknown>|Array<{label:string;value:string;unit?:string;category?:string}>;catalogPrice:number;currency_code:string;is_commercially_available:boolean;images:Array<{id:string;url:string;thumbnailUrl?:string;isPrimary:boolean;sortOrder:number}>}
 export const useCommercialModelsQuery=(requestEnabled=true,availableOnly=true)=>useQuery({queryKey:['commercial-models',availableOnly],queryFn:async()=>{const rows=await apiRequest<CommercialModel[]>(`/commercial-models?availableOnly=${availableOnly}`);return rows.map(row=>({...row,images:(row.images??[]).map(image=>({...image,url:assetUrl(image.url),thumbnailUrl:assetUrl(image.thumbnailUrl??image.url)}))}))},enabled:enabled()&&requestEnabled});
+export const useCommercialModelImpact=(versionId?:string,requestEnabled=true)=>useQuery({queryKey:['commercial-model-impact',versionId],queryFn:()=>apiRequest<{versionId:string;versionLabel:string;affectedVehicles:number}>(`/commercial-models/by-version/${versionId}/impact`),enabled:enabled()&&requestEnabled&&Boolean(versionId)});
 export const useCommercialCatalogActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:['commercial-models']});return{
   create:useMutation({mutationFn:(body:Record<string,unknown>)=>apiRequest<CommercialModel>('/commercial-models',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
   update:useMutation({mutationFn:({id,...body}:{id:string}&Record<string,unknown>)=>apiRequest<CommercialModel>(`/commercial-models/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),
@@ -719,6 +722,7 @@ export const useVehicle360Query = (id?: string) =>
           file_path: assetUrl(image.file_path),
           thumbnail_path: assetUrl(image.thumbnail_path),
         })),
+        technicalProfile:data.technicalProfile?{...data.technicalProfile,images:(data.technicalProfile.images??[]).map((image:any)=>({...image,url:assetUrl(image.url),thumbnailUrl:assetUrl(image.thumbnailUrl??image.url)}))}:null,
         documents: data.documents,
       };
     },
@@ -731,6 +735,13 @@ export const useVehicleReferencesQuery = (agencyId?:string) =>
     enabled: enabled(),
     staleTime: 300_000,
   });
+export interface EligibleWarrantyProvider{id:string;code:string;name:string;durationMonths:number;mileageLimit:number|null;terms:string}
+export const useEligibleVehicleWarrantyProviders=(requestEnabled=true)=>useQuery({
+  queryKey:['vehicle-warranty-providers','eligible'],
+  queryFn:()=>apiRequest<EligibleWarrantyProvider[]>('/vehicles/warranty-providers/eligible'),
+  enabled:enabled()&&requestEnabled,
+  staleTime:300_000,
+});
 export const usePartDetailQuery = (id?: string,agencyId?:string,requestEnabled=true) =>
   useQuery({
     queryKey: ["parts", id,agencyId],

@@ -104,7 +104,7 @@ export const CrmPage: React.FC = () => {
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     const stage = opportunityStageToDb[newStage];
-    if(newStage==='PERDU'){const lead=leads.find(item=>item.id===leadId);if(lead){setLostReason('');setLostLead(lead)}return}
+    if(newStage==='PERDU'){const lead=filteredLeads.find(item=>item.id===leadId);if(lead){setLostReason('');setLostLead(lead)}return}
     try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage }); addToast({
       type: 'info',
       title: 'Étape mise à jour',
@@ -220,7 +220,7 @@ export const CrmPage: React.FC = () => {
             const dbStage=opportunityStageToDb[stage],columnQuery=kanbanQueries[kanbanDbStages.indexOf(dbStage as typeof kanbanDbStages[number])],aggregate=columnQuery?.data?.stageSummary?.[dbStage],stageTotalBudget=aggregate?.budget??0,columnTotal=columnQuery?.data?.total??0;
 
             return (
-              <div key={stage} className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]">
+              <div key={stage} onDragOver={event=>{if(canUpdateStage)event.preventDefault()}} onDrop={event=>{event.preventDefault();const leadId=event.dataTransfer.getData('text/crm-lead-id'),source=event.dataTransfer.getData('text/crm-source-stage') as LeadStage;if(leadId&&source!==stage&&!['GAGNE','PERDU'].includes(source))void handleStageChange(leadId,stage)}} className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]">
                 {/* Stage Header */}
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
                   <div className="flex items-center gap-2">
@@ -239,6 +239,8 @@ export const CrmPage: React.FC = () => {
                   {stageLeads.map((lead) => (
                     <div
                       key={lead.id}
+                      draggable={canUpdateStage&&!['GAGNE','PERDU'].includes(lead.stage)}
+                      onDragStart={event=>{event.dataTransfer.setData('text/crm-lead-id',lead.id);event.dataTransfer.setData('text/crm-source-stage',lead.stage);event.dataTransfer.effectAllowed='move'}}
                       onClick={() => setSelectedLead(lead)}
                       onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setSelectedLead(lead)}}}
                       role="button"
@@ -296,20 +298,7 @@ export const CrmPage: React.FC = () => {
                       <div className="flex items-center justify-between pt-1 text-[10px]">
                         <span className="text-slate-400 truncate">{lead.assignedToName.split(' ')[0]}</span>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          {canUpdateStage && ['NOUVEAU','CONTACTE'].includes(stage) && (
-                            <button
-                              onClick={() => {
-                                const currentIndex = stages.findIndex((s) => s.stage === stage);
-                                if (currentIndex < stages.length - 1) {
-                                  handleStageChange(lead.id, stages[currentIndex + 1].stage);
-                                }
-                              }}
-                              className="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 hover:bg-blue-600 hover:text-white rounded transition-colors"
-                              title="Passer à l'étape suivante"
-                            >
-                              Avancer →
-                            </button>
-                          )}
+                          {canUpdateStage && !['GAGNE','PERDU'].includes(stage) && <select aria-label={`Déplacer ${lead.firstName} ${lead.lastName}`} value={stage} onChange={event=>void handleStageChange(lead.id,event.target.value as LeadStage)} className="max-w-28 rounded border bg-white px-1 py-0.5 text-[10px] font-semibold"><option value={stage}>{stages.find(item=>item.stage===stage)?.label}</option>{stages.filter(item=>item.stage!==stage).map(item=><option key={item.stage} value={item.stage}>{item.label}</option>)}</select>}
                         </div>
                       </div>
                     </div>
@@ -427,12 +416,12 @@ export const CrmPage: React.FC = () => {
                 <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
                   Étape Actuelle du Pipeline
                 </span>
-                {canUpdateStage&&['NOUVEAU','CONTACTE'].includes(selectedLead.stage) ? <select
+                {canUpdateStage&&!['GAGNE','PERDU'].includes(selectedLead.stage) ? <select
                   value={selectedLead.stage}
                   onChange={(e) => handleStageChange(selectedLead.id, e.target.value as LeadStage)}
                   className="text-xs font-bold p-1.5 rounded-lg border border-blue-400 bg-white text-blue-800 focus:outline-none"
                 >
-                  {stages.filter(s=>s.stage===selectedLead.stage||(selectedLead.stage==='NOUVEAU'&&s.stage==='CONTACTE')||(selectedLead.stage==='CONTACTE'&&s.stage==='QUALIFIE')).map((s) => (
+                  {stages.map((s) => (
                     <option key={s.stage} value={s.stage}>
                       {s.label}
                     </option>

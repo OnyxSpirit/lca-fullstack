@@ -25,12 +25,14 @@ import { VehicleStatus, FuelType } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { NewVehicleModal } from './NewVehicleModal';
 import { implicitVehicleAgencyFilter } from './vehicleScopePolicy';
+import {CommercialCatalogPage} from './CommercialCatalogPage';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
   const currentAgency=useAuthStore(state=>state.currentAgency),can=useAuthStore(state=>state.can),permissionScope=useAuthStore(state=>state.permissionScope),canCreate=can('vehicles.create'),canViewFinancials=can('vehicles.financials.view');
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [stockSection,setStockSection]=useState<'units'|'models'>('units');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [inventoryView, setInventoryView] = useState<'active'|'sold'|'all'>('active');
@@ -67,8 +69,11 @@ export const VehiclesListPage: React.FC = () => {
   const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant||locationType||assignment);
   const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false);setLocationType('');setAssignment('');setPage(1)};
 
+  if(stockSection==='models')return <div className="space-y-5"><div className="flex rounded-xl border bg-white p-1"><button className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600" onClick={()=>setStockSection('units')}>Véhicules en stock</button><button className="rounded-lg bg-[#8f1722] px-4 py-2 text-sm font-semibold text-white">Modèles sur commande</button></div><CommercialCatalogPage embedded/></div>;
+
   return (
     <div className="space-y-6">
+      {can('vehicles.catalog.view')&&<div className="flex rounded-xl border bg-white p-1"><button className="rounded-lg bg-[#8f1722] px-4 py-2 text-sm font-semibold text-white">Véhicules en stock</button><button className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600" onClick={()=>setStockSection('models')}>Modèles sur commande</button></div>}
       <PageHeader
         title="Parc & Stock Véhicules (VN / VO)"
         subtitle="Catalogue des véhicules neufs et d’occasion en stock concession."
@@ -102,7 +107,7 @@ export const VehiclesListPage: React.FC = () => {
               icon={<Plus className="w-4 h-4" />}
               onClick={() => setIsNewVehicleOpen(true)}
             >
-              Entrée en Stock
+              Entrer en stock
             </Button>}
           </div>
         }

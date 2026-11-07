@@ -180,6 +180,7 @@ export interface Vehicle {
   brand: string;
   model: string;
   version: string;
+  versionId?: string;
   type: 'Neuf' | 'Occasion' | 'Démo' | 'Véhicule de Courtoisie';
   bodyType: 'Berline' | 'SUV' | 'Break' | 'Coupé' | 'Citadine' | 'Utilitaire';
   year: number;
@@ -234,6 +235,7 @@ export interface Vehicle {
   assignedCustomerId?: string;
   assignedSaleId?: string;
   createdAt: string;
+  warrantyAssignment?: null|{hasWarranty:boolean;providerId?:string;providerCode?:string;providerName?:string;durationMonths?:number|null;mileageLimit?:number|null;terms?:string|null;assignedAt?:string};
 }
 
 // Sales

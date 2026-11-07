@@ -19,6 +19,7 @@ import{activateAtDelivery}from'../sales/vehicle-warranty.service.js';
 import{writeAudit}from'../activity/audit-writer.js';
 import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 import{createDeliveryChecklistSnapshot,lockAndAssertDeliveryChecklistComplete,readDeliveryChecklist}from'./delivery-checklist.service.js';
+import{freezeVehicleTechnicalSnapshot}from'../vehicles/vehicle-technical-profile.js';
 
 export const deliveryRouter = Router();
 export const deliverySignTestHooks:{afterMarksLocked?:()=>Promise<void>;afterDocumentRealtime?: (documentId:string)=>void}={};
@@ -696,6 +697,7 @@ deliveryRouter.post(
       await connection.execute('INSERT INTO delivery_signatures(delivery_id,signer_name,signed_by,user_signature_version_id,service_stamp_version_id,signature_data,consent_text,document_hash,signed_at,ip_address) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,signer,request.user!.sub,userSignatureVersionId,serviceStampVersionId,signature,consent,hash,signedAtSql,request.ip??null]);
       await connection.execute("UPDATE deliveries SET status='delivered',delivered_at=?,mileage_at_delivery=? WHERE id=?",[signedAtSql,mileage,id]);
       await connection.execute("UPDATE sales SET status='delivered',sold_at=COALESCE(sold_at,?) WHERE id=?",[signedAtSql,delivery.sale_id]);
+      await freezeVehicleTechnicalSnapshot(connection,String(delivery.vehicle_id));
       await connection.execute("UPDATE vehicles SET status='delivered',mileage=? WHERE id=?",[mileage,delivery.vehicle_id]);
       await connection.execute("INSERT INTO vehicle_status_history(vehicle_id,old_status,new_status,changed_by,reason) VALUES(?,?,'delivered',?,'Livraison client signée')",[delivery.vehicle_id,vehicle.status,request.user!.sub]);
       await connection.execute("INSERT INTO delivery_status_history(delivery_id,old_status,new_status,reason,changed_by) VALUES(?,'ready','delivered','Signature client',?)",[id,request.user!.sub]);

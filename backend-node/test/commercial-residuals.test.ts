@@ -16,8 +16,8 @@ function appointmentConnection(stage:string,hasAppointment:boolean){
 }
 
 test('A1 qualified sans rendez-vous refuse l’essai et ne change pas le stage',async()=>{const{connection,writes}=appointmentConnection('qualified',false);await assert.rejects(()=>requireCrmAppointmentForTestDrive(connection,'10'),(error:any)=>error.status===409);assert.equal(writes.length,0)});
-test('A2 appointment avec rendez-vous valide autorise puis passe à test_drive',async()=>{const{connection,writes}=appointmentConnection('appointment',true);const opportunityId=await requireCrmAppointmentForTestDrive(connection,'10');await markCrmTestDriveStarted(connection,opportunityId);assert.equal(opportunityId,'20');assert.equal(writes.length,1);assert.match(writes[0]!,/stage='test_drive'.*stage='appointment'/)});
-test('A3 contacted refuse l’essai CRM',async()=>{const{connection,writes}=appointmentConnection('contacted',true);await assert.rejects(()=>requireCrmAppointmentForTestDrive(connection,'10'),(error:any)=>error.status===409);assert.equal(writes.length,0)});
+test('A2 appointment avec rendez-vous valide autorise sans déplacer le pipeline',async()=>{const{connection,writes}=appointmentConnection('appointment',true);const opportunityId=await requireCrmAppointmentForTestDrive(connection,'10');await markCrmTestDriveStarted(connection,opportunityId);assert.equal(opportunityId,'20');assert.equal(writes.length,0)});
+test('A3 contacted avec rendez-vous valide autorise l’essai sans déplacer le pipeline',async()=>{const{connection,writes}=appointmentConnection('contacted',true);assert.equal(await requireCrmAppointmentForTestDrive(connection,'10'),'20');assert.equal(writes.length,0)});
 test('A4 un essai Showroom sans opportunité CRM conserve le comportement historique',async()=>{let calls=0;const connection={execute:async()=>{calls++;return[[],[]]}} as unknown as PoolConnection;assert.equal(await requireCrmAppointmentForTestDrive(connection,null),null);await markCrmTestDriveStarted(connection,null);assert.equal(calls,0)});
 
 const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConnection.bind(pool);

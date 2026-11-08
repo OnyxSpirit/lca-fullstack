@@ -136,12 +136,6 @@ export const Sidebar: React.FC = () => {
           module: 'service',
         },
         {
-          to: ROUTES.workshop,
-          label: 'Planning Atelier & Ponts',
-          icon: <Calendar className="w-4 h-4" />,
-          module: 'workshop',
-        },
-        {
           to: ROUTES.parts,
           label: 'Pièces de Rechange (PR)',
           icon: <Package className="w-4 h-4" />,

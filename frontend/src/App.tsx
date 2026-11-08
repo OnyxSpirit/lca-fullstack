@@ -24,6 +24,7 @@ const CustomersListPage=lazy(()=>import('./modules/customers/CustomersListPage')
 const CustomerDetailPage=lazy(()=>import('./modules/customers/CustomerDetailPage').then(module=>({default:module.CustomerDetailPage})));
 const ServiceDashboardPage=lazy(()=>import('./modules/service/ServiceDashboardPage').then(module=>({default:module.ServiceDashboardPage})));
 const RepairOrderDetailPage=lazy(()=>import('./modules/service/RepairOrderDetailPage').then(module=>({default:module.RepairOrderDetailPage})));
+// Conservé pour compatibilité et maintenance du module historique, sans réactiver sa route.
 const WorkshopPlanningPage=lazy(()=>import('./modules/workshop/WorkshopPlanningPage').then(module=>({default:module.WorkshopPlanningPage})));
 const SparePartsPage=lazy(()=>import('./modules/parts/SparePartsPage').then(module=>({default:module.SparePartsPage})));
 const SparePartDetailPage=lazy(()=>import('./modules/parts/SparePartDetailPage').then(module=>({default:module.SparePartDetailPage})));
@@ -95,7 +96,7 @@ export default function App() {
           <Route path="customers/:id" element={<ModuleGuard module="customers">{lazyPage(<CustomerDetailPage />)}</ModuleGuard>} />
           <Route path="service" element={<ModuleGuard module="service">{lazyPage(<ServiceDashboardPage />)}</ModuleGuard>} />
           <Route path="service/repair-orders/:id" element={<ModuleGuard module="service">{lazyPage(<RepairOrderDetailPage />)}</ModuleGuard>} />
-          <Route path="workshop" element={<ModuleGuard module="workshop">{lazyPage(<WorkshopPlanningPage />)}</ModuleGuard>} />
+          <Route path="workshop" element={<Navigate to="/service" replace />} />
           <Route path="parts" element={<ModuleGuard module="parts">{lazyPage(<SparePartsPage />)}</ModuleGuard>} />
           <Route path="parts/repair-orders" element={<ModuleGuard module="parts">{lazyPage(<PartsWorkQueuePage />)}</ModuleGuard>} />
           <Route path="parts/repair-orders/:id" element={<ModuleGuard module="parts">{lazyPage(<PartsWorkQueuePage />)}</ModuleGuard>} />

@@ -35,7 +35,7 @@ export const ServiceDashboardPage: React.FC = () => {
   const repairOrders = repairQuery.data?.items ?? [];
   const stats=useRepairStatsQuery();
   const navigate = useNavigate();
-  const can=useAuthStore(state=>state.can),canCreate=can('service.order.create'),canViewWorkshop=can('workshop.view');
+  const can=useAuthStore(state=>state.can),canCreate=can('service.order.create');
   const canViewExternalCustomers=can('service.order.view')&&can('customers.view');
 
   const [isNewOrOpen, setIsNewOrOpen] = useState(false);
@@ -52,14 +52,6 @@ export const ServiceDashboardPage: React.FC = () => {
         breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Après-Vente' }, { label: 'Ordres de Réparation' }]}
         actions={
           <div className="flex items-center gap-2">
-            {canViewWorkshop&&<Button
-              variant="outline"
-              size="sm"
-              icon={<Calendar className="w-4 h-4" />}
-              onClick={() => navigate('/workshop')}
-            >
-              Planning Ponts
-            </Button>}
             {canCreate&&<Button
               variant="primary"
               size="sm"

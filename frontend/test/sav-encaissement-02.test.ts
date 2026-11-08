@@ -15,8 +15,9 @@ test('SAV-ENCAISSEMENT-02 A-F applique exactement la policy centrale du bouton E
  assert.equal(canCollectInvoicePayment('VALIDEE',500_000,false),false);
 });
 
-test('SAV-ENCAISSEMENT-02 partage formulaire, historique et reçu central entre Facturation et OR',()=>{
- for(const page of[invoice,order]){assert.match(page,/InvoicePaymentForm/);assert.match(page,/InvoicePaymentHistory/)}
+test('SAV-ENCAISSEMENT-02 réserve formulaire, historique et reçu à Facturation',()=>{
+ assert.match(invoice,/InvoicePaymentForm/);assert.match(invoice,/InvoicePaymentHistory/);
+	 assert.doesNotMatch(order,/InvoicePaymentForm|InvoicePaymentHistory/);
 	 assert.match(shared,/useInvoicePayment\(\)/);assert.match(shared,/usePaymentMethodsQuery\(canCollect\)/);assert.match(shared,/\/payments\/\$\{payment\.id\}\/receipt/);
 	 assert.match(order,/can\('billing\.invoice\.view'\)/);assert.match(order,/can\('billing\.payment\.view'\)/);assert.match(order,/can\('billing\.payment\.collect'\)/);
 	 assert.match(order,/\(canViewPayments\|\|canCollectPayment\).*Encaissé/s);
@@ -25,10 +26,10 @@ test('SAV-ENCAISSEMENT-02 partage formulaire, historique et reçu central entre 
 
 test('SAV-ENCAISSEMENT-02 pending, erreur et reconstruction restent pilotés par mutation et serveur',()=>{
  assert.match(shared,/if\(payment\.isPending\)return/);assert.match(shared,/disabled=\{payment\.isPending\}/);assert.match(shared,/Encaissement impossible/);
- assert.match(hooks,/qc\.invalidateQueries\(\{queryKey:erpKeys\.repairOrders\}\)/);assert.match(order,/useRepairDetailQuery\(id\)/);assert.match(order,/useInvoicePaymentsQuery/);
+ assert.match(hooks,/qc\.invalidateQueries\(\{queryKey:erpKeys\.repairOrders\}\)/);assert.match(order,/useRepairDetailQuery\(id\)/);assert.match(invoice,/useInvoiceQuery/);assert.doesNotMatch(order,/useInvoicePaymentsQuery/);
 });
 
-test('SAV-ENCAISSEMENT-02 conserve Facturation avant Situation financière puis Remise',()=>{
- const positions=['<CardTitle>Facturation</CardTitle>','<CardTitle>Situation financière</CardTitle>','Remise / clôture'].map(value=>order.indexOf(value));
+test('SAV-ENCAISSEMENT-02 conserve le résumé financier en lecture seule avant la remise',()=>{
+ const positions=['<CardTitle>Facturation</CardTitle>','<CardTitle>Résumé financier</CardTitle>','Remise / clôture'].map(value=>order.indexOf(value));
  assert.ok(positions.every(value=>value>=0));assert.deepEqual([...positions].sort((a,b)=>a-b),positions);
 });

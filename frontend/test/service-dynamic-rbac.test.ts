@@ -3,8 +3,8 @@ import {readFileSync} from 'node:fs';
 import test from 'node:test';
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
 const detail=read('src/modules/service/RepairOrderDetailPage.tsx'),quick=read('src/components/layout/QuickActionModal.tsx'),app=read('src/App.tsx');
-for(const permission of ['service.order.receive','service.order.diagnose','service.order.approve','service.order.quality_control','service.order.ready','service.order.invoice','service.order.handover','service.order.close','service.order.cancel','service.order.assign_technician','service.documents.view'])test(`action masquée sans ${permission}`,()=>assert.match(detail,new RegExp(permission.replaceAll('.','\\.'))));
-test('facturation exige Billing create et issue',()=>{assert.match(detail,/billing\.invoice\.create/);assert.match(detail,/billing\.invoice\.issue/)});
+for(const permission of ['service.order.receive','service.order.diagnose','service.order.approve','service.order.quality_control','service.order.handover','service.order.cancel','service.order.assign_technician','service.documents.view'])test(`action masquée sans ${permission}`,()=>assert.match(detail,new RegExp(permission.replaceAll('.','\\.'))));
+test('facturation automatique ne dépend pas d’une action manuelle dans l OR',()=>{assert.doesNotMatch(detail,/Générer facture atelier|billing\.invoice\.create|billing\.invoice\.issue/);assert.match(detail,/facture est générée automatiquement/)});
 test('pièces exigent les permissions Parts spécialisées',()=>{
   for(const permission of ['parts.reservation.view','parts.reservation.create','parts.reservation.consume','parts.reservation.release'])assert.match(detail,new RegExp(permission.replaceAll('.','\\.')));
   assert.doesNotMatch(detail,/can\('parts\.stock\.adjust'\)/);

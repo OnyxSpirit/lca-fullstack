@@ -13,6 +13,13 @@ test('SAV-FINAL-01 la sortie physique interne précède la réception et la cons
  assert.match(partsUi,/Confirmer les quantités reçues/);
 });
 
+test('SAV-FINAL-01B une réservation non expédiée peut être libérée sans réception physique',()=>{
+ assert.match(workshop,/status==='released'&&requestItem\?reservedRemaining/);
+ assert.match(workshop,/requestItem&&status==='consumed'\?'La quantité consommée dépasse la quantité physiquement reçue/);
+ assert.match(workshop,/item\.item_type==='part'&&item\.reservation_status==='released'/);
+ assert.match(workshop,/pr\.status='released'/);
+});
+
 test('SAV-FINAL-02 seuls les retours contrôlés en bon état réintègrent le stock',()=>{
  assert.match(logistics,/decision==='RESTOCKED'&&x\.condition_code!=='GOOD'/);
  assert.match(logistics,/current_stock=current_stock\+\?/);

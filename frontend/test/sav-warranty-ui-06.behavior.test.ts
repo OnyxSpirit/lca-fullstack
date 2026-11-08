@@ -22,4 +22,4 @@ test('UI06-FE-12 un montant non alloué est À déterminer', () => assert.match(
 test('UI06-FE-13 une allocation réelle zéro passe par formatCurrency', () => assert.match(card, /allocationsKnown = warranty\.allocations\.length > 0/));
 test('UI06-FE-14 la création OR ne réintroduit aucune checkbox garantie', () => { assert.match(modal, /useVehicleWarrantyEligibilityQuery/); assert.doesNotMatch(modal, /warrantyIntent|type="checkbox"[^>]*garantie/i); });
 test('UI06-FE-15 la mutation refetch le détail OR', () => assert.match(hooks, /\['repair-orders',v\.repairOrderId\]/));
-test('UI06-FE-16 PENDING seul verrouille la réception', () => { assert.match(detail, /warrantyDecisionPending=ro\.warranty\?\.decisionStatus==='PENDING'/); assert.match(detail, /next==='RECEPTIONNE'&&warrantyDecisionPending/); });
+test('UI06-FE-16 PENDING seul verrouille la réception', () => { assert.match(detail, /warrantyDecisionPending=ro\.warranty\?\.decisionStatus==='PENDING'/); assert.match(detail, /receptionActive=ro\.status==='PLANIFIE'&&!completed\.reception&&!warrantyDecisionPending/); });

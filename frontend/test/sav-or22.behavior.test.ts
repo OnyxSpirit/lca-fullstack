@@ -13,7 +13,7 @@ test('SAV-OR-22 bloque le bouton qualité depuis l’état serveur et explique l
   assert.match(types, /actualBillable:\{expectedItems:number;confirmedItems:number;confirmed:boolean\}/);
   assert.match(hooks, /confirmed:Boolean\(r\.actualBillable\?\.confirmed\)/);
   assert.match(page, /qualityTransitionBlocked=nextTransitions\.includes\('CONTROLE_QUALITE'\)&&!ro\.actualBillable\.confirmed/);
-  assert.match(page, /disabled=\{next==='CONTROLE_QUALITE'&&qualityTransitionBlocked\|\|next==='RECEPTIONNE'&&warrantyDecisionPending\}/);
+  assert.match(page, /disabled=\{qualityTransitionBlocked\}/);
   assert.match(page, /Complétez et validez le réel facturable avant de passer au contrôle qualité\./);
   assert.doesNotMatch(page, /setActualBillableConfirmed/);
 });

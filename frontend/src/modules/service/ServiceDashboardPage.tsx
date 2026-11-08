@@ -14,7 +14,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
-import { useRepairOrdersPageQuery, useRepairStatsQuery } from '../../api/erpHooks';
+import { useRepairOrdersPageQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -26,6 +26,7 @@ import { NewRepairOrderModal } from './NewRepairOrderModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
 import { ExternalCustomersPanel } from './ExternalCustomersPanel';
+import { SavBillingSection, SavJournalSection, SavReportingSection, SavTransitSection } from './SavBusinessSections';
 
 export const ServiceDashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,13 +34,12 @@ export const ServiceDashboardPage: React.FC = () => {
   const [page,setPage]=useState(1);
   const repairQuery=useRepairOrdersPageQuery({page,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
   const repairOrders = repairQuery.data?.items ?? [];
-  const stats=useRepairStatsQuery();
   const navigate = useNavigate();
   const can=useAuthStore(state=>state.can),canCreate=can('service.order.create');
   const canViewExternalCustomers=can('service.order.view')&&can('customers.view');
 
   const [isNewOrOpen, setIsNewOrOpen] = useState(false);
-  const [activeView,setActiveView]=useState<'orders'|'external-customers'>('orders');
+  const [activeView,setActiveView]=useState<'orders'|'billing'|'transit'|'journal'|'reporting'|'external-customers'>('orders');
   const [newOrderCustomerId,setNewOrderCustomerId]=useState<string|undefined>();
   useEffect(()=>{if(repairQuery.data&&repairQuery.data.page!==page)setPage(repairQuery.data.page)},[repairQuery.data,page]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
@@ -47,8 +47,8 @@ export const ServiceDashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="SAV & Ordres de Réparation (OR)"
-        subtitle="Suivi des réceptions atelier, diagnostics, barèmes de temps et facturation après-vente."
+        title="SAV / Atelier"
+        subtitle="Ordres de réparation, facturation, fonds de transit, traçabilité et reporting métier."
         breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Après-Vente' }, { label: 'Ordres de Réparation' }]}
         actions={
           <div className="flex items-center gap-2">
@@ -64,42 +64,16 @@ export const ServiceDashboardPage: React.FC = () => {
         }
       />
 
-      <div className="flex gap-2 overflow-x-auto border-b border-slate-200"><button type="button" onClick={()=>setActiveView('orders')} className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold ${activeView==='orders'?'border-blue-600 text-blue-700':'border-transparent text-slate-500'}`}>Ordres de réparation</button>{canViewExternalCustomers&&<button type="button" onClick={()=>setActiveView('external-customers')} className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold ${activeView==='external-customers'?'border-blue-600 text-blue-700':'border-transparent text-slate-500'}`}>Clients extérieurs</button>}</div>
+      <div className="flex gap-2 overflow-x-auto border-b border-slate-200">{[
+        ['orders','Ordres de réparation',can('service.order.view')],
+        ['billing','Facturation SAV',can('service.billing.view')],
+        ['transit','Caisse de transit',can('service.transit.view')],
+        ['journal','Journal des opérations',can('service.journal.view')],
+        ['reporting','Reporting SAV',can('service.reporting.view')],
+        ['external-customers','Clients extérieurs',canViewExternalCustomers],
+      ].filter(([, ,visible])=>visible).map(([key,label])=><button key={String(key)} type="button" onClick={()=>setActiveView(key as typeof activeView)} className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold ${activeView===key?'border-blue-600 text-blue-700':'border-transparent text-slate-500'}`}>{label}</button>)}</div>
 
       {activeView==='orders'&&<>
-      {/* KPI Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-medium">OR en cours à l'Atelier</span>
-            <div className="text-xl font-bold text-blue-700 mt-0.5">
-              {Number(stats.data?.inWorkshop??0)} véhicules
-            </div>
-          </div>
-          <Badge variant="primary" size="md">En cours</Badge>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-medium">Taux d'Occupation des Ponts</span>
-            <div className="text-xl font-bold text-emerald-600 mt-0.5">
-              {Number(stats.data?.baysTotal)?Math.round(Number(stats.data.baysOccupied)/Number(stats.data.baysTotal)*100):0}%
-            </div>
-          </div>
-          <Badge variant="success" size="md">{Number(stats.data?.baysOccupied??0)}/{Number(stats.data?.baysTotal??0)} ponts</Badge>
-        </div>
-
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-500 font-medium">Garanties Constructeur</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {Number(stats.data?.warranty??0)} dossiers
-            </div>
-          </div>
-          <Badge variant="default" size="md">Prise en charge</Badge>
-        </div>
-      </div>
-
       {/* Search and Filters */}
       {repairQuery.isError&&<div className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800">{repairQuery.error instanceof Error?repairQuery.error.message:'Erreur API SAV'}</div>}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
@@ -208,6 +182,11 @@ export const ServiceDashboardPage: React.FC = () => {
         <div className="flex items-center justify-between border-t p-4 text-xs"><span>{repairQuery.data?.total??0} ordre(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Précédent</Button><span>Page {page}/{Math.max(1,repairQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(repairQuery.data?.totalPages??1)} onClick={()=>setPage(p=>p+1)}>Suivant</Button></div></div>
       </Card>
       </>}
+
+      {activeView==='billing'&&<SavBillingSection/>}
+      {activeView==='transit'&&<SavTransitSection/>}
+      {activeView==='journal'&&<SavJournalSection/>}
+      {activeView==='reporting'&&<SavReportingSection/>}
 
       {activeView==='external-customers'&&canViewExternalCustomers&&<ExternalCustomersPanel canCreateOrder={canCreate} canViewCustomer={can('customers.view')} onNewOrder={customerId=>{setNewOrderCustomerId(customerId);setIsNewOrOpen(true)}}/>}
 

@@ -20,6 +20,7 @@ import { deliveryChecklistRouter } from './modules/deliveries/delivery-checklist
 import { workshopRouter } from './modules/workshop/workshop.routes.js';
 import { workshopVehicleRouter } from './modules/workshop/workshop-vehicle.routes.js';
 import { warrantyRouter } from './modules/workshop/warranty.routes.js';
+import { savOperationsRouter } from './modules/workshop/sav-operations.routes.js';
 import { partRouter } from './modules/parts/part.routes.js';
 import { supplierFinanceRouter } from './modules/parts/supplier-finance.routes.js';
 import { internalPartsLogisticsRouter } from './modules/parts/internal-logistics.routes.js';
@@ -65,7 +66,7 @@ export function createApp() {
   for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',(_request,response)=>{response.json({status:'ok',service:'lca-backend-node'});});
   app.use('/api/auth',createAuthRouter());
-  app.use('/api',authenticate,enforceAgencyScope,twoFactorAdminRouter,stampLifecycleRouter,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrProviderRemunerationRouter,hrProviderContractRouter,hrProviderRouter,hrRouter,bankReconciliationRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,commercialCatalogRouter,vehicleRouter,showroomRouter,quotationRouter,proformaRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,directPartsPurchaseRouter,partSalesRouter,internalPartsLogisticsRouter,partRouter,warrantyRouter,workshopVehicleRouter,workshopRouter,billingRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,twoFactorAdminRouter,stampLifecycleRouter,documentMarkRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrProviderRemunerationRouter,hrProviderContractRouter,hrProviderRouter,hrRouter,bankReconciliationRouter,treasuryRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,commercialCatalogRouter,vehicleRouter,showroomRouter,quotationRouter,proformaRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,directPartsPurchaseRouter,partSalesRouter,internalPartsLogisticsRouter,partRouter,warrantyRouter,workshopVehicleRouter,savOperationsRouter,workshopRouter,billingRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

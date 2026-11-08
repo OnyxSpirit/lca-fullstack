@@ -10,9 +10,9 @@ test('SAV-OR-UX-05 conserve Planifié et expose Annulé depuis le statut backend
   assert.equal(repairOrderStatusFromDb.cancelled,'ANNULE');
 });
 
-test('SAV-OR-UX-05 utilise le KPI backend sans recompter localement les OR',async()=>{
+test('SAV-OR-UX-05 ne réintroduit aucun mini-tableau de bord SAV',async()=>{
   const page=await read('../src/modules/service/ServiceDashboardPage.tsx');
-  assert.match(page,/stats\.data\?\.inWorkshop/);
+  assert.doesNotMatch(page,/stats\.data\?\.|useRepairStatsQuery\(\)/);
   assert.doesNotMatch(page,/const openORCount/);
   assert.match(page,/<option value="ANNULE">Annulé<\/option>/);
 });

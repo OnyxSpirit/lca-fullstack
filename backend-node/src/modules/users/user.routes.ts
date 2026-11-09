@@ -5,6 +5,7 @@ import { documentMultipart, type MultipartRequest } from '../documents/document-
 import { removeAvatar, saveAvatar } from './user-avatar.js';
 import * as service from './user.service.js';
 import { assertCanManage } from './user-access.js';
+import * as userAgencies from './user-agency.service.js';
 
 export const userRouter=Router();
 const routeId=(value:string|string[]|undefined)=>String(Array.isArray(value)?value[0]:value??'');
@@ -22,6 +23,12 @@ userRouter.patch('/users/:id/status',requirePermission('users.disable'),asyncHan
 userRouter.patch('/users/:id/password',requirePermission('users.reset_password'),asyncHandler(async(req,res)=>res.json(await service.resetPassword(routeId(req.params.id),req.body,req))));
 userRouter.post('/users/:id/avatar',requirePermission('users.update'),documentMultipart,asyncHandler(async(req,res)=>{const id=routeId(req.params.id);await assertCanManage(req,id);const current=await service.one(id),avatar=await saveAvatar((req as MultipartRequest).documentFile),updated=await service.avatarChanged(id,avatar,req);await removeAvatar(current.avatar);res.status(201).json(updated)}));
 userRouter.delete('/users/:id/avatar',requirePermission('users.update'),asyncHandler(async(req,res)=>{const id=routeId(req.params.id);await assertCanManage(req,id);const current=await service.one(id),updated=await service.avatarChanged(id,null,req);await removeAvatar(current.avatar);res.json(updated)}));
+userRouter.get('/users/:id/agencies',requirePermission('users.view'),asyncHandler(async(req,res)=>res.json(await userAgencies.listUserAgencies(routeId(req.params.id),req))));
+userRouter.post('/users/:id/agencies',requirePermission('users.assign_agency'),asyncHandler(async(req,res)=>res.status(201).json(await userAgencies.addUserAgency(routeId(req.params.id),req.body,req))));
+userRouter.patch('/users/:id/agencies/:assignmentId/status',requirePermission('users.assign_agency'),asyncHandler(async(req,res)=>res.json(await userAgencies.setUserAgencyStatus(routeId(req.params.id),routeId(req.params.assignmentId),req.body?.isActive,req))));
+userRouter.patch('/users/:id/agencies/:assignmentId/primary',requirePermission('users.assign_agency'),asyncHandler(async(req,res)=>res.json(await userAgencies.setPrimaryUserAgency(routeId(req.params.id),routeId(req.params.assignmentId),req))));
+userRouter.post('/users/:id/agencies/:assignmentId/roles',requirePermission('users.assign_role'),asyncHandler(async(req,res)=>res.status(201).json(await userAgencies.addUserAgencyRole(routeId(req.params.id),routeId(req.params.assignmentId),req.body,req))));
+userRouter.delete('/users/:id/agencies/:assignmentId/roles/:roleId',requirePermission('users.assign_role'),asyncHandler(async(req,res)=>res.json(await userAgencies.removeUserAgencyRole(routeId(req.params.id),routeId(req.params.assignmentId),routeId(req.params.roleId),req))));
 userRouter.get('/permissions',requirePermission('roles.view'),asyncHandler(async(req,res)=>res.json(await service.permissionsCatalog(req))));
 userRouter.get('/roles',requirePermission('roles.view'),asyncHandler(async(_req,res)=>res.json(await service.rolesList())));
 userRouter.get('/roles/:id/permissions',requirePermission('roles.view'),asyncHandler(async(req,res)=>res.json(await service.rolePermissions(routeId(req.params.id)))));

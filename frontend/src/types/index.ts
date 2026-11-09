@@ -335,8 +335,8 @@ export interface ServicePartUsage {
 export interface RepairOrderInspection {id:string;fuelLevel:string;cleanliness:string;bodyworkDamage:string;itemsInVehicle:string;mileage:number|null;observations:string;customerSignature:string;inspectedBy:string;inspectedAt:string;}
 export interface RepairOrderDiagnostic {id:string;technicianId:string;technicianName:string;diagnosis:string;recommendations:string;estimatedHours:number;diagnosedAt:string;}
 export interface RepairApproval {id:string;approved:boolean;approvedAmount:number|null;customerName:string;signatureData:string;notes:string;recordedByName:string;recordedAt:string;}
-export interface RepairEstimateItem {id:string;itemType:'part'|'labor';partId:string;partReference:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number;interventionId:string;interventionTechnicianId:string;interventionStatus:string;actualHours:number;reservationId:string;reservedQuantity:number;consumedQuantity:number;reservationStatus:string;actualItemId:string;actualQuantity:number;}
-export interface RepairEstimateSupplement {id:string;supplementNumber:string;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED';reason:string;submittedAmount:number;customerName:string;decisionNotes:string;createdAt:string;decidedAt:string|null;items:Array<{id:string;itemType:'part'|'labor';partId:string;partReference:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number}>;}
+export interface RepairEstimateItem {id:string;itemType:'part'|'labor'|'labor_flat';partId:string;partReference:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number;interventionId:string;interventionTechnicianId:string;interventionStatus:string;actualHours:number;reservationId:string;reservedQuantity:number;consumedQuantity:number;reservationStatus:string;actualItemId:string;actualQuantity:number;}
+export interface RepairEstimateSupplement {id:string;supplementNumber:string;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED';reason:string;submittedAmount:number;customerName:string;decisionNotes:string;createdAt:string;decidedAt:string|null;items:Array<{id:string;itemType:'part'|'labor'|'labor_flat';partId:string;partReference:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number}>;}
 export interface RepairIntervention {id:string;technicianId:string;technicianName:string;description:string;interventionType:string;plannedHours:number;actualHours:number;unitPrice:number;lineTotal:number;status:'planned'|'assigned'|'in_progress'|'completed'|'cancelled';}
 export interface WorkSession {id:string;technicianId:string;technicianName:string;interventionId:string;bayId:string;startedAt:string;endedAt:string|null;status:'running'|'paused'|'completed'|'cancelled';}
 export interface PartReservation {id:string;partId:string;partReference:string;partName:string;locationName:string;quantity:number;status:'reserved'|'consumed'|'released';createdAt:string;}
@@ -375,6 +375,9 @@ export interface RepairOrder {
   approvals?: RepairApproval[];
   customerApproval:{required:boolean;decided:boolean;decision:'APPROVED'|'REJECTED'|null;canDecide:boolean;blockReason:string|null;submittedAmount:number};
   estimateItems: RepairEstimateItem[];
+  taxMode:'TAXABLE'|'TAX_EXEMPT';
+  taxRateSnapshot:number;
+  taxJustification:string;
   supplements: RepairEstimateSupplement[];
   estimateSummary:{gross:number;discount:number;subtotal:number;tax:number;total:number;currencyCode:string;byType?:Record<string,{gross:number;discount:number;subtotal:number;tax:number;total:number}>};
   interventions?: RepairIntervention[];
@@ -391,7 +394,7 @@ export interface RepairOrder {
   diagnosticNotes: string;
   operations: ServiceOperation[];
   parts: ServicePartUsage[];
-  laborItems?: Array<{id:string;interventionId:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number}>;
+  laborItems?: Array<{id:string;itemType:'labor'|'labor_flat';interventionId:string;description:string;quantity:number;unitPrice:number;discount:number;taxRate:number;lineTotal:number}>;
   financialSummary:{gross:number;discount:number;subtotal:number;tax:number;total:number;currencyCode:string};
   estimatedTotalTTC: number;
   finalTotalTTC: number;

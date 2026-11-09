@@ -136,7 +136,7 @@ export async function get(r: Request, enforceRead = true) {
     },
     billing: { defaultVatRate: settings.vatRate },
     crm: { defaultAppointmentDurationMinutes: await getDefaultAppointmentDuration(r.user!.agencyId!), defaultTestDriveDurationMinutes: await getDefaultTestDriveDuration(r.user!.agencyId!) },
-    workshop: { rates: settings.rates },
+    workshop: { rates: settings.rates, allowFlatLabor: settings.allowFlatLabor },
   };
 }
 export function validateSettings(body: unknown): UpdateSettingsPayload {
@@ -145,6 +145,7 @@ export function validateSettings(body: unknown): UpdateSettingsPayload {
   const b = body as Partial<UpdateSettingsPayload>,
     vat = number(b.billing?.defaultVatRate, "TVA", 100),
     rates = b.workshop?.rates,
+    allowFlatLabor=b.workshop?.allowFlatLabor,
     appointmentDuration=b.crm?.defaultAppointmentDurationMinutes,
     testDriveDuration=b.crm?.defaultTestDriveDurationMinutes;
   if(appointmentDuration!=null&&(!Number.isInteger(appointmentDuration)||appointmentDuration<1||appointmentDuration>1440))throw new HttpError(400,'Durée de rendez-vous invalide');
@@ -152,13 +153,14 @@ export function validateSettings(body: unknown): UpdateSettingsPayload {
   return {
     billing: { defaultVatRate: vat },
     ...((appointmentDuration==null&&testDriveDuration==null)?{}:{crm:{defaultAppointmentDurationMinutes:number(appointmentDuration??30,'Durée de rendez-vous',1440),defaultTestDriveDurationMinutes:number(testDriveDuration??30,'Durée d’essai',1440)}}),
-    ...(rates?{workshop: {
-      rates: {
+    ...((rates||allowFlatLabor!=null)?{workshop: {
+      ...(rates?{rates: {
         T1: number(rates.T1, "Tarif T1"),
         T2: number(rates.T2, "Tarif T2"),
         T3: number(rates.T3, "Tarif T3"),
         T4: number(rates.T4, "Tarif T4"),
-      },
+      }}:{}),
+      ...(allowFlatLabor!=null?{allowFlatLabor:Boolean(allowFlatLabor)}:{}),
     }}:{}),
   };
 }
@@ -170,12 +172,13 @@ export async function update(body: unknown, r: Request) {
       [SETTING_KEYS.vat, value.billing.defaultVatRate],
       ...(value.crm?[[SETTING_KEYS.appointmentDuration,value.crm.defaultAppointmentDurationMinutes]] as const:[]),
       ...(value.crm?[[SETTING_KEYS.testDriveDuration,value.crm.defaultTestDriveDurationMinutes]] as const:[]),
-      ...(value.workshop?[
+      ...(value.workshop?.rates?[
         [SETTING_KEYS.T1, value.workshop.rates.T1],
         [SETTING_KEYS.T2, value.workshop.rates.T2],
         [SETTING_KEYS.T3, value.workshop.rates.T3],
         [SETTING_KEYS.T4, value.workshop.rates.T4],
       ] as const:[]),
+      ...(value.workshop?.allowFlatLabor!=null?[[SETTING_KEYS.allowFlatLabor,value.workshop.allowFlatLabor]] as const:[]),
     ] as const;
   await transaction(async (c) => {
     const [old] = await c.execute<RowDataPacket[]>(

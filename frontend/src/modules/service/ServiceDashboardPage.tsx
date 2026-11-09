@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
   Plus,
@@ -35,6 +35,7 @@ export const ServiceDashboardPage: React.FC = () => {
   const repairQuery=useRepairOrdersPageQuery({page,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
   const repairOrders = repairQuery.data?.items ?? [];
   const navigate = useNavigate();
+  const [searchParams]=useSearchParams();
   const can=useAuthStore(state=>state.can),canCreate=can('service.order.create');
   const canViewExternalCustomers=can('service.order.view')&&can('customers.view');
 
@@ -42,6 +43,7 @@ export const ServiceDashboardPage: React.FC = () => {
   const [activeView,setActiveView]=useState<'orders'|'billing'|'transit'|'journal'|'reporting'|'external-customers'>('orders');
   const [newOrderCustomerId,setNewOrderCustomerId]=useState<string|undefined>();
   useEffect(()=>{if(repairQuery.data&&repairQuery.data.page!==page)setPage(repairQuery.data.page)},[repairQuery.data,page]);
+  useEffect(()=>{const section=searchParams.get('section');if(section&&['orders','billing','transit','journal','reporting','external-customers'].includes(section))setActiveView(section as typeof activeView)},[searchParams]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
   return (

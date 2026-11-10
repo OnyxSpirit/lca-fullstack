@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Router, type Request } from 'express';
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, query } from '../../config/database.js';
-import { requirePermission } from '../../middleware/require-permission.js';
+import { requireAgencyPermission as requirePermission } from '../rbac/agency-authorization.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { HttpError } from '../../shared/http-error.js';
 import { assertPermission, can, type PermissionScope } from '../rbac/rbac.service.js';

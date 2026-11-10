@@ -14,7 +14,7 @@ const visits:Visit[]=[];
 let nextId=1;
 let driveWrites=0;
 let permissions:Record<string,{code:string;scope:string}[]>={};
-const token=(user:string,agency='1')=>authFixture.createRbacTestSession({user:{id:user,agencyId:agency},roleCode:'DYNAMIC_SHOWROOM'}).accessToken;
+const token=(user:string,agency='1')=>authFixture.createRbacTestSession({user:{id:user,agencyId:agency},roleCode:'DYNAMIC_SHOWROOM',permissions:permissions[user]??[]}).accessToken;
 const own=[{code:'showroom.view',scope:'OWN'},{code:'showroom.visitor.create',scope:'OWN'},{code:'showroom.assign',scope:'OWN'},{code:'showroom.status.update',scope:'OWN'},{code:'showroom.visitor.update',scope:'OWN'}];
 const call=(user:string,agency='1')=>({auth:`Bearer ${token(user,agency)}`});
 const visible=(sql:string,params:unknown[],visit:Visit)=>{
@@ -35,8 +35,12 @@ const visibleDrive=(sql:string,params:unknown[])=>{
 };
 
 before(()=>{
+  authFixture.addAgency({id:'1',concessionId:'1'});
+  authFixture.addAgency({id:'2',concessionId:'1'});
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
-    if(sql.includes('JOIN refresh_tokens rt'))return [authFixture.authRows(params),[]];
+    if(authFixture.handles(sql))return[await authFixture.query(sql,params),[]];
+    if(sql.includes('SELECT id FROM agencies WHERE id=? AND is_active=TRUE'))return [[{id:String(params[0])}],[]];
+    if(sql.includes('SELECT u.id FROM users u JOIN user_agencies ua'))return [[{id:String(params[1])}],[]];
     if(sql.includes('SELECT r.id,r.code,r.is_system'))return [[{id:`role-${params[0]}`,code:'DYNAMIC_SHOWROOM',is_system:0}],[]];
     if(sql.includes('SELECT p.code,rp.scope'))return [permissions[String(params[0]).replace('role-','')]??[],[]];
     if(sql.includes('FROM agencies target'))return [[{id:params[1],is_active:1,concession_id:params[1],actor_concession_id:params[0]}],[]];
@@ -50,6 +54,7 @@ before(()=>{
   (pool as any).getConnection=async()=>({
     beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},
     execute:async(sql:string,params:unknown[]=[])=>{
+      if(authFixture.handles(sql))return[await authFixture.query(sql,params),[]];
       if(sql.includes('phone_match')&&sql.includes('FROM showroom_visits sv'))return [[],[]];
       if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv')){const drive=visibleDrive(sql,params);return [drive?[{...drive,mileage_out:100,vehicle_id:'5',lead_id:null,customer_id:null}]:[],[]]}
       if(sql.startsWith('UPDATE showroom_test_drives'))driveWrites++;
@@ -59,7 +64,7 @@ before(()=>{
         visits.push({id,customer_id:null,lead_id:null,visitor_name:String(params[2]),agency_id:String(params[8]),greeted_by:String(params[7]),assigned_user_id:null,status:'waiting',arrival_at:new Date().toISOString(),vehicle_id:null,queue_number:Number(params[9])});
         return [{insertId:Number(id),affectedRows:1},[]];
       }
-      if(sql.includes('SELECT assigned_user_id,status FROM showroom_visits')){const visit=visits.find(row=>row.id===String(params[0]));return [visit?[visit]:[],[]]}
+      if(sql.includes('FROM showroom_visits WHERE id=? FOR UPDATE')){const visit=visits.find(row=>row.id===String(params[0]));return [visit?[visit]:[],[]]}
       if(sql.startsWith('UPDATE showroom_visits SET assigned_user_id=')){const visit=visits.find(row=>row.id===String(params[1]));if(visit){visit.assigned_user_id=String(params[0]);visit.status='assigned'}return [{affectedRows:visit?1:0},[]]}
       return [{affectedRows:1},[]];
     },

@@ -32,7 +32,11 @@ export async function assertCanViewTargetActor(request: Request, userId: string,
 }
 
 export async function targetRoles(userId: string) {
-  return (await query<RowDataPacket[]>('SELECT r.code FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=?', [userId])).map((row) => String(row.code));
+  return (await query<RowDataPacket[]>(`SELECT DISTINCT role_code code FROM (
+    SELECT r.code role_code FROM user_agencies ua JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_system=FALSE WHERE ua.user_id=? AND ua.status='ACTIVE'
+    UNION ALL
+    SELECT r.code role_code FROM user_roles ur JOIN roles r ON r.id=ur.role_id AND r.is_system=TRUE WHERE ur.user_id=?
+  ) assigned_roles ORDER BY role_code`, [userId,userId])).map((row) => String(row.code));
 }
 
 export async function targetHasSystemSuperAdmin(userId:string){

@@ -19,7 +19,7 @@ async function execute(sql:string,params:unknown[]=[]):Promise<any>{
  throw new Error(`Écriture non gérée: ${sql}`);
 }
 async function transaction<T>(work:(connection:{execute:typeof execute})=>Promise<T>){return work({execute})}
-mock.module('../src/config/database.js',{namedExports:{query,transaction,execute:async()=>result()}});
+mock.module('../src/config/database.js',{namedExports:{query,transaction,transactionWithDeadlockRetry:transaction,execute:async()=>result()}});
 mock.module('../src/modules/notifications/notification.service.js',{namedExports:{createUserNotification:async()=>null}});
 const service=await import('../src/modules/auth/two-factor.service.js');
 const request=(sid:string)=>({user:{sub:'1',sid,email:'actor@example.test',roles:[],agencyId:'10'},ip:'127.0.0.1',get:()=> 'test-agent'}as any);

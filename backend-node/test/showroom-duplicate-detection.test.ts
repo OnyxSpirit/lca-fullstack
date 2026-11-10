@@ -19,9 +19,11 @@ function reset(){visits=[
 ];nextId=10}
 function roleRows(userId:string){const role=auth.roles.get(auth.userRoles.get(userId)??'');return role?[{id:role.id,code:role.code,is_system:0}]:[]}
 async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
+  if(auth.handles(sql))return auth.query(sql,params);
   if(sql.includes('JOIN refresh_tokens rt'))return auth.authRows(params);
   if(sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles'))return roleRows(String(params[0]));
   if(sql.includes('SELECT p.code,rp.scope FROM role_permissions'))return auth.roles.get(String(params[0]))?.permissions??[];
+  if(sql==='SELECT id FROM agencies WHERE id=? AND is_active=TRUE')return [A1,A2].includes(String(params[0]))?[{id:String(params[0])}]:[];
   if(sql.includes('FROM agencies target')){const target=String(params[1]);return target===A1||target===A2?[{id:target,is_active:1,concession_id:'C1',actor_concession_id:'C1'}]:[]}
   if(sql.includes('phone_match')&&sql.includes('FROM showroom_visits sv')){
     const searchedPhone=String(params[0]),searchedName=String(params[1]),agency=String(params[2]);

@@ -8,7 +8,7 @@ test('RBAC dynamique : profil, permissions et actualisation temps réel sont câ
   const auth=source('src/modules/auth/auth.service.ts');
   const users=source('src/modules/users/user.service.ts');
   const realtime=source('src/realtime/socket.ts');
-  assert.match(auth,/resolveRbacContext/);
+  assert.match(auth,/resolveAgencyRbacContext/);
   assert.match(auth,/permissions:/);
   assert.match(users,/INVALID_OR_INACTIVE_ROLE/);
   assert.match(users,/rbac:updated/);
@@ -20,10 +20,11 @@ test('CRM et ventes utilisent les permissions et scopes, pas une liste de rôles
   const crmVisibility=source('src/modules/crm/crm-visibility.ts');
   const sales=source('src/modules/sales/sale.routes.ts');
   const saleService=source('src/modules/sales/sale.service.ts');
-  assert.match(crm,/requirePermission\('crm\.prospect\.view'\)/);
+  assert.match(crm,/requireAgencyBusinessPermission\('crm\.prospect\.view'\)/);
   assert.match(crmVisibility,/permissionScope==='OWN'/);
-  assert.match(crmVisibility,/permissionScope==='CONCESSION'/);
-  assert.match(sales,/requirePermission\('sales\.view'\)/);
+  assert.match(crmVisibility,/activeAgencyId/);
+  assert.match(sales,/requireAgencyBusinessPermission\('sales\.view'\)/);
   assert.match(saleService,/value==='OWN'/);
-  assert.match(saleService,/value==='CONCESSION'/);
+  assert.match(saleService,/value==='AGENCY'/);
+  assert.doesNotMatch(saleService,/value==='CONCESSION'|value==='GLOBAL'/);
 });

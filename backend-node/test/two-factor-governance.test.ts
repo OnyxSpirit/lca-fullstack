@@ -21,8 +21,8 @@ test('2FA-GOV-02 politique centrale expose uniquement les scopes autorisés',()=
 
 test('2FA-GOV-03 routes séparent lecture et gestion, avec step-up sur écriture',()=>{
  const routes=source('src/modules/auth/two-factor-admin.routes.ts'),service=source('src/modules/auth/two-factor-admin.service.ts');
- assert.match(routes,/get\('\/auth\/2fa\/security-settings',requirePermission\('auth\.2fa\.settings\.view'\)/);
- assert.match(routes,/put\('\/auth\/2fa\/security-settings',requirePermission\('auth\.2fa\.settings\.manage'\)/);
+ assert.match(routes,/get\('\/auth\/2fa\/security-settings',requireCentralAgencyPermission\('auth\.2fa\.settings\.view'\)/);
+ assert.match(routes,/put\('\/auth\/2fa\/security-settings',requireCentralAgencyPermission\('auth\.2fa\.settings\.manage'\)/);
  assert.match(service,/assertGlobal\(request,'auth\.2fa\.settings\.view'\)/);
  assert.match(service,/assertGlobal\(request,'auth\.2fa\.settings\.manage'\);await assertRecentStrongAuthentication/);
 });

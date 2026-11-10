@@ -14,10 +14,11 @@ test('CRM-TEAM-01/03 référentiel dynamique de candidats affectables',()=>{
   assert.doesNotMatch(crmAssignment,/SALES_AGENT|SALES_MANAGER|DIRECTOR|@/);
 });
 
-test('CRM-TEAM-06 les candidats respectent OWN AGENCY CONCESSION GLOBAL',()=>{
-  for(const scope of ['OWN','AGENCY','CONCESSION'])assert.match(crmAssignment,new RegExp(`scope==='${scope}'`));
-  assert.match(crmAssignment,/assertPermission\(request,'crm\.prospect\.assign'\)/);
-  assert.match(crmRoutes,/requirePermission\('crm\.prospect\.assign'\)/);
+test('CRM-TEAM-06 les candidats respectent les scopes métier OWN et AGENCY',()=>{
+  assert.match(crmAssignment,/scope==='OWN'/);
+  assert.match(crmAssignment,/assertAgencyBusinessPermission\(request,'crm\.prospect\.assign'\)/);
+  assert.match(crmRoutes,/requireAgencyBusinessPermission\('crm\.prospect\.assign'\)/);
+  assert.doesNotMatch(crmAssignment,/scope==='CONCESSION'|scope==='GLOBAL'/);
 });
 
 test('VIN-09 le backend refuse au lieu de tronquer un VIN forgé',()=>{

@@ -3,10 +3,23 @@ import type { RowDataPacket } from 'mysql2/promise';
 import { query } from '../../config/database.js';
 import { HttpError } from '../../shared/http-error.js';
 import { delegableGrant,isCompatiblePermissionScope } from './permission-scope-policy.js';
+import type{AgencyRbacContext}from'./agency-rbac.service.js';
 
 export type PermissionScope = 'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
 export interface GrantedPermission { code:string; scope:PermissionScope|null }
 export interface RbacContext { roleId:string|null; roleCode:string|null; isSuperAdmin:boolean; permissions:Map<string,PermissionScope|null> }
+
+/**
+ * Adaptateur de transition pour les modules qui utilisent encore les helpers
+ * historiques. L'identité et les permissions viennent exclusivement de
+ * l'affectation de l'agence active. Les anciens scopes collectifs sont réduits
+ * à AGENCY afin qu'aucun GLOBAL/CONCESSION ne puisse élargir une route métier.
+ */
+export function legacyRbacContextFromAgency(context:AgencyRbacContext):RbacContext{
+  const first=context.roles[0]??null,permissions=new Map<string,PermissionScope|null>();
+  for(const[code,scope]of context.permissions)permissions.set(code,scope==='OWN'?'OWN':scope==null?null:'AGENCY');
+  return{roleId:first?.id??null,roleCode:first?.code??(context.isSuperAdmin?'SUPER_ADMIN':null),isSuperAdmin:context.isSuperAdmin,permissions};
+}
 
 export async function resolveRbacContext(userId:string):Promise<RbacContext>{
   const roles=await query<RowDataPacket[]>(`SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.is_active=TRUE AND r.is_active=TRUE ORDER BY r.is_system DESC,r.code,r.id`,[userId]);
@@ -20,6 +33,7 @@ export async function resolveRbacContext(userId:string):Promise<RbacContext>{
 
 export async function rbac(request:Request){
   if(!request.user)throw new HttpError(401,'Jeton manquant');
+  if(request.agencyRbac){request.rbac=legacyRbacContextFromAgency(request.agencyRbac);return request.rbac}
   if(!request.rbac)request.rbac=await resolveRbacContext(request.user.sub);
   return request.rbac;
 }

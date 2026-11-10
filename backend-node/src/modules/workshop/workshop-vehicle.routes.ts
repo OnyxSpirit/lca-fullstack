@@ -1,7 +1,7 @@
 import {Router,type Request} from 'express';
 import type {PoolConnection,ResultSetHeader,RowDataPacket} from 'mysql2/promise';
-import {query,transaction} from '../../config/database.js';
-import {requirePermission,requireAnyPermission} from '../../middleware/require-permission.js';
+import {query} from '../../config/database.js';
+import {requireAgencyPermission as requirePermission,requireAnyAgencyPermission as requireAnyPermission,withCurrentAgencyAuthorization} from '../rbac/agency-authorization.js';
 import {asyncHandler} from '../../middleware/error-handler.js';
 import {HttpError} from '../../shared/http-error.js';
 import {permissionScopePredicate,type ScopePredicate} from '../rbac/scope-intersection.js';
@@ -9,6 +9,7 @@ import {writeAudit} from '../activity/audit-writer.js';
 import {normalizeWorkshopRegistration,normalizeWorkshopVin} from './workshop-vehicle-normalization.js';
 
 export const workshopVehicleRouter=Router();
+const vehicleTransaction=<T>(request:Request,permissions:string[],work:(connection:PoolConnection)=>Promise<T>)=>withCurrentAgencyAuthorization(request,async(connection,context)=>{for(const permission of permissions)if(!context.permissions.has(permission))throw new HttpError(403,`Permission atelier insuffisante : ${permission}`);return work(connection)});
 const relationTypes=['OWNER','DRIVER','RESPONSIBLE','FLEET'] as const;
 const sourceTypes=['SALE','REPAIR_ORDER','MANUAL','IMPORT'] as const;
 const id=(value:unknown,name='Identifiant')=>{const text=String(value??'');if(!/^[1-9]\d*$/.test(text))throw new HttpError(400,`${name} invalide`);return text};
@@ -53,7 +54,7 @@ async function insertAssociation(connection:PoolConnection,request:Request,input
 workshopVehicleRouter.post('/workshop/external-vehicles',requirePermission('workshop.external_vehicle.create'),requirePermission('workshop.vehicle.associations.create'),requirePermission('workshop.vehicles.view'),asyncHandler(async(request,response)=>{
   const body=request.body as Record<string,unknown>,customerId=id(body.customerId,'Client'),agencyId=id(body.agencyId??request.user?.agencyId,'Agence'),vin=normalizeWorkshopVin(body.vin),registration=normalizeWorkshopRegistration(body.registrationNumber),brand=optional(body.brand,120),model=optional(body.model,120),version=optional(body.version,150),versionId=body.versionId==null||body.versionId===''?null:id(body.versionId,'Version');
   if(!versionId&&(!brand||!model))throw new HttpError(400,'La marque et le modèle sont requis hors catalogue');
-  const result=await transaction(async connection=>{await assertAgency(connection,request,'workshop.external_vehicle.create',agencyId);await assertCustomer(connection,request,customerId);
+  const result=await vehicleTransaction(request,['workshop.external_vehicle.create','workshop.vehicle.associations.create','workshop.vehicles.view'],async connection=>{await assertAgency(connection,request,'workshop.external_vehicle.create',agencyId);await assertCustomer(connection,request,customerId);
     if(vin){const[found]=await connection.execute<RowDataPacket[]>('SELECT id FROM vehicles WHERE vin=? LIMIT 1 FOR UPDATE',[vin]);if(found[0])throw new HttpError(409,'Un véhicule portant ce VIN existe déjà',conflictDetails('VIN_ALREADY_EXISTS',[]))}
     if(registration.search){const[found]=await connection.execute<RowDataPacket[]>(`SELECT v.id FROM vehicles v WHERE ${plateSql()}=? AND v.archived_at IS NULL FOR UPDATE`,[registration.search]);if(found.length&&!Boolean(body.confirmRegistrationAmbiguity)){const access=requireScope(vehicleScope(request,'workshop.vehicles.view'),'workshop.vehicles.view'),[visible]=await connection.execute<RowDataPacket[]>(`${vehicleSelect} WHERE ${plateSql()}=? AND v.archived_at IS NULL AND ${access.sql}`,[registration.search,...access.params] as any[]);throw new HttpError(409,'Une ou plusieurs immatriculations correspondent déjà',conflictDetails('REGISTRATION_AMBIGUOUS',visible))}}
     if(versionId){const[ref]=await connection.execute<RowDataPacket[]>('SELECT ve.id FROM versions ve WHERE ve.id=? AND ve.is_active=TRUE',[versionId]);if(!ref[0])throw new HttpError(400,'Version catalogue invalide ou inactive')}
@@ -64,7 +65,7 @@ workshopVehicleRouter.post('/workshop/external-vehicles',requirePermission('work
   });response.status(201).json(result);
 }));
 
-workshopVehicleRouter.post('/workshop/vehicle-associations',requirePermission('workshop.vehicle.associations.create'),requirePermission('workshop.vehicles.view'),asyncHandler(async(request,response)=>{const body=request.body as Record<string,unknown>;const associationId=await transaction(connection=>insertAssociation(connection,request,{customerId:id(body.customerId,'Client'),vehicleId:id(body.vehicleId,'Véhicule'),agencyId:id(body.agencyId??request.user?.agencyId,'Agence'),relationType:String(body.relationType??'OWNER'),sourceType:'MANUAL',sourceId:null,validFrom:optional(body.validFrom,25),notes:optional(body.notes,500)}));response.status(201).json({associationId})}));
+workshopVehicleRouter.post('/workshop/vehicle-associations',requirePermission('workshop.vehicle.associations.create'),requirePermission('workshop.vehicles.view'),asyncHandler(async(request,response)=>{const body=request.body as Record<string,unknown>;const associationId=await vehicleTransaction(request,['workshop.vehicle.associations.create','workshop.vehicles.view'],connection=>insertAssociation(connection,request,{customerId:id(body.customerId,'Client'),vehicleId:id(body.vehicleId,'Véhicule'),agencyId:id(body.agencyId??request.user?.agencyId,'Agence'),relationType:String(body.relationType??'OWNER'),sourceType:'MANUAL',sourceId:null,validFrom:optional(body.validFrom,25),notes:optional(body.notes,500)}));response.status(201).json({associationId})}));
 
 workshopVehicleRouter.get('/workshop/customers/:customerId/vehicle-associations',requireAnyPermission(['workshop.vehicle.associations.view','workshop.vehicle.associations.close']),asyncHandler(async(request,response)=>{
   const customerId=id(request.params.customerId,'Client'),permission=request.rbac!.permissions.has('workshop.vehicle.associations.view')?'workshop.vehicle.associations.view':'workshop.vehicle.associations.close',scope=requireScope(relationScope(request,permission),permission),customer=customerScope(request);
@@ -73,7 +74,7 @@ workshopVehicleRouter.get('/workshop/customers/:customerId/vehicle-associations'
 }));
 
 workshopVehicleRouter.patch('/workshop/vehicle-associations/:id/close',requirePermission('workshop.vehicle.associations.close'),asyncHandler(async(request,response)=>{
-  const associationId=id(request.params.id,'Relation'),closed=await transaction(async connection=>{
+  const associationId=id(request.params.id,'Relation'),closed=await vehicleTransaction(request,['workshop.vehicle.associations.close'],async connection=>{
     const scope=requireScope(relationScope(request,'workshop.vehicle.associations.close'),'workshop.vehicle.associations.close');
     const[rows]=await connection.execute<RowDataPacket[]>(`SELECT cv.* FROM customer_vehicles cv WHERE cv.id=? AND ${scope.sql} FOR UPDATE`,[associationId,...scope.params] as any[]),row=rows[0];
     if(!row)throw new HttpError(404,'Relation introuvable');if(!row.is_current)throw new HttpError(409,'Cette relation est déjà clôturée');

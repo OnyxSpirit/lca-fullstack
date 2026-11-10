@@ -20,10 +20,10 @@ const actors:Record<string,Actor>={
   none:{permissions:{},allow:false},agency:{permissions:{'delivery.documents.view':'AGENCY'},allow:true},
   denied:{permissions:{'delivery.documents.view':'AGENCY'},allow:false},concession:{permissions:{'delivery.documents.view':'CONCESSION'},allow:true},
   global:{permissions:{'delivery.documents.view':'GLOBAL'},allow:true},fake:{permissions:{},allow:false,code:'SUPER_ADMIN',system:false},
-  system:{permissions:{'delivery.documents.view':'GLOBAL'},allow:true,code:'SUPER_ADMIN',system:true},manageDenied:{permissions:{'delivery.checklist.manage':'AGENCY'},allow:false},
+  system:{permissions:{'delivery.documents.view':'AGENCY'},allow:true,code:'SUPER_ADMIN',system:true},manageDenied:{permissions:{'delivery.checklist.manage':'AGENCY'},allow:false},
 };
 let activeActor='none';
-const token=(sub:string)=>{activeActor=sub;return issueTestAccessToken({userId:sub,email:`${sub}@test.local`,agencyId:'1'})};
+const token=(sub:string)=>{const actor=actors[sub]!;activeActor=sub;return issueTestAccessToken({userId:sub,email:`${sub}@test.local`,agencyId:'1',roles:[actor.code??'CUSTOM'],permissions:Object.entries(actor.permissions).map(([code,scope])=>({code,scope}))})};
 const original=pool.execute.bind(pool);
 
 before(async()=>{
@@ -51,7 +51,8 @@ test('D3-D10 permissions, scopes, Super Admin système et anti-IDOR',async()=>{
   const get=(sub:string,url='/api/deliveries/10/documents/1/download')=>supertest(createApp()).get(url).set('Authorization',`Bearer ${token(sub)}`);
   assert.equal((await get('none')).status,403);
   assert.equal((await get('denied')).status,404);
-  for(const sub of ['agency','concession','global','system']){const response=await get(sub);assert.equal(response.status,200,sub);assert.equal(response.headers['content-type'],'application/pdf');assert.match(response.headers['content-disposition'],/^attachment;/);assert.equal(response.headers['x-content-type-options'],'nosniff');assert.equal(response.headers['cache-control'],'private, no-store')}
+  for(const sub of ['agency','system']){const response=await get(sub);assert.equal(response.status,200,sub);assert.equal(response.headers['content-type'],'application/pdf');assert.match(response.headers['content-disposition'],/^attachment;/);assert.equal(response.headers['x-content-type-options'],'nosniff');assert.equal(response.headers['cache-control'],'private, no-store')}
+  for(const sub of ['concession','global'])assert.equal((await get(sub)).status,403,sub);
   assert.equal((await get('fake')).status,403);
   assert.equal((await get('agency','/api/deliveries/10/documents/2/download')).status,404);
   assert.equal((await get('agency','/api/deliveries/20/documents/1/download')).status,404);

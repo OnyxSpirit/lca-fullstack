@@ -20,7 +20,8 @@ test('AUD-LCA-002 ne réduit plus les scopes dynamiques à l agence du jeton',()
 test('AUD-LCA-003 invalide les sockets lors des mutations RBAC et mots de passe',()=>{
   const socket=source('src/realtime/socket.ts'),users=source('src/modules/users/user.service.ts');
   assert.match(socket,/event==='rbac:updated'.*disconnectUser/);
-  assert.match(socket,/active\.agency_id==null\?null:String/);
+  assert.match(socket,/resolveAgencyRbacContext/);
+  assert.match(socket,/context\.activeAgencyId/);
   assert.match(users,/changeOwnPassword[\s\S]*disconnectUser\(req\.user!\.sub\)/);
   assert.match(users,/resetPassword[\s\S]*disconnectUser\(id\)/);
 });
@@ -55,7 +56,8 @@ test('AUD-LCA-010 rend les mutations GED et leur audit atomiques',()=>{
   const documents=source('src/modules/documents/document.routes.ts');
   for(const action of ['archive','restore'])assert.match(documents,new RegExp(`action:\\s*['\"]${action}['\"]`));
   assert.match(documents,/action:\s*['\"]version['\"]/);
-  assert.match(documents,/version[\s\S]*transaction\(async connection/);
+  assert.match(documents,/documentTransaction=<T>.*withCurrentAgencyAuthorization/);
+  assert.match(documents,/version[\s\S]*documentTransaction\(r,async connection/);
 });
 
 test('AUD-LCA-011 à 019 appliquent les protections proportionnées',()=>{

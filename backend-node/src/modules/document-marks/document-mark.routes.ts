@@ -1,16 +1,16 @@
 import{unlink}from'node:fs/promises';
 import{Router,type Request,type Response}from'express';
-import type{ResultSetHeader,RowDataPacket}from'mysql2/promise';
-import{execute,query,transaction}from'../../config/database.js';
+import type{PoolConnection,ResultSetHeader,RowDataPacket}from'mysql2/promise';
+import{execute,query}from'../../config/database.js';
 import{asyncHandler}from'../../middleware/error-handler.js';
-import{requirePermission}from'../../middleware/require-permission.js';
+import{requireAgencyPermission as requirePermission,withCurrentAgencyAuthorization}from'../rbac/agency-authorization.js';
 import{HttpError}from'../../shared/http-error.js';
 import{writeAudit}from'../activity/audit-writer.js';
 import{documentMultipart,type MultipartRequest}from'../documents/document-multipart.js';
 import{documentHash,readDocumentFile,storeDocument,type UploadedDocument}from'../documents/document-storage.js';
 import{assertPermission,type PermissionScope}from'../rbac/rbac.service.js';
 
-export const documentMarkRouter=Router();
+export const documentMarkRouter=Router();const markTransaction=<T>(request:Request,work:(connection:PoolConnection)=>Promise<T>)=>withCurrentAgencyAuthorization(request,(connection)=>work(connection));
 const num=(v:unknown)=>{const x=String(v??'');
 if(!/^[1-9]\d*$/.test(x))throw new HttpError(400,'Identifiant invalide');
 return x},txt=(v:unknown,n=150)=>String(v??'').trim().slice(0,n);
@@ -67,7 +67,7 @@ const sig=(x:RowDataPacket)=>({id:String(x.id),version:Number(x.version),mimeTyp
 documentMarkRouter.get('/document-marks/signature/me',requirePermission('signature.view.self'),asyncHandler(async(r,res)=>res.json((await query<RowDataPacket[]>('SELECT * FROM user_signature_versions WHERE user_id=? ORDER BY version DESC',[r.user!.sub])).map(sig))));
 
 documentMarkRouter.post('/document-marks/signature/me',requirePermission('signature.manage.self'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const f=image(r.documentFile),stored=await storeDocument(f,String(r.user!.agencyId)),hash=documentHash(f.buffer);
-try{const id=await transaction(async c=>{const[u]=await c.execute<RowDataPacket[]>('SELECT is_active FROM users WHERE id=? FOR UPDATE',[r.user!.sub]);
+try{const id=await markTransaction(r,async c=>{const[u]=await c.execute<RowDataPacket[]>('SELECT is_active FROM users WHERE id=? FOR UPDATE',[r.user!.sub]);
 if(!u[0]?.is_active)throw new HttpError(403,'Utilisateur inactif');
 const[v]=await c.execute<RowDataPacket[]>('SELECT version FROM user_signature_versions WHERE user_id=? ORDER BY version DESC LIMIT 1 FOR UPDATE',[r.user!.sub]),version=Number(v[0]?.version??0)+1;
 await c.execute('UPDATE user_signature_versions SET is_active=FALSE,revoked_at=NOW(),revoked_by=? WHERE user_id=? AND is_active=TRUE',[r.user!.sub,r.user!.sub]);
@@ -77,7 +77,7 @@ return String(x.insertId)});
 res.status(201).json({id})}catch(e){await unlink(stored.absolute).catch(()=>undefined);
 throw e}}));
 
-documentMarkRouter.delete('/document-marks/signature/me',requirePermission('signature.manage.self'),asyncHandler(async(r,res)=>{await transaction(async c=>{const[x]=await c.execute<RowDataPacket[]>('SELECT id,version,file_hash FROM user_signature_versions WHERE user_id=? AND is_active=TRUE FOR UPDATE',[r.user!.sub]);
+documentMarkRouter.delete('/document-marks/signature/me',requirePermission('signature.manage.self'),asyncHandler(async(r,res)=>{await markTransaction(r,async c=>{const[x]=await c.execute<RowDataPacket[]>('SELECT id,version,file_hash FROM user_signature_versions WHERE user_id=? AND is_active=TRUE FOR UPDATE',[r.user!.sub]);
 if(!x[0])throw new HttpError(404,'Signature active introuvable');
 await c.execute('UPDATE user_signature_versions SET is_active=FALSE,revoked_at=NOW(),revoked_by=? WHERE id=?',[r.user!.sub,x[0].id]);
 await writeAudit(c,r,{module:'documents',entityType:'user_signature',entityId:String(x[0].id),action:'signature.revoked',newValues:{version:Number(x[0].version),fileHash:x[0].file_hash}})});
@@ -109,7 +109,7 @@ if(!d||String(d.agency_id)!==agencyId)throw new HttpError(400,'Département inco
 documentMarkRouter.post('/document-marks/stamps',requirePermission('stamp.manage'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const s=await assertPermission(r,'stamp.manage'),f=image(r.documentFile),name=txt(r.body.name),agencyId=txt(r.body.agencyId)||null,departmentId=txt(r.body.departmentId)||null,categoryId=txt(r.body.categoryId)?num(r.body.categoryId):null,documentTypes=stampDocumentTypes(r.body.documentContexts,r.body.documentContext??'DELIVERY_REPORT'),context=documentTypes[0]!;
 if(!name)throw new HttpError(400,'Nom requis');
 const concession=await target(r,s,agencyId,departmentId),stored=await storeDocument(f,agencyId??String(r.user!.agencyId)),hash=documentHash(f.buffer);
-try{const id=await transaction(async c=>{if(categoryId){const[categories]=await c.execute<RowDataPacket[]>('SELECT id FROM service_stamp_categories WHERE id=? AND concession_id=? AND is_active=TRUE FOR UPDATE',[categoryId,concession]);
+try{const id=await markTransaction(r,async c=>{if(categoryId){const[categories]=await c.execute<RowDataPacket[]>('SELECT id FROM service_stamp_categories WHERE id=? AND concession_id=? AND is_active=TRUE FOR UPDATE',[categoryId,concession]);
 if(!categories[0])throw new HttpError(400,'Catégorie active incompatible')}const[x]=await c.execute<ResultSetHeader>('INSERT INTO service_stamps(concession_id,agency_id,department_id,category_id,name,document_context,created_by) VALUES(?,?,?,?,?,?,?)',[concession,agencyId,departmentId,categoryId,name,context,r.user!.sub]);
 for(const type of documentTypes)await c.execute('INSERT INTO service_stamp_document_types(stamp_id,document_type,created_by) VALUES(?,?,?)',[x.insertId,type,r.user!.sub]);
 const[v]=await c.execute<ResultSetHeader>('INSERT INTO service_stamp_versions(stamp_id,version,file_url,mime_type,file_size,file_hash,created_by) VALUES(?,1,?,?,?,?,?)',[x.insertId,`ged:${stored.storageKey}`,f.mimeType,f.buffer.length,hash,r.user!.sub]);
@@ -119,8 +119,9 @@ res.status(201).json({id,documentContexts:documentTypes})}catch(e){await unlink(
 throw e}}));
 
 documentMarkRouter.post('/document-marks/stamps/:id/version',requirePermission('stamp.manage'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const w=scope(r,await assertPermission(r,'stamp.manage')),f=image(r.documentFile),stored=await storeDocument(f,String(r.user!.agencyId)),hash=documentHash(f.buffer);
-try{const id=await transaction(async c=>{const[st]=await c.execute<RowDataPacket[]>(`SELECT st.id FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]);
+try{const id=await markTransaction(r,async c=>{const[st]=await c.execute<RowDataPacket[]>(`SELECT st.id,st.revoked_at FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]);
 if(!st[0])throw new HttpError(404,'Cachet introuvable');
+if(st[0].revoked_at)throw new HttpError(409,'Un cachet révoqué ne peut pas recevoir de nouvelle version');
 const[v]=await c.execute<RowDataPacket[]>('SELECT version FROM service_stamp_versions WHERE stamp_id=? ORDER BY version DESC LIMIT 1 FOR UPDATE',[st[0].id]),version=Number(v[0]?.version??0)+1;
 await c.execute('UPDATE service_stamp_versions SET is_active=FALSE,revoked_at=NOW(),revoked_by=? WHERE stamp_id=? AND is_active=TRUE',[r.user!.sub,st[0].id]);
 const[x]=await c.execute<ResultSetHeader>('INSERT INTO service_stamp_versions(stamp_id,version,file_url,mime_type,file_size,file_hash,created_by) VALUES(?,?,?,?,?,?,?)',[st[0].id,version,`ged:${stored.storageKey}`,f.mimeType,f.buffer.length,hash,r.user!.sub]);
@@ -130,7 +131,7 @@ res.status(201).json({id})}catch(e){await unlink(stored.absolute).catch(()=>unde
 throw e}}));
 
 documentMarkRouter.patch('/document-marks/stamps/:id/document-types',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const w=scope(r,await assertPermission(r,'stamp.manage')),documentTypes=stampDocumentTypes(r.body.documentContexts,null);
-await transaction(async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT st.id,st.document_context FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]),stamp=rows[0];
+await markTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT st.id,st.document_context FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]),stamp=rows[0];
 if(!stamp)throw new HttpError(404,'Cachet introuvable');
 const[before]=await c.execute<RowDataPacket[]>('SELECT document_type FROM service_stamp_document_types WHERE stamp_id=? ORDER BY document_type',[stamp.id]);
 await c.execute('DELETE FROM service_stamp_document_types WHERE stamp_id=?',[stamp.id]);
@@ -145,8 +146,9 @@ res.json(rows.map(sig))}));
 
 documentMarkRouter.patch('/document-marks/stamps/:id/status',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{if(typeof r.body?.isActive!=='boolean')throw new HttpError(400,'Statut invalide');
 const w=scope(r,await assertPermission(r,'stamp.manage'));
-await transaction(async c=>{const[x]=await c.execute<RowDataPacket[]>(`SELECT st.id FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]);
+await markTransaction(r,async c=>{const[x]=await c.execute<RowDataPacket[]>(`SELECT st.id,st.revoked_at FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]);
 if(!x[0])throw new HttpError(404,'Cachet introuvable');
+if(r.body.isActive&&x[0].revoked_at)throw new HttpError(409,'Un cachet révoqué ne peut pas être réactivé');
 await c.execute('UPDATE service_stamps SET is_active=?,updated_by=? WHERE id=?',[r.body.isActive,r.user!.sub,x[0].id]);
 await writeAudit(c,r,{module:'documents',entityType:'service_stamp',entityId:String(x[0].id),action:r.body.isActive?'stamp.activated':'stamp.deactivated',newValues:{isActive:r.body.isActive}})});
 res.json({success:true})}));
@@ -186,7 +188,7 @@ documentMarkRouter.put('/document-marks/policies/:documentType',requirePermissio
 if(!definition.policyManaged)throw new HttpError(409,'Ce document utilise un workflow de marques explicite et ne peut pas recevoir de politique automatique');
 const signature=Boolean(r.body.signatureRequired),stamp=Boolean(r.body.stampRequired),behavior=r.body.missingMarkBehavior==='ALLOW_WITHOUT_MARK'?'ALLOW_WITHOUT_MARK':'BLOCK',defaultStamp=txt(r.body.defaultStampId)?num(r.body.defaultStampId):null;
 if(defaultStamp){const[allowed]=await query<RowDataPacket[]>('SELECT st.id FROM service_stamps st JOIN service_stamp_document_types dt ON dt.stamp_id=st.id AND dt.document_type=? WHERE st.id=? AND st.concession_id=? AND st.is_active=TRUE AND st.revoked_at IS NULL',[type,defaultStamp,concession]);
-if(!allowed)throw new HttpError(400,'Cachet par défaut incompatible, inactif ou révoqué')}const saved=await transaction(async c=>{const[before]=await c.execute<RowDataPacket[]>('SELECT * FROM document_mark_policies WHERE concession_id=? AND agency_scope_key=COALESCE(?,0) AND document_type=? FOR UPDATE',[concession,agencyId,type]);
+if(!allowed)throw new HttpError(400,'Cachet par défaut incompatible, inactif ou révoqué')}const saved=await markTransaction(r,async c=>{const[before]=await c.execute<RowDataPacket[]>('SELECT * FROM document_mark_policies WHERE concession_id=? AND agency_scope_key=COALESCE(?,0) AND document_type=? FOR UPDATE',[concession,agencyId,type]);
 await c.execute('INSERT INTO document_mark_policies(concession_id,agency_id,document_type,trigger_status,signature_required,stamp_required,missing_mark_behavior,default_stamp_id,is_active,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE trigger_status=VALUES(trigger_status),signature_required=VALUES(signature_required),stamp_required=VALUES(stamp_required),missing_mark_behavior=VALUES(missing_mark_behavior),default_stamp_id=VALUES(default_stamp_id),is_active=VALUES(is_active),updated_by=VALUES(updated_by)',[concession,agencyId,type,definition.triggerStatus,signature,stamp,behavior,defaultStamp,r.body.isActive!==false,r.user!.sub,r.user!.sub]);
 const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM document_mark_policies WHERE concession_id=? AND agency_scope_key=COALESCE(?,0) AND document_type=?',[concession,agencyId,type]);
 const row=rows[0]!;
@@ -199,7 +201,7 @@ documentMarkRouter.get('/roles/:roleId/stamps',requirePermission('stamp.view'),a
 res.json(rows.map(x=>({...x,id:String(x.id),document_contexts:contexts(x.document_contexts,String(x.document_context)),is_active:Boolean(x.is_active),authorized:Boolean(x.authorized)})))}));
 
 documentMarkRouter.put('/roles/:roleId/stamps',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const roleId=num(r.params.roleId),w=scope(r,await assertPermission(r,'stamp.manage')),ids:string[]=Array.isArray(r.body.stampIds)?[...new Set<string>(r.body.stampIds.map((x:unknown)=>num(x)))]:[];
-await transaction(async c=>{const[role]=await c.execute<RowDataPacket[]>('SELECT id FROM roles WHERE id=? AND is_active=TRUE FOR UPDATE',[roleId]);
+await markTransaction(r,async c=>{const[role]=await c.execute<RowDataPacket[]>('SELECT id FROM roles WHERE id=? AND is_active=TRUE FOR UPDATE',[roleId]);
 if(!role[0])throw new HttpError(404,'Rôle actif introuvable');
 if(ids.length){const[valid]=await c.execute<RowDataPacket[]>(`SELECT st.id FROM service_stamps st WHERE st.id IN (${ids.map(()=>'?').join(',')}) AND st.is_active=TRUE AND st.revoked_at IS NULL AND ${w.sql}`,[...ids,...w.p]);
 if(valid.length!==ids.length)throw new HttpError(400,'Cachet introuvable, inactif ou révoqué dans votre périmètre')}await c.execute(`DELETE a FROM service_stamp_role_authorizations a JOIN service_stamps st ON st.id=a.stamp_id WHERE a.role_id=? AND ${w.sql}`,[roleId,...w.p]);

@@ -16,10 +16,10 @@ test('WL02-13 proposition issue de marque constructeur',()=>assert.match(service
 test('WL02-14 constructeur inactif exclu des nouvelles décisions',()=>assert.match(service,/wp\.is_active=TRUE AND wp\.warranty_available=TRUE/));
 test('WL02-15 création vente crée le snapshot dans sa transaction',()=>assert.match(sales,/createSnapshot\(connection/));
 test('WL02-16 valeurs applicables validées côté serveur',()=>{assert.match(domain,/Durée de garantie invalide/);assert.match(domain,/Plafond kilométrique invalide/)});
-test('WL02-17 modification protégée par sales.update',()=>assert.match(routes,/sales\/:id\/warranty'.*requirePermission\('sales\.update'\)/));
+test('WL02-17 modification protégée par sales.update',()=>assert.match(routes,/sales\/:id\/warranty',requireAgencyBusinessPermission\('sales\.update'\)/));
 test('WL02-18 garantie active immuable',()=>assert.match(service,/Une garantie activée est immuable/));
 test('WL02-19 livraison refuse la décision indéterminée',()=>assert.match(service,/décision de garantie doit être renseignée avant la livraison/));
-test('WL02-20 activation dans la transaction de signature',()=>{const transactionAt=delivery.indexOf('const result=await transaction'),activationAt=delivery.indexOf('await activateAtDelivery');assert.ok(transactionAt>=0&&activationAt>transactionAt)});
+test('WL02-20 activation dans la transaction de signature',()=>{const transactionAt=delivery.indexOf("withCurrentAgencyBusinessAuthorization(request,'delivery.complete'"),activationAt=delivery.indexOf('await activateAtDelivery');assert.ok(transactionAt>=0&&activationAt>transactionAt)});
 test('WL02-21 activation calcule échéance depuis le snapshot',()=>assert.match(service,/DATE_ADD\(\?,INTERVAL duration_months MONTH\)/));
 test('WL02-22 activation est idempotente',()=>{assert.match(service,/status==='ACTIVE'\)return/);assert.match(service,/WHERE id=\? AND status='PENDING_ACTIVATION'/)});
 test('WL02-23 non applicable ne crée pas de contrat actif',()=>assert.match(service,/decision==='NOT_APPLICABLE'\)return/));

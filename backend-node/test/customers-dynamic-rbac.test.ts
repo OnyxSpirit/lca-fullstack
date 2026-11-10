@@ -13,12 +13,12 @@ const request=(scope:'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL',query:Record<string,st
 
 test('CLIENT-02 OWN repose sur customers.assigned_user_id',()=>{
   const value=customerScope(request('OWN'),'customers.view');
-  assert.equal(value.sql,'c.assigned_user_id=?');assert.deepEqual(value.params,['7']);
+  assert.equal(value.sql,'c.agency_id=? AND c.assigned_user_id=?');assert.deepEqual(value.params,['2','7']);
 });
 test('CLIENT-03 AGENCY filtre réellement agency_id',()=>assert.match(customerScope(request('AGENCY'),'customers.view').sql,/c\.agency_id=\?/));
 test('CLIENT-04 CONCESSION utilise la concession de l’agence courante',()=>assert.match(customerScope(request('CONCESSION'),'customers.view').sql,/concession_id/));
 test('CLIENT-05 GLOBAL ne restreint pas la ressource',()=>assert.equal(customerScope(request('GLOBAL'),'customers.view').sql,'1=1'));
-test('CLIENT-08 update OWN utilise le propriétaire métier',()=>assert.equal(customerScope(request('OWN'),'customers.update').sql,'c.assigned_user_id=?'));
+test('CLIENT-08 update OWN utilise l’agence et le propriétaire métier',()=>assert.equal(customerScope(request('OWN'),'customers.update').sql,'c.agency_id=? AND c.assigned_user_id=?'));
 test('CLIENT-09 une recherche commerciale hors OWN est refusée',()=>assert.throws(()=>customerScope(request('OWN',{commercialId:'8'}),'customers.view','c',true),/portefeuille/));
 test('CLIENT-01 sans customers.view l’accès est refusé',async()=>{
   const denied=request('OWN');denied.rbac!.permissions.delete('customers.view');
@@ -30,7 +30,7 @@ test('CLIENT-10 une fiche hors scope n’est pas sélectionnable par le SQL',()=
 test('CLIENT-11/12 aucun rôle historique ne gouverne le runtime Clients',async()=>{
   const source=await readFile(new URL('../src/modules/customers/customer.routes.ts',import.meta.url),'utf8');
   for(const token of ['authorize(','SALES_MANAGER','SALES_REP','DIRECTOR','DIRECTION','RECEPTIONIST','SERVICE_ADVISOR','ACCOUNTANT','roles.includes','roles.some','hasRole'])assert.equal(source.includes(token),false,token);
-  assert.match(source,/requirePermission\('customers\.view'\)/);assert.match(source,/requirePermission\('customers\.create'\)/);assert.match(source,/requirePermission\('customers\.update'\)/);
+  assert.match(source,/requirePermission\('customers\.view'\)/);assert.match(source,/requireAgencyBusinessPermission\('customers\.create'\)/);assert.match(source,/requireAgencyBusinessPermission\('customers\.update'\)/);
 });
 test('CLIENT-21 les sous-données 360 sont conditionnées par leurs permissions sources',async()=>{
   const source=await readFile(new URL('../src/modules/customers/customer.routes.ts',import.meta.url),'utf8');

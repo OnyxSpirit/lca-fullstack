@@ -13,10 +13,10 @@ test('PH2A fusion déterministe des permissions et scopes',()=>{
  assert.deepEqual([...merged.entries()],[['x','AGENCY'],['y','CONCESSION'],['z','GLOBAL'],['plain',null]]);
 });
 
-test('PH2A sépare explicitement le nouveau contexte du RBAC historique',()=>{
+test('PH2A authentifie désormais depuis le contexte agence et garde un adaptateur historique restrictif',()=>{
  const root=new URL('../',import.meta.url),read=(path:string)=>readFileSync(new URL(path,root),'utf8');
  const authenticate=read('src/middleware/authenticate.ts'),legacy=read('src/modules/rbac/rbac.service.ts'),agency=read('src/modules/rbac/agency-rbac.service.ts');
- assert.match(authenticate,/request\.rbac=await resolveRbacContext/);assert.doesNotMatch(authenticate,/resolveAgencyRbacContext/);
- assert.match(legacy,/JOIN user_roles ur/);assert.doesNotMatch(legacy,/user_agency_roles/);
+ assert.match(authenticate,/resolveAgencyRbacContext/);assert.match(authenticate,/request\.agencyRbac=agencyContext/);assert.match(authenticate,/request\.rbac=legacyContext\(agencyContext\)/);
+ assert.match(legacy,/legacyRbacContextFromAgency/);assert.match(legacy,/scope==='OWN'\?'OWN'.*'AGENCY'/s);
  assert.match(agency,/JOIN user_agency_roles uar/);assert.match(agency,/r\.is_system=FALSE/);assert.match(agency,/r\.code='SUPER_ADMIN' AND r\.is_system=TRUE/);
 });

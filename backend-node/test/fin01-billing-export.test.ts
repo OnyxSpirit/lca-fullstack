@@ -35,8 +35,8 @@ test('FIN-01 déduplique legacy par relation au paiement et filtre les paiements
  assert.match(route,/FROM payment_refunds pr JOIN payments p ON p\.id=pr\.payment_id/);
  assert.match(route,/filename="operations-facturation\.csv"/);
  assert.match(route,/const exportAgencyId=await billingExportAgency\(r\),scoped=\{sql:'i\.agency_id=\?',params:\[exportAgencyId\]\}/);
- assert.match(route,/scope==='AGENCY'&&requested!==actorAgency/);
- assert.match(route,/JOIN agencies actor ON actor\.concession_id=target\.concession_id/);
+ assert.match(route,/requested!==actorAgency/);
+ assert.match(route,/SELECT id FROM agencies WHERE id=\? AND is_active=TRUE/);
 });
 
 test('FIN-01 export vide conserve uniquement un en-tête français stable',()=>{

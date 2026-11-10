@@ -20,11 +20,21 @@ function literals(text, expression) {
   return [...new Set(matches)].join(', ') || '—';
 }
 
-function classify(path, text) {
-  if (/requireCentralAgencyPermission/.test(text)) return ['Administration centrale', 'Migré'];
-  if (/requireAgencyBusiness(?:OrCentral)?Permission/.test(text)) return ['Métier déjà migré', 'Migré'];
+function classify(path, text, fileText, inheritedGuard = '') {
+  const guardedText = `${inheritedGuard} ${text}`;
+  if (/requireCentralAgencyPermission/.test(guardedText)) return ['Administration centrale', 'Migré'];
+  if (/require(?:Any)?Agency(?:Business(?:OrCentral)?|Any)?Permission/.test(guardedText)) return ['Métier déjà migré', 'Migré'];
+  if (/requirePermission/.test(guardedText) && (/(?:require(?:CentralAgency|Agency(?:Business)?)Permission\s+as\s+requirePermission)/.test(fileText)||/const requirePermission=require(?:Central|Agency)/.test(fileText))) return ['Métier déjà migré', 'Migré'];
+  if (/requireAnyPermission/.test(guardedText)&&/requireAnyAgency(?:Business)?Permission\s+as\s+requireAnyPermission/.test(fileText))return['Métier déjà migré','Migré'];
+  if (/requireAnyPermission/.test(guardedText)&&/const requireAnyPermission=requireAnyAgency(?:Business)?Permission/.test(fileText))return['Métier déjà migré','Migré'];
+  if (/\bauthorize\s*\(/.test(text) && /resolveRequestAgencyContext|withCurrentAgencyAuthorization/.test(fileText)) return ['Métier déjà migré', 'Migré'];
+  const middlewareNames=[...text.matchAll(/,\s*([A-Za-z_$][\w$]*)\s*,/g)].map(match=>match[1]);
+  if(middlewareNames.some(name=>new RegExp(`(?:const|function)\\s+${name}[^\\n]*(?:require(?:Any)?Agency|requireCentralAgency)Permission`).test(fileText)))return['Métier déjà migré','Migré'];
+  if(middlewareNames.some(name=>new RegExp(`const\\s+${name}=requireAnyPermission`).test(fileText))&&/requireAnyAgencyPermission\s+as\s+requireAnyPermission/.test(fileText))return['Métier déjà migré','Migré'];
+  if (/withCurrentAgencyAuthorization/.test(fileText)&&/assertPermission|\brbac\(/.test(fileText))return['Métier sous adaptateur restrictif et fraîcheur transactionnelle','Migré'];
+  if(['/auth/2fa/security-center/overview','/agencies','/users/directory'].includes(path))return['Contrôle effectif dans le service','Migré'];
   if (/^\/(login|refresh|2fa\/(verify|recovery|challenge))/.test(path)) return ['Publique ou pré-authentification', 'Hors scope métier'];
-  if (/\/(me|logout)(\/|$)|devices\/me/.test(path)) return ['Fonction personnelle', 'Conservé à auditer'];
+  if (/\/(me|logout)(\/|$)|devices\/me|\/2fa\/step-up$/.test(path)) return ['Fonction personnelle', 'Conservé'];
   if (/^\/rbac\//.test(path)) return ['Fonction technique', 'Socle validé'];
   return ['Métier à migrer', 'À auditer'];
 }
@@ -45,14 +55,16 @@ for (const file of files.sort()) {
           (ts.isStringLiteral(pathNode) || ts.isNoSubstitutionTemplateLiteral(pathNode))) {
         const route = pathNode.text;
         const text = node.getText(source);
-        const [category, status] = classify(route, text);
+        const inheritedGuard = [...sourceText.matchAll(new RegExp(`${receiver.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.use\\(\\s*['\"]([^'\"]+)['\"]\\s*,\\s*([^\\n;]+)`, 'g'))]
+          .filter((match) => route.startsWith(match[1])).map((match) => match[2]).join(' ');
+        const [category, status] = classify(route, text, sourceText, inheritedGuard);
         endpoints.push({
           moduleName,
           method: method.toUpperCase(),
           route,
           file: relative(join(sourceRoot, '..', '..'), file),
           line: source.getLineAndCharacterOfPosition(node.getStart()).line + 1,
-          permissions: literals(text, /(?:requirePermission|requireAgencyBusinessPermission|requireCentralAgencyPermission)\(\s*['"]([^'"]+)['"]/g),
+          permissions: literals(`${inheritedGuard} ${text}`, /(?:requirePermission|requireAgencyPermission|requireAgencyBusinessPermission|requireAnyAgencyPermission|requireCentralAgencyPermission)\(\s*['"]([^'"]+)['"]/g),
           category,
           status,
         });
@@ -62,6 +74,8 @@ for (const file of files.sort()) {
   };
   visit(source);
 }
+
+endpoints.push({moduleName:'technique',method:'GET',route:'/api/health',file:'app.ts',line:68,permissions:'—',category:'Santé technique publique',status:'Hors scope métier'});
 
 const counts = new Map();
 for (const endpoint of endpoints) counts.set(endpoint.status, (counts.get(endpoint.status) ?? 0) + 1);

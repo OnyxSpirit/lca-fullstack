@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/error-handler.js';
-import { requirePermission } from '../../middleware/require-permission.js';
+import { requireAgencyPermission as requirePermission,requireCentralAgencyPermission } from '../rbac/agency-authorization.js';
 import { HttpError } from '../../shared/http-error.js';
 import * as service from './two-factor-admin.service.js';
 import*as devices from'./trusted-device.service.js';
@@ -11,10 +11,10 @@ const id=(value:unknown)=>{const result=String(value??'');if(!/^[1-9]\d*$/.test(
 twoFactorAdminRouter.get('/auth/2fa/users/:id',requirePermission('auth.2fa.users.view'),asyncHandler(async(req,res)=>res.json(await service.adminState(req,id(req.params.id)))));
 twoFactorAdminRouter.patch('/auth/2fa/users/:id/requirement',requirePermission('auth.2fa.users.enforce'),asyncHandler(async(req,res)=>res.json(await service.enforceUser(req,id(req.params.id),req.body?.required))));
 twoFactorAdminRouter.post('/auth/2fa/users/:id/reset',requirePermission('auth.2fa.users.reset'),asyncHandler(async(req,res)=>res.json(await service.resetUser(req,id(req.params.id),req.body?.reason))));
-twoFactorAdminRouter.get('/auth/2fa/role-policies',requirePermission('auth.2fa.policy.manage'),asyncHandler(async(req,res)=>res.json(await service.rolePolicies(req))));
-twoFactorAdminRouter.put('/auth/2fa/role-policies/:id',requirePermission('auth.2fa.policy.manage'),asyncHandler(async(req,res)=>res.json(await service.setRolePolicy(req,id(req.params.id),req.body?.required))));
-twoFactorAdminRouter.get('/auth/2fa/security-settings',requirePermission('auth.2fa.settings.view'),asyncHandler(async(req,res)=>res.json(await service.securitySettings(req))));
-twoFactorAdminRouter.put('/auth/2fa/security-settings',requirePermission('auth.2fa.settings.manage'),asyncHandler(async(req,res)=>res.json(await service.updateSecuritySettings(req,req.body))));
+twoFactorAdminRouter.get('/auth/2fa/role-policies',requireCentralAgencyPermission('auth.2fa.policy.manage'),asyncHandler(async(req,res)=>res.json(await service.rolePolicies(req))));
+twoFactorAdminRouter.put('/auth/2fa/role-policies/:id',requireCentralAgencyPermission('auth.2fa.policy.manage'),asyncHandler(async(req,res)=>res.json(await service.setRolePolicy(req,id(req.params.id),req.body?.required))));
+twoFactorAdminRouter.get('/auth/2fa/security-settings',requireCentralAgencyPermission('auth.2fa.settings.view'),asyncHandler(async(req,res)=>res.json(await service.securitySettings(req))));
+twoFactorAdminRouter.put('/auth/2fa/security-settings',requireCentralAgencyPermission('auth.2fa.settings.manage'),asyncHandler(async(req,res)=>res.json(await service.updateSecuritySettings(req,req.body))));
 twoFactorAdminRouter.get('/auth/2fa/security-center/overview',asyncHandler(async(req,res)=>res.json(await service.overview(req))));
 twoFactorAdminRouter.get('/auth/2fa/security-center/users',requirePermission('auth.2fa.users.view'),asyncHandler(async(req,res)=>res.json(await service.users(req,req.query))));
 twoFactorAdminRouter.get('/auth/2fa/devices/me',requirePermission('auth.2fa.view'),asyncHandler(async(req,res)=>res.json(await devices.listTrustedDevices(req,req.query,true))));

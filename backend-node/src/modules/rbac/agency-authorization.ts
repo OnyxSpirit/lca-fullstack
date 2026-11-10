@@ -3,7 +3,7 @@ import type{PoolConnection,RowDataPacket}from'mysql2/promise';
 import{query,transaction,transactionWithDeadlockRetry}from'../../config/database.js';
 import{HttpError}from'../../shared/http-error.js';
 import{resolveAgencyRbacContext,resolveAgencyRbacContextWithRunner,type AgencyRbacContext}from'./agency-rbac.service.js';
-import type{PermissionScope}from'./rbac.service.js';
+import{legacyRbacContextFromAgency,type PermissionScope}from'./rbac.service.js';
 
 export type AgencyBusinessScope='OWN'|'AGENCY';
 export interface AuthorizationRunner{execute:<T extends RowDataPacket[]>(sql:string,params?:any[])=>Promise<[T,unknown]>}
@@ -33,6 +33,7 @@ const databaseRunner:AuthorizationRunner={execute:async<T extends RowDataPacket[
 const businessScope=(scope:PermissionScope|null):AgencyBusinessScope=>{if(scope!=='OWN'&&scope!=='AGENCY')throw new HttpError(403,'La permission ne possède pas un scope métier OWN ou AGENCY');return scope};
 const sqlIdentifier=(value:string)=>{if(!/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$/.test(value))throw new Error('UNSAFE_AGENCY_SQL_IDENTIFIER');return value};
 const safePredicate=(predicate:{sql:string;params:unknown[]})=>{const sql=predicate.sql.trim();if(!sql||/(?:^|\W)1\s*=\s*1(?:\W|$)|;|--|\/\*/.test(sql))throw new Error('UNSAFE_AGENCY_SQL_PREDICATE');return{sql,params:[...predicate.params]}};
+const samePermissions=(left:Map<string,PermissionScope|null>,right:Map<string,PermissionScope|null>)=>left.size===right.size&&[...left].every(([permission,scope])=>right.get(permission)===scope);
 
 export async function resolveRequestAgencyContext(request:Request){
  if(!request.user)throw new HttpError(401,'Jeton manquant');
@@ -123,15 +124,17 @@ async function lockCurrentAuthorization(connection:PoolConnection,context:Agency
 
 /** Verrouille la session et l'affectation courante pendant toute l'écriture. */
 export async function withCurrentAgencyAuthorization<T>(request:Request,work:(connection:PoolConnection,context:AgencyRbacContext)=>Promise<T>){
- return transaction(async connection=>{const cached=await resolveRequestAgencyContext(request),context=await resolveAgencyRbacContextWithRunner(connection,cached.userId,cached.sessionId);if(context.activeAgencyId!==cached.activeAgencyId||context.contextVersion!==cached.contextVersion)throw new HttpError(409,'AGENCY_CONTEXT_CHANGED');await lockCurrentAuthorization(connection,context);request.agencyRbac=context;return work(connection,context)});
+ return transaction(async connection=>{const cached=await resolveRequestAgencyContext(request),context=await resolveAgencyRbacContextWithRunner(connection,cached.userId,cached.sessionId);if(context.activeAgencyId!==cached.activeAgencyId||context.contextVersion!==cached.contextVersion)throw new HttpError(409,'AGENCY_CONTEXT_CHANGED');if(!samePermissions(cached.permissions,context.permissions))throw new HttpError(409,'AGENCY_AUTHORIZATION_CHANGED');await lockCurrentAuthorization(connection,context);request.agencyRbac=context;request.rbac=legacyRbacContextFromAgency(context);return work(connection,context)});
 }
 export async function withCurrentAgencyBusinessAuthorization<T>(request:Request,permission:string,work:(connection:PoolConnection,context:AgencyRbacContext,scope:AgencyBusinessScope)=>Promise<T>){return withCurrentAgencyAuthorization(request,async(connection,context)=>work(connection,context,assertAgencyBusinessPermissionInContext(context,permission)))}
-export async function withCurrentAgencyBusinessAuthorizationRetry<T>(request:Request,permission:string,work:(connection:PoolConnection,context:AgencyRbacContext,scope:AgencyBusinessScope)=>Promise<T>){return transactionWithDeadlockRetry(async connection=>{const cached=await resolveRequestAgencyContext(request),context=await resolveAgencyRbacContextWithRunner(connection,cached.userId,cached.sessionId);if(context.activeAgencyId!==cached.activeAgencyId||context.contextVersion!==cached.contextVersion)throw new HttpError(409,'AGENCY_CONTEXT_CHANGED');await lockCurrentAuthorization(connection,context);request.agencyRbac=context;const scope=assertAgencyBusinessPermissionInContext(context,permission);return work(connection,context,scope)})}
+export async function withCurrentAgencyAuthorizationRetry<T>(request:Request,work:(connection:PoolConnection,context:AgencyRbacContext)=>Promise<T>){return transactionWithDeadlockRetry(async connection=>{const cached=await resolveRequestAgencyContext(request),context=await resolveAgencyRbacContextWithRunner(connection,cached.userId,cached.sessionId);if(context.activeAgencyId!==cached.activeAgencyId||context.contextVersion!==cached.contextVersion)throw new HttpError(409,'AGENCY_CONTEXT_CHANGED');if(!samePermissions(cached.permissions,context.permissions))throw new HttpError(409,'AGENCY_AUTHORIZATION_CHANGED');await lockCurrentAuthorization(connection,context);request.agencyRbac=context;request.rbac=legacyRbacContextFromAgency(context);return work(connection,context)})}
+export async function withCurrentAgencyBusinessAuthorizationRetry<T>(request:Request,permission:string,work:(connection:PoolConnection,context:AgencyRbacContext,scope:AgencyBusinessScope)=>Promise<T>){return withCurrentAgencyAuthorizationRetry(request,async(connection,context)=>work(connection,context,assertAgencyBusinessPermissionInContext(context,permission)))}
 
 /** Règle centrale 2B conservée : seul le véritable SUPER_ADMIN système. */
 export async function assertCentralAgencyPermission(request:Request,permission:string){const context=await resolveRequestAgencyContext(request);if(!context.isSuperAdmin||!context.permissions.has(permission))throw new HttpError(403,'Autorisation centrale insuffisante');return context.permissions.get(permission)??null}
 export function assertCentralAgencyPermissionInContext(context:AgencyRbacContext,permission:string){if(!context.isSuperAdmin||!context.permissions.has(permission))throw new HttpError(403,'Autorisation centrale insuffisante');return context.permissions.get(permission)??null}
 export async function withCurrentCentralAuthorization<T>(request:Request,permission:string,work:(context:AgencyRbacContext)=>Promise<T>){return withCurrentAgencyAuthorization(request,async(_connection,context)=>{assertCentralAgencyPermissionInContext(context,permission);return work(context)})}
+export async function withCurrentCentralAuthorizationTransaction<T>(request:Request,permission:string,work:(connection:PoolConnection,context:AgencyRbacContext)=>Promise<T>){return withCurrentAgencyAuthorization(request,async(connection,context)=>{assertCentralAgencyPermissionInContext(context,permission);return work(connection,context)})}
 
 /** La règle destination est obligatoire et reste la responsabilité du module. */
 export async function assertInterAgencyAuthorization(request:Request,plan:InterAgencyAuthorizationPlan){

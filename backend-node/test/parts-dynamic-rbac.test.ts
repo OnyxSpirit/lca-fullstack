@@ -32,7 +32,7 @@ test('PARTS-24 consommation décrémente physique et réservé',()=>assert.deepE
 test('PARTS-25 double consommation est refusée',()=>assert.throws(()=>consumeReservation(7,0,3),/Cohérence/));
 test('PARTS-26 ajustement exige permission dédiée',()=>assert.match(route,/adjustments.*parts\.stock\.adjust/s));
 test('PARTS-27 inventaire respecte le réservé',()=>assert.match(route,/stock compté ne peut pas être inférieur au stock réservé/));
-test('PARTS-28 transfert est transactionnel et produit deux mouvements',()=>{assert.match(route,/transfers.*transaction/s);assert.match(route,/transfer_out/);assert.match(route,/transfer_in/)});
+test('PARTS-28 transfert est transactionnel avec autorisation fraîche et produit deux mouvements',()=>{assert.match(route,/partsTransaction=<T>.*withCurrentAgencyAuthorization/s);assert.match(route,/transfers.*partsTransaction/s);assert.match(route,/transfer_out/);assert.match(route,/transfer_in/)});
 test('PARTS-29 verrou stock utilise FOR UPDATE',()=>assert.match(stock,/FOR UPDATE/));
 test('PARTS-30 réception est idempotente',()=>assert.match(route,/purchase_order_receipts.*idempotency_key/));
 test('PARTS-31 réception seule incrémente le stock fournisseur',()=>assert.match(route,/receipts.*current_stock=\?/s));

@@ -1,8 +1,9 @@
 import type {Request} from 'express';
 import type {PoolConnection,RowDataPacket} from 'mysql2/promise';
-import {query,transaction} from '../../config/database.js';
+import {query} from '../../config/database.js';
 import {HttpError} from '../../shared/http-error.js';
 import {writeAudit} from '../activity/audit-writer.js';
+import{withCurrentCentralAuthorizationTransaction}from'../rbac/agency-authorization.js';
 
 export const SECURITY_SETTING_KEYS={
   trustedEnabled:'security.2fa.trusted_devices.enabled',
@@ -48,6 +49,6 @@ export async function saveTwoFactorSecuritySettings(body:unknown,request:Request
     [SECURITY_SETTING_KEYS.trustedMaxDuration,next.trustedDevicesMaxDurationDays],
     [SECURITY_SETTING_KEYS.strongAuthDuration,next.strongAuthDurationMinutes],
   ]as const;
-  await transaction(async(connection:PoolConnection)=>{for(const[key,value]of entries)await connection.execute("INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,description,updated_by) VALUES('global',0,?,?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)",[key,JSON.stringify(value),key,request.user!.sub]);await writeAudit(connection,request,{module:'auth',entityType:'security_settings',entityId:'0',action:'auth.2fa.security_settings_updated',oldValues:before,newValues:next,context:{mode:'GLOBAL',note:'Gouvernance globale 2FA'}})});
+  await withCurrentCentralAuthorizationTransaction(request,'auth.2fa.settings.manage',async(connection:PoolConnection)=>{for(const[key,value]of entries)await connection.execute("INSERT INTO settings(scope_type,scope_id,setting_key,setting_value,description,updated_by) VALUES('global',0,?,?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)",[key,JSON.stringify(value),key,request.user!.sub]);await writeAudit(connection,request,{module:'auth',entityType:'security_settings',entityId:'0',action:'auth.2fa.security_settings_updated',oldValues:before,newValues:next,context:{mode:'GLOBAL',note:'Gouvernance globale 2FA'}})});
   return next;
 }

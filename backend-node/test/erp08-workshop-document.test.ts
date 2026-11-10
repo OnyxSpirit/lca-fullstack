@@ -7,8 +7,8 @@ const layout=readFileSync(new URL('../src/modules/documents/document-layout.ts',
 
 test('ERP-08 facture atelier persiste le régime et le taux de TVA',()=>{
   assert.match(workshop,/tax_mode,price_input_mode,tax_rate_snapshot,created_by/);
-  assert.match(workshop,/'TAXABLE','HT',\?,\?\)/);
-  assert.match(workshop,/businessConfig\.currencyCode,businessConfig\.vatRate,r\.user!\.sub/);
+  assert.match(workshop,/\?,'HT',\?,\?\)/);
+  assert.match(workshop,/businessConfig\.currencyCode,taxMode,taxRateSnapshot,r\.user!\.sub/);
 });
 
 test('ERP-08 pied de page reste dans la zone imprimable A4',()=>{

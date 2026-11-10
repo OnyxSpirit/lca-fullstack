@@ -25,6 +25,10 @@ const customer=(id:string,type:'individual'|'company')=>({
 
 before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
+    if(sql.includes('SELECT rt.active_agency_id,rt.agency_context_version'))return[[{active_agency_id:'1',agency_context_version:0}],[]];
+    if(sql.includes('FROM users u JOIN user_roles ur')&&sql.includes("r.code='SUPER_ADMIN'"))return[[],[]];
+    if(sql.includes('FROM user_agencies ua JOIN agencies a'))return[[{agency_id:'1',code:'AG1',name:'Agence test',concession_id:'1',is_primary:1}],[]];
+    if(sql.includes('SELECT r.id,r.code,r.name FROM user_agencies'))return[[{id:'role-test',code:'CUSTOMER_SUPPORT_TEST',name:'Support client'}],[]];
     if(sql.includes('SELECT r.id,r.code,r.is_system'))return[[{id:'role-test',code:'CUSTOMER_SUPPORT_TEST',is_system:0}],[]];
     if(sql.includes('SELECT p.code,rp.scope'))return[[
       {code:'customers.view',scope:'AGENCY'},{code:'customers.history.view',scope:'AGENCY'},

@@ -1,7 +1,7 @@
 import {Router,type Request} from 'express';
 import type {RowDataPacket} from 'mysql2/promise';
 import {query} from '../../config/database.js';
-import {requirePermission} from '../../middleware/require-permission.js';
+import {requireAgencyPermission as requirePermission} from '../rbac/agency-authorization.js';
 import {asyncHandler} from '../../middleware/error-handler.js';
 import {HttpError} from '../../shared/http-error.js';
 import type {PermissionScope} from '../rbac/rbac.service.js';

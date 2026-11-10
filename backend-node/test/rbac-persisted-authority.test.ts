@@ -49,7 +49,7 @@ test('RBAC-10..14 protections structurelles, auth réelle et rechargement DB res
   assert.doesNotMatch(rbac,/if\(context\.isSuperAdmin\)/);
   assert.match(users,/LAST_SUPER_ADMIN/);
   assert.match(users,/if\(role\.is_system\)throw new HttpError\(403/);
-  assert.match(authenticate,/resolveRbacContext\(user\.sub\)/);
+  assert.match(authenticate,/resolveAgencyRbacContext\(user\.sub,user\.sid\)/);
 });
 
 test('RBAC-01 audit runtime : aucun module n’accorde un droit via isSuperAdmin',()=>{

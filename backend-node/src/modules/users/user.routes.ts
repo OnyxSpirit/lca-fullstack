@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/error-handler.js';
-import { requirePermission } from '../../middleware/require-permission.js';
+import { requireAgencyPermission as requirePermission } from '../rbac/agency-authorization.js';
 import { documentMultipart, type MultipartRequest } from '../documents/document-multipart.js';
 import { removeAvatar, saveAvatar } from './user-avatar.js';
 import * as service from './user.service.js';

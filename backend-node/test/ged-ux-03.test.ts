@@ -6,7 +6,7 @@ const route = readFileSync(new URL('../src/modules/documents/document.routes.ts'
 const storage = readFileSync(new URL('../src/modules/documents/document-storage.ts', import.meta.url), 'utf8');
 
 test('GED-UX03-B01 succès HTTP après persistance atomique', () => {
-  assert.match(route, /payload=await transaction\(async connection=>/);
+  assert.match(route, /payload=await documentTransaction\(r,async connection=>/);
   assert.match(route, /res\.status\(201\)\.json\(payload\)/);
 });
 test('GED-UX03-B02/B04/B06 autonome et valeurs NULL préservés', () => {

@@ -6,7 +6,7 @@ import{assertPermission}from'../src/modules/rbac/rbac.service.js';
 import{billingScopeSql}from'../src/modules/billing/billing.routes.js';
 import{applyPayment}from'../src/modules/billing/payment.domain.js';
 type Scope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
-const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',email:'billing@dynamic.local',roles:['BILLING_OPERATOR_DYNAMIC'],agencyId:'7'},query:{},body:{},rbac:{roleId:'90',roleCode:'BILLING_OPERATOR_DYNAMIC',isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))}})as unknown as Request;
+const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',email:'billing@dynamic.local',roles:['BILLING_OPERATOR_DYNAMIC'],agencyId:'7',sid:'billing-session'},query:{},body:{},agencyRbac:{userId:'42',sessionId:'billing-session',activeAgencyId:'7',contextVersion:1,isSuperAdmin:superAdmin,roles:[{id:'90',code:'BILLING_OPERATOR_DYNAMIC'}],permissions:new Map(Object.entries(permissions)),assignments:[]}})as unknown as Request;
 const source=readFileSync(new URL('../src/modules/billing/billing.routes.ts',import.meta.url),'utf8');
 const sales=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
 const customers=readFileSync(new URL('../src/modules/customers/customer.routes.ts',import.meta.url),'utf8');
@@ -18,10 +18,10 @@ test('BILL-01/06/08/10/12/14/15/22/23/24/25 : permissions dynamiques sans bypass
  assert.equal(await assertPermission(request({'billing.payment.collect':'AGENCY'}),'billing.payment.collect'),'AGENCY');
  await assert.rejects(()=>assertPermission(request({},true),'billing.invoice.view'),/Permission insuffisante/);
 });
-test('BILL-02/03/04/05/07 : AGENCY CONCESSION GLOBAL et refus explicite de OWN',()=>{
+test('BILL-02/03/04/05/07 : toute permission collective est réduite à l’agence active et OWN est refusé',()=>{
  assert.deepEqual(billingScopeSql(request({'billing.invoice.view':'AGENCY'}),'billing.invoice.view'),{sql:'i.agency_id=?',params:['7']});
- assert.match(billingScopeSql(request({'billing.invoice.view':'CONCESSION'}),'billing.invoice.view').sql,/concession_id/);
- assert.deepEqual(billingScopeSql(request({'billing.invoice.view':'GLOBAL'}),'billing.invoice.view'),{sql:'1=1',params:[]});
+ assert.deepEqual(billingScopeSql(request({'billing.invoice.view':'CONCESSION'}),'billing.invoice.view'),{sql:'i.agency_id=?',params:['7']});
+ assert.deepEqual(billingScopeSql(request({'billing.invoice.view':'GLOBAL'}),'billing.invoice.view'),{sql:'i.agency_id=?',params:['7']});
  assert.throws(()=>billingScopeSql(request({'billing.invoice.view':'OWN'}),'billing.invoice.view'),/OWN n’est pas applicable/);
 });
 test('BILL-09/11/33/34 : brouillon, émission distincte et fiscalité imposée par le backend',()=>{

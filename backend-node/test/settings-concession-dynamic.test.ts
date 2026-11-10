@@ -9,9 +9,9 @@ const service=source('src/modules/settings/setting.service.ts');
 const resolver=source('src/modules/settings/setting-resolver.ts');
 
 test('SETTINGS-01 lecture et écriture utilisent des permissions distinctes',()=>{
-  assert.match(routes,/get\('\/settings',requirePermission\('settings\.general\.view'\)/);
-  assert.match(routes,/put\('\/settings',requirePermission\('settings\.general\.manage'\)/);
-  assert.match(routes,/patch\('\/concessions\/current',requirePermission\('settings\.general\.manage'\)/);
+  assert.match(routes,/get\('\/settings',requireAgencyPermission\('settings\.general\.view'\)/);
+  assert.match(routes,/put\('\/settings',requireCentralAgencyPermission\('settings\.general\.manage'\)/);
+  assert.match(routes,/patch\('\/concessions\/current',requireCentralAgencyPermission\('settings\.general\.manage'\)/);
 });
 
 test('SETTINGS-02 OWN est refusé pour les paramètres collectifs',()=>{
@@ -19,20 +19,21 @@ test('SETTINGS-02 OWN est refusé pour les paramètres collectifs',()=>{
   assert.match(service,/scope OWN ne permet pas de consulter/);
 });
 
-test('SETTINGS-03 une écriture concession exige CONCESSION ou GLOBAL',()=>{
-  assert.match(service,/scope !== "CONCESSION" && scope !== "GLOBAL"/);
+test('SETTINGS-03 une écriture concession exige une autorisation centrale explicite',()=>{
+  assert.match(service,/!r\.agencyRbac\?\.isSuperAdmin \|\| !r\.agencyRbac\.permissions\.has\(permission\)/);
   assert.match(service,/export async function update[\s\S]*?assertConcessionWrite\(r\)/);
   assert.match(service,/export async function updateConcession[\s\S]*?assertConcessionWrite\(r\)/);
 });
 
-test('SETTINGS-04 AGENCY ne peut modifier que sa propre agence',()=>{
-  assert.match(service,/scope === "AGENCY" && String\(row\.id\) === String\(r\.user!\.agencyId\)/);
+test('SETTINGS-04 la gestion des agences est réservée au contexte central autorisé',()=>{
+  assert.match(service,/r\.agencyRbac\?\.isSuperAdmin && r\.agencyRbac\.permissions\.has\("settings\.agencies\.manage"\)/);
   assert.match(service,/Agence hors du scope settings\.agencies\.manage/);
 });
 
-test('SETTINGS-05 CONCESSION compare la concession persistée et ignore concessionId hors GLOBAL',()=>{
-  assert.match(service,/String\(row\.concession_id\) === \(await currentConcessionId\(r\)\)/);
-  assert.match(service,/scope === "GLOBAL" && v\.concessionId/);
+test('SETTINGS-05 la concession est dérivée de l’agence persistée et non du payload',()=>{
+  assert.match(service,/SELECT concession_id FROM agencies WHERE id=\?/);
+  assert.match(service,/concessionId = await currentConcessionId\(r\)/);
+  assert.doesNotMatch(service,/body\?\.concessionId/);
 });
 
 test('SETTINGS-06 validation métier refuse taux, nombres et forme invalides',()=>{
@@ -75,7 +76,7 @@ test('SETTINGS-10 TVA, devise et barèmes sont consommés par Billing et Atelier
 });
 
 test('SETTINGS-11 écritures groupées et audit sont transactionnels',()=>{
-  assert.match(service,/export async function update[\s\S]*?await transaction/);
+  assert.match(service,/export async function update[\s\S]*?await centralTransaction/);
   assert.match(service,/settings\.updated/);
   assert.match(service,/concession\.updated/);
   assert.match(service,/FOR UPDATE/);

@@ -12,5 +12,5 @@ test('BILL-REC07 une facture de total nul est rejetée avant persistance',()=>{
 test('BILL-REC07 les transactions rejouent les interblocages MySQL transitoires',()=>{
   assert.match(database,/transactionWithDeadlockRetry/);
   assert.match(database,/code!==['"]ER_LOCK_DEADLOCK['"]/);
-  assert.match(source,/transactionWithDeadlockRetry as transaction/);
+  assert.match(source,/withCurrentAgencyAuthorizationRetry/);
 });

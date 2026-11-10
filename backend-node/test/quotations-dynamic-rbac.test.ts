@@ -6,7 +6,7 @@ import {assertPermission} from '../src/modules/rbac/rbac.service.js';
 import {assertTestDriveReturned,quotationScope} from '../src/modules/quotations/quotation.service.js';
 
 type Scope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
-const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',email:'role.inconnu@lca.local',roles:['ROLE_DYNAMIQUE_INCONNU'],agencyId:'7',sid:'session-42'},query:{},rbac:{roleId:'91',roleCode:'ROLE_DYNAMIQUE_INCONNU',isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))},agencyRbac:{userId:'42',sessionId:'session-42',activeAgencyId:'7',contextVersion:1,isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions)),assignments:[]}}) as unknown as Request;
+const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',email:'role.inconnu@lca.local',roles:['ROLE_DYNAMIQUE_INCONNU'],agencyId:'7',sid:'session-42'},query:{},rbac:{roleId:'91',roleCode:'ROLE_DYNAMIQUE_INCONNU',isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))},agencyRbac:{userId:'42',sessionId:'session-42',activeAgencyId:'7',contextVersion:1,isSuperAdmin:superAdmin,roles:[{id:'91',code:'ROLE_DYNAMIQUE_INCONNU'}],permissions:new Map(Object.entries(permissions)),assignments:[]}}) as unknown as Request;
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const routes=read('../src/modules/quotations/quotation.routes.ts');
 const service=read('../src/modules/quotations/quotation.service.ts');
@@ -46,7 +46,7 @@ test('QUOTE-19/20/21 : PDF, annulation et audit restent scopés',()=>{
 });
 
 test('QUOTE-22/23/25/26/27 : conversion exige Devis ET Ventes, statut émis, non expiré et propriétaire',()=>{
-  assert.match(sales,/targetAgency\(request,'sales\.create'/);assert.match(sales,/assertPermission\(request,'quotations\.convert'\)/);
+  assert.match(sales,/targetAgency\(request,'sales\.create'/);assert.match(sales,/assertAgencyBusinessPermission\(request,'quotations\.convert'\)/);
   assert.match(sales,/conversionScope==='OWN'/);assert.match(sales,/quotation\.assigned_user_id/);assert.match(sales,/\['sent','negotiation'\]/);assert.match(sales,/Ce devis est expiré/);
   assert.match(sales,/String\(quotation\.agency_id\)!==agencyId/);
 });

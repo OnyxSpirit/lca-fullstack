@@ -7,8 +7,10 @@ import {assertPermission,type PermissionScope} from '../rbac/rbac.service.js';
 import {getBusinessIdentity} from '../settings/setting-resolver.js';
 import {renderActivityReport} from './activity-document.js';
 import {activityPresentation} from './activity-presentation.js';
+import {requireAgencyPermission} from '../rbac/agency-authorization.js';
 
 export const activityRouter=Router();
+activityRouter.use('/activity',requireAgencyPermission('activity.view'));
 const sensitiveKey=/(password|passwd|token|secret|authorization|credential|cookie|hash)/i;
 const integer=(value:unknown,name:string)=>{const text=String(value??'').trim();if(!/^\d+$/.test(text))throw new HttpError(400,`${name} invalide`);return Number(text)};
 const optionalId=(value:unknown,name:string)=>{const text=String(value??'').trim();return text?String(integer(text,name)):null};

@@ -4,7 +4,7 @@ import type {
   ResultSetHeader,
   RowDataPacket,
 } from "mysql2/promise";
-import { query, transaction } from "../../config/database.js";
+import { query } from "../../config/database.js";
 import { HttpError } from "../../shared/http-error.js";
 import {
   emitToAgenciesAndGlobals,
@@ -24,6 +24,8 @@ import {
 } from "./setting.types.js";
 import{writeAudit}from'../activity/audit-writer.js';
 import{refreshRealtimeSession}from'../../realtime/socket.js';
+import{withCurrentCentralAuthorizationTransaction}from'../rbac/agency-authorization.js';
+const centralTransaction=<T>(request:Request,permission:string,work:(connection:PoolConnection)=>Promise<T>)=>withCurrentCentralAuthorizationTransaction(request,permission,(connection)=>work(connection));
 const id = (v: unknown) => {
     const x = String(v ?? "");
     if (!/^[1-9]\d*$/.test(x)) throw new HttpError(400, "Identifiant invalide");
@@ -75,13 +77,12 @@ function assertCollectiveRead(r: Request,permission='settings.general.view') {
   return scope;
 }
 function assertConcessionWrite(r: Request,permission='settings.general.manage') {
-  const scope = settingsScope(r,permission);
-  if (scope !== "CONCESSION" && scope !== "GLOBAL")
+  if (!r.agencyRbac?.isSuperAdmin || !r.agencyRbac.permissions.has(permission))
     throw new HttpError(
       403,
       "La modification des paramètres concession exige un scope CONCESSION ou GLOBAL",
     );
-  return scope;
+  return true;
 }
 async function emitConcessionSettings(concessionId: string) {
   const agencies = await query<RowDataPacket[]>(
@@ -100,15 +101,7 @@ async function manageableAgency(agencyId: string, r: Request) {
     [agencyId],
   );
   if (!row) throw new HttpError(404, "Agence introuvable");
-  const scope = r.rbac?.permissions.get("settings.agencies.manage");
-  if (scope === "GLOBAL") return row;
-  if (
-    scope === "CONCESSION" &&
-    String(row.concession_id) === (await currentConcessionId(r))
-  )
-    return row;
-  if (scope === "AGENCY" && String(row.id) === String(r.user!.agencyId))
-    return row;
+  if (r.agencyRbac?.isSuperAdmin && r.agencyRbac.permissions.has("settings.agencies.manage")) return row;
   throw new HttpError(403, "Agence hors du scope settings.agencies.manage");
 }
 export async function get(r: Request, enforceRead = true) {
@@ -181,7 +174,7 @@ export async function update(body: unknown, r: Request) {
       ] as const:[]),
       ...(value.workshop?.allowFlatLabor!=null?[[SETTING_KEYS.allowFlatLabor,value.workshop.allowFlatLabor]] as const:[]),
     ] as const;
-  await transaction(async (c) => {
+  await centralTransaction(r,"settings.general.manage",async (c) => {
     const [old] = await c.execute<RowDataPacket[]>(
       `SELECT setting_key,setting_value FROM settings WHERE scope_type='concession' AND scope_id=? AND setting_key IN (${entries.map(()=>'?').join(',')})`,
       [concessionId, ...entries.map((x) => x[0])],
@@ -249,7 +242,7 @@ export async function updateConcession(body: unknown, r: Request) {
   assertConcessionWrite(r);
   const v = validateConcession(body),
     concessionId = await currentConcessionId(r);
-  await transaction(async (c) => {
+  await centralTransaction(r,"settings.general.manage",async (c) => {
     const [old] = await c.execute<RowDataPacket[]>(
       "SELECT * FROM concessions WHERE id=? FOR UPDATE",
       [concessionId],
@@ -291,9 +284,9 @@ export async function updateDocumentLogo(body:unknown,r:Request){
   if(!buffer.length||buffer.length>2*1024*1024)throw new HttpError(400,'Logo invalide ou supérieur à 2 Mo');
   const png=buffer.length>=8&&buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpeg=buffer.length>=3&&buffer[0]===255&&buffer[1]===216&&buffer[2]===255;
   if((mime==='image/png'&&!png)||(mime==='image/jpeg'&&!jpeg))throw new HttpError(400,'Le contenu du logo ne correspond pas au format déclaré');
-  const concessionId=await currentConcessionId(r);await transaction(async c=>{await c.execute('UPDATE concessions SET document_logo=?,document_logo_mime=? WHERE id=?',[buffer,mime,concessionId]);await audit(c,r,'concession',concessionId,'document_logo.updated',null,{mime,size:buffer.length})});return currentConcession(r,false);
+  const concessionId=await currentConcessionId(r);await centralTransaction(r,'settings.general.manage',async c=>{await c.execute('UPDATE concessions SET document_logo=?,document_logo_mime=? WHERE id=?',[buffer,mime,concessionId]);await audit(c,r,'concession',concessionId,'document_logo.updated',null,{mime,size:buffer.length})});return currentConcession(r,false);
 }
-export async function deleteDocumentLogo(r:Request){assertConcessionWrite(r);const concessionId=await currentConcessionId(r);await transaction(async c=>{await c.execute('UPDATE concessions SET document_logo=NULL,document_logo_mime=NULL WHERE id=?',[concessionId]);await audit(c,r,'concession',concessionId,'document_logo.deleted',null,{})});return currentConcession(r,false)}
+export async function deleteDocumentLogo(r:Request){assertConcessionWrite(r);const concessionId=await currentConcessionId(r);await centralTransaction(r,'settings.general.manage',async c=>{await c.execute('UPDATE concessions SET document_logo=NULL,document_logo_mime=NULL WHERE id=?',[concessionId]);await audit(c,r,'concession',concessionId,'document_logo.deleted',null,{})});return currentConcession(r,false)}
 export async function agencies(r: Request,permission='settings.agencies.view') {
   const scope = assertCollectiveRead(r,permission),
     concessionId = await currentConcessionId(r),
@@ -330,16 +323,14 @@ export function validateAgency(body: unknown, creating = false): AgencyPayload {
 }
 export async function createAgency(body: unknown, r: Request) {
   const v = validateAgency(body, true),
-    ownConcessionId = await currentConcessionId(r),
-    scope = r.rbac?.permissions.get("settings.agencies.manage");
-  if (scope !== "GLOBAL" && scope !== "CONCESSION")
+    ownConcessionId = await currentConcessionId(r);
+  if (!r.agencyRbac?.isSuperAdmin || !r.agencyRbac.permissions.has("settings.agencies.manage"))
     throw new HttpError(
       403,
       "La création d’agence exige un scope CONCESSION ou GLOBAL",
     );
-  const concessionId =
-    scope === "GLOBAL" && v.concessionId ? v.concessionId : ownConcessionId;
-  const agencyId = await transaction(async (c) => {
+  const concessionId = v.concessionId ?? ownConcessionId;
+  const agencyId = await centralTransaction(r,"settings.agencies.manage",async (c) => {
     const [result] = await c.execute<ResultSetHeader>(
       "INSERT INTO agencies(concession_id,name,code,address,city,phone,email,is_active) VALUES(?,?,?,?,?,?,?,TRUE)",
       [
@@ -373,7 +364,7 @@ export async function updateAgency(
 ) {
   const v = validateAgency(body);
   await manageableAgency(agencyId, r);
-  await transaction(async (c) => {
+  await centralTransaction(r,"settings.agencies.manage",async (c) => {
     const [old] = await c.execute<RowDataPacket[]>(
       "SELECT * FROM agencies WHERE id=? FOR UPDATE",
       [agencyId],
@@ -405,7 +396,7 @@ export async function agencyStatus(
     throw new HttpError(400, "Statut agence invalide");
   await manageableAgency(agencyId, r);
   const affectedSessions:string[]=[];
-  await transaction(async (c) => {
+  await centralTransaction(r,"settings.agencies.manage",async (c) => {
     const [old] = await c.execute<RowDataPacket[]>(
       "SELECT * FROM agencies WHERE id=? FOR UPDATE",
       [agencyId],

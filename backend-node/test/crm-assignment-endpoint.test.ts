@@ -20,12 +20,13 @@ before(()=>{
     if(sql.includes('SELECT id,name FROM agencies WHERE id=?'))return[[{id:String(params[0]),name:'Agence A'}],[]];
     if(sql.includes('SELECT r.id,r.code,r.is_system')){const id=String(params[0]),role=users[id]?.roles[0]??(id==='10'?'RECEPTIONIST':id==='20'?'SALES_AGENT':id==='40'?'DIRECTOR':'CRM_TEST_DYNAMIC');return[[{id:`role-${id}`,code:role,is_system:role==='SUPER_ADMIN'?1:0}],[]]}
     if(sql.includes('SELECT p.code,rp.scope')){const role=String(params[0]).replace('role-','')==='10'?'RECEPTIONIST':String(params[0]).replace('role-','')==='20'?'SALES_AGENT':String(params[0]).replace('role-','')==='40'?'DIRECTOR':'CRM_TEST_DYNAMIC';return[permissions(role).map(code=>({code,scope:'AGENCY'})),[]]}
-    if(sql.includes("p.code IN('sales.create','crm.prospect.update')")){const user=users[String(params[0])];return[user?[{id:user.id,agency_id:user.agencyId,concession_id:'1',is_active:user.active,eligible:user.roles.some(role=>['SALES_AGENT','SALES_MANAGER'].includes(role))?1:0}]:[],[]]}
+    if(sql.includes("p.code IN('sales.create','crm.prospect.update')")){const user=users[String(params[1])];return[user&&String(user.agencyId)===String(params[0])?[{id:user.id,agency_id:user.agencyId,concession_id:'1',is_active:user.active,eligible:user.roles.some(role=>['SALES_AGENT','SALES_MANAGER'].includes(role))?1:0}]:[],[]]}
     if(sql.includes('FROM leads l JOIN opportunities o'))return[created?[leadRow()]:[],[]];
     return[[],[]];
   };
   (pool as any).getConnection=async()=>({beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},execute:async(sql:string,params:unknown[]=[])=>{
-    if(sql.includes('INSERT INTO leads(')){created={assignedUserId:params[0]==null?null:String(params[0]),createdBy:String(params[1])};return[{insertId:nextId},[]]}
+    if(sql.includes("p.code IN('sales.create','crm.prospect.update')")){const user=users[String(params[0])];return[user&&user.active&&String(user.agencyId)===String(params[1])&&user.roles.some(role=>['SALES_AGENT','SALES_MANAGER'].includes(role))?[{id:`assignment-${user.id}`}]:[],[]]}
+    if(sql.includes('INSERT INTO leads(')){created={assignedUserId:params[1]==null?null:String(params[1]),createdBy:String(params[2])};return[{insertId:nextId},[]]}
     if(sql.includes('INSERT INTO opportunities(')){opportunityAssignedUserId=params[1]==null?null:String(params[1]);return[{insertId:nextId+1},[]]}
     return[{affectedRows:1},[]];
   }});
@@ -56,10 +57,10 @@ test('un utilisateur non commercial ne peut pas recevoir un prospect',async()=>{
 });
 
 test('un commercial inactif est refusé',async()=>{users['20']={id:'20',agencyId:'1',active:false,roles:['SALES_AGENT']};const response=await request(createApp()).post('/api/leads').set('Authorization',`Bearer ${token('RECEPTIONIST','10')}`).send({...payload,assignedUserId:'20'});assert.equal(response.status,400);assert.match(response.body.message,/inactif/)});
-test('un commercial d’une autre agence est refusé',async()=>{users['20']={id:'20',agencyId:'2',active:true,roles:['SALES_AGENT']};const response=await request(createApp()).post('/api/leads').set('Authorization',`Bearer ${token('RECEPTIONIST','10')}`).send({...payload,assignedUserId:'20'});assert.equal(response.status,403);assert.match(response.body.message,/n’appartient pas/)});
+test('un commercial d’une autre agence est masqué et refusé',async()=>{users['20']={id:'20',agencyId:'2',active:true,roles:['SALES_AGENT']};const response=await request(createApp()).post('/api/leads').set('Authorization',`Bearer ${token('RECEPTIONIST','10')}`).send({...payload,assignedUserId:'20'});assert.equal(response.status,400);assert.match(response.body.message,/introuvable/)});
 
 for(const role of ['SALES_AGENT','SALES_MANAGER'])test(`${role} devient propriétaire de son prospect sans choix explicite`,async()=>{users['20']={id:'20',agencyId:'1',active:true,roles:[role]};const response=await request(createApp()).post('/api/leads').set('Authorization',`Bearer ${token(role,'20')}`).send(payload);assert.equal(response.status,201);assert.equal(response.body.assignedUserId,'20')});
-for(const role of ['DIRECTOR','SUPER_ADMIN'])test(`${role} ne devient pas propriétaire par défaut`,async()=>{const response=await request(createApp()).post('/api/leads').set('Authorization',`Bearer ${token(role,'40',null)}`).send(payload);assert.equal(response.status,201);assert.equal(response.body.assignedUserId,null)});
+for(const role of ['DIRECTOR','SUPER_ADMIN'])test(`${role} ne reçoit pas implicitement la création de prospect`,async()=>{const response=await request(createApp()).post('/api/leads').set('Authorization',`Bearer ${token(role,'40',null)}`).send(payload);assert.equal(response.status,403)});
 
 test('liste et détail supportent assigned_user_id NULL',async()=>{
   created={assignedUserId:null,createdBy:'10'};

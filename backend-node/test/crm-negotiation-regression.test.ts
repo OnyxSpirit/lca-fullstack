@@ -14,7 +14,7 @@ const request=(scope:'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL',user='10',agency='1')=
 
 test('CRM-NEG-01 la vente réelle conserve sa transition Gagné, sans bloquer la matrice manuelle validée',()=>{
   assert.match(crm,/negotiation:\['new','contacted','qualified','appointment','test_drive','offer','won','lost'\]/);
-  assert.match(sales,/if\(input\.quotationId\)await assertPermission\(request,'quotations\.convert'\)/);
+  assert.match(sales,/if\(input\.quotationId\)await assertAgencyBusinessPermission\(request,'quotations\.convert'\)/);
   assert.match(sales,/UPDATE opportunities SET stage='won',won_at=NOW\(\)/);
   assert.match(sales,/UPDATE leads SET status='converted',converted_at=NOW\(\)/);
 });
@@ -41,7 +41,7 @@ test('CRM-NEG-04 les quatre scopes restent bornés',()=>{
 test('CRM-NEG-05/06 SUPER_ADMIN et rôle dynamique utilisent les mêmes permissions persistées',()=>{
   assert.doesNotMatch(crm,/rbac\?\.isSuperAdmin|roleCode|SUPER_ADMIN/);
   assert.match(sales,/targetAgency\(request,'sales\.create'/);
-  assert.match(sales,/assertPermission\(request,'quotations\.convert'\)/);
+  assert.match(sales,/assertAgencyBusinessPermission(?:InContext)?\([^\n]*'quotations\.convert'\)/);
 });
 
 test('CRM-NEG-07/08 succès persisté puis relu depuis MySQL',()=>{

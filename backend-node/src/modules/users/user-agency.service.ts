@@ -18,6 +18,10 @@ export async function syncLegacyUserAgency(connection:PoolConnection,input:{user
  const[assignments]=await connection.execute<RowDataPacket[]>('SELECT id FROM user_agencies WHERE user_id=? AND agency_id=? FOR UPDATE',[input.userId,input.agencyId]),assignmentId=assignments[0]!.id;
  await connection.execute('DELETE uar FROM user_agency_roles uar JOIN roles r ON r.id=uar.role_id WHERE uar.user_agency_id=? AND r.is_system=FALSE',[assignmentId]);
  for(const roleId of input.roleIds){const[roles]=await connection.execute<RowDataPacket[]>('SELECT is_system FROM roles WHERE id=?',[roleId]);if(roles[0]&&!roles[0].is_system)await connection.execute('INSERT INTO user_agency_roles(user_agency_id,role_id,assigned_by) VALUES(?,?,?)',[assignmentId,roleId,input.actorId])}
+ // `user_roles` reste l'autorité des seuls rôles système. Les anciennes
+ // écritures métier sont nettoyées dans la même transaction après projection
+ // vers l'affectation locale de l'agence principale.
+ await connection.execute('DELETE ur FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_system=FALSE',[input.userId]);
 }
 
 async function assignment(connection:PoolConnection,id:string,userId:string,lock=false){

@@ -53,7 +53,7 @@ test('WARRANTY-MFR-08 le backend refuse une garantie applicable forgée sans FK 
 });
 
 test('WARRANTY-MFR-09 les permissions Constructeurs restent granulaires',()=>{
-  for(const permission of ['settings.manufacturers.view','settings.manufacturers.create','settings.manufacturers.update','settings.manufacturers.disable'])assert.match(settingsRoutes,new RegExp(`requirePermission\\('${permission.replaceAll('.','\\.')}'\\)`));
+  for(const permission of ['settings.manufacturers.view','settings.manufacturers.create','settings.manufacturers.update','settings.manufacturers.disable'])assert.match(settingsRoutes,new RegExp(`requireCentralAgencyPermission\\('${permission.replaceAll('.','\\.')}'\\)`));
 });
 
 test('WARRANTY-MFR-10 le contrat est créé avec la vente puis activé à la livraison',()=>{

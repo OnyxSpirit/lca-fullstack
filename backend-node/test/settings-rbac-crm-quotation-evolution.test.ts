@@ -13,7 +13,8 @@ test('RBAC paramètres: migration additive sans attribution automatique',()=>{
 
 test('RBAC paramètres: chaque route de modification exige sa permission de section',()=>{
   const routes=source('src/modules/settings/setting.routes.ts');
-  for(const code of ['settings.general.manage','settings.documents.manage','settings.workshop_rates.manage'])assert.match(routes,new RegExp(`requirePermission\\('${code.replaceAll('.','\\.')}\\'\\)`));
+  for(const code of ['settings.general.manage','settings.documents.manage'])assert.match(routes,new RegExp(`requireCentralAgencyPermission\\('${code.replaceAll('.','\\.')}\\'\\)`));
+  assert.match(routes,/requireCentralAgencyPermission\('settings\.workshop_rates\.manage'\)/);
   assert.match(routes,/requireCentralAgencyPermission\('settings\.agencies\.manage'\)/);
 });
 

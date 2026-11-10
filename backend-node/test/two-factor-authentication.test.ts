@@ -71,7 +71,8 @@ test('2FA-06: les opérations administratives imposent périmètre, authentifica
   assert.match(adminService, /SUPER_ADMIN/);
   assert.match(adminService, /is_system/);
   assert.match(adminService, /Seul un Super Administrateur peut réinitialiser ce compte privilégié/);
-  assert.match(adminService, /permissions\.get\('auth\.2fa\.policy\.manage'\)!=='GLOBAL'/);
+  assert.match(adminService, /assertGlobal\(request,'auth\.2fa\.policy\.manage'\)/);
+  assert.match(adminService, /agencyRbac\?\.isSuperAdmin/);
 });
 
 test('2FA-07: le step-up est additif, lié à la session et comparé en UTC sans parsing JavaScript', () => {

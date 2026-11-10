@@ -13,18 +13,18 @@ test('CRM-02 verrouille le commercial et signale les chevauchements sans bloquer
 });
 
 test('CRM-04 exige permission et motif pour forcer un conflit',()=>{
-  assert.match(crm,/assertPermission\(request,'crm\.appointment\.override_conflict'\)/);
+  assert.match(crm,/assertLeadPermissionScope\(request,'crm\.appointment\.override_conflict',current\)/);
+  assert.match(crm,/assertAgencyBusinessPermissionInContext\(context,'crm\.appointment\.override_conflict'\)/);
   assert.match(crm,/La justification du chevauchement est obligatoire/);
   assert.match(migration,/conflict_override_reason/);
   assert.match(migration,/conflict_snapshot JSON/);
 });
 
-test('CRM-04 applique aussi le scope OWN/AGENCY/CONCESSION/GLOBAL de la dérogation',()=>{
+test('CRM-04 borne la dérogation aux scopes métier OWN/AGENCY',()=>{
   assert.match(crm,/if\(override\)await assertLeadPermissionScope\(request,'crm\.appointment\.override_conflict',current\)/);
   assert.match(crm,/granted==='OWN'/);
-  assert.match(crm,/granted==='AGENCY'/);
-  assert.match(crm,/granted==='CONCESSION'/);
-  assert.match(crm,/granted==='GLOBAL'/);
+  assert.match(crm,/assertAgencyBusinessPermission\(request,permission\)/);
+  assert.doesNotMatch(crm,/granted==='CONCESSION'|granted==='GLOBAL'/);
 });
 
 test('CRM-05 sépare auteur et responsable sans réécrire l’historique',()=>{

@@ -53,12 +53,47 @@ export class RbacTestSessionFixture {
     const sid = String(params[0]), userId = String(params[1]);
     const session = this.sessions.get(sid), user = this.users.get(userId);
     return user?.active !== false && session?.userId === userId && !session.revoked && session.expiresAt > Date.now()
-      ? [{ id: user.id, agency_id: user.agencyId }]
+      ? [{ id: user.id, agency_id: user.agencyId, active_agency_id: user.agencyId, agency_context_version: 0 }]
       : [];
   }
 
+  handles(sql:string){return sql.includes('refresh_tokens')||sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('JOIN user_roles ur')||sql.includes('FROM user_agencies ua JOIN agencies a')||sql.includes('SELECT r.id,r.code,r.name FROM user_agencies')||sql.includes('SELECT p.code,rp.scope FROM user_agencies')||sql.includes('SELECT ua.id FROM user_agencies ua WHERE ua.user_id=?')||sql.includes('SELECT uar.role_id,rp.permission_id FROM user_agency_roles uar')||sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles')||sql.includes('SELECT p.code,rp.scope FROM role_permissions')}
+
   async query<T extends RowDataPacket[]>(sql: string, params: unknown[] = []): Promise<T> {
+    if (sql.includes('SELECT rt.active_agency_id,rt.agency_context_version FROM refresh_tokens rt')) {
+      const rows=this.authRows(params),user=this.users.get(String(params[1]));
+      return (rows.length&&user?[{active_agency_id:user.agencyId,agency_context_version:0}]:[]) as T;
+    }
+    if (sql.includes('SELECT active_agency_id,agency_context_version FROM refresh_tokens WHERE id=?')) {
+      const rows=this.authRows(params),user=this.users.get(String(params[1]));
+      return (rows.length&&user?[{active_agency_id:user.agencyId,agency_context_version:0}]:[]) as T;
+    }
     if (sql.includes('JOIN refresh_tokens rt')) return this.authRows(params) as T;
+    if (sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('JOIN user_roles ur')) {
+      const role=this.roles.get(this.userRoles.get(String(params[0]))??'');
+      return (role?.active&&role.isSystem&&role.code==='SUPER_ADMIN'?[{allowed:1}]:[]) as T;
+    }
+    if (sql.includes('FROM user_agencies ua JOIN agencies a')&&sql.includes("ua.status='ACTIVE'")) {
+      const user=this.users.get(String(params[0])),agency=user?this.agencies.get(user.agencyId):undefined;
+      return (user&&agency?[{agency_id:agency.id,code:`AG-${agency.id}`,name:`Agence ${agency.id}`,concession_id:agency.concessionId,is_primary:1}]:[]) as T;
+    }
+    if (sql.includes('SELECT r.id,r.code,r.name FROM user_agencies')) {
+      const userId=String(params[0]),user=this.users.get(userId),role=this.roles.get(this.userRoles.get(userId)??'');
+      return (user&&role?.active&&user.agencyId===String(params[1])?[{id:role.id,code:role.code,name:role.code}]:[]) as T;
+    }
+    if (sql.includes('SELECT p.code,rp.scope FROM user_agencies')) {
+      const userId=String(params[0]),user=this.users.get(userId),role=this.roles.get(this.userRoles.get(userId)??'');
+      return (user&&role?.active&&user.agencyId===String(params[1])?role.permissions:[]) as T;
+    }
+    if(sql.includes('SELECT ua.id FROM user_agencies ua WHERE ua.user_id=?')){
+      const user=this.users.get(String(params[0]));
+      return (user?.agencyId===String(params[1])?[{id:`assignment-${user.id}`}]:[]) as T;
+    }
+    if(sql.includes('SELECT uar.role_id,rp.permission_id FROM user_agency_roles uar')){
+      const userId=String(params[0]).replace(/^assignment-/,'');
+      const role=this.roles.get(this.userRoles.get(userId)??'');
+      return (role?.active?[{role_id:role.id,permission_id:'fixture-permission'}]:[]) as T;
+    }
     if (sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles')) {
       const role = this.roles.get(this.userRoles.get(String(params[0])) ?? '');
       return (role?.active ? [{ id: role.id, code: role.code, is_system: role.isSystem ? 1 : 0 }] : []) as T;

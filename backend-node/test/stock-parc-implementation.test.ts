@@ -18,7 +18,7 @@ test('PARK-01..22 référentiel dédié, scopes, inactivité et mouvements sont 
   assert.doesNotMatch(migration,/l\.type IN\([^)]*(?:warehouse|workshop|delivery|other)/);
   for(const token of ['from_vehicle_location_id','to_vehicle_location_id','movement_type','reason','performed_by'])assert.match(routes,new RegExp(token));
   assert.match(routes,/FOR UPDATE/);
-  assert.match(routes,/scope OWN ne s’applique pas/);
+  assert.match(routes,/Le stock véhicules ne possède pas de règle OWN/);
   assert.match(routes,/is_active=TRUE/);
   assert.match(routes,/Utilisez l'action Transférer/);
 });

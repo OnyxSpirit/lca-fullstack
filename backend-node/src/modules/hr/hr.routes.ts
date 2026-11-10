@@ -4,9 +4,9 @@ import type {
   ResultSetHeader,
   RowDataPacket,
 } from "mysql2/promise";
-import { query, transaction } from "../../config/database.js";
+import { query } from "../../config/database.js";
 import { asyncHandler } from "../../middleware/error-handler.js";
-import { requirePermission } from "../../middleware/require-permission.js";
+import { requireAgencyPermission as requirePermission } from "../rbac/agency-authorization.js";
 import { HttpError } from "../../shared/http-error.js";
 import {
   emitToAgenciesAndGlobals,
@@ -29,7 +29,9 @@ import { documentMultipart, type MultipartRequest } from "../documents/document-
 import { readEmployeePhoto, removeEmployeePhoto, saveEmployeePhoto } from "./hr-employee-photo.js";
 import { syncEmployeePersonnelIdentity } from "./personnel-identity.service.js";
 
+import {withCurrentAgencyAuthorization} from '../rbac/agency-authorization.js';
 export const hrRouter = Router();
+const hrTransaction=<T>(request:Request,work:(connection:PoolConnection)=>Promise<T>)=>withCurrentAgencyAuthorization(request,(connection)=>work(connection));
 type Input = Record<string, unknown>;
 const id = (v: unknown) => {
   const x = String(v ?? "");
@@ -489,7 +491,7 @@ hrRouter.post(
         403,
         "Un employé sans agence exige un scope CONCESSION ou GLOBAL.",
       );
-    const employeeId = await transaction(async (c) => {
+    const employeeId = await hrTransaction(r,async (c) => {
       const [duplicate] = await c.execute<RowDataPacket[]>(
         "SELECT id FROM employee_profiles WHERE employee_number=? FOR UPDATE",
         [employeeNumber],
@@ -591,7 +593,7 @@ hrRouter.post(
     const next=await saveEmployeePhoto((r as MultipartRequest).documentFile);
     let previous:unknown;
     try{
-      await transaction(async c=>{
+      await hrTransaction(r,async c=>{
         const current=await employee(r,"hr.employees.manage",employeeId,c);
         if(current.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
         previous=current.photo_path;
@@ -611,7 +613,7 @@ hrRouter.delete(
   requirePermission("hr.employees.manage"),
   asyncHandler(async (r,res)=>{
     const employeeId=id(r.params.id);let previous:unknown,agencyId:string|null=null;
-    await transaction(async c=>{
+    await hrTransaction(r,async c=>{
       const current=await employee(r,"hr.employees.manage",employeeId,c);
       if(current.user_id!=null)throw new HttpError(409,"La photographie de cet employé est gérée depuis son profil utilisateur.");
       previous=current.photo_path;agencyId=current.agency_id==null?null:String(current.agency_id);
@@ -682,7 +684,7 @@ hrRouter.post(
   asyncHandler(async (r, res) => {
     const employeeId = id(r.params.id),
       userId = id(r.body.userId);
-    const agencyId = await transaction(async (c) => {
+    const agencyId = await hrTransaction(r,async (c) => {
       const current = await employee(
         r,
         "hr.employee.account.manage",
@@ -737,7 +739,7 @@ hrRouter.post(
   requirePermission("hr.employee.account.manage"),
   asyncHandler(async (r, res) => {
     const employeeId = id(r.params.id);
-    const agencyId = await transaction(async (c) => {
+    const agencyId = await hrTransaction(r,async (c) => {
       const current = await employee(
         r,
         "hr.employee.account.manage",
@@ -772,7 +774,7 @@ hrRouter.patch(
       status = body.status == null ? null : String(body.status);
     if (status && !["active", "inactive", "departed"].includes(status))
       throw new HttpError(400, "Statut RH invalide.");
-    const agency = await transaction(async (c) => {
+    const agency = await hrTransaction(r,async (c) => {
       const current = await employee(r, "hr.employees.manage", employeeId, c),
         sets: string[] = [],
         values: any[] = [];
@@ -849,7 +851,7 @@ hrRouter.post(
     const employeeId = id(r.params.id),
       amount = positive(r.body.amount, "Montant"),
       effectiveDate = date(r.body.effectiveDate, "Date d’effet");
-    const salaryId = await transaction(async (c) => {
+    const salaryId = await hrTransaction(r,async (c) => {
       await employee(r, "hr.salary.manage", employeeId, c);
       try {
         const [result] = await c.execute<ResultSetHeader>(
@@ -956,7 +958,7 @@ hrRouter.post(
       concessionId = await categoryManagementConcession(r, b.concessionId),
       name = text(b.name, "Nom catégorie", true, 100)!,
       code = categoryCode(b.code);
-    const categoryId = await transaction(async (c) => {
+    const categoryId = await hrTransaction(r,async (c) => {
       try {
         const [result] = await c.execute<ResultSetHeader>(
           "INSERT INTO internal_stock_categories(concession_id,code,name,is_active) SELECT ?,?,?,TRUE FROM concessions WHERE id=? AND is_active=TRUE",
@@ -1004,7 +1006,7 @@ hrRouter.patch(
     if (typeof b.isActive !== "boolean")
       throw new HttpError(400, "Statut catégorie invalide.");
     const isActive = b.isActive;
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT id,concession_id,code,name,is_active FROM internal_stock_categories WHERE id=?${concessionId ? " AND concession_id=?" : ""} FOR UPDATE`,
           [categoryId, ...(concessionId ? [concessionId] : [])],
@@ -1092,7 +1094,7 @@ hrRouter.post(
     const designation = text(b.designation, "Désignation", true)!,
       unit = stockUnit(b.unit),
       minimum = stockThreshold(b.minimumQuantity ?? 0);
-    const itemId = await transaction(async (c) => {
+    const itemId = await hrTransaction(r,async (c) => {
       const [categories] = await c.execute<RowDataPacket[]>(
           "SELECT c.id,c.name FROM internal_stock_categories c JOIN agencies a ON a.concession_id=c.concession_id WHERE c.id=? AND c.is_active=TRUE AND a.id=? FOR UPDATE",
           [categoryId, agencyId],
@@ -1136,7 +1138,7 @@ hrRouter.patch(
   asyncHandler(async (r, res) => {
     const itemId = id(r.params.id),
       minimum = stockThreshold(r.body.minimumQuantity);
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await stockItem(r, "hr.stock.manage", itemId, c, true);
       await c.execute(
         "UPDATE internal_stock_items SET minimum_quantity=?,updated_by=? WHERE id=?",
@@ -1165,7 +1167,7 @@ hrRouter.patch(
       value = r.body.isActive;
     if (typeof value !== "boolean")
       throw new HttpError(400, "Statut article invalide.");
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await stockItem(r, "hr.stock.manage", itemId, c);
       await c.execute(
         "UPDATE internal_stock_items SET is_active=?,updated_by=? WHERE id=?",
@@ -1219,7 +1221,7 @@ hrRouter.post(
     const permission = type === "entry" ? "hr.stock.entry" : "hr.stock.exit";
     await assertPermission(r, permission);
     const quantity = positive(r.body.quantity, "Quantité", 3),
-      movementId = await transaction(async (c) => {
+      movementId = await hrTransaction(r,async (c) => {
         const item = await stockItem(r, permission, itemId, c, true),
           before = Number(item.current_quantity),
           after =
@@ -1345,7 +1347,7 @@ hrRouter.post(
       code = categoryCode(b.code),
       name = text(b.name, "Nom catégorie", true, 100)!;
     if (!concessionId) throw new HttpError(400, "Concession obligatoire.");
-    const categoryId = await transaction(async (c) => {
+    const categoryId = await hrTransaction(r,async (c) => {
       try {
         const [result] = await c.execute<ResultSetHeader>(
           "INSERT INTO budget_categories(concession_id,code,name,is_active,created_by,updated_by) SELECT ?,?,?,TRUE,?,? FROM concessions WHERE id=? AND is_active=TRUE",
@@ -1388,7 +1390,7 @@ hrRouter.patch(
       );
     const code = categoryCode(b.code),
       name = text(b.name, "Nom catégorie", true, 100)!;
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT bc.id,bc.concession_id,bc.code,bc.name,bc.is_active,EXISTS(SELECT 1 FROM budgets b WHERE b.category_id=bc.id) OR EXISTS(SELECT 1 FROM budget_expenses e WHERE e.category_id=bc.id) is_used FROM budget_categories bc WHERE bc.id=?${scope === "CONCESSION" ? " AND bc.concession_id=(SELECT concession_id FROM agencies WHERE id=?)" : ""} FOR UPDATE`,
           [categoryId, ...(scope === "CONCESSION" ? [r.user!.agencyId] : [])],
@@ -1447,7 +1449,7 @@ hrRouter.patch(
       );
     if (typeof value !== "boolean")
       throw new HttpError(400, "Statut catégorie invalide.");
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT bc.id,bc.concession_id,bc.is_active FROM budget_categories bc WHERE bc.id=?${scope === "CONCESSION" ? " AND bc.concession_id=(SELECT concession_id FROM agencies WHERE id=?)" : ""} FOR UPDATE`,
           [categoryId, ...(scope === "CONCESSION" ? [r.user!.agencyId] : [])],
@@ -1633,7 +1635,7 @@ hrRouter.post(
       throw new HttpError(400, "La date de fin doit suivre la date de début.");
     const amount = positive(b.initialAmount, "Montant initial"),
       label = text(b.label, "Libellé", true)!;
-    const budgetId = await transaction(async (c) => {
+    const budgetId = await hrTransaction(r,async (c) => {
       const category = categoryId
         ? await lockedBudgetCategory(c, categoryId, targetConcessionId, true)
         : null;
@@ -1681,7 +1683,7 @@ hrRouter.post(
   requirePermission("hr.budget.submit"),
   asyncHandler(async (r, res) => {
     const budgetId = id(r.params.id);
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await budget(r, "hr.budget.submit", budgetId, c);
       if (!["draft", "rejected"].includes(String(current.status)))
         throw new HttpError(
@@ -1709,13 +1711,13 @@ hrRouter.post(
     res.json({ success: true, status: "submitted" });
   }),
 );
-hrRouter.patch("/hr/budgets/:id",requirePermission("hr.budget.manage"),asyncHandler(async(r,res)=>{const budgetId=id(r.params.id),body=r.body as Input;await transaction(async c=>{const current=await budget(r,"hr.budget.manage",budgetId,c);if(!["draft","rejected"].includes(String(current.status)))throw new HttpError(409,"Seul un budget brouillon ou rejeté peut être corrigé.");const label=text(body.label,"Libellé",true)!,amount=positive(body.initialAmount,"Montant initial"),start=date(body.startDate,"Date de début"),end=date(body.endDate,"Date de fin"),categoryId=optionalId(body.categoryId);if(start>end)throw new HttpError(400,"La date de fin doit suivre la date de début.");const category=categoryId?await lockedBudgetCategory(c,categoryId,String(current.target_concession_id),true):null;await c.execute("UPDATE budgets SET label=?,initial_amount=?,start_date=?,end_date=?,category=?,category_id=?,updated_by=? WHERE id=?",[label,amount,start,end,category?.name??null,categoryId,r.user!.sub,budgetId]);await audit(c,r,"budget",budgetId,"budget.updated",{before:{label:current.label,amount:Number(current.initial_amount),startDate:current.start_date,endDate:current.end_date,categoryId:current.category_id},after:{label,amount,startDate:start,endDate:end,categoryId}})});res.json({success:true})}));
+hrRouter.patch("/hr/budgets/:id",requirePermission("hr.budget.manage"),asyncHandler(async(r,res)=>{const budgetId=id(r.params.id),body=r.body as Input;await hrTransaction(r,async c=>{const current=await budget(r,"hr.budget.manage",budgetId,c);if(!["draft","rejected"].includes(String(current.status)))throw new HttpError(409,"Seul un budget brouillon ou rejeté peut être corrigé.");const label=text(body.label,"Libellé",true)!,amount=positive(body.initialAmount,"Montant initial"),start=date(body.startDate,"Date de début"),end=date(body.endDate,"Date de fin"),categoryId=optionalId(body.categoryId);if(start>end)throw new HttpError(400,"La date de fin doit suivre la date de début.");const category=categoryId?await lockedBudgetCategory(c,categoryId,String(current.target_concession_id),true):null;await c.execute("UPDATE budgets SET label=?,initial_amount=?,start_date=?,end_date=?,category=?,category_id=?,updated_by=? WHERE id=?",[label,amount,start,end,category?.name??null,categoryId,r.user!.sub,budgetId]);await audit(c,r,"budget",budgetId,"budget.updated",{before:{label:current.label,amount:Number(current.initial_amount),startDate:current.start_date,endDate:current.end_date,categoryId:current.category_id},after:{label,amount,startDate:start,endDate:end,categoryId}})});res.json({success:true})}));
 hrRouter.post(
   "/hr/budgets/:id/approve",
   requirePermission("hr.budget.approve"),
   asyncHandler(async (r, res) => {
     const budgetId = id(r.params.id);
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await budget(r, "hr.budget.approve", budgetId, c);
       if (String(current.status) !== "submitted")
         throw new HttpError(409, "Seul un budget soumis peut être approuvé.");
@@ -1751,7 +1753,7 @@ hrRouter.post(
   asyncHandler(async (r, res) => {
     const budgetId = id(r.params.id),
       reason = decisionReason(r.body.reason, "Motif du rejet");
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await budget(r, "hr.budget.approve", budgetId, c);
       if (String(current.status) !== "submitted")
         throw new HttpError(409, "Seul un budget soumis peut être rejeté.");
@@ -1784,7 +1786,7 @@ hrRouter.post(
   requirePermission("hr.budget.manage"),
   asyncHandler(async (r, res) => {
     const budgetId = id(r.params.id);
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await budget(r, "hr.budget.manage", budgetId, c);
       if (String(current.status) !== "rejected")
         throw new HttpError(
@@ -1815,7 +1817,7 @@ hrRouter.post(
   asyncHandler(async (r, res) => {
     const budgetId = id(r.params.id),
       reason = decisionReason(r.body.reason, "Motif de l’annulation");
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await budget(r, "hr.budget.manage", budgetId, c);
       if (String(current.status) !== "draft")
         throw new HttpError(
@@ -1856,7 +1858,7 @@ hrRouter.post(
   asyncHandler(async (r, res) => {
     const budgetId = id(r.params.id),
       reason = decisionReason(r.body.reason, "Motif de la clôture");
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const current = await budget(r, "hr.budget.manage", budgetId, c);
       if (String(current.status) !== "active")
         throw new HttpError(409, "Seul un budget approuvé peut être clôturé.");
@@ -1959,7 +1961,7 @@ hrRouter.post(
       amount = positive(r.body.amount, "Montant"),
       reason = decisionReason(r.body.reason, "Motif de la rallonge"),
       reference = text(r.body.reference, "Référence", false, 100),
-      requestId = await transaction(async (c) => {
+      requestId = await hrTransaction(r,async (c) => {
         const current = await budget(r, "hr.budget.fund.request", budgetId, c);
         if (String(current.status) !== "active")
           throw new HttpError(
@@ -1990,8 +1992,8 @@ hrRouter.post(
   }),
 );
 hrRouter.get("/hr/budget-fund-requests",requirePermission("hr.budget.fund.request.view"),asyncHandler(async(r,res)=>{const scope=await scopeFor(r,"hr.budget.fund.request.view"),p=budgetPredicate(r,scope),rows=await query<RowDataPacket[]>(`SELECT fr.*,b.label budget_label,CONCAT_WS(' ',u.first_name,u.last_name) requester_name,CONCAT_WS(' ',d.first_name,d.last_name) decider_name FROM budget_fund_requests fr JOIN budgets b ON b.id=fr.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id LEFT JOIN users u ON u.id=fr.requested_by LEFT JOIN users d ON d.id=fr.decided_by WHERE ${p.sql} ORDER BY fr.requested_at DESC,fr.id DESC`,p.params);res.json(rows.map(x=>({...x,id:String(x.id),budget_id:String(x.budget_id),amount:Number(x.amount),fund_movement_id:x.fund_movement_id==null?null:String(x.fund_movement_id)})))}));
-hrRouter.post("/hr/budget-fund-requests/:id/approve",requirePermission("hr.budget.fund.approve"),asyncHandler(async(r,res)=>{const requestId=id(r.params.id),scope=await scopeFor(r,"hr.budget.fund.approve"),p=budgetPredicate(r,scope);const movementId=await transaction(async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT fr.*,b.status budget_status FROM budget_fund_requests fr JOIN budgets b ON b.id=fr.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE fr.id=? AND ${p.sql} FOR UPDATE`,[requestId,...p.params]),row=rows[0];if(!row)throw new HttpError(404,"Demande de rallonge introuvable.");if(row.status!=="SUBMITTED")throw new HttpError(409,"Demande déjà traitée.");if(String(row.requested_by)===String(r.user!.sub))throw new HttpError(409,"Le demandeur ne peut pas approuver sa propre rallonge.");if(row.budget_status!=="active")throw new HttpError(409,"Le budget n’est plus actif.");const[result]=await c.execute<ResultSetHeader>("INSERT INTO budget_fund_movements(budget_id,movement_type,amount,reason,reference,created_by) VALUES(?,'additional_allocation',?,?,?,?)",[row.budget_id,row.amount,row.reason,row.reference,r.user!.sub]);const movementId=String(result.insertId);await c.execute("UPDATE budget_fund_requests SET status='APPROVED',decided_by=?,decided_at=NOW(),fund_movement_id=? WHERE id=?",[r.user!.sub,movementId,requestId]);await audit(c,r,"budget_fund_request",requestId,"budget.fund.approved",{movementId,amount:Number(row.amount)});return movementId});res.json({success:true,status:"APPROVED",movementId})}));
-hrRouter.post("/hr/budget-fund-requests/:id/reject",requirePermission("hr.budget.fund.approve"),asyncHandler(async(r,res)=>{const requestId=id(r.params.id),why=decisionReason(r.body.reason,"Motif du rejet"),scope=await scopeFor(r,"hr.budget.fund.approve"),p=budgetPredicate(r,scope);await transaction(async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT fr.* FROM budget_fund_requests fr JOIN budgets b ON b.id=fr.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE fr.id=? AND ${p.sql} FOR UPDATE`,[requestId,...p.params]),row=rows[0];if(!row)throw new HttpError(404,"Demande de rallonge introuvable.");if(row.status!=="SUBMITTED")throw new HttpError(409,"Demande déjà traitée.");if(String(row.requested_by)===String(r.user!.sub))throw new HttpError(409,"Le demandeur ne peut pas rejeter sa propre rallonge.");await c.execute("UPDATE budget_fund_requests SET status='REJECTED',decided_by=?,decided_at=NOW(),decision_reason=? WHERE id=?",[r.user!.sub,why,requestId]);await audit(c,r,"budget_fund_request",requestId,"budget.fund.rejected",{reason:why})});res.json({success:true,status:"REJECTED"})}));
+hrRouter.post("/hr/budget-fund-requests/:id/approve",requirePermission("hr.budget.fund.approve"),asyncHandler(async(r,res)=>{const requestId=id(r.params.id),scope=await scopeFor(r,"hr.budget.fund.approve"),p=budgetPredicate(r,scope);const movementId=await hrTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT fr.*,b.status budget_status FROM budget_fund_requests fr JOIN budgets b ON b.id=fr.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE fr.id=? AND ${p.sql} FOR UPDATE`,[requestId,...p.params]),row=rows[0];if(!row)throw new HttpError(404,"Demande de rallonge introuvable.");if(row.status!=="SUBMITTED")throw new HttpError(409,"Demande déjà traitée.");if(String(row.requested_by)===String(r.user!.sub))throw new HttpError(409,"Le demandeur ne peut pas approuver sa propre rallonge.");if(row.budget_status!=="active")throw new HttpError(409,"Le budget n’est plus actif.");const[result]=await c.execute<ResultSetHeader>("INSERT INTO budget_fund_movements(budget_id,movement_type,amount,reason,reference,created_by) VALUES(?,'additional_allocation',?,?,?,?)",[row.budget_id,row.amount,row.reason,row.reference,r.user!.sub]);const movementId=String(result.insertId);await c.execute("UPDATE budget_fund_requests SET status='APPROVED',decided_by=?,decided_at=NOW(),fund_movement_id=? WHERE id=?",[r.user!.sub,movementId,requestId]);await audit(c,r,"budget_fund_request",requestId,"budget.fund.approved",{movementId,amount:Number(row.amount)});return movementId});res.json({success:true,status:"APPROVED",movementId})}));
+hrRouter.post("/hr/budget-fund-requests/:id/reject",requirePermission("hr.budget.fund.approve"),asyncHandler(async(r,res)=>{const requestId=id(r.params.id),why=decisionReason(r.body.reason,"Motif du rejet"),scope=await scopeFor(r,"hr.budget.fund.approve"),p=budgetPredicate(r,scope);await hrTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT fr.* FROM budget_fund_requests fr JOIN budgets b ON b.id=fr.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE fr.id=? AND ${p.sql} FOR UPDATE`,[requestId,...p.params]),row=rows[0];if(!row)throw new HttpError(404,"Demande de rallonge introuvable.");if(row.status!=="SUBMITTED")throw new HttpError(409,"Demande déjà traitée.");if(String(row.requested_by)===String(r.user!.sub))throw new HttpError(409,"Le demandeur ne peut pas rejeter sa propre rallonge.");await c.execute("UPDATE budget_fund_requests SET status='REJECTED',decided_by=?,decided_at=NOW(),decision_reason=? WHERE id=?",[r.user!.sub,why,requestId]);await audit(c,r,"budget_fund_request",requestId,"budget.fund.rejected",{reason:why})});res.json({success:true,status:"REJECTED"})}));
 hrRouter.get("/hr/expenses",requirePermission("hr.expense.view"),asyncHandler(async(r,res)=>{
   const scope=await scopeFor(r,"hr.expense.view"),p=budgetPredicate(r,scope),{page,pageSize,offset}=pagination(r.query),where=[p.sql],values:any[]=[...p.params];
   if(r.query.budgetId){where.push("e.budget_id=?");values.push(id(r.query.budgetId))}
@@ -2064,7 +2066,7 @@ hrRouter.post(
       expenseDate = date(r.body.expenseDate, "Date de dépense"),
       label = text(r.body.label, "Libellé", true)!,
       categoryId = optionalId(r.body.categoryId);
-    const expenseId = await transaction(async (c) => {
+    const expenseId = await hrTransaction(r,async (c) => {
       const b = await budget(r, "hr.expense.create", budgetId, c);
       if (String(b.status) !== "active")
         throw new HttpError(
@@ -2129,7 +2131,7 @@ hrRouter.post(
     const expenseId = id(r.params.id),
       scope = await scopeFor(r, "hr.expense.submit"),
       p = budgetPredicate(r, scope);
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT e.* FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
           [expenseId, ...p.params],
@@ -2167,7 +2169,7 @@ hrRouter.post(
     const expenseId = id(r.params.id),
       scope = await scopeFor(r, "hr.expense.approve"),
       p = budgetPredicate(r, scope);
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT e.*,b.initial_amount,b.status FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
           [expenseId, ...p.params],
@@ -2233,7 +2235,7 @@ hrRouter.post(
       reason = decisionReason(r.body.reason, "Motif du rejet"),
       scope = await scopeFor(r, "hr.expense.approve"),
       p = budgetPredicate(r, scope);
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT e.* FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
           [expenseId, ...p.params],
@@ -2280,7 +2282,7 @@ hrRouter.post(
       reason = decisionReason(r.body.reason, "Motif de l’annulation"),
       scope = await scopeFor(r, "hr.expense.cancel"),
       p = budgetPredicate(r, scope);
-    const result=await transaction(async (c) => {
+    const result=await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT e.*,b.scope_type,b.agency_id,COALESCE(b.concession_id,ba.concession_id) target_concession_id FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
           [expenseId, ...p.params],
@@ -2605,7 +2607,7 @@ hrRouter.patch(
       scope = await scopeFor(r, "hr.expense.manage"),
       p = budgetPredicate(r, scope),
       body = r.body as Input;
-    await transaction(async (c) => {
+    await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
           `SELECT e.id,e.budget_id,e.label,e.category,e.category_id,e.reference,e.approval_status,COALESCE(b.concession_id,ba.concession_id) target_concession_id FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE e.id=? AND ${p.sql} FOR UPDATE`,
           [expenseId, ...p.params],

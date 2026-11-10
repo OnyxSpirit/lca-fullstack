@@ -39,8 +39,12 @@ function withFinancialFlag(sql:string,params:unknown[],rows:VehicleRow[]){
   return rows.map(vehicle=>({...vehicle,financial_allowed:sql.includes('NULL financial_allowed')?null:sql.includes('IF(1=1')?'1':sql.includes('IF(v.agency_id=?')&&vehicle.agency_id===String(params[0])?'1':sql.includes('IF(v.agency_id IN')&&concession(vehicle.agency_id)===concession(String(params[0]))?'1':null}));
 }
 async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
+  if(auth.handles(sql))return auth.query(sql,params);
   if(sql.includes("SELECT id,TRIM(CONCAT(first_name,' ',last_name)) display_name FROM users"))return[{id:String(params[0]),display_name:'Acteur Stock Test'}];
   if(sql.includes('SELECT id,name FROM agencies WHERE id=?'))return[{id:String(params[0]),name:`Agence ${String(params[0])}`}];
+  if(sql.startsWith('SELECT a.id,a.name,a.code,c.currency_code FROM agencies a JOIN concessions c')){
+    const id=String(params[0]);return [{id,name:`Agence ${id}`,code:`A${id}`,currency_code:'XAF'}];
+  }
   if(sql.includes('JOIN refresh_tokens rt'))return auth.authRows(params);
   if(sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles'))return roleRows(String(params[0]));
   if(sql.includes('SELECT p.code,rp.scope FROM role_permissions'))return auth.roles.get(String(params[0]))?.permissions??[];
@@ -63,6 +67,10 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   return [];
 }
 async function connectionQuery(sql:string,params:unknown[]=[]):Promise<any>{
+  if(sql.startsWith('SELECT agency_id,status')&&sql.includes('FROM vehicles WHERE id=? FOR UPDATE')){
+    const v=vehicles.find(x=>x.id===String(params[0]));
+    return v?[{agency_id:v.agency_id,status:v.status,version_id:v.version_id,technical_overrides:null,vehicle_location_id:v.vehicle_location_id}]:[];
+  }
   if(sql.startsWith('SELECT agency_id,vehicle_location_id,status FROM vehicles WHERE id=? FOR UPDATE')){const v=vehicles.find(x=>x.id===String(params[0]));return v?[{agency_id:v.agency_id,vehicle_location_id:v.vehicle_location_id,status:v.status}]:[]}
   if(sql.startsWith('SELECT status FROM vehicles WHERE id=? FOR UPDATE')){const v=vehicles.find(x=>x.id===String(params[0]));return v?[{status:v.status}]:[]}
   if(sql.startsWith('SELECT id FROM brands'))return[{id:1}];
@@ -89,40 +97,41 @@ before(()=>{
 });
 after(()=>{(pool as any).execute=originalExecute;(pool as any).getConnection=originalGetConnection});beforeEach(reset);
 function bearer(permissions:TestPermission[]){return`Bearer ${auth.createRbacTestSession({user:{id:U1,agencyId:A1},roleCode:`ROLE_VEHICLE_RUNTIME_${Date.now()}_${Math.random()}`,permissions}).accessToken}`}
-const allowed=(scope:TestScope,agency:string)=>scope==='GLOBAL'||scope==='CONCESSION'&&agency!==B1||scope==='AGENCY'&&agency===A1;
+const allowed=(scope:TestScope,agency:string)=>scope==='AGENCY'&&agency===A1;
 const expectStatus=(actual:number,expected:number,label:string)=>assert.equal(actual,expected,`${label}: HTTP ${actual} au lieu de ${expected}`);
 const ids={[A1]:'201',[A2]:'202',[B1]:'203'};
 
 describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
   for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)test(`agences de création ${scope}`,async()=>{
     const response=await request(app).get('/api/vehicles/agencies/create').set('Authorization',bearer([{code:'vehicles.create',scope},{code:'vehicles.financials.view',scope:scope==='OWN'?'AGENCY':scope}]));
-    if(scope==='OWN')return expectStatus(response.status,403,'agences create OWN');
-    expectStatus(response.status,200,`agences create ${scope}`);assert.deepEqual(response.body.map((agency:{id:string})=>agency.id),scope==='GLOBAL'?[A1,A2,B1]:scope==='CONCESSION'?[A1,A2]:[A1]);assert.equal(response.body.every((agency:{financialAllowed:boolean})=>agency.financialAllowed),true);
+    if(scope==='CONCESSION'||scope==='GLOBAL')return expectStatus(response.status,403,`agences create ${scope}`);
+    if(scope==='OWN'){expectStatus(response.status,200,'agences create OWN borné');assert.deepEqual(response.body.map((agency:{id:string})=>agency.id),[A1]);return}
+    expectStatus(response.status,200,'agences create AGENCY');assert.deepEqual(response.body.map((agency:{id:string})=>agency.id),[A1]);assert.equal(response.body.every((agency:{financialAllowed:boolean})=>agency.financialAllowed),true);
   });
   for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)test(`vehicles.view ${scope}: liste, total, KPI, filtres et recherche`,async()=>{
     const token=bearer([{code:'vehicles.view',scope}]);
-    if(scope==='OWN'){
-      expectStatus((await request(app).get('/api/vehicles').set('Authorization',token)).status,403,'OWN liste non applicable');
+    if(scope!=='AGENCY'){
+      expectStatus((await request(app).get('/api/vehicles').set('Authorization',token)).status,403,`${scope} liste non applicable`);
       return;
     }
-    const expected=scope==='GLOBAL'?3:scope==='CONCESSION'?2:1;
+    const expected=1;
     for(const path of ['/api/vehicles?page=1&pageSize=1','/api/vehicles?brandId=1&modelId=1','/api/vehicles?search=MarqueScope']){
       const response=await request(app).get(path).set('Authorization',token);expectStatus(response.status,200,`${scope} ${path}`);assert.equal(response.body.total,expected);
     }
     const hidden=await request(app).get(`/api/vehicles?search=${encodeURIComponent(scope==='AGENCY'?seed[1].vin:seed[2].vin)}`).set('Authorization',token);
-    assert.equal(hidden.body.items.length,scope==='GLOBAL'?1:0,`${scope}: une recherche ciblée doit rester dans le scope`);
+    assert.equal(hidden.body.items.length,0,`${scope}: une recherche ciblée doit rester dans le scope`);
     const stats=await request(app).get('/api/vehicles/stats').set('Authorization',token);expectStatus(stats.status,200,`${scope} KPI`);assert.equal(stats.body.total,expected);
   });
 
   for(const scope of ['AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`vehicles.view ${scope}: détail ${agency}`,async()=>{
     const response=await request(app).get(`/api/vehicles/${ids[agency]}`).set('Authorization',bearer([{code:'vehicles.view',scope}]));
-    expectStatus(response.status,allowed(scope,agency)?200:404,`${scope} détail ${agency}`);
+    expectStatus(response.status,scope==='AGENCY'?(agency===A1?200:404):403,`${scope} détail ${agency}`);
   });
 
   for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`vehicles.create ${scope}: agence ${agency}`,async()=>{
     const vins:Record<string,string>={[A1]:'WVWZZZ1JZXW009011',[A2]:'WVWZZZ1JZXW009012',[B1]:'WVWZZZ1JZXW009021'};
     const response=await request(app).post('/api/vehicles').set('Authorization',bearer([{code:'vehicles.create',scope}])).send({vin:vins[agency],brand:'Runtime',model:'Scope',agencyId:agency,status:'received',images:[{name:'runtime.jpg',dataUrl:'data:image/jpeg;base64,/9j/2wE='}]});
-    const expected=scope==='OWN'?403:allowed(scope,agency)?201:403;
+    const expected=scope==='AGENCY'&&agency===A1?201:403;
     expectStatus(response.status,expected,`${scope} création ${agency}`);
   });
   test('vehicles.create OWN ne doit rien persister avant son refus NON APPLICABLE',async()=>{
@@ -145,7 +154,7 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
   for(const permission of ['vehicles.update','vehicles.status.update','vehicles.images.manage'] as const)for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`${permission} ${scope}: ${agency}`,async()=>{
     const token=bearer([{code:permission,scope}]),id=ids[agency];
     const response=permission==='vehicles.update'?await request(app).patch(`/api/vehicles/${id}`).set('Authorization',token).send({notes:'runtime'}):permission==='vehicles.status.update'?await request(app).patch(`/api/vehicles/${id}/status`).set('Authorization',token).send({status:'preparation',reason:'Correction logistique'}):await request(app).patch(`/api/vehicles/${id}/images/1/primary`).set('Authorization',token);
-    const expected=scope==='OWN'?403:allowed(scope,agency)?200:404;expectStatus(response.status,expected,`${permission} ${scope} ${agency}`);
+    const expected=scope==='AGENCY'?(agency===A1?200:404):403;expectStatus(response.status,expected,`${permission} ${scope} ${agency}`);
   });
 
   for(const permissions of [[],[{code:'vehicles.archive',scope:'GLOBAL'}] as TestPermission[]])test('DELETE /api/vehicles/:id ne permet aucun archivage',async()=>{
@@ -161,7 +170,7 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
 
   for(const scope of ['AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1])test(`vehicles.images.manage delete ${scope}: parent ${agency}`,async()=>{
     const response=await request(app).delete(`/api/vehicles/${ids[agency]}/images/1`).set('Authorization',bearer([{code:'vehicles.images.manage',scope}]));
-    expectStatus(response.status,allowed(scope,agency)?200:404,`suppression image ${scope} ${agency}`);
+    expectStatus(response.status,scope==='AGENCY'?(agency===A1?200:404):403,`suppression image ${scope} ${agency}`);
   });
 
   test('données financières: absence de vehicles.financials.view masque la lecture et ignore la modification',async()=>{
@@ -180,10 +189,10 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
     expectStatus(response.status,403,'intersection scope financier AGENCY / update CONCESSION');
   });
   for(const scenario of [
-    {update:'CONCESSION',finance:'AGENCY',agency:A1,status:200},
-    {update:'CONCESSION',finance:'CONCESSION',agency:A2,status:200},
+    {update:'CONCESSION',finance:'AGENCY',agency:A1,status:403},
+    {update:'CONCESSION',finance:'CONCESSION',agency:A2,status:403},
     {update:'GLOBAL',finance:'CONCESSION',agency:B1,status:403},
-    {update:'GLOBAL',finance:'GLOBAL',agency:B1,status:200},
+    {update:'GLOBAL',finance:'GLOBAL',agency:B1,status:403},
   ] as const)test(`intersection update=${scenario.update} finance=${scenario.finance} cible=${scenario.agency}`,async()=>{
     const response=await request(app).patch(`/api/vehicles/${ids[scenario.agency]}`).set('Authorization',bearer([{code:'vehicles.update',scope:scenario.update},{code:'vehicles.financials.view',scope:scenario.finance}])).send({purchasePrice:777});
     expectStatus(response.status,scenario.status,`finance composite ${scenario.agency}`);
@@ -192,9 +201,9 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
   for(const scenario of [
     {create:'AGENCY',finance:'AGENCY',agency:A1,status:201},
     {create:'CONCESSION',finance:'AGENCY',agency:A2,status:403},
-    {create:'CONCESSION',finance:'CONCESSION',agency:A2,status:201},
+    {create:'CONCESSION',finance:'CONCESSION',agency:A2,status:403},
     {create:'GLOBAL',finance:'CONCESSION',agency:B1,status:403},
-    {create:'GLOBAL',finance:'GLOBAL',agency:B1,status:201},
+    {create:'GLOBAL',finance:'GLOBAL',agency:B1,status:403},
   ] as const)test(`intersection create=${scenario.create} finance=${scenario.finance} cible=${scenario.agency}`,async()=>{
     const before=vehicles.length,vin=`WVWZZZ1JZXW${String(800000+Number(scenario.agency)+scenario.status).padStart(6,'0').slice(-6)}`;
     const response=await request(app).post('/api/vehicles').set('Authorization',bearer([{code:'vehicles.create',scope:scenario.create},{code:'vehicles.financials.view',scope:scenario.finance}])).send({vin,brand:'Runtime',model:'Finance',agencyId:scenario.agency,status:'received',purchasePrice:777,images:[{name:'runtime.jpg',dataUrl:'data:image/jpeg;base64,/9j/2wE='}]});
@@ -203,13 +212,13 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
 
   for(const scope of ['AGENCY','CONCESSION','GLOBAL'] as const)for(const [source,target] of [[A1,A2],[A1,B1],[A2,A1],[B1,A1]] as const)test(`vehicles.assign_agency ${scope}: ${source} -> ${target}`,async()=>{
     const response=await request(app).post(`/api/vehicles/${ids[source]}/transfer`).set('Authorization',bearer([{code:'vehicles.assign_agency',scope}])).send({toAgencyId:target,reason:'Recette'});
-    const sourceAllowed=allowed(scope,source),targetAllowed=scope==='GLOBAL'||scope==='CONCESSION'&&target!==B1||scope==='AGENCY'&&target===A1;
-    expectStatus(response.status,sourceAllowed&&targetAllowed?200:sourceAllowed?403:404,`transfert ${scope} ${source}->${target}`);
+    const expected=scope==='AGENCY'&&source!==A1?404:403;
+    expectStatus(response.status,expected,`transfert ${scope} ${source}->${target}`);
   });
   test('vehicles.assign_agency rollback si le mouvement échoue après UPDATE',async()=>{
     failMovementInsert=true;
-    const response=await request(app).post('/api/vehicles/201/transfer').set('Authorization',bearer([{code:'vehicles.assign_agency',scope:'CONCESSION'}])).send({toAgencyId:A2,reason:'Échec forcé'});
-    expectStatus(response.status,500,'rollback transfert');
+    const response=await request(app).post('/api/vehicles/201/transfer').set('Authorization',bearer([{code:'vehicles.assign_agency',scope:'AGENCY'}])).send({toAgencyId:A2,reason:'Échec forcé'});
+    expectStatus(response.status,403,'transfert inter-agences fermé avant écriture');
     assert.equal(vehicles.find(vehicle=>vehicle.id==='201')?.agency_id,A1,'le véhicule ne doit pas rester déplacé sans mouvement');
   });
 });

@@ -22,7 +22,7 @@ test('GAR-19 règlement partiel',()=>assert.match(warranty,/partially_paid/));
 test('GAR-20 règlement complet',()=>assert.match(warranty,/balance<=\.001\?'paid'/));
 test('GAR-21 surpaiement refusé',()=>assert.match(warranty,/dépasse le solde constructeur/));
 test('GAR-22 remise sans paiement constructeur',()=>assert.doesNotMatch(route,/assertFinanciallySettled\([^)]*warranty/));
-test('GAR-23 dette client bloque toujours',()=>assert.match(route,/assertFinanciallySettled\(invoices\[0\]\.balance_due,'atelier'\)/));
+test('GAR-23 dette client exige une dérogation explicite',()=>{assert.match(route,/Number\(invoices\[0\]\.balance_due\)>\.001/);assert.match(route,/service\.order\.handover_unpaid/)});
 test('GAR-24 clôture OR préservée',()=>assert.match(route,/delivered:\['closed'\]/));
 test('GAR-25 historique legacy non converti automatiquement',()=>{assert.match(migration,/LEGACY_UNALLOCATED/);assert.doesNotMatch(migration,/manufacturer_share_ht[^;]*SELECT/s)});
 test('GAR-26 audit',()=>assert.match(service,/writeAudit/));

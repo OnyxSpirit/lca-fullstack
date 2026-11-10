@@ -10,7 +10,7 @@ test('CN-UX-11/12 refuse le dépassement et accepte la borne exacte',()=>{
 });
 
 test('CN-UX-13..16 recalcule le reliquat sous verrou transactionnel',()=>{
- assert.match(credit,/transaction\(async c=>/);
+  assert.match(credit,/billingTransaction\(r,'billing\.invoice\.cancel',async c=>/);
  assert.match(credit,/access\(invoiceId,r,'billing\.invoice\.cancel',c,true\)/);
  assert.match(credit,/SUM\(amount\).*status IN\("issued","applied"\)/);
  assert.match(credit,/remaining=Number\(invoice\.total\)-Number\(credits\[0\]\?\.amount\?\?0\)/);

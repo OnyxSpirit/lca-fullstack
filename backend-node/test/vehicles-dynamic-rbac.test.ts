@@ -9,7 +9,7 @@ const request=(permissions:Record<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'>={
   user:{sub:'77',email:'dynamic@lca.local',roles:['VEHICLE_OPERATOR_DYNAMIC'],agencyId:options.agencyId??'10',sid:'session-77'},
   query:{},
   rbac:{roleId:'900',roleCode:'VEHICLE_OPERATOR_DYNAMIC',isSuperAdmin:Boolean(options.superAdmin),permissions:new Map(Object.entries(permissions))},
-  agencyRbac:{userId:'77',sessionId:'session-77',activeAgencyId:options.agencyId??'10',contextVersion:1,isSuperAdmin:Boolean(options.superAdmin),permissions:new Map(Object.entries(permissions)),assignments:[]},
+  agencyRbac:{userId:'77',sessionId:'session-77',activeAgencyId:options.agencyId??'10',contextVersion:1,isSuperAdmin:Boolean(options.superAdmin),roles:[{id:'900',code:'VEHICLE_OPERATOR_DYNAMIC'}],permissions:new Map(Object.entries(permissions)),assignments:[]},
 }) as unknown as Request;
 const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
 const imageStorage=readFileSync(new URL('../src/modules/vehicles/vehicle-image-storage.ts',import.meta.url),'utf8');

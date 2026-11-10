@@ -51,8 +51,9 @@ async function execute(sql: string, params: unknown[] = []): Promise<ResultSetHe
 }
 
 async function transaction<T>(work:(connection:{execute:typeof execute})=>Promise<T>){return work({execute})}
-mock.module('../src/config/database.js', { namedExports: { query, execute, transaction } });
+mock.module('../src/config/database.js', { namedExports: { query, execute, transaction,transactionWithDeadlockRetry:transaction } });
 mock.module('../src/modules/rbac/rbac.service.js', { namedExports: {
+  legacyRbacContextFromAgency: (context:any) => ({roleId:context.roles[0]?.id??null,roleCode:context.roles[0]?.code??null,isSuperAdmin:context.isSuperAdmin,permissions:new Map([...context.permissions].map(([code,scope]:[string,string|null])=>[code,scope==='OWN'?'OWN':scope==null?null:'AGENCY']))}),
   resolveRbacContext: async () => ({ roleId: '1', roleCode: 'EMPLOYEE', isSuperAdmin: false, permissions: new Map(permissionEnabled ? [['documents.view', 'AGENCY']] : []) }),
   rbac: async (request:any) => request.rbac ??= await Promise.resolve({ roleId: '1', roleCode: 'EMPLOYEE', isSuperAdmin: false, permissions: new Map(permissionEnabled ? [['documents.view', 'AGENCY']] : []) }),
   assertPermission: async (request:any, permission:string) => {
@@ -61,6 +62,16 @@ mock.module('../src/modules/rbac/rbac.service.js', { namedExports: {
     return context.permissions.get(permission)??null;
   },
 } });
+mock.module('../src/modules/rbac/agency-rbac.service.js',{namedExports:{
+  resolveAgencyRbacContext:async(userId:string,sessionId:string)=>{
+    const session=sessions.get(sessionId);if(!session||session.userId!==userId||session.revoked||session.expires*1000<=Date.now())throw Object.assign(new Error('Session inactive'),{status:401});
+    return{userId,sessionId,activeAgencyId:'10',contextVersion:1,isSuperAdmin:false,agencies:[{agencyId:'10',code:'AG',name:'Agence',isPrimary:true,concessionId:'1'}],roles:[{id:'1',code:'EMPLOYEE',name:'Employé'}],permissions:new Map(permissionEnabled?[['documents.view','AGENCY']]:[])};
+  },
+  resolveAgencyRbacContextWithRunner:async(_runner:any,userId:string,sessionId:string)=>{
+    const session=sessions.get(sessionId);if(!session||session.userId!==userId||session.revoked||session.expires*1000<=Date.now())throw Object.assign(new Error('Session inactive'),{status:401});
+    return{userId,sessionId,activeAgencyId:'10',contextVersion:1,isSuperAdmin:false,agencies:[{agencyId:'10',code:'AG',name:'Agence',isPrimary:true,concessionId:'1'}],roles:[{id:'1',code:'EMPLOYEE',name:'Employé'}],permissions:new Map(permissionEnabled?[['documents.view','AGENCY']]:[])};
+  },
+}});
 
 const service = await import('../src/modules/auth/auth.service.js');
 const { authenticate } = await import('../src/middleware/authenticate.js');

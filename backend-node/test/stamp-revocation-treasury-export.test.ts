@@ -14,10 +14,10 @@ const treasuryUi = read('../frontend/src/modules/treasury/TreasuryPage.tsx');
 
 test('cachet : révocation traçable, définitive et historique préservé', () => {
   for (const token of ['revoked_by', 'revoked_at', 'revocation_reason', 'fk_service_stamp_revoker']) assert.match(migration, new RegExp(token));
-  assert.match(lifecycle, /transaction\(async connection/);
+  assert.match(lifecycle, /stampTransaction\(request,async connection/);
   assert.match(lifecycle, /stamp\.revoked/);
   assert.match(lifecycle, /UPDATE service_stamp_versions SET is_active=FALSE/);
-  assert.match(lifecycle, /Un cachet révoqué ne peut pas être réactivé/);
+  assert.match(lifecycle, /Ce cachet est déjà révoqué/);
   assert.match(marks, /(?:st\.)?is_active=TRUE AND (?:st\.)?revoked_at IS NULL/);
   assert.match(ui, /Révoqué le/);
 });

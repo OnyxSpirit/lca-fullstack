@@ -1,15 +1,15 @@
 import { unlink } from 'node:fs/promises';
 import { Router, type Request } from 'express';
-import type { RowDataPacket } from 'mysql2/promise';
-import { query, transaction } from '../../config/database.js';
+import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { asyncHandler } from '../../middleware/error-handler.js';
-import { requirePermission } from '../../middleware/require-permission.js';
+import { requireAgencyPermission as requirePermission, withCurrentAgencyAuthorization } from '../rbac/agency-authorization.js';
 import { HttpError } from '../../shared/http-error.js';
 import { writeAudit } from '../activity/audit-writer.js';
 import { resolveDocumentPath } from '../documents/document-storage.js';
 import { assertPermission, type PermissionScope } from '../rbac/rbac.service.js';
 
 export const stampLifecycleRouter = Router();
+const stampTransaction=<T>(request:Request,work:(connection:PoolConnection)=>Promise<T>)=>withCurrentAgencyAuthorization(request,(connection)=>work(connection));
 export const STAMP_USED_MESSAGE = 'Ce cachet a déjà été utilisé dans des documents. Il ne peut pas être supprimé. Vous pouvez toutefois le révoquer.';
 
 const id = (value: unknown) => {
@@ -25,37 +25,13 @@ function predicate(request: Request, scope: PermissionScope | null, alias = 'st'
   throw new HttpError(403, 'Le scope OWN ne gouverne pas les cachets');
 }
 
-async function managedStamp(request: Request, stampId: string, lock = false) {
-  const scope = await assertPermission(request, 'stamp.manage');
-  const where = predicate(request, scope);
-  const rows = await query<RowDataPacket[]>(`SELECT st.* FROM service_stamps st WHERE st.id=? AND ${where.sql}${lock ? ' FOR UPDATE' : ''}`, [stampId, ...where.params]);
-  if (!rows[0]) throw new HttpError(404, 'Cachet introuvable');
-  return rows[0];
-}
-
-// Ces gardes précèdent les routes historiques et empêchent toute réutilisation
-// ou réactivation d'un cachet définitivement révoqué.
-stampLifecycleRouter.post('/document-marks/stamps/:id/version', requirePermission('stamp.manage'), asyncHandler(async (request, _response, next) => {
-  const stamp = await managedStamp(request, id(request.params.id));
-  if (stamp.revoked_at) throw new HttpError(409, 'Un cachet révoqué ne peut pas recevoir de nouvelle version');
-  next();
-}));
-
-stampLifecycleRouter.patch('/document-marks/stamps/:id/status', requirePermission('stamp.manage'), asyncHandler(async (request, _response, next) => {
-  if (request.body?.isActive === true) {
-    const stamp = await managedStamp(request, id(request.params.id));
-    if (stamp.revoked_at) throw new HttpError(409, 'Un cachet révoqué ne peut pas être réactivé');
-  }
-  next();
-}));
-
 stampLifecycleRouter.post('/document-marks/stamps/:id/revoke', requirePermission('stamp.manage'), asyncHandler(async (request, response) => {
   const stampId = id(request.params.id);
   const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim().slice(0, 500) : '';
   if (reason.length < 3) throw new HttpError(400, 'Le motif de révocation doit contenir au moins 3 caractères');
   const scope = await assertPermission(request, 'stamp.manage');
   const where = predicate(request, scope);
-  await transaction(async connection => {
+  await stampTransaction(request,async connection => {
     const [rows] = await connection.execute<RowDataPacket[]>(`SELECT st.* FROM service_stamps st WHERE st.id=? AND ${where.sql} FOR UPDATE`, [stampId, ...where.params]);
     const stamp = rows[0];
     if (!stamp) throw new HttpError(404, 'Cachet introuvable');
@@ -74,7 +50,7 @@ stampLifecycleRouter.delete('/document-marks/stamps/:id', requirePermission('sta
   const stampId = id(request.params.id);
   const scope = await assertPermission(request, 'stamp.manage');
   const where = predicate(request, scope);
-  const result = await transaction(async connection => {
+  const result = await stampTransaction(request,async connection => {
     const [rows] = await connection.execute<RowDataPacket[]>(`SELECT st.* FROM service_stamps st WHERE st.id=? AND ${where.sql} FOR UPDATE`, [stampId, ...where.params]);
     const stamp = rows[0];
     if (!stamp) throw new HttpError(404, 'Cachet introuvable');

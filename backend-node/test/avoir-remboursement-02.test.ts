@@ -26,7 +26,9 @@ test('AR-09..10 idempotence, transaction et ordre stable des verrous',()=>{
 test('AR-11..15 RBAC et scopes financiers restent centraux',()=>{
  assert.match(route,/requirePermission\('billing\.payment\.refund'\)/);
  assert.match(route,/scope==='OWN'.*403/s);
- for(const scope of['AGENCY','CONCESSION','GLOBAL'])assert.match(route,new RegExp(`scope==='${scope}'`));
+ assert.match(route,/withCurrentAgencyAuthorizationRetry/);
+ assert.match(route,/return\{sql:`\$\{column\}=\?`,params:\[agencyId\]\}/);
+ assert.doesNotMatch(route,/scope==='CONCESSION'|scope==='GLOBAL'/);
 });
 
 test('AR-16..23 recalcul, reporting, journal et legacy coexistent sans double comptage',()=>{

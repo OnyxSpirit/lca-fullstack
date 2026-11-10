@@ -5,7 +5,7 @@ import type { RowDataPacket } from 'mysql2/promise';
 import { env } from '../../config/env.js';
 import { execute, query, transaction } from '../../config/database.js';
 import { HttpError } from '../../shared/http-error.js';
-import { resolveRbacContext } from '../rbac/rbac.service.js';
+import { resolveAgencyRbacContext } from '../rbac/agency-rbac.service.js';
 import type { Request } from 'express';
 import * as twoFactor from './two-factor.service.js';
 import{consumeTrustedDevice,cookieFrom,createTrustedDevice,trustedDeviceRequestAllowed}from'./trusted-device.service.js';
@@ -17,16 +17,17 @@ interface RoleRow extends RowDataPacket { code: string }
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 async function rolesFor(userId: string) {
-  return (await query<RoleRow[]>('SELECT r.code FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=? AND r.is_active=TRUE', [userId])).map((row) => row.code);
+  return (await query<RoleRow[]>(`SELECT DISTINCT r.code FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=? AND r.is_active=TRUE AND r.is_system=TRUE
+    UNION SELECT DISTINCT r.code FROM user_agencies ua JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE AND r.is_system=FALSE WHERE ua.user_id=? AND ua.status='ACTIVE'`, [userId,userId])).map((row) => row.code);
 }
 
-async function userProfile(user: UserRow) {
-  const rbac = await resolveRbacContext(String(user.id));
-  if (!rbac.roleCode) throw new HttpError(403, 'ROLE_INACTIVE_OR_MISSING');
+async function userProfile(user: UserRow,sessionId:string) {
+  const rbac = await resolveAgencyRbacContext(String(user.id),sessionId);
+  if (!rbac.isSuperAdmin&&!rbac.roles.length) throw new HttpError(403, 'ROLE_INACTIVE_OR_MISSING');
   return {
     id: String(user.id), firstName: user.first_name, lastName: user.last_name, email: user.email,
     agencyId: String(user.agency_id), agencyName: user.agency_name ?? '', agencyCode: user.agency_code ?? '', avatar: user.avatar_path ?? null,
-    roles: [rbac.roleCode], role: { id: rbac.roleId, code: rbac.roleCode, isSystemSuperAdmin: rbac.isSuperAdmin },
+    roles: rbac.roles.map(role=>role.code), role: { id: rbac.roles[0]?.id??null, code: rbac.roles[0]?.code??'SUPER_ADMIN', isSystemSuperAdmin: rbac.isSuperAdmin },
     permissions: [...rbac.permissions.entries()].map(([code, scope]) => ({ code, scope })),
   };
 }
@@ -42,7 +43,7 @@ function tokensFor(user: UserRow, roles: string[], sessionId: string) {
 async function issueTokens(user: UserRow, roles: string[],twoFactorVerified=false,strongAuthentication=true) {
   const sessionId = randomUUID(), tokens = tokensFor(user, roles, sessionId);
   await transaction(async connection=>{await connection.execute("INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id,two_factor_verified_at,strong_auth_at,strong_auth_method,two_factor_grandfathered) VALUES(?,?,?,FROM_UNIXTIME(?),(SELECT ua.agency_id FROM user_agencies ua WHERE ua.user_id=? AND ua.is_primary=TRUE AND ua.status='ACTIVE' LIMIT 1),IF(?,UTC_TIMESTAMP(),NULL),IF(?,UTC_TIMESTAMP(),NULL),IF(? ,IF(?,'PASSWORD_TOTP','PASSWORD'),NULL),FALSE)", [sessionId,user.id,tokens.refreshHash,tokens.refreshExpiresAt,user.id,twoFactorVerified,strongAuthentication,strongAuthentication,twoFactorVerified]);await connection.execute('UPDATE users SET last_login_at=NOW() WHERE id=?',[user.id])});
-  return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
+  return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken,sessionId };
 }
 
 async function activeUser(userId:string){const[user]=await query<UserRow[]>('SELECT u.id,u.agency_id,u.first_name,u.last_name,u.email,u.password_hash,u.is_active,u.avatar_path,a.name agency_name,a.code agency_code FROM users u JOIN agencies a ON a.id=u.agency_id WHERE u.id=? AND u.is_active=TRUE LIMIT 1',[userId]);if(!user)throw new HttpError(401,'Compte indisponible.');return user}
@@ -55,16 +56,16 @@ export async function login(email: string, password: string,request:Request) {
   const state=await twoFactor.requirement(String(user.id));
   if(state.enabled||state.required){
     const presented=cookieFrom(request);
-    if(state.enabled&&presented){const trusted=await consumeTrustedDevice(String(user.id),presented,request);if(trusted){const profile=await userProfile(user),tokens=await issueTokens(user,roles,true,false);return{status:'authenticated',...tokens,user:profile,_trustedDevice:trusted}}}
+    if(state.enabled&&presented){const trusted=await consumeTrustedDevice(String(user.id),presented,request);if(trusted){const tokens=await issueTokens(user,roles,true,false),profile=await userProfile(user,tokens.sessionId);return{status:'authenticated',accessToken:tokens.accessToken,refreshToken:tokens.refreshToken,user:profile,_trustedDevice:trusted}}}
     const purpose=state.enabled?'LOGIN_VERIFY':'LOGIN_SETUP',challenge=await twoFactor.createLoginChallenge(String(user.id),purpose,twoFactor.challengeFingerprint(request)),security=await getTwoFactorSecuritySettings();
     return{status:state.enabled?'two_factor_required':'two_factor_setup_required',challengeToken:challenge.id,expiresIn:challenge.expiresIn,trustedDeviceAvailable:security.trustedDevicesEnabled&&trustedDeviceRequestAllowed(request),trustedDeviceDurationDays:Math.min(security.trustedDevicesDurationDays,security.trustedDevicesMaxDurationDays,30),_clearTrustedDevice:Boolean(presented)};
   }
-  const profile=await userProfile(user);
   const tokens = await issueTokens(user, roles);
-  return { status:'authenticated',...tokens, user: profile };
+  const profile=await userProfile(user,tokens.sessionId);
+  return { status:'authenticated',accessToken:tokens.accessToken,refreshToken:tokens.refreshToken, user: profile };
 }
 
-async function complete(userId:string,recoveryCodes?:string[]){const user=await activeUser(userId),roles=await rolesFor(userId);if(!roles.length)throw new HttpError(403,'ROLE_INACTIVE_OR_MISSING');return{status:'authenticated',...await issueTokens(user,roles,true),user:await userProfile(user),...(recoveryCodes?{recoveryCodes}:{})}}
+async function complete(userId:string,recoveryCodes?:string[]){const user=await activeUser(userId),roles=await rolesFor(userId);if(!roles.length)throw new HttpError(403,'ROLE_INACTIVE_OR_MISSING');const tokens=await issueTokens(user,roles,true);return{status:'authenticated',accessToken:tokens.accessToken,refreshToken:tokens.refreshToken,user:await userProfile(user,tokens.sessionId),...(recoveryCodes?{recoveryCodes}:{})}}
 export async function verifyTwoFactor(challengeToken:string,token:unknown,request:Request,trustDevice:unknown,deviceName:unknown){const userId=await twoFactor.verifyLoginChallenge(challengeToken,twoFactor.challengeFingerprint(request),token,request),result=await complete(userId);return{...result,...(trustDevice===true?{_trustedDevice:await createTrustedDevice(userId,deviceName,request)}:{})}}
 export async function recoverTwoFactor(challengeToken:string,recoveryCode:unknown,request:Request){const userId=await twoFactor.recoverLoginChallenge(challengeToken,twoFactor.challengeFingerprint(request),recoveryCode,request);return complete(userId)}
 export async function setupForChallenge(challengeToken:string,request:Request){return twoFactor.beginChallengeSetup(challengeToken,twoFactor.challengeFingerprint(request))}
@@ -83,14 +84,14 @@ export async function refresh(refreshToken: string) {
     const tokens = tokensFor(user, roles, sessionId);
     const rotated = await execute(`UPDATE refresh_tokens rt JOIN users u ON u.id=rt.user_id AND u.is_active=TRUE SET rt.token_hash=?,rt.expires_at=FROM_UNIXTIME(?) WHERE rt.id=? AND rt.user_id=? AND rt.token_hash=? AND rt.revoked_at IS NULL AND rt.expires_at>NOW()`, [tokens.refreshHash, tokens.refreshExpiresAt, sessionId, payload.sub, hashToken(refreshToken)]);
     if (!rotated.affectedRows) throw new Error();
-    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, user: await userProfile(user) };
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, user: await userProfile(user,sessionId) };
   } catch { throw new HttpError(401, 'Refresh token invalide'); }
 }
 
-export async function me(userId: string) {
+export async function me(userId: string,sessionId:string) {
   const [user] = await query<UserRow[]>('SELECT u.id,u.agency_id,u.first_name,u.last_name,u.email,u.password_hash,u.is_active,u.avatar_path,a.name agency_name,a.code agency_code FROM users u JOIN agencies a ON a.id=u.agency_id WHERE u.id=? AND u.is_active=TRUE LIMIT 1', [userId]);
   if (!user) throw new HttpError(401, 'Utilisateur inactif ou introuvable');
-  return { user: await userProfile(user) };
+  return { user: await userProfile(user,sessionId) };
 }
 
 export async function logout(refreshToken: string, sessionId: string, userId: string) {

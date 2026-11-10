@@ -21,14 +21,14 @@ function connectionFor(row:Record<string,unknown>,opportunityAffected=1){
   return{connection,calls};
 }
 
-test('un essai planifié démarre et fait passer atomiquement le CRM à test_drive',async()=>{
+test('un essai planifié démarre sans déplacer automatiquement le pipeline CRM',async()=>{
   const{connection,calls}=connectionFor(planned);
   const result=await startPlannedTestDrive(connection,'42',new Date('2026-10-23T09:00:30.000Z'));
   assert.deepEqual(result,{agencyId:'9',visitId:'10',visitorName:'Prospect Test',leadId:'11',opportunityId:'12'});
   const crm=calls.findIndex(call=>call.sql.startsWith('UPDATE opportunities'));
   const drive=calls.findIndex(call=>call.sql.startsWith('UPDATE showroom_test_drives'));
-  assert.ok(crm>=0&&drive>crm,'la transition CRM doit précéder la validation finale de l’essai dans la transaction');
-  assert.match(calls[crm]!.sql,/stage='test_drive'.+stage='appointment'/);
+  assert.equal(crm,-1,'le démarrage de l’essai ne réécrit pas le pipeline CRM');
+  assert.ok(drive>=0);
   assert.match(calls[drive]!.sql,/status='in_progress'.+status='planned'/);
 });
 
@@ -50,8 +50,9 @@ test('un double démarrage est refusé sans aucune écriture',async()=>{
   assert.equal(calls.some(call=>call.sql.startsWith('UPDATE ')),false);
 });
 
-test('une transition CRM concurrente échouée empêche la mise à jour de l’essai',async()=>{
+test('le démarrage reste indépendant d’une transition CRM automatique absente',async()=>{
   const{connection,calls}=connectionFor(planned,0);
-  await assert.rejects(()=>startPlannedTestDrive(connection,'42'),/rendez-vous CRM n’est plus valide/);
-  assert.equal(calls.some(call=>call.sql.startsWith('UPDATE showroom_test_drives')),false);
+  await startPlannedTestDrive(connection,'42');
+  assert.equal(calls.some(call=>call.sql.startsWith('UPDATE opportunities')),false);
+  assert.equal(calls.some(call=>call.sql.startsWith('UPDATE showroom_test_drives')),true);
 });

@@ -4,8 +4,10 @@ import {query} from '../../config/database.js';
 import {asyncHandler} from '../../middleware/error-handler.js';
 import {HttpError} from '../../shared/http-error.js';
 import {assertPermission,type PermissionScope} from '../rbac/rbac.service.js';
+import {requireAgencyPermission} from '../rbac/agency-authorization.js';
 
 export const extendedReportRouter=Router();
+extendedReportRouter.use('/reports/consolidated',requireAgencyPermission('reporting.view'));
 const rank:Record<PermissionScope,number>={OWN:1,AGENCY:2,CONCESSION:3,GLOBAL:4};
 const date=(value:unknown,label:string)=>{const text=String(value??'').trim(),parsed=new Date(`${text}T00:00:00Z`);if(!/^\d{4}-\d{2}-\d{2}$/.test(text)||Number.isNaN(parsed.getTime())||parsed.toISOString().slice(0,10)!==text)throw new HttpError(400,`${label} invalide`);return text};
 const period=(r:Request)=>{const from=date(r.query.from,'Date de début'),to=date(r.query.to,'Date de fin');if(from>to)throw new HttpError(400,'La date de début dépasse la date de fin');return{from,to}};

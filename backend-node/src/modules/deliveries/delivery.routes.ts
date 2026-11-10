@@ -4,7 +4,7 @@ import { Router, type Request } from "express";
 import {archiveDelivery,archiveDeliveryInTransaction,requireBusinessArchive,requiredHistoricalBusinessPdf} from "../documents/business-document.service.js";
 import {defaultDocumentIdentity,documentIdentityForAgency,renderDeliveryDocument,renderDeliveryPlanningDocumentData} from "../documents/commercial-document.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { execute, query, transaction } from "../../config/database.js";
+import { execute, query } from "../../config/database.js";
 import {requireAnyAgencyBusinessPermission,requireAgencyBusinessPermission} from '../rbac/agency-authorization.js';
 import { asyncHandler } from "../../middleware/error-handler.js";
 import { emitToAgency } from "../../realtime/socket.js";
@@ -20,6 +20,7 @@ import{writeAudit}from'../activity/audit-writer.js';
 import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 import{createDeliveryChecklistSnapshot,lockAndAssertDeliveryChecklistComplete,readDeliveryChecklist}from'./delivery-checklist.service.js';
 import{freezeVehicleTechnicalSnapshot}from'../vehicles/vehicle-technical-profile.js';
+import{withCurrentAgencyBusinessAuthorization}from'../rbac/agency-authorization.js';
 
 export const deliveryRouter = Router();
 const requirePermission=requireAgencyBusinessPermission;
@@ -263,7 +264,7 @@ deliveryRouter.post('/delivery/financial-authorizations',requirePermission('deli
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId))throw new HttpError(400,'clientRequestId UUID invalide');
   if(payload.balanceDueDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(payload.balanceDueDate)||payload.balanceDueDate<new Date().toISOString().slice(0,10)))throw new HttpError(400,"L’échéance du solde ne peut pas être passée");
   const scoped=authorizationScope(request,'s');
-  const outcome=await transaction(async connection=>{
+  const outcome=await withCurrentAgencyBusinessAuthorization(request,'delivery.financial_override.authorize',async connection=>{
     const[sales]=await connection.execute<RowDataPacket[]>(`SELECT s.id,s.agency_id,s.status,a.concession_id FROM sales s JOIN agencies a ON a.id=s.agency_id WHERE s.id=? AND ${scoped.sql} FOR UPDATE`,[saleId,...scoped.params] as any[]),sale=sales[0];
     if(!sale)throw new HttpError(404,'Vente introuvable dans votre périmètre');
     if(sale.status==='cancelled')throw new HttpError(409,'Une vente annulée est terminale et ne peut pas recevoir d’autorisation de livraison');
@@ -288,7 +289,7 @@ deliveryRouter.post('/delivery/financial-authorizations',requirePermission('deli
 
 deliveryRouter.post('/delivery/financial-authorizations/:authorizationId/revoke',requirePermission('delivery.financial_override.authorize'),asyncHandler(async(request,response)=>{
   const authorizationId=idOf(request.params.authorizationId),reason=text(request.body.reason,'Motif de révocation',1000,true)!,scoped=authorizationScope(request,'s');
-  const result=await transaction(async connection=>{
+  const result=await withCurrentAgencyBusinessAuthorization(request,'delivery.financial_override.authorize',async connection=>{
     const[rows]=await connection.execute<RowDataPacket[]>(`SELECT fa.*,s.agency_id FROM delivery_financial_authorizations fa JOIN sales s ON s.id=fa.sale_id WHERE fa.id=? AND ${scoped.sql} FOR UPDATE`,[authorizationId,...scoped.params] as any[]),row=rows[0];
     if(!row)throw new HttpError(404,'Autorisation introuvable dans votre périmètre');
     if(row.status==='USED')throw new HttpError(409,'Une autorisation déjà utilisée ne peut pas être révoquée');
@@ -354,7 +355,7 @@ deliveryRouter.post(
     );
     if (!u) throw new HttpError(400, "Responsable livraison invalide pour cette agence");
     const deliveryNumber = `LIV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${Date.now().toString().slice(-6)}`;
-    const id = await transaction(async (connection) => {
+    const id = await withCurrentAgencyBusinessAuthorization(request,'delivery.schedule',async (connection) => {
       const[lockedSales]=await connection.execute<RowDataPacket[]>(`SELECT s.customer_id,s.agency_id,s.status,si.vehicle_id FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL WHERE s.id=? FOR UPDATE`,[saleId]),lockedSale=lockedSales[0];
       if(!lockedSale)throw new HttpError(404,'Vente ou véhicule introuvable');
       if(String(lockedSale.agency_id)!==agencyId)throw new HttpError(403,'Vente rattachée à une autre agence');
@@ -431,7 +432,7 @@ deliveryRouter.patch(
       500,
       status === "cancelled",
     );
-    const changed=await transaction(async (connection) => {
+    const changed=await withCurrentAgencyBusinessAuthorization(request,'delivery.prepare',async (connection) => {
       const[currentRows]=await connection.execute<RowDataPacket[]>('SELECT status,sale_id FROM deliveries WHERE id=? FOR UPDATE',[id]),current=currentRows[0];
       if(!current)throw new HttpError(404,'Livraison introuvable');
       if(current.status==='preparing'&&status==='preparing')return false;
@@ -479,7 +480,7 @@ deliveryRouter.patch(
     const id=idOf(request.params.id),row=await accessible(id,request,'delivery.cancel'),reason=text(request.body.reason,'Motif',500,true)!;
     if(row.status==='delivered')throw new HttpError(409,'Une livraison physiquement terminée ne peut pas être annulée');
     if(row.status==='cancelled')return response.json(await detail(id,request,'delivery.cancel'));
-    await transaction(async connection=>{
+    await withCurrentAgencyBusinessAuthorization(request,'delivery.cancel',async connection=>{
       const[rows]=await connection.execute<RowDataPacket[]>('SELECT status FROM deliveries WHERE id=? FOR UPDATE',[id]),current=rows[0];
       if(!current)throw new HttpError(404,'Livraison introuvable');
       if(current.status==='delivered')throw new HttpError(409,'Une livraison physiquement terminée ne peut pas être annulée');
@@ -506,7 +507,7 @@ deliveryRouter.patch(
         409,
         "Une livraison finalisée ou annulée ne peut pas être reportée",
       );
-    await transaction(async (connection) => {
+    await withCurrentAgencyBusinessAuthorization(request,'delivery.schedule',async (connection) => {
       await connection.execute(
         `UPDATE deliveries SET scheduled_at=?,status='planned',postponement_reason=? WHERE id=?`,
         [scheduled, reason, id],
@@ -544,7 +545,7 @@ deliveryRouter.patch(
     if (!["preparing", "quality_control", "ready"].includes(row.status))
       throw new HttpError(409, "Démarrez la préparation avant la checklist");
     const completed = Boolean(request.body.completed),notes=text(request.body.notes,"Notes",5000);
-    const updated=await transaction(async connection=>{
+    const updated=await withCurrentAgencyBusinessAuthorization(request,'delivery.checklist.manage',async connection=>{
       const scoped=scope(request,'delivery.checklist.manage');
       const[deliveries]=await connection.execute<RowDataPacket[]>(`SELECT d.id,d.status,d.agency_id FROM deliveries d WHERE d.id=? AND ${scoped.sql} FOR UPDATE`,[id,...scoped.params] as any[]),lockedDelivery=deliveries[0];
       if(!lockedDelivery)throw new HttpError(404,'Livraison introuvable');
@@ -621,7 +622,7 @@ deliveryRouter.patch(
       row = await accessible(id, request,'delivery.checklist.manage'),
       received = Boolean(request.body.received);
     if (["delivered", "cancelled"].includes(row.status))throw new HttpError(409,"Les documents d’une livraison finalisée ne peuvent plus être modifiés");
-    await transaction(async connection=>{
+    await withCurrentAgencyBusinessAuthorization(request,'delivery.checklist.manage',async connection=>{
       const[docs]=await connection.execute<RowDataPacket[]>('SELECT received FROM delivery_documents WHERE id=? AND delivery_id=? FOR UPDATE',[documentId,id]);
       if(!docs[0])throw new HttpError(404,'Document introuvable');
       await connection.execute("UPDATE delivery_documents SET received=?,received_by=?,received_at=IF(?,NOW(),NULL) WHERE id=?",[received,received?request.user!.sub:null,received,documentId]);
@@ -672,7 +673,7 @@ deliveryRouter.post(
       throw new HttpError(400, "Une signature manuscrite PNG est requise");
     const requestedMileage=request.body.mileageAtDelivery;
     const signedAt=new Date(),signedAtSql=signedAt.toISOString().slice(0,19).replace('T',' ');
-    let archiveAbsolute:string|null=null;let result:{duplicate:boolean;agencyId:string;deliveryNumber:string;documentId?:string};try{result=await transaction(async connection=>{
+    let archiveAbsolute:string|null=null;let result:{duplicate:boolean;agencyId:string;deliveryNumber:string;documentId?:string};try{result=await withCurrentAgencyBusinessAuthorization(request,'delivery.complete',async connection=>{
       const[deliveries]=await connection.execute<RowDataPacket[]>('SELECT d.*,s.status sale_status FROM deliveries d JOIN sales s ON s.id=d.sale_id WHERE d.id=? FOR UPDATE',[id]),delivery=deliveries[0];
       if(!delivery)throw new HttpError(404,'Livraison introuvable');
       if(String(delivery.agency_id)!==String(scopedRow.agency_id))throw new HttpError(403,'Livraison rattachée à une autre agence');

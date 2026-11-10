@@ -26,7 +26,8 @@ test('SAV-PARTS-03 livraison, réception et retour sont rejouables sans doublon'
 });
 
 test('SAV-PARTS-04 les permissions remplacent la séparation de personnes codée en dur',()=>{
-  assert.doesNotMatch(supplierFinance,/créateur ne peut pas valider/i);
+  assert.match(supplierFinance,/créateur ne peut pas valider/i);
+  assert.match(supplierFinance,/supplier\.invoice\.validate/);
   assert.match(migration,/service\.order\.handover_unpaid/);
   assert.match(workshop,/assertPermission\(r,'service\.order\.handover_unpaid'\)/);
 });

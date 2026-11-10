@@ -10,7 +10,7 @@ test('SAV-OR-20 sépare chiffrage, décision client et exécution réelle',async
   assert.match(route,/parts\.sale_price|SELECT p\.name,p\.sale_price/);
   assert.match(route,/resolveEffectiveLaborRateSelection/);
   assert.match(route,/rate_code_snapshot/);
-  assert.match(route,/SELECT line_total,tax_rate FROM repair_order_estimate_items WHERE repair_order_id=\? FOR UPDATE/);
+  assert.match(route,/SELECT id,part_id,item_type,quantity,line_total,tax_rate FROM repair_order_estimate_items WHERE repair_order_id=\? FOR UPDATE/);
   assert.doesNotMatch(route,/const approvedAmount=r\.body\.approvedAmount/);
   assert.match(route,/Le chiffrage soumis au client est verrouillé/);
   assert.match(route,/ro\.status!==['"]in_progress['"].*démarrer une session/);

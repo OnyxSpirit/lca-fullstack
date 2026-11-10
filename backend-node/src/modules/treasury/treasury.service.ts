@@ -4,7 +4,7 @@ import type {
   ResultSetHeader,
   RowDataPacket,
 } from "mysql2/promise";
-import { query, transaction } from "../../config/database.js";
+import { query } from "../../config/database.js";
 import { HttpError } from "../../shared/http-error.js";
 import { emitToDomainAgenciesAndGlobals } from "../../realtime/socket.js";
 import {
@@ -13,6 +13,8 @@ import {
 } from "../rbac/rbac.service.js";
 import { writeAudit } from "../activity/audit-writer.js";
 import { consumeReservation } from "./treasury-coverage.service.js";
+import{withCurrentAgencyAuthorization}from'../rbac/agency-authorization.js';
+const treasuryTransaction=<T>(request:Request,work:(connection:PoolConnection)=>Promise<T>)=>withCurrentAgencyAuthorization(request,(connection)=>work(connection));
 
 type Permission =
   | "treasury.view"
@@ -267,7 +269,7 @@ export async function createAccount(r: Request, b: any) {
   const currency = String(b?.currencyCode ?? t.currency).toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) throw new HttpError(400, "Devise invalide");
   try {
-    const result = await transaction(async (c) => {
+    const result = await treasuryTransaction(r,async (c) => {
       const [x] = await c.execute<ResultSetHeader>(
         "INSERT INTO treasury_accounts(concession_id,agency_id,attachment_type,code,name,description,account_type,currency_code,created_by) VALUES(?,?,?,?,?,?,?,?,?)",
         [
@@ -324,7 +326,7 @@ export async function createAccount(r: Request, b: any) {
   }
 }
 export async function updateAccount(r: Request, value: unknown, b: any) {
-  const result = await transaction(async (c) => {
+  const result = await treasuryTransaction(r,async (c) => {
     const a = await accountFor(c, r, value, "treasury.account.manage", true),
       name = txt(b?.name, "Nom", true, 150),
       description = txt(b?.description, "Description", false, 1000),
@@ -374,7 +376,7 @@ export async function accountStatus(
 ) {
   if (typeof isActive !== "boolean")
     throw new HttpError(400, "Statut invalide");
-  const result = await transaction(async (c) => {
+  const result = await treasuryTransaction(r,async (c) => {
     const a = await accountFor(c, r, value, "treasury.account.manage", true);
     await c.execute("UPDATE treasury_accounts SET is_active=? WHERE id=?", [
       isActive,
@@ -425,7 +427,7 @@ export async function createCategory(r: Request, b: any) {
   if (!["IN", "OUT", "BOTH"].includes(direction))
     throw new HttpError(400, "Sens de catégorie invalide");
   try {
-    return await transaction(async (c) => {
+    return await treasuryTransaction(r,async (c) => {
       const [x] = await c.execute<ResultSetHeader>(
         "INSERT INTO treasury_categories(concession_id,code,name,description,allowed_direction,created_by) VALUES(?,?,?,?,?,?)",
         [
@@ -456,7 +458,7 @@ export async function updateCategory(r: Request, value: unknown, b: any) {
     direction = String(b?.allowedDirection ?? "");
   if (!["IN", "OUT", "BOTH"].includes(direction))
     throw new HttpError(400, "Sens de catégorie invalide");
-  return transaction(async (c) => {
+  return treasuryTransaction(r,async (c) => {
     const p =
         scope(r, "treasury.category.manage") === "GLOBAL"
           ? { sql: "TRUE", params: [] as any[] }
@@ -492,7 +494,7 @@ export async function categoryStatus(
   if (typeof isActive !== "boolean")
     throw new HttpError(400, "Statut invalide");
   const concessionId = await categoryConcession(r, null);
-  return transaction(async (c) => {
+  return treasuryTransaction(r,async (c) => {
     const p =
         scope(r, "treasury.category.manage") === "GLOBAL"
           ? { sql: "TRUE", params: [] as any[] }
@@ -657,7 +659,7 @@ async function createManualOperation(
       400,
       `${direction === "IN" ? "Provenance" : "Bénéficiaire"} trop court`,
     );
-  const result = await transaction(async (c) => {
+  const result = await treasuryTransaction(r,async (c) => {
     const account = await accountFor(c, r, b?.accountId, permission, true);
     if (!account.is_active)
       throw new HttpError(409, "Compte de trésorerie inactif");
@@ -865,7 +867,7 @@ export async function budgetExpenseDisburse(
     throw new HttpError(400, "Le motif doit contenir au moins 3 caractères");
   if (beneficiary.length < 2)
     throw new HttpError(400, "Bénéficiaire trop court");
-  const result = await transaction(async (c) => {
+  const result = await treasuryTransaction(r,async (c) => {
     const bp = budgetExpenseScope(r, budgetScope),
       [expenses] = await c.execute<RowDataPacket[]>(
         `SELECT e.*,b.scope_type,b.agency_id,b.concession_id,COALESCE(b.concession_id,ba.concession_id) target_concession_id,co.currency_code concession_currency FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id JOIN concessions co ON co.id=COALESCE(b.concession_id,ba.concession_id) WHERE e.id=? AND ${bp.sql} FOR UPDATE`,
@@ -1219,7 +1221,7 @@ export async function journalExport(r: Request, q: any) {
     "SELECT concession_id FROM agencies WHERE id=?",
     [r.user!.agencyId],
   );
-  await transaction(async (connection) =>
+  await treasuryTransaction(r,async (connection) =>
     writeAudit(connection, r, {
       module: "treasury",
       entityType: "treasury_export",
@@ -1282,7 +1284,7 @@ export async function transfer(r: Request, b: any, fault?: TreasuryFaultHook) {
     valueDate = date(b?.valueDate),
     description = txt(b?.description, "Motif", true, 1000)!;
   try {
-    const result = await transaction(async (c) => {
+    const result = await treasuryTransaction(r,async (c) => {
       const ids = [id(b?.sourceAccountId), id(b?.destinationAccountId)].sort(
         (a, b) => Number(a) - Number(b),
       );
@@ -1403,7 +1405,7 @@ export async function reverse(
     reason = txt(b?.reason, "Motif de contrepassation", true, 1000)!,
     valueDate = date(b?.valueDate);
   try {
-    const result = await transaction(async (c) => {
+    const result = await treasuryTransaction(r,async (c) => {
       const original = await accountForMovement(c, r, movementId, true);
       if (
         original.reversal_of_id ||

@@ -89,12 +89,12 @@ test('VC1-VC6: lots concurrents sont distincts et la compensation ne touche jama
 
 test('V1-V7/V12-V14 et RBAC: les frontières API, transactions et verrous restent explicites',()=>{
   const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
-  assert.match(source,/post\('\/vehicles',requirePermission\('vehicles\.create'\)/);
-  assert.match(source,/post\('\/vehicles\/:id\/images',requirePermission\('vehicles\.images\.manage'\)/);
-  assert.match(source,/delete\('\/vehicles\/:id\/images\/:imageId',requirePermission\('vehicles\.images\.manage'\)/);
+  assert.match(source,/post\('\/vehicles',requireAgencyBusinessPermission\('vehicles\.create'\)/);
+  assert.match(source,/post\('\/vehicles\/:id\/images',requireAgencyBusinessPermission\('vehicles\.images\.manage'\)/);
+  assert.match(source,/delete\('\/vehicles\/:id\/images\/:imageId',requireAgencyBusinessPermission\('vehicles\.images\.manage'\)/);
   assert.match(source,/DELETE FROM vehicle_images/);
-  assert.match(source,/SELECT id FROM vehicles WHERE id=\? FOR UPDATE/);
-  assert.match(source,/withStagedVehicleImages[\s\S]*transaction/);
+  assert.match(source,/SELECT agency_id,status FROM vehicles WHERE id=\? FOR UPDATE/);
+  assert.match(source,/withStagedVehicleImages[\s\S]*withCurrentAgencyBusinessAuthorization/);
   assert.match(source,/if\(!images\.length\)throw new HttpError\(400,"Au moins une photo catalogue est obligatoire"\)|stageVehicleImages|withStagedVehicleImages/);
   assert.doesNotMatch(source,/req\.body.*file_path|request\.body.*file_path/);
 });

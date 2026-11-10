@@ -50,5 +50,7 @@ test('LOT3C routes dédiées conservent RBAC, scopes et séparation documentaire
  assert.match(returns,/post\('\/vehicle-returns\/:id\/archive',requirePermission\('vehicle\.return\.stock\.receive'\)/);assert.match(returns,/post\('\/vehicle-returns\/:id\/credit-notes\/:creditNoteId\/archive',requirePermission\('vehicle\.return\.financial\.resolve'\)/);
  for(const marker of['before===\'AVAILABLE\'','before!==\'MISSING_RECORD\'','archive_retry_completed'])assert.match(returns,new RegExp(marker));
  const recovery=returns.slice(returns.indexOf("post('/vehicle-returns/:id/archive'"));assert.doesNotMatch(recovery,/UPDATE vehicles|INSERT INTO credit_notes|payment_refunds|postPaymentRefundMovement|vehicle_movements/);
- for(const scope of['OWN','AGENCY','CONCESSION','GLOBAL'])assert.match(returns,new RegExp(`s==='${scope}'`));
+ assert.match(returns,/s==='OWN'/);
+ assert.match(returns,/agency_id=\?/);
+ assert.doesNotMatch(returns,/s==='CONCESSION'|s==='GLOBAL'/);
 });

@@ -45,7 +45,7 @@ test('ERP19-BE-06 verrous, idempotence et mouvements de stock sont conservés',(
   for(const marker of ['FOR UPDATE','request_key','reserved_stock=reserved_stock+?','reserved_stock=reserved_stock-?,current_stock=current_stock-?'])assert.equal(workshop.includes(marker),true,marker);
   const reserveEstimate=routeBlock('"/repair-orders/:id/estimate-items/:estimateItemId/reserve"','"/repair-orders/:id/parts/reserve"');
   const reserveDirect=routeBlock('"/repair-orders/:id/parts/reserve"','"/repair-orders/:id/parts/reservations/:reservationId"');
-  for(const block of [reserveEstimate,reserveDirect])assert.match(block,/transactionWithDeadlockRetry/);
+  for(const block of [reserveEstimate,reserveDirect])assert.match(block,/workshopTransactionRetry/);
 });
 
 test('ERP19-BE-07 la file Pièces est minimale et scopée par reservation.view',()=>{

@@ -7,7 +7,7 @@ import {pool} from '../src/config/database.js';
 import {issueTestAccessToken} from './helpers/auth-session-fixture.js';
 
 const originalExecute=pool.execute.bind(pool);
-const token=()=>issueTestAccessToken({userId:'100',email:'planner@test.local',agencyId:'1'});
+const token=()=>issueTestAccessToken({userId:'100',email:'planner@test.local',roles:['DELIVERY_PLANNER_TEST'],agencyId:'2',permissions:[{code:'delivery.schedule',scope:'AGENCY'}]});
 const users=[
   {id:'101',name:'Coordinateur libre',agencyId:'2',active:true,roleActive:true,prepare:true,system:false},
   {id:'102',name:'Responsable livraison',agencyId:'2',active:true,roleActive:true,prepare:false,system:false},
@@ -35,8 +35,10 @@ const specialists=async()=>{const response=await request(createApp()).get('/api/
 test('DEL-CAND-01/08 : rôle dynamique quelconque et permission effective donnent accès',async()=>{
   const ids=(await specialists()).map(user=>user.id);
   assert.ok(ids.includes('101'));
-  assert.match(candidateSql,/u\.agency_id=\?/);
-  assert.match(candidateSql,/u\.is_active=TRUE AND r\.is_active=TRUE/);
+  assert.match(candidateSql,/ua\.agency_id=\? AND ua\.status='ACTIVE'/);
+  assert.match(candidateSql,/r\.is_active=TRUE AND r\.is_system=FALSE/);
+  assert.match(candidateSql,/rp\.scope IN\('OWN','AGENCY'\)/);
+  assert.match(candidateSql,/WHERE u\.is_active=TRUE/);
   assert.match(candidateSql,/p\.code='delivery\.prepare' AND p\.is_active=TRUE/);
   assert.match(candidateSql,/system_role\.code='SUPER_ADMIN' AND system_role\.is_system=TRUE/);
   assert.doesNotMatch(candidateSql,/role\.name|r\.code='DELIVERY_MANAGER'/);

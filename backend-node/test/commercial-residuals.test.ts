@@ -29,16 +29,16 @@ before(()=>{
   (pool as any).execute=async(sql:string,params:unknown[]=[])=>{
     if(sql.includes('FROM agencies a JOIN concessions c'))return[[{agency_id:'1',agency_name:'Agence',concession_id:'1',trade_name:'LCA',legal_name:'LCA',currency_code:'XAF',timezone:'Africa/Brazzaville'}],[]];
     if(sql.includes('SELECT setting_value FROM settings'))return[[],[]];
-    if(sql.includes('FROM quotations q')&&sql.includes('WHERE q.id=?')){const ownerAllowed=!sql.includes('o.assigned_user_id=?')||String(params.at(-1))===quote.commercial_owner_id,agencyAllowed=!sql.includes('q.agency_id=?')||params.map(String).includes(quote.agency_id);return String(params[0])===quote.id&&ownerAllowed&&agencyAllowed?[[quote],[]]:[[],[]]}
+    if(sql.includes('FROM quotations q')&&sql.includes('WHERE q.id=?')){const ownerAllowed=!sql.includes('COALESCE(o.assigned_user_id,q.created_by)=?')||params.map(String).includes(quote.commercial_owner_id),agencyAllowed=!sql.includes('q.agency_id=?')||params.map(String).includes(quote.agency_id);return String(params[0])===quote.id&&ownerAllowed&&agencyAllowed?[[quote],[]]:[[],[]]}
     if(sql.includes('FROM quotations WHERE id=?'))return[[{...quote,customer_id:'30',document_identity_snapshot:JSON.stringify({tradeName:'LCA'})}],[]];
-    if(sql.includes('FROM quotations q'))return[sql.includes('o.assigned_user_id=?')&&String(params.at(-1))!==quote.commercial_owner_id?[]:[quote],[]];
+    if(sql.includes('FROM quotations q'))return[sql.includes('COALESCE(o.assigned_user_id,q.created_by)=?')&&!params.map(String).includes(quote.commercial_owner_id)?[]:[quote],[]];
     if(sql.includes('FROM sales s')){const row={id:'70',sale_number:'V-70',agency_id:'1',customer_id:'30',salesperson_id:'100'};if(sql.includes('s.salesperson_id=?')&&!params.map(String).includes('100'))return[[],[]];return[[row],[]]}
     return[[],[]];
   };
   (pool as any).getConnection=async()=>({beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release:()=>{},execute:async(sql:string,params:unknown[]=[])=>{
     if(sql.includes('FROM agencies a JOIN concessions c'))return[[{agency_id:'1',agency_name:'Agence',concession_id:'1',trade_name:'LCA',legal_name:'LCA',currency_code:'XAF',timezone:'Africa/Brazzaville'}],[]];
     if(sql.includes('SELECT setting_value FROM settings'))return[[],[]];
-    if(sql.includes('SELECT q.*')&&sql.includes('FOR UPDATE')){const ownerAllowed=!sql.includes('o.assigned_user_id=?')||String(params.at(-1))===quote.commercial_owner_id,agencyAllowed=!sql.includes('q.agency_id=?')||params.map(String).includes(quote.agency_id);return ownerAllowed&&agencyAllowed?[[{...quote,lead_id:'10',assigned_user_id:'100'}],[]]:[[],[]]}
+    if(sql.includes('SELECT q.*')&&sql.includes('FOR UPDATE')){const ownerAllowed=!sql.includes('COALESCE(o.assigned_user_id,q.created_by)=?')||params.map(String).includes(quote.commercial_owner_id),agencyAllowed=!sql.includes('q.agency_id=?')||params.map(String).includes(quote.agency_id);return ownerAllowed&&agencyAllowed?[[{...quote,lead_id:'10',assigned_user_id:'100'}],[]]:[[],[]]}
     if(sql.includes('SELECT id FROM agencies'))return[[{id:'1'}],[]];
     if(sql.includes('FROM customers WHERE'))return[[{id:'30',agency_id:'1'}],[]];
     if(sql.includes('FROM vehicles WHERE'))return[[{id:'40',agency_id:'1',status:'available',vin:'VIN40',stock_number:'ST-40',catalog_price:10000000,sale_price:10000000}],[]];

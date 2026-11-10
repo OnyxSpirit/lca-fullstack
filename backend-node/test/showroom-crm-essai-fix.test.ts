@@ -38,7 +38,7 @@ test('TX-01..04 retour, activité CRM et clôture partagent la transaction exist
   const start=routes.indexOf("patch('/showroom/test-drives/:id/complete'");
   const end=routes.indexOf("post('/showroom/:id/convert-to-lead'",start);
   const handler=routes.slice(start,end);
-  assert.match(handler,/transaction\(async connection=>/);
+  assert.match(handler,/withCurrentAgencyBusinessAuthorization\(request,'showroom\.status\.update',async\(connection/);
   assert.match(handler,/status='completed',mileage_in=\?,returned_at=NOW\(\)/);
   assert.match(handler,/UPDATE vehicles SET mileage=GREATEST/);
   assert.match(handler,/INSERT INTO activities/);
@@ -54,7 +54,8 @@ test('HIST-01..03 migration additive et conservatrice',()=>{
 });
 
 test('RBAC-01..03 permission et scopes existants restent autoritaires',()=>{
-  assert.match(routes,/test-drives\/:id\/complete',requirePermission\('showroom\.status\.update'\)/);
-  assert.match(routes,/driveScope\(request,'showroom\.status\.update'\)/);
-  for(const level of['GLOBAL','CONCESSION','AGENCY','OWN'])assert.match(routes,new RegExp(`level==='${level}'`));
+  assert.match(routes,/test-drives\/:id\/complete',requireAgencyBusinessPermission\('showroom\.status\.update'\)/);
+  assert.match(routes,/level==='OWN'&&String\(row\.advisor_id\)!==context\.userId/);
+  for(const level of['AGENCY','OWN'])assert.match(routes,new RegExp(`level==='${level}'`));
+  assert.doesNotMatch(routes,/level==='GLOBAL'|level==='CONCESSION'/);
 });

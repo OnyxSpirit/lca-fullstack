@@ -6,9 +6,9 @@ const configRoute=readFileSync(new URL('../src/modules/deliveries/delivery-check
 const deliveryRoute=readFileSync(new URL('../src/modules/deliveries/delivery.routes.ts',import.meta.url),'utf8');
 const rbac=readFileSync(new URL('../src/modules/rbac/rbac.service.ts',import.meta.url),'utf8');
 
-test('SEC-01/02 la configuration collective refuse OWN et AGENCY',()=>{
-  assert.match(configRoute,/permissionScope==='OWN'\|\|permissionScope==='AGENCY'/);
-  assert.match(configRoute,/configuration collective refuse les périmètres OWN et AGENCY/);
+test('SEC-01/02 la configuration collective exige une autorisation centrale',()=>{
+  assert.match(configRoute,/requireCentralAgencyPermission/);
+  assert.match(configRoute,/!request\.agencyRbac\?\.isSuperAdmin\|\|!request\.agencyRbac\.permissions\.has\(permission\)/);
 });
 test('SEC-03/04 lecture et gestion exigent des permissions distinctes',()=>{
   assert.match(configRoute,/get\('\/delivery-checklist-config',requirePermission\('delivery\.checklist\.config\.view'\)/);
@@ -16,15 +16,15 @@ test('SEC-03/04 lecture et gestion exigent des permissions distinctes',()=>{
   assert.match(configRoute,/patch\('\/delivery-checklist-config\/items\/:id',requirePermission\('delivery\.checklist\.config\.manage'\)/);
   assert.doesNotMatch(configRoute,/delivery\.checklist\.view|delivery\.checklist\.manage/);
 });
-test('SEC-05/06 catégories et éléments sont verrouillés dans la concession de l acteur',()=>{
-  assert.match(configRoute,/delivery_checklist_categories WHERE id=\? AND concession_id=\? FOR UPDATE/);
-  assert.match(configRoute,/JOIN delivery_checklist_categories c ON c\.id=i\.category_id WHERE i\.id=\? AND c\.concession_id=\? FOR UPDATE/);
+test('SEC-05/06 catégories et éléments sont verrouillés dans la transaction centrale',()=>{
+  assert.match(configRoute,/delivery_checklist_categories WHERE id=\? FOR UPDATE/);
+  assert.match(configRoute,/JOIN delivery_checklist_categories c ON c\.id=i\.category_id WHERE i\.id=\? FOR UPDATE/);
   assert.match(configRoute,/SELECT concession_id FROM agencies WHERE id=\?/);
+  assert.match(configRoute,/withCurrentCentralAuthorizationTransaction/);
 });
-test('SEC-07/08 CONCESSION reste dans sa concession et GLOBAL peut cibler explicitement',()=>{
-  assert.match(configRoute,/permissionScope==='GLOBAL'&&requested!=null&&requested!==''\)return idOf\(requested\)/);
-  assert.match(configRoute,/permissionScope==='GLOBAL'\|\|permissionScope==='CONCESSION'\)return String\(actor\.concession_id\)/);
-  assert.doesNotMatch(configRoute,/permissionScope==='CONCESSION'.*requested/s);
+test('SEC-07/08 le contexte central peut cibler explicitement une concession',()=>{
+  assert.match(configRoute,/requested!=null&&requested!==''\)return idOf\(requested\)/);
+  assert.match(configRoute,/return String\(actor\.concession_id\)/);
 });
 test('SEC-09/10 aucune permission non pertinente ni bypass de rôle local',()=>{
   assert.doesNotMatch(configRoute,/delivery\.view|delivery\.schedule|role\.code|roles\.includes|SUPER_ADMIN/);

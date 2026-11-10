@@ -9,7 +9,7 @@ Date d'ouverture : 10 novembre 2026. Ce journal est la reprise persistante de la
 - Fondations 2C-2A validées : contexte d'agence actif serveur, scopes métier `OWN/AGENCY`, stratégies de ressources, fraîcheur transactionnelle, autorisation centrale explicite et contrat inter-agences.
 - Lot 1 validé : 6 endpoints Notifications.
 - Lot 2 validé : 16 endpoints Administration/Habilitations.
-- Recomptage AST : 663 déclarations HTTP réelles dans 47 fichiers, contre 727 appels `.get/.post/...` historiquement comptés avec des faux positifs sur les maps de permissions.
+- Réconciliation finale : 661 déclarations HTTP réelles dans 47 fichiers, plus `/api/health`, soit 662 endpoints actifs. Les 664 historiques sont tous expliqués : deux anciennes collisions GED (`PATCH /document-marks/stamps/:id/status` et `POST /document-marks/stamps/:id/version`) ont été supprimées.
 - Inventaire exhaustif initial : `docs/RBAC-FINAL-INVENTAIRE-ENDPOINTS.md`.
 
 ## Graphe de dépendances de migration
@@ -32,23 +32,23 @@ Socle/session/RBAC
 
 | Groupe | Domaine | État | Résultat / prochain contrôle |
 |---:|---|---|---|
-| 0 | Inventaire actualisé et dépendances | Terminé pour la référence initiale | 663 routes recensées ; 33 gardes déjà raccordés au nouveau socle, enrichissement métier maintenu par groupe |
-| 1 | Utilisateurs / administration restants | Terminé avec réserves | 16 endpoints déjà migrés ; fonctions personnelles conservées ; CRUD utilisateur et annuaire reportés car identité centrale, `users.agency_id`, profils RH et visibilité inter-agences n'ont pas de règle validée |
+| 0 | Inventaire actualisé et dépendances | Terminé | 664 endpoints historiques réconciliés avec 662 endpoints actifs et 2 collisions supprimées ; aucun endpoint actif ne reste « À auditer » |
+| 1 | Utilisateurs / administration restants | Implémenté, validation globale restante | Connexion, refresh, profil et CRUD relisent l’agence active ; écritures fraîches ; rôles métier locaux ; `user_roles` nettoyé des rôles non système |
 | 2 | CRM | Validé | 12 routes OWN/AGENCY ; agence immuable ; écritures fraîches et verrouillées ; Socket borné ; tests backend et MySQL 8.4 isolé réussis |
 | 3 | Showroom | Implémenté, validation MySQL restante | 18 routes OWN/AGENCY ; écritures fraîches et verrouillées ; affectations par agence ; provenance CRM directe ; anciens tests CONCESSION/GLOBAL à réaligner et recette MySQL à exécuter |
 | 4 | Clients / devis / proformas | En cours avancé | 9 routes Clients, 11 routes Devis et 6 routes Proformas migrées ; Client 360° reste différé jusqu'aux producteurs |
 | 5 | Véhicules / stock / transferts | Implémenté avec réserve inter-agences | 22 routes gardées ; stock strictement AGENCY ; écritures fraîches/verrouillées ; transfert inter-agences fermé faute de règle destination explicite |
 | 6 | Ventes | Implémenté, recette MySQL restante | 10 routes OWN/AGENCY ; écritures fraîches et verrouillées ; affectations commerciales locales |
-| 7 | Livraison | En cours | Routeur principal commencé ; services et configuration de checklist restent à migrer séparément |
-| 8 | Facturation / paiements | À faire | Après ventes/livraisons et avant agrégats financiers |
-| 9 | Atelier / SAV | À faire | Après pièces et véhicules |
-| 10 | Pièces | À faire | Logistique inter-agences à traiter séparément |
-| 11 | RH / prestataires | À faire | Référentiels communs/localisés à documenter comme réserves |
-| 12 | Comptabilité / trésorerie | À faire | Double autorisation source/destination et séparation des tâches |
-| 13 | GED / documents / marques | À faire | Agence dérivée du parent ; signatures personnelles séparées |
-| 14 | Paramètres / référentiels | À faire | Ne migrer que les classifications centrales/locales établies |
-| 15 | Reporting / audit | À faire | En dernier, après les filtres producteurs |
-| 16 | Notifications / technique / Socket.IO | Partiel validé | Notifications et contexte Socket validés ; producteurs à revoir avec leurs modules |
+| 7 | Livraison | Implémenté, validation globale restante | Routeur principal, services et configuration checklist migrés ; écritures fraîches ; configuration centrale conservatrice faute de gouvernance validée |
+| 8 | Facturation / paiements | Implémenté, validation globale restante | Factures, paiements, avoirs et retours post-livraison bornés à l’agence active ; écritures fraîches et trésorerie migrée |
+| 9 | Atelier / SAV | Implémenté, validation finale restante | Écritures fraîches ; candidats opérationnels issus des affectations locales ; anciens contrats statiques à réaligner |
+| 10 | Pièces | Implémenté, validation finale restante | Écritures fraîches ; SoD facture fournisseur ; transfert inter-agences fermé sans autorité destination |
+| 11 | RH / prestataires | Implémenté, validation finale restante | Huit routeurs sécurisés, tests ciblés réussis ; catalogues communs à classer avec les paramètres |
+| 12 | Comptabilité / trésorerie | Implémenté, recette MySQL restante | Toutes les transactions Treasury et rapprochement conservent l’autorisation fraîche jusqu’au commit ; tests ciblés réussis |
+| 13 | GED / documents / marques | Implémenté avec réserve collisions | Documents et marques écrits sous autorisation fraîche ; gouvernance des catalogues centralisée par défaut ; routes de cycle de cachet à réconcilier |
+| 14 | Paramètres / référentiels | Implémenté, tests ciblés restants | Exploitation liée à l’agence active ; identité concession, agences, constructeurs, documents et taux de base réservés au vrai super-administrateur |
+| 15 | Reporting / audit | Implémenté, validation globale restante | Reporting, exports, dashboard et activité utilisent l’agence active ou une autorisation centrale explicite |
+| 16 | Notifications / technique / Socket.IO | Implémenté, validation globale restante | Sessions Socket relues en base, rooms d’agence active, révocation et changement RBAC déconnectent les sockets |
 
 ## Décisions métier ouvertes à ne pas inventer
 
@@ -99,6 +99,23 @@ Socle/session/RBAC
 - Livraisons : le routeur principal a été basculé sur le contexte `agencyRbac`; les branches `GLOBAL/CONCESSION` ont été fermées et OWN inclut désormais toujours l'agence active. La migration transactionnelle complète, les services de livraison et la configuration des checklists restent en cours.
 - Inventaire régénéré : 106 endpoints reconnus migrés sur 663 ; 533 restent à auditer.
 
+## Reprise finale — Livraisons et chaîne financière
+
+- Le middleware d’authentification résout désormais le contexte RBAC lié à la session et à son agence active. L’ancien contexte n’est plus une autorité : son adaptateur de compatibilité réduit tout scope collectif à `AGENCY` et conserve `OWN`.
+- Le routeur principal Livraisons et le service de livraison revalident les écritures dans une transaction fraîche. La configuration des checklists et le catalogue de services sont réservés au véritable super-administrateur tant que leur gouvernance locale/centrale reste indécise ; aucune concession implicite n’est accordée.
+- Facturation : les 21 routes ne peuvent plus élargir une requête par `GLOBAL`, `CONCESSION` ou par une agence fournie par le client. Factures, paiements, avoirs, exports et archives sont liés à l’agence active ; les mutations verrouillent session, version de contexte, rôles et permission avant commit.
+- Retours post-livraison : listes et ressources combinent toujours agence active et, pour `OWN`, demandeur. Inspection, décision, retenues, résolution financière, remboursement, retour en stock, clôture et reprises d’archives utilisent une autorisation transactionnelle fraîche.
+- Les événements de ces flux restent émis après commit. Le lint TypeScript passe. Les anciens tests statiques qui exigent encore `GLOBAL/CONCESSION` ou l’ancien middleware doivent être réalignés sur le contrat final ; le test de révocation de session actualisé réussit.
+
 ## Discipline de validation par groupe
 
 Pour déclarer un groupe terminé : inventaire route par route, garde cible, agence/propriété dérivées de MySQL, listes et agrégats filtrés à la source, ressource verrouillée dans les écritures sensibles, contexte revalidé avant commit, événements post-commit, tests négatifs backend, test MySQL 8.4 isolé pertinent, lint, build et contrôle du diff. Un simple remplacement de middleware ne suffit pas.
+
+## Reprise finale — domaines opérationnels et paramètres
+
+- Pièces, achats directs, logistique interne, ventes pièces et finance fournisseur utilisent une autorisation d’agence fraîche pendant la transaction. La validation de sa propre facture fournisseur est refusée. Aucun transfert inter-agences n’est ouvert sans règle explicite de destination.
+- Atelier, véhicules atelier, SAV transit et garanties utilisent la même discipline. Les conseillers, techniciens et ressources d’atelier sont désormais sélectionnés depuis `user_agencies` et `user_agency_roles`, les rôles système étant exclus de l’autorité opérationnelle.
+- Les huit routeurs RH/prestataires ont été migrés ; leurs tests ciblés réussissent. Documents et marques documentaires ont également été verrouillés jusqu’au commit.
+- Paramètres : les lectures d’exploitation suivent l’agence active. L’identité de concession, la création d’agences, les constructeurs, les catégories/types documentaires et les taux atelier de base sont traités comme gouvernance centrale conservatrice, réservée au vrai `SUPER_ADMIN`. Les surcharges de taux restent locales à l’agence active.
+- Authentification : un compte muni uniquement de rôles locaux actifs peut se connecter. Login, refresh et `/me` reconstruisent rôles et permissions depuis l’agence active de la session ; `user_roles` ne subsiste comme autorité que pour le rôle système `SUPER_ADMIN`.
+- Treasury, couverture, réservations, configuration des flux et rapprochement bancaire n’emploient plus de transaction détachée de la revalidation RBAC. Les tests ciblés Treasury, contexte multi-agences et révocation de session réussissent ; lint et build passent.

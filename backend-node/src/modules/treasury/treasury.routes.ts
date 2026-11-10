@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/error-handler.js";
-import { requirePermission } from "../../middleware/require-permission.js";
+import { requireAgencyPermission as requirePermission } from "../rbac/agency-authorization.js";
 import * as s from "./treasury.service.js";
 import * as flow from "./treasury-flow.service.js";
 import * as coverage from "./treasury-coverage.service.js";

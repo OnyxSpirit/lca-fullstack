@@ -26,5 +26,5 @@ test('CRM-01 le refus précède transaction, activité, notification et temps r�
   const route=source.slice(source.indexOf("crmRouter.patch('/leads/:id/stage'"),source.indexOf("crmRouter.post('/leads/:id/appointments'"));
   const guard=route.indexOf('isCrmStageTransitionAllowed');
   assert.ok(guard>0);
-  for(const effect of ['transaction(async','publishCrmLeadUpdated','notifyCrm'])assert.ok(guard<route.indexOf(effect),effect);
+  for(const effect of ['withLockedLeadAuthorization','publishCrmLeadUpdated','notifyCrm'])assert.ok(guard<route.indexOf(effect),effect);
 });

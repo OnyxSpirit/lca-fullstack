@@ -1,7 +1,8 @@
-import{Router}from'express';import{requirePermission}from'../../middleware/require-permission.js';import{asyncHandler}from'../../middleware/error-handler.js';import{HttpError}from'../../shared/http-error.js';import*as service from'./setting.service.js';import*as laborRates from'./labor-rate.service.js';
+import{Router,type NextFunction,type Request,type Response}from'express';import{requirePermission}from'../../middleware/require-permission.js';import{asyncHandler}from'../../middleware/error-handler.js';import{HttpError}from'../../shared/http-error.js';import*as service from'./setting.service.js';import*as laborRates from'./labor-rate.service.js';
 import*as manufacturers from'./manufacturer.service.js';
 import*as documentReferences from'../documents/document-reference.service.js';
-export const settingRouter=Router();const rid=(v:unknown)=>{const x=String(v??'');if(!/^[1-9]\d*$/.test(x))throw new HttpError(400,'Identifiant invalide');return x};
+import{requireCentralAgencyPermission,withCurrentCentralAuthorization}from'../rbac/agency-authorization.js';
+export const settingRouter=Router();const rid=(v:unknown)=>{const x=String(v??'');if(!/^[1-9]\d*$/.test(x))throw new HttpError(400,'Identifiant invalide');return x},validateAgencyCreation=(r:Request,_s:Response,next:NextFunction)=>{try{service.validateAgency(r.body,true);next()}catch(error){next(error)}};
 settingRouter.get('/settings',requirePermission('settings.general.view'),asyncHandler(async(r,res)=>res.json(await service.get(r))));
 settingRouter.put('/settings',requirePermission('settings.general.manage'),asyncHandler(async(r,res)=>res.json(await service.update(r.body,r))));
 settingRouter.get('/concessions/current',requirePermission('settings.general.view'),asyncHandler(async(r,res)=>res.json(await service.currentConcession(r))));
@@ -10,9 +11,9 @@ settingRouter.put('/concessions/current/document-logo',requirePermission('settin
 settingRouter.delete('/concessions/current/document-logo',requirePermission('settings.general.manage'),asyncHandler(async(r,res)=>res.json(await service.deleteDocumentLogo(r))));
 settingRouter.get('/agencies',asyncHandler(async(r,res)=>res.json(await service.agencies(r))));
 settingRouter.get('/settings/agencies',requirePermission('settings.agencies.view'),asyncHandler(async(r,res)=>res.json(await service.agencies(r,'settings.agencies.view'))));
-settingRouter.post('/agencies',requirePermission('settings.agencies.manage'),asyncHandler(async(r,res)=>res.status(201).json(await service.createAgency(r.body,r))));
-settingRouter.patch('/agencies/:id',requirePermission('settings.agencies.manage'),asyncHandler(async(r,res)=>res.json(await service.updateAgency(rid(r.params.id),r.body,r))));
-settingRouter.patch('/agencies/:id/status',requirePermission('settings.agencies.manage'),asyncHandler(async(r,res)=>res.json(await service.agencyStatus(rid(r.params.id),r.body.isActive,r))));
+settingRouter.post('/agencies',validateAgencyCreation,requireCentralAgencyPermission('settings.agencies.manage'),asyncHandler(async(r,res)=>res.status(201).json(await withCurrentCentralAuthorization(r,'settings.agencies.manage',()=>service.createAgency(r.body,r)))));
+settingRouter.patch('/agencies/:id',requireCentralAgencyPermission('settings.agencies.manage'),asyncHandler(async(r,res)=>res.json(await withCurrentCentralAuthorization(r,'settings.agencies.manage',()=>service.updateAgency(rid(r.params.id),r.body,r)))));
+settingRouter.patch('/agencies/:id/status',requireCentralAgencyPermission('settings.agencies.manage'),asyncHandler(async(r,res)=>res.json(await withCurrentCentralAuthorization(r,'settings.agencies.manage',()=>service.agencyStatus(rid(r.params.id),r.body.isActive,r)))));
 settingRouter.get('/workshop-labor-rates',requirePermission('settings.workshop_rates.view'),asyncHandler(async(r,res)=>res.json(await laborRates.listLaborRates(r,r.query.agencyId))));
 settingRouter.post('/workshop-labor-rates',requirePermission('settings.workshop_rates.manage'),asyncHandler(async(r,res)=>res.status(201).json(await laborRates.createLaborRate(r.body,r))));
 settingRouter.patch('/workshop-labor-rates/:id',requirePermission('settings.workshop_rates.manage'),asyncHandler(async(r,res)=>res.json(await laborRates.updateLaborRate(rid(r.params.id),r.body,r))));

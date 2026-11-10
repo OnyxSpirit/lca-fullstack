@@ -12,7 +12,7 @@ const delivery=read('../src/modules/deliveries/delivery.routes.ts');
 
 test('WARRANTY-MFR-01 constructeur sans marque associée rend la garantie indisponible',()=>{
   assert.match(warranty,/LEFT JOIN warranty_providers wp ON wp\.id=b\.warranty_provider_id/);
-  assert.match(warranty,/vehicle\.provider_id\?\{applicable:true/);
+  assert.match(warranty,/vehicle\.id\?\{applicable:true/);
 });
 
 test('WARRANTY-MFR-02 la marque associée détermine le constructeur disponible',()=>{
@@ -36,7 +36,8 @@ test('WARRANTY-MFR-05 un constructeur désactivé est exclu sans altérer les sn
 });
 
 test('WARRANTY-MFR-06 les valeurs par défaut sont récupérées par la proposition',()=>{
-  assert.match(warranty,/wp\.default_warranty_months duration_months,wp\.default_mileage_limit mileage_limit/);
+  assert.match(warranty,/ELSE wp\.default_warranty_months END duration_months/);
+  assert.match(warranty,/ELSE wp\.default_mileage_limit END mileage_limit/);
   assert.match(warranty,/durationMonths:Number\(vehicle\.duration_months\)/);
 });
 
@@ -47,8 +48,8 @@ test('WARRANTY-MFR-07 le véhicule reste isolé par sa chaîne version-modèle-m
 
 test('WARRANTY-MFR-08 le backend refuse une garantie applicable forgée sans FK valide',()=>{
   assert.doesNotMatch(saleDomain,/providerId/);
-  assert.match(warranty,/JOIN warranty_providers wp ON wp\.id=b\.warranty_provider_id WHERE v\.id=\? AND wp\.is_active=TRUE AND wp\.warranty_available=TRUE FOR UPDATE/);
-  assert.match(warranty,/if\(!provider\)throw new HttpError\(409/);
+  assert.match(warranty,/LEFT JOIN warranty_providers wp ON wp\.id=b\.warranty_provider_id AND wp\.is_active=TRUE AND wp\.warranty_available=TRUE WHERE v\.id=\?/);
+  assert.match(warranty,/if\(!provider\?\.id\)throw new HttpError\(409/);
 });
 
 test('WARRANTY-MFR-09 les permissions Constructeurs restent granulaires',()=>{

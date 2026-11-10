@@ -2,32 +2,45 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type { Request } from 'express';
-import { assertPermission } from '../src/modules/rbac/rbac.service.js';
+import { assertAgencyBusinessPermission } from '../src/modules/rbac/agency-authorization.js';
 import { saleScope } from '../src/modules/sales/sale.service.js';
 import { assertSaleTransition } from '../src/modules/sales/sale.domain.js';
 
 type Scope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
-const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',email:'dynamic@lca.local',roles:['SALES_DYNAMIC_TEST'],agencyId:'7'},query:{},rbac:{roleId:'91',roleCode:'SALES_DYNAMIC_TEST',isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))}}) as unknown as Request;
+const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',sid:'session-1',email:'dynamic@lca.local',roles:['SALES_DYNAMIC_TEST'],agencyId:'7'},query:{},agencyRbac:{userId:'42',sessionId:'session-1',activeAgencyId:'7',contextVersion:1,isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))}}) as unknown as Request;
 const routes=readFileSync(new URL('../src/modules/sales/sale.routes.ts',import.meta.url),'utf8');
 const service=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
 
 test('SALE-01/06/10/12/16/21/28 : permissions absentes refusées sans bypass de rôle',async()=>{
-  for(const permission of ['sales.view','sales.create','sales.update','sales.confirm','sales.cancel'])await assert.rejects(()=>assertPermission(request(),permission),(error:any)=>error.status===403);
+  for(const permission of ['sales.view','sales.create','sales.update','sales.confirm','sales.cancel'])await assert.rejects(()=>assertAgencyBusinessPermission(request(),permission),(error:any)=>error.status===403);
   assert.doesNotMatch(routes,/authorize\(|SALES_AGENT|SALES_MANAGER|DIRECTOR|ACCOUNTANT/);
   assert.doesNotMatch(service,/roles\.includes|roles\.some|notifyRoles|unrestricted|SALES_AGENT|SALES_MANAGER|DIRECTOR/);
 });
 
-test('SALE-02/03/04/05 : OWN utilise salesperson_id et les scopes supérieurs suivent agence/concession/global',()=>{
+test('SALE-02/03/04/05 : seuls OWN et AGENCY sont admis et restent liés à l’agence active',()=>{
   const own=saleScope(request({'sales.view':'OWN'}),'sales.view');assert.match(own.sql,/salesperson_id=\?/);assert.deepEqual(own.params,['7','42']);
   assert.deepEqual(saleScope(request({'sales.view':'AGENCY'}),'sales.view'),{sql:'s.agency_id=?',params:['7']});
-  assert.match(saleScope(request({'sales.view':'CONCESSION'}),'sales.view').sql,/concession_id/);
-  assert.deepEqual(saleScope(request({'sales.view':'GLOBAL'}),'sales.view'),{sql:'1=1',params:[]});
+  assert.throws(()=>saleScope(request({'sales.view':'CONCESSION'}),'sales.view'),/OWN\/AGENCY/);
+  assert.throws(()=>saleScope(request({'sales.view':'GLOBAL'}),'sales.view'),/OWN\/AGENCY/);
 });
 
 test('SALE-11/20/22/27 : chaque opération emploie son scope et un rôle dynamique fonctionne',async()=>{
   assert.match(service,/one\(saleId,request,'sales\.update'\)/);assert.match(service,/saleScope\(request,permission\)/);
-  assert.equal(await assertPermission(request({'sales.update':'OWN'}),'sales.update'),'OWN');
-  await assert.rejects(()=>assertPermission(request({},true),'sales.view'),/Permission insuffisante/);
+  assert.equal(await assertAgencyBusinessPermission(request({'sales.update':'OWN'}),'sales.update'),'OWN');
+  await assert.rejects(()=>assertAgencyBusinessPermission(request({},true),'sales.view'),/Permission agence insuffisante/);
+});
+
+test('SALE-RBAC-TRANSACTION : les mutations revalident le contexte agence frais sous transaction',()=>{
+  assert.match(routes,/requireAgencyBusinessPermission\('sales\.create'\)/);
+  assert.match(routes,/requireAnyAgencyBusinessPermission\(\['sales\.confirm','sales\.cancel'\]\)/);
+  assert.match(service,/withCurrentAgencyBusinessAuthorizationRetry\(request,'sales\.create'/);
+  assert.match(service,/withCurrentAgencyBusinessAuthorization\(request,'sales\.update'/);
+  assert.match(service,/withCurrentAgencyBusinessAuthorization\(request,permission/);
+  assert.match(service,/assertAgencyBusinessPermissionInContext\(context,'sales\.assign'\)/);
+  assert.match(service,/JOIN user_agencies ua ON ua\.user_id=u\.id AND ua\.agency_id=\?/);
+  assert.match(service,/JOIN user_agency_roles uar ON uar\.user_agency_id=ua\.id/);
+  assert.doesNotMatch(routes,/requirePermission\(/);
+  assert.doesNotMatch(service,/assertPermission\(/);
 });
 
 test('SALE-09/13/14/15 : confirmation verrouille vente et véhicule, SOLD vient de confirmed',()=>{

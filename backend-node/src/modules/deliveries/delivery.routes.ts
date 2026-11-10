@@ -5,7 +5,7 @@ import {archiveDelivery,archiveDeliveryInTransaction,requireBusinessArchive,requ
 import {defaultDocumentIdentity,documentIdentityForAgency,renderDeliveryDocument,renderDeliveryPlanningDocumentData} from "../documents/commercial-document.js";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { execute, query, transaction } from "../../config/database.js";
-import { requireAnyPermission, requirePermission } from "../../middleware/require-permission.js";
+import {requireAnyAgencyBusinessPermission,requireAgencyBusinessPermission} from '../rbac/agency-authorization.js';
 import { asyncHandler } from "../../middleware/error-handler.js";
 import { emitToAgency } from "../../realtime/socket.js";
 import { HttpError } from "../../shared/http-error.js";
@@ -22,6 +22,8 @@ import{createDeliveryChecklistSnapshot,lockAndAssertDeliveryChecklistComplete,re
 import{freezeVehicleTechnicalSnapshot}from'../vehicles/vehicle-technical-profile.js';
 
 export const deliveryRouter = Router();
+const requirePermission=requireAgencyBusinessPermission;
+const requireAnyPermission=requireAnyAgencyBusinessPermission;
 export const deliverySignTestHooks:{afterMarksLocked?:()=>Promise<void>;afterDocumentRealtime?: (documentId:string)=>void}={};
 type DeliveryPermission='delivery.view'|'delivery.prepare'|'delivery.schedule'|'delivery.checklist.view'|'delivery.checklist.manage'|'delivery.documents.view'|'delivery.signature.capture'|'delivery.complete'|'delivery.cancel'|'delivery.financial_override.authorize';
 const STATUSES = [
@@ -58,23 +60,20 @@ const mysqlDateTime = (value: unknown, label: string) => {
   if (Number.isNaN(parsed.getTime())) throw new HttpError(400, `${label} invalide`);
   return parsed.toISOString().slice(0, 19).replace("T", " ");
 };
-const permissionScope=(request:Request,permission:DeliveryPermission)=>request.rbac?.permissions.get(permission);
+const permissionScope=(request:Request,permission:DeliveryPermission)=>request.agencyRbac?.permissions.get(permission);
 const authorizationScope=(request:Request,alias='s')=>{const value=permissionScope(request,'delivery.financial_override.authorize');if(value==='OWN')throw new HttpError(403,'Le périmètre OWN ne permet pas une autorisation financière collective.');return scope(request,'delivery.financial_override.authorize',alias)};
 async function canViewFinancials(request:Request,agencyId:unknown){
-  const value=request.rbac?.permissions.get('billing.payment.view');
-  if(value==='GLOBAL')return true;
-  if(!request.user?.agencyId)return false;
-  if(value==='AGENCY')return String(agencyId)===String(request.user.agencyId);
-  if(value==='CONCESSION'){const rows=await query<RowDataPacket[]>('SELECT a.id FROM agencies a JOIN agencies current ON current.concession_id=a.concession_id WHERE a.id=? AND current.id=?',[agencyId,request.user.agencyId]);return Boolean(rows[0])}
-  return false;
+  const value=request.agencyRbac?.permissions.get('billing.payment.view');
+  return value==='AGENCY'&&String(agencyId)===String(request.agencyRbac?.activeAgencyId);
 }
 const agency = (request: Request, permission:DeliveryPermission, requested?: unknown) => {
-  if (permissionScope(request,permission)==='GLOBAL' && requested) return idOf(String(requested));
-  if (!request.user?.agencyId)
-    throw new HttpError(403, "Aucune agence associée");
-  return request.user.agencyId;
+  const active=request.agencyRbac?.activeAgencyId;
+  if (!active)throw new HttpError(403, "Aucune agence active");
+  if(requested!=null&&String(requested)!==active)throw new HttpError(403,'Agence hors périmètre');
+  if(permissionScope(request,permission)!=='OWN'&&permissionScope(request,permission)!=='AGENCY')throw new HttpError(403,'Périmètre Livraison insuffisant.');
+  return active;
 };
-const scope=(request:Request,permission:DeliveryPermission,alias='d')=>{const value=permissionScope(request,permission);if(value==='GLOBAL')return{sql:'1=1',params:[] as unknown[]};if(value==='CONCESSION')return{sql:`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[request.user!.agencyId]};if(value==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[request.user!.agencyId]};if(value==='OWN'&&alias==='d')return{sql:`${alias}.delivery_specialist_id=?`,params:[request.user!.sub]};if(value==='OWN')return{sql:'1=0',params:[] as unknown[]};throw new HttpError(403,'Périmètre Livraison insuffisant.');};
+const scope=(request:Request,permission:DeliveryPermission,alias='d')=>{const value=permissionScope(request,permission),active=request.agencyRbac?.activeAgencyId;if(!active)throw new HttpError(403,'Aucune agence active');if(value==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[active]};if(value==='OWN'&&alias==='d')return{sql:`${alias}.agency_id=? AND ${alias}.delivery_specialist_id=?`,params:[active,request.user!.sub]};if(value==='OWN'&&alias==='s')return{sql:`${alias}.agency_id=? AND ${alias}.salesperson_id=?`,params:[active,request.user!.sub]};throw new HttpError(403,'Périmètre Livraison insuffisant.');};
 const selection = `SELECT d.*,s.sale_number,s.status sale_status,s.total sale_total,COALESCE((SELECT SUM(i.balance_due) FROM invoices i WHERE i.sale_id=s.id AND i.status NOT IN('draft','cancelled')),s.balance_due) balance_due,COALESCE((SELECT SUM(i.total) FROM invoices i WHERE i.sale_id=s.id AND i.status NOT IN('draft','cancelled') AND i.invoice_type='other'),0) delivery_services_total,COALESCE((SELECT SUM(i.balance_due) FROM invoices i WHERE i.sale_id=s.id AND i.status NOT IN('draft','cancelled') AND i.invoice_type='other'),0) delivery_services_balance,CONCAT_WS(' ',c.first_name,c.last_name) customer_name,c.phone,c.email,CONCAT(b.name,' ',m.name,' ',ve.name) vehicle_label,v.vin,v.registration_number,v.mileage vehicle_mileage,vwc.decision warranty_decision,vwc.status warranty_status,vwc.provider_name_snapshot warranty_provider_name,vwc.duration_months warranty_duration_months,vwc.mileage_limit warranty_mileage_limit,vwc.start_date warranty_start_date,vwc.expiry_date warranty_expiry_date,vwc.initial_mileage warranty_initial_mileage,vwc.activated_at warranty_activated_at,CONCAT_WS(' ',sp.first_name,sp.last_name) salesperson_name,CONCAT_WS(' ',du.first_name,du.last_name) delivery_specialist_name,a.name agency_name FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id JOIN versions ve ON ve.id=v.version_id JOIN models m ON m.id=ve.model_id JOIN brands b ON b.id=m.brand_id LEFT JOIN vehicle_warranty_contracts vwc ON vwc.sale_id=s.id AND vwc.vehicle_id=v.id LEFT JOIN users sp ON sp.id=s.salesperson_id LEFT JOIN users du ON du.id=d.delivery_specialist_id JOIN agencies a ON a.id=d.agency_id`;
 
 async function accessible(id: string, request: Request, permission:DeliveryPermission): Promise<any> {
@@ -90,7 +89,7 @@ async function accessible(id: string, request: Request, permission:DeliveryPermi
 }
 async function canAccessNested(id:string,request:Request,permissions:DeliveryPermission[]){
   for(const permission of permissions){
-    if(!request.rbac?.permissions.has(permission))continue;
+    if(!request.agencyRbac?.permissions.has(permission))continue;
     const scoped=scope(request,permission);
     const rows=await query<RowDataPacket[]>(`SELECT d.id FROM deliveries d WHERE d.id=? AND ${scoped.sql} LIMIT 1`,[id,...scoped.params]);
     if(rows[0])return true;
@@ -104,7 +103,7 @@ async function detail(id: string, request: Request, permission:DeliveryPermissio
     canAccessNested(id,request,['delivery.documents.view','delivery.checklist.manage']),
     canAccessNested(id,request,['delivery.signature.capture','delivery.complete']),
   ]);
-  const canServices=Boolean(request.rbac?.permissions.has('delivery.service.view')||request.rbac?.permissions.has('delivery.service.add'));
+  const canServices=Boolean(request.agencyRbac?.permissions.has('delivery.service.view')||request.agencyRbac?.permissions.has('delivery.service.add'));
   const [checklistCategories, documents, signatures, history,services] = await Promise.all([
     canChecklist?readDeliveryChecklist(id):Promise.resolve([]),
     canDocuments?query<RowDataPacket[]>(
@@ -242,7 +241,7 @@ deliveryRouter.get('/deliveries/candidates/:saleId/specialists',requirePermissio
   const saleId=idOf(request.params.saleId),scoped=scope(request,'delivery.schedule','s');
   const[sale]=await query<RowDataPacket[]>(`SELECT s.agency_id FROM sales s WHERE s.id=? AND s.status='ready_for_delivery' AND ${scoped.sql}`,[saleId,...scoped.params]);
   if(!sale)throw new HttpError(404,'Vente prête introuvable dans votre périmètre');
-  const rows=await query<RowDataPacket[]>(`SELECT DISTINCT u.id,CONCAT_WS(' ',u.first_name,u.last_name) display_name,u.agency_id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')} ORDER BY display_name,u.id`,[sale.agency_id]);
+  const rows=await query<RowDataPacket[]>(`SELECT DISTINCT u.id,CONCAT_WS(' ',u.first_name,u.last_name) display_name,ua.agency_id FROM users u JOIN user_agencies ua ON ua.user_id=u.id AND ua.agency_id=? AND ua.status='ACTIVE' JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE AND r.is_system=FALSE JOIN role_permissions rp ON rp.role_id=r.id AND rp.scope IN('OWN','AGENCY') JOIN permissions p ON p.id=rp.permission_id AND p.code='delivery.prepare' AND p.is_active=TRUE WHERE u.is_active=TRUE AND ${operationalCandidateSql('u')} ORDER BY display_name,u.id`,[sale.agency_id]);
   response.json(rows.map(row=>({id:String(row.id),name:String(row.display_name),agencyId:String(row.agency_id)})));
 }));
 
@@ -350,8 +349,8 @@ deliveryRouter.post(
     if (sale.status !== "ready_for_delivery")
       throw new HttpError(409, "La vente doit être prête à livrer");
     const [u] = await query<RowDataPacket[]>(
-      `SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')}`,
-      [specialist, agencyId],
+      `SELECT u.id FROM users u JOIN user_agencies ua ON ua.user_id=u.id AND ua.agency_id=? AND ua.status='ACTIVE' JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE AND r.is_system=FALSE JOIN role_permissions rp ON rp.role_id=r.id AND rp.scope IN('OWN','AGENCY') JOIN permissions p ON p.id=rp.permission_id AND p.code='delivery.prepare' AND p.is_active=TRUE WHERE u.id=? AND u.is_active=TRUE AND ${operationalCandidateSql('u')}`,
+      [agencyId,specialist],
     );
     if (!u) throw new HttpError(400, "Responsable livraison invalide pour cette agence");
     const deliveryNumber = `LIV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${Date.now().toString().slice(-6)}`;
@@ -361,7 +360,7 @@ deliveryRouter.post(
       if(String(lockedSale.agency_id)!==agencyId)throw new HttpError(403,'Vente rattachée à une autre agence');
       if(lockedSale.status!=='ready_for_delivery')throw new HttpError(409,'La vente doit être prête à livrer');
       await lockActiveSaleInvoice(connection,saleId,'delivery');
-      const[lockedUsers]=await connection.execute<RowDataPacket[]>(`SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.id=? AND u.agency_id=? AND u.is_active=TRUE AND r.is_active=TRUE AND p.code='delivery.prepare' AND p.is_active=TRUE AND ${operationalCandidateSql('u')} FOR UPDATE`,[specialist,agencyId]);
+      const[lockedUsers]=await connection.execute<RowDataPacket[]>(`SELECT u.id FROM users u JOIN user_agencies ua ON ua.user_id=u.id AND ua.agency_id=? AND ua.status='ACTIVE' JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE AND r.is_system=FALSE JOIN role_permissions rp ON rp.role_id=r.id AND rp.scope IN('OWN','AGENCY') JOIN permissions p ON p.id=rp.permission_id AND p.code='delivery.prepare' AND p.is_active=TRUE WHERE u.id=? AND u.is_active=TRUE AND ${operationalCandidateSql('u')} FOR UPDATE`,[agencyId,specialist]);
       if(!lockedUsers[0])throw new HttpError(400,'Responsable livraison invalide pour cette agence');
       const [existing] = await connection.execute<RowDataPacket[]>(
         `SELECT id FROM deliveries WHERE sale_id=? AND status<>'cancelled' FOR UPDATE`,

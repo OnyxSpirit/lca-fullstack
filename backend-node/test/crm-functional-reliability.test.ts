@@ -20,7 +20,7 @@ test('CRM-06 recherche l’identifiant dans le même prédicat scopé et paginé
 
 test('CRM-02 la détection informative est scopée et ne bloque pas la création',()=>{
   const duplicates=crm.slice(crm.indexOf("crmRouter.get('/leads/duplicates'"),crm.indexOf("crmRouter.get('/leads'"));
-  assert.match(duplicates,/requirePermission\('crm\.prospect\.view'\)/);
+  assert.match(duplicates,/requireAgencyBusinessPermission\('crm\.prospect\.view'\)/);
   assert.match(duplicates,/crmLeadScope\(request,'crm\.prospect\.view'/);
   assert.match(duplicates,/LOWER\(TRIM\(l\.email\)\)/);
   assert.match(duplicates,/REGEXP_REPLACE\(l\.phone,'\[\^0-9\]',''\)/);
@@ -33,7 +33,7 @@ test('CRM-01 les opérations métier conservent leurs transitions sans les impos
   const quotation=readFileSync(new URL('../src/modules/quotations/quotation.service.ts',import.meta.url),'utf8');
   const sale=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
   assert.doesNotMatch(crm,/UPDATE opportunities SET stage='appointment'/);
-  assert.match(showroom,/stage='test_drive'/);
+  assert.doesNotMatch(showroom,/UPDATE opportunities SET stage='test_drive'/);
   assert.match(quotation,/UPDATE opportunities SET stage='offer'/);
   assert.match(sale,/UPDATE opportunities SET stage='won'/);
 });

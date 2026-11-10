@@ -24,8 +24,8 @@ test('CRM-01/06/07/08/16 une permission absente est refusée',async()=>{
   for(const permission of ['crm.prospect.view','crm.prospect.create','crm.prospect.update','crm.prospect.assign','crm.pipeline.advance'])await assert.rejects(()=>assertPermission(denied,permission),(error:unknown)=>error instanceof HttpError&&error.status===403);
 });
 
-test('CRM AGENCY, CONCESSION et GLOBAL produisent des périmètres distincts',()=>{
-  assert.equal(crmLeadScope(request('AGENCY'),'crm.prospect.update').sql,'COALESCE(u.agency_id,creator.agency_id)=?');
+test('CRM AGENCY, CONCESSION et GLOBAL produisent des périmètres distincts en compatibilité',()=>{
+  assert.equal(crmLeadScope(request('AGENCY'),'crm.prospect.update').sql,'l.agency_id=?');
   assert.match(crmLeadScope(request('CONCESSION'),'crm.prospect.update').sql,/concession_id/);
   assert.equal(crmLeadScope(request('GLOBAL'),'crm.prospect.update').sql,'1=1');
 });
@@ -51,8 +51,8 @@ test('les routes CRM utilisent uniquement les permissions dynamiques',()=>{
   const source=readFileSync(new URL('../src/modules/crm/crm.routes.ts',import.meta.url),'utf8');
   for(const permission of ['crm.prospect.view','crm.prospect.create','crm.prospect.update','crm.prospect.assign','crm.pipeline.advance','crm.prospect.lose','crm.activity.view','crm.activity.create','crm.appointment.create'])assert.match(source,new RegExp(permission.replaceAll('.','\\.')));
   assert.doesNotMatch(source,/authorize\(|hasRole\(|SALES_AGENT|SALES_MANAGER|RECEPTIONIST|DIRECTOR/);
-  assert.match(source,/requireAnyPermission\(\['crm\.prospect\.update','crm\.prospect\.assign'\]\)/);
-  assert.match(source,/Object\.hasOwn\(body,'assignedUserId'\).*assertPermission\(request,'crm\.prospect\.assign'\)/s);
+  assert.match(source,/requireAnyAgencyPermission\(\['crm\.prospect\.update','crm\.prospect\.assign'\]\)/);
+  assert.match(source,/Object\.hasOwn\(body,'assignedUserId'\).*assertAgencyBusinessPermission\(request,'crm\.prospect\.assign'\)/s);
 });
 
 test('l’éligibilité à l’affectation CRM repose sur des permissions actives',()=>{

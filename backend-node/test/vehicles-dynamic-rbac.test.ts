@@ -6,9 +6,10 @@ import { assertPermission } from '../src/modules/rbac/rbac.service.js';
 import { assertManualVehicleTransition, vehicleScope } from '../src/modules/vehicles/vehicle.routes.js';
 
 const request=(permissions:Record<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'>={},options:{superAdmin?:boolean;agencyId?:string}={})=>({
-  user:{sub:'77',email:'dynamic@lca.local',roles:['VEHICLE_OPERATOR_DYNAMIC'],agencyId:options.agencyId??'10'},
+  user:{sub:'77',email:'dynamic@lca.local',roles:['VEHICLE_OPERATOR_DYNAMIC'],agencyId:options.agencyId??'10',sid:'session-77'},
   query:{},
   rbac:{roleId:'900',roleCode:'VEHICLE_OPERATOR_DYNAMIC',isSuperAdmin:Boolean(options.superAdmin),permissions:new Map(Object.entries(permissions))},
+  agencyRbac:{userId:'77',sessionId:'session-77',activeAgencyId:options.agencyId??'10',contextVersion:1,isSuperAdmin:Boolean(options.superAdmin),permissions:new Map(Object.entries(permissions)),assignments:[]},
 }) as unknown as Request;
 const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
 const imageStorage=readFileSync(new URL('../src/modules/vehicles/vehicle-image-storage.ts',import.meta.url),'utf8');
@@ -22,11 +23,10 @@ test('VEH-01/06/08/10/15/21 : une permission absente est refusée, sans bypass d
   assert.doesNotMatch(source,/authorize\(|roles\.includes|roles\.some|DIRECTOR|SALES_MANAGER|WAREHOUSE_CLERK/);
 });
 
-test('VEH-02/03/04/13 : les clauses SQL suivent strictement AGENCY, CONCESSION et GLOBAL',()=>{
+test('VEH-02/03/04/13 : le stock est strictement AGENCY',()=>{
   assert.deepEqual(vehicleScope(request({'vehicles.view':'AGENCY'}),'vehicles.view'),{sql:'v.agency_id=?',params:['10']});
-  const concession=vehicleScope(request({'vehicles.view':'CONCESSION'}),'vehicles.view');
-  assert.match(concession.sql,/concession_id/); assert.deepEqual(concession.params,['10']);
-  assert.deepEqual(vehicleScope(request({'vehicles.view':'GLOBAL'}),'vehicles.view'),{sql:'1=1',params:[]});
+  assert.throws(()=>vehicleScope(request({'vehicles.view':'CONCESSION'}),'vehicles.view'),(error:any)=>error.status===403);
+  assert.throws(()=>vehicleScope(request({'vehicles.view':'GLOBAL'}),'vehicles.view'),(error:any)=>error.status===403);
   assert.match(source,/WHERE \$\{commercialStockPredicate\(\)\} AND v\.archived_at IS NULL AND \$\{scoped\.sql\}/);
 });
 
@@ -38,7 +38,7 @@ test('VEH-07/09 : création et modification calculent leur propre scope et non v
   assert.match(source,/agency\(request,'vehicles\.create',request\.body\.agencyId\)/);
   assert.match(source,/accessible\(id,request,'vehicles\.update'\)/);
   assert.match(source,/assertAgencyPermissionScope\(request,permission,target\)/);
-  assert.match(source,/scoped==='OWN'.*scope OWN ne s’applique pas au stock véhicules/);
+  assert.match(source,/scoped==='OWN'.*stock véhicules ne possède pas de règle OWN/);
 });
 
 test('VEH-11/12 : seules les transitions manuelles autorisées passent',()=>{

@@ -13,7 +13,8 @@ test('RBAC paramètres: migration additive sans attribution automatique',()=>{
 
 test('RBAC paramètres: chaque route de modification exige sa permission de section',()=>{
   const routes=source('src/modules/settings/setting.routes.ts');
-  for(const code of ['settings.general.manage','settings.documents.manage','settings.workshop_rates.manage','settings.agencies.manage'])assert.match(routes,new RegExp(`requirePermission\\('${code.replaceAll('.','\\.')}\\'\\)`));
+  for(const code of ['settings.general.manage','settings.documents.manage','settings.workshop_rates.manage'])assert.match(routes,new RegExp(`requirePermission\\('${code.replaceAll('.','\\.')}\\'\\)`));
+  assert.match(routes,/requireCentralAgencyPermission\('settings\.agencies\.manage'\)/);
 });
 
 test('CRM devis: essai précis, opportunité non ambiguë, ambiguïté et absence',()=>{

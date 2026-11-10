@@ -24,8 +24,8 @@ test('RBAC-P1-02 reprise déterministe sans duplication du rôle système',()=>{
 });
 
 test('RBAC-P1-03 endpoints authentifiés et permissions administratives explicites',()=>{
- for(const token of["requirePermission('users.view')","requirePermission('users.assign_agency')","requirePermission('users.assign_role')"])assert.match(routes,new RegExp(token.replace(/[().]/g,'\\$&')));
- assert.match(service,/assertCanManage/);assert.match(service,/assertAgencyInActorScope/);assert.match(service,/writeAudit/);
+ for(const token of["requirePermission('users.view')","requireCentralAgencyPermission('users.assign_agency')","requireAgencyBusinessPermission('users.assign_role')"])assert.match(routes,new RegExp(token.replace(/[().]/g,'\\$&')));
+ assert.match(service,/localTarget/);assert.match(service,/context\.activeAgencyId/);assert.match(service,/writeAudit/);
 });
 
 test('RBAC-P1-04 la phase 1 ne remplace pas le moteur RBAC courant',()=>{

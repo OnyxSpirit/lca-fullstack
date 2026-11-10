@@ -42,5 +42,7 @@ test('les rooms temps réel métier sont fondées sur les permissions et scopes'
   assert.match(socket,/\['treasury','treasury\.view'\]/);
   assert.match(socket,/\['hr','hr\.view'\]/);
   assert.match(socket,/\$\{domain\}:agency:/);
-  assert.match(socket,/granted==='GLOBAL'/);
+  assert.match(socket,/resolveAgencyRbacContext/);
+  assert.doesNotMatch(socket,/socket\.join\(`\$\{domain\}:global`/);
+  assert.match(socket,/session:\$\{context\.sessionId\}/);
 });

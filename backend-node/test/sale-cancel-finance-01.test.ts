@@ -6,7 +6,7 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const sales=read('../src/modules/sales/sale.service.ts'),routes=read('../src/modules/sales/sale.routes.ts'),billing=read('../src/modules/billing/billing.routes.ts'),cancel=read('../src/modules/billing/invoice-cancellation.service.ts'),schema=read('../database/baseline/001_initial_schema.sql');
 
 test('SCF-01/02/03/16/17 conserve l’annulation transactionnelle sans paiement',()=>{
- assert.match(sales,/transaction\(async connection=>/);assert.match(sales,/for\(const invoice of invoices\)await cancelUnpaidInvoice/);
+ assert.match(sales,/withCurrentAgencyBusinessAuthorization\(request,permission,async connection=>/);assert.match(sales,/for\(const invoice of invoices\)await cancelUnpaidInvoice/);
  assert.match(sales,/status==='cancelled'.*nextVehicleStatus='available'/);assert.match(sales,/UPDATE sales SET status=/);assert.match(sales,/UPDATE reservations SET status='cancelled'/);
 });
 

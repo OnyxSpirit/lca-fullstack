@@ -132,7 +132,7 @@ test('L15-L16/L18: downloads et nouvelles sockets passent par la session, sans f
   const delivery = readFileSync(new URL('../src/modules/deliveries/delivery.routes.ts', import.meta.url), 'utf8');
   assert.match(app, /app\.use\('\/api',authenticate/);
   assert.match(delivery, /documents\/:documentId\/download/);
-  assert.match(realtime, /JOIN refresh_tokens rt/);
+  assert.match(realtime, /assertSessionCurrent\(claims\.sub,claims\.sid\)/);
   assert.match(auth, /JOIN refresh_tokens rt/);
   assert.doesNotMatch(auth + realtime, /console\.|token_hash/);
 });

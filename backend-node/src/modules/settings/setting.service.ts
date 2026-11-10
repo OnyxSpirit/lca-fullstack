@@ -23,6 +23,7 @@ import {
   type UpdateSettingsPayload,
 } from "./setting.types.js";
 import{writeAudit}from'../activity/audit-writer.js';
+import{refreshRealtimeSession}from'../../realtime/socket.js';
 const id = (v: unknown) => {
     const x = String(v ?? "");
     if (!/^[1-9]\d*$/.test(x)) throw new HttpError(400, "Identifiant invalide");
@@ -403,6 +404,7 @@ export async function agencyStatus(
   if (typeof value !== "boolean")
     throw new HttpError(400, "Statut agence invalide");
   await manageableAgency(agencyId, r);
+  const affectedSessions:string[]=[];
   await transaction(async (c) => {
     const [old] = await c.execute<RowDataPacket[]>(
       "SELECT * FROM agencies WHERE id=? FOR UPDATE",
@@ -433,6 +435,7 @@ export async function agencyStatus(
       value,
       agencyId,
     ]);
+    if(!value){const[sessions]=await c.execute<RowDataPacket[]>('SELECT id FROM refresh_tokens WHERE active_agency_id=? AND revoked_at IS NULL FOR UPDATE',[agencyId]);affectedSessions.push(...sessions.map(session=>String(session.id)));await c.execute('UPDATE refresh_tokens SET active_agency_id=NULL,agency_context_version=agency_context_version+1 WHERE active_agency_id=? AND revoked_at IS NULL',[agencyId])}
     await audit(
       c,
       r,
@@ -447,5 +450,6 @@ export async function agencyStatus(
     agencyId,
     isActive: value,
   });
+  for(const sessionId of affectedSessions)await refreshRealtimeSession(sessionId);
   return { agencyId, isActive: value };
 }

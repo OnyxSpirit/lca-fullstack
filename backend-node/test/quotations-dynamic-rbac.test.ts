@@ -6,7 +6,7 @@ import {assertPermission} from '../src/modules/rbac/rbac.service.js';
 import {assertTestDriveReturned,quotationScope} from '../src/modules/quotations/quotation.service.js';
 
 type Scope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
-const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',email:'role.inconnu@lca.local',roles:['ROLE_DYNAMIQUE_INCONNU'],agencyId:'7'},query:{},rbac:{roleId:'91',roleCode:'ROLE_DYNAMIQUE_INCONNU',isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))}}) as unknown as Request;
+const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',email:'role.inconnu@lca.local',roles:['ROLE_DYNAMIQUE_INCONNU'],agencyId:'7',sid:'session-42'},query:{},rbac:{roleId:'91',roleCode:'ROLE_DYNAMIQUE_INCONNU',isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))},agencyRbac:{userId:'42',sessionId:'session-42',activeAgencyId:'7',contextVersion:1,isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions)),assignments:[]}}) as unknown as Request;
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const routes=read('../src/modules/quotations/quotation.routes.ts');
 const service=read('../src/modules/quotations/quotation.service.ts');
@@ -14,17 +14,17 @@ const sales=read('../src/modules/sales/sale.service.ts');
 
 test('QUOTE-01/06/10/14/17/24 : chaque endpoint exige sa permission propre',async()=>{
   for(const permission of ['quotations.view','quotations.create','quotations.update','quotations.validate','quotations.cancel','quotations.convert','quotations.discount.manage'])await assert.rejects(()=>assertPermission(request(),permission),(error:any)=>error.status===403);
-  for(const permission of ['quotations.view','quotations.create','quotations.update','quotations.validate','quotations.cancel'])assert.ok(routes.includes(`requirePermission('${permission}')`),permission);
+  for(const permission of ['quotations.view','quotations.create','quotations.update','quotations.validate','quotations.cancel'])assert.ok(routes.includes(`requireAgencyBusinessPermission('${permission}')`),permission);
   assert.doesNotMatch(routes,/authorize\(|SALES_AGENT|SALES_REP|SALES_MANAGER|DIRECTOR|ACCOUNTANT/);
   assert.doesNotMatch(service,/roles\.includes|roles\.some|notifyRoles|unrestricted|SALES_AGENT|SALES_MANAGER|DIRECTOR/);
 });
 
-test('QUOTE-02/03/04/05 : OWN suit opportunities.assigned_user_id et les quatre scopes sont isolés',()=>{
+test('QUOTE-02/03/04/05 : OWN suit le responsable et les scopes historiques sont refusés',()=>{
   const own=quotationScope(request({'quotations.view':'OWN'}),'quotations.view');
-  assert.match(own.sql,/o\.assigned_user_id=\?/);assert.deepEqual(own.params,['7','42']);
+  assert.match(own.sql,/COALESCE\(o\.assigned_user_id,q\.created_by\)=\?/);assert.deepEqual(own.params,['7','42']);
   assert.deepEqual(quotationScope(request({'quotations.view':'AGENCY'}),'quotations.view'),{sql:'q.agency_id=?',params:['7']});
-  assert.match(quotationScope(request({'quotations.view':'CONCESSION'}),'quotations.view').sql,/concession_id/);
-  assert.deepEqual(quotationScope(request({'quotations.view':'GLOBAL'}),'quotations.view'),{sql:'1=1',params:[]});
+  assert.throws(()=>quotationScope(request({'quotations.view':'CONCESSION'}),'quotations.view'),(error:any)=>error.status===403);
+  assert.throws(()=>quotationScope(request({'quotations.view':'GLOBAL'}),'quotations.view'),(error:any)=>error.status===403);
   assert.match(service,/createdById/);assert.match(service,/commercial_owner_id/);
 });
 
@@ -35,13 +35,13 @@ test('QUOTE-07/08/09/11/12 : création verrouillée, cohérente agence, essai re
 });
 
 test('QUOTE-13/15/16/18 : calcul backend, remise dédiée et devis émis verrouillé',()=>{
-  assert.match(service,/discount>0\)await assertPermission\(request,'quotations\.discount\.manage'\)/);
+  assert.match(service,/discount>0\)await assertAgencyBusinessPermission\(request,'quotations\.discount\.manage'\)/);
   assert.match(service,/salePriceHt=amount\(vehicle\.sale_price/);assert.match(service,/calculated=calculateTaxLine/);assert.match(service,/assertVehicleMinimumPrice\(vehicle,calculated\.netHt\)/);assert.match(service,/tax_total,total/);
   assert.match(service,/Seul un devis brouillon non émis peut être modifié/);assert.match(service,/Seul un devis brouillon ou en négociation peut être émis/);
 });
 
 test('QUOTE-19/20/21 : PDF, annulation et audit restent scopés',()=>{
-  assert.match(routes,/quotations\/:id\/pdf',requirePermission\('quotations\.view'\)/);
+  assert.match(routes,/quotations\/:id\/pdf',requireAgencyBusinessPermission\('quotations\.view'\)/);
   assert.match(service,/sale_id|quotation_id/);assert.match(service,/Un devis déjà converti ne peut pas être annulé/);assert.match(service,/writeAudit/);
 });
 

@@ -10,19 +10,20 @@ const showroom=source('src/modules/showroom/showroom.routes.ts');
 const crm=source('src/modules/crm/crm.notifications.ts');
 
 test('NOTIF-01 les endpoints séparent consultation, lecture, archivage et suppression',()=>{
-  assert.match(routes,/get\('\/notifications',requirePermission\('notifications\.view'\)/);
-  assert.match(routes,/patch\('\/notifications\/read-all',requirePermission\('notifications\.update'\)/);
-  assert.match(routes,/patch\('\/notifications\/:id\/read',requirePermission\('notifications\.update'\)/);
-  assert.match(routes,/patch\('\/notifications\/:id\/archive',requirePermission\('notifications\.archive'\)/);
-  assert.match(routes,/delete\('\/notifications\/:id',requirePermission\('notifications\.delete'\)/);
+  assert.match(routes,/get\('\/notifications',requireAgencyBusinessPermission\('notifications\.view'\)/);
+  assert.match(routes,/patch\('\/notifications\/read-all',requireAgencyBusinessPermission\('notifications\.update'\)/);
+  assert.match(routes,/patch\('\/notifications\/:id\/read',requireNotificationId,requireAgencyBusinessPermission\('notifications\.update'\)/);
+  assert.match(routes,/patch\('\/notifications\/:id\/archive',requireNotificationId,requireAgencyBusinessPermission\('notifications\.archive'\)/);
+  assert.match(routes,/delete\('\/notifications\/:id',requireNotificationId,requireAgencyBusinessPermission\('notifications\.delete'\)/);
 });
 
 test('NOTIF-02 la liste dérive sa visibilité du RBAC et les mutations restent liées au user authentifié',()=>{
   assert.match(routes,/notificationVisibility\(request,request\.query\.scope\)/);
-  assert.match(routes,/requestedRank\[requested\]>scopeRank\[granted/);
-  assert.match(routes,/requested==='mine'.*recipient\.id=\?/);
-  assert.match(routes,/WHERE user_id=\? AND channel='notification' AND read_at IS NULL/);
+  assert.match(routes,/if\(requested==='agency'\)\{if\(scope!=='AGENCY'\)/);
+  assert.match(routes,/n\.user_id=\? AND \(n\.operation_agency_id IS NULL OR n\.operation_agency_id=\?\)/);
+  assert.match(routes,/WHERE user_id=\? AND \(operation_agency_id IS NULL OR operation_agency_id=\?\)/);
   assert.match(routes,/WHERE id=\? AND user_id=\? AND channel='notification'/);
+  assert.match(routes,/authorizeAgencyResource\(request,permission,notificationId/);
   assert.match(routes,/COALESCE\(read_at,NOW\(\)\)/);
 });
 
@@ -30,8 +31,7 @@ test('NOTIF-02B les opérations normales excluent archives et suppressions logiq
   assert.match(routes,/baseWhere=\[visibility\.sql,`n\.channel='notification'`,`n\.archived_at IS NULL`,`n\.deleted_at IS NULL`\]/);
   assert.match(routes,/read_at IS NULL AND archived_at IS NULL AND deleted_at IS NULL/);
   assert.doesNotMatch(routes,/DELETE FROM notifications/);
-  assert.match(routes,/notification\.archived/);
-  assert.match(routes,/notification\.deleted/);
+  assert.match(routes,/action:`notification\.\$\{kind==='archive'\?'archived':'deleted'\}`/);
 });
 
 test('NOTIF-03 filtres SQL paramétrés, pagination bornée et ordre newest-first',()=>{
@@ -45,7 +45,7 @@ test('NOTIF-04 la création refuse cible inactive et contenu invalide puis persi
   assert.match(service,/p\.code='notifications\.view'/);
   assert.match(service,/Titre et message de notification requis/);
   assert.match(service,/Priorité de notification invalide/);
-  assert.ok(service.indexOf('INSERT IGNORE INTO notifications')<service.indexOf("emitToUser(input.userId,'notifications:created'"));
+  assert.ok(service.indexOf('INSERT IGNORE INTO notifications')<service.indexOf("emitToUserAgencyContext(input.userId,context.operationAgencyId,'notifications:created'"));
 });
 
 test('NOTIF-05 la sélection collective dépend des permissions/scopes persistées',()=>{
@@ -59,16 +59,18 @@ test('NOTIF-05 la sélection collective dépend des permissions/scopes persisté
 
 test('NOTIF-06 les rooms privées et le payload temps réel sont minimaux',()=>{
   assert.match(socket,/to\(`user:\$\{userId\}`\)\.emit/);
+  assert.match(socket,/context\?\.activeAgencyId===agencyId/);
   assert.doesNotMatch(service,/customer:|token:|password:/);
   assert.doesNotMatch(service,/userId:input\.userId/);
 });
 
 test('NOTIF-07 authentification socket relit utilisateur actif, agence et permissions persistées',()=>{
-  assert.match(socket,/u\.id=\? AND u\.is_active=TRUE/);
-  assert.match(socket,/resolveRbacContext\(claims\.sub\)/);
-  assert.match(socket,/context\.permissions\.get\('settings\.view'\)==='GLOBAL'/);
-  assert.match(socket,/context\.permissions\.get\('settings\.update'\)==='GLOBAL'/);
-  assert.match(socket,/active\.agency_id==null\?null:String\(active\.agency_id\)/);
+  assert.match(socket,/assertSessionCurrent\(claims\.sub,claims\.sid\)/);
+  assert.match(socket,/resolveAgencyRbacContext\(claims\.sub,claims\.sid\)/);
+  assert.match(socket,/assertSessionCurrent\(claims\.sub,claims\.sid\)/);
+  assert.match(socket,/context\.permissions\.has\(permission\)/);
+  assert.match(socket,/agency:\$\{context\.activeAgencyId\}/);
+  assert.doesNotMatch(socket,/rooms\.add\('global'\)/);
   assert.doesNotMatch(socket,/roles\.some|DIRECTOR/);
 });
 

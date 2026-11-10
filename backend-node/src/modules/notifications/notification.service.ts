@@ -1,6 +1,6 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { execute, query } from '../../config/database.js';
-import { emitToUser } from '../../realtime/socket.js';
+import { emitToUserAgencyContext } from '../../realtime/socket.js';
 import { HttpError } from '../../shared/http-error.js';
 
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -43,7 +43,7 @@ async function persistUserNotification(input: CreateNotificationInput, resolvedC
   const result=await execute(`INSERT IGNORE INTO notifications(user_id,channel,subject,message,status,delivery_status,sent_at,reference_type,reference_id,event_type,priority,event_key,actor_type,actor_user_id,actor_display_name_snapshot,operation_agency_id,operation_agency_name_snapshot) VALUES(?,?,?,?,?,'sent',NOW(),?,?,?,?,?,?,?,?,?,?)`,[input.userId,channel,subject,message,'sent',input.referenceType??null,input.referenceId??null,input.eventType??null,priority,input.eventKey??null,context.actorType.toUpperCase(),context.actorUserId,context.actorDisplayNameSnapshot,context.operationAgencyId,context.operationAgencyNameSnapshot]);
   if(!result.affectedRows)return null;
   const record={id:String(result.insertId),subject,message,eventType:input.eventType??null,referenceType:input.referenceType??null,referenceId:input.referenceId??null,priority,createdAt:new Date().toISOString(),readAt:null,isRead:false,...context};
-  if(channel==='notification')emitToUser(input.userId,'notifications:created',{id:record.id});
+  if(channel==='notification')await emitToUserAgencyContext(input.userId,context.operationAgencyId,'notifications:created',{id:record.id});
   return record;
 }
 export async function createUserNotification(input:CreateNotificationInput){return persistUserNotification(input)}

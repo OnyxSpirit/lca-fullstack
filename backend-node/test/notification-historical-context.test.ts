@@ -17,14 +17,15 @@ test('B348-02 le service résout les snapshots avant insertion et émet seulemen
   assert.match(service,/TRIM\(CONCAT\(first_name,' ',last_name\)\) display_name/);
   assert.match(service,/SELECT id,name FROM agencies WHERE id=\?/);
   assert.match(service,/actor_display_name_snapshot,operation_agency_id,operation_agency_name_snapshot/);
-  assert.match(service,/emitToUser\(input\.userId,'notifications:created',\{id:record\.id\}\)/);
+  assert.match(service,/emitToUserAgencyContext\(input\.userId,context\.operationAgencyId,'notifications:created',\{id:record\.id\}\)/);
 });
 
 test('B348-03 les snapshots sont exposés sans participer à la visibilité RBAC',()=>{
   assert.match(routes,/actor_display_name_snapshot/);
   assert.match(routes,/operation_agency_name_snapshot/);
-  assert.match(routes,/requested==='mine'.*recipient\.id=\?/);
-  assert.doesNotMatch(routes,/actor_user_id=\?|operation_agency_id=\?/);
+  assert.match(routes,/const value=text\(raw\)\|\|'mine'/);
+  assert.match(routes,/n\.user_id=\? AND \(n\.operation_agency_id IS NULL OR n\.operation_agency_id=\?\)/);
+  assert.doesNotMatch(routes,/actor_user_id=\?/);
 });
 
 test('B348-04 les producteurs métier transmettent un auteur explicite',()=>{

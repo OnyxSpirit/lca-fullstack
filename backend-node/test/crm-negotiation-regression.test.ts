@@ -20,13 +20,13 @@ test('CRM-NEG-01 la vente réelle conserve sa transition Gagné, sans bloquer la
 });
 
 test('CRM-NEG-02 Négociation vers Perdu reste autorisée et historisée',()=>{
-  assert.match(crm,/stage==='lost'.*assertPermission\(request,'crm\.prospect\.lose'\)/);
+  assert.match(crm,/stage==='lost'.*assertAgencyBusinessPermission\(request,'crm\.prospect\.lose'\)/);
   assert.match(crm,/lost_reason=\?,lost_at=IF\(\?='lost',NOW\(\),NULL\)/);
   assert.match(crm,/INSERT INTO activities[\s\S]*Étape CRM mise à jour/);
 });
 
 test('CRM-NEG-03 permission absente refusée sans exception de rôle',()=>{
-  assert.match(crm,/requirePermission\('crm\.pipeline\.advance'\)/);
+  assert.match(crm,/requireAgencyBusinessPermission\('crm\.pipeline\.advance'\)/);
   assert.match(auth,/if\(!context\.permissions\.has\(permission\)\)throw new HttpError\(403/);
   assert.doesNotMatch(crm,/SUPER_ADMIN|isSuperAdmin/);
 });

@@ -33,7 +33,8 @@ test('SALE-TAX-07/08 préserve strictement le snapshot du devis',()=>{
 });
 
 test('SALE-TAX-09/10 protège les dérogations directes par sales.tax.override',()=>{
-  assert.match(service,/!input\.quotationId&&\(input\.taxMode!==['"]TAXABLE['"]\|\|input\.priceInputMode!==['"]HT['"]\).*assertPermission\(request,['"]sales\.tax\.override['"]\)/);
+  assert.match(service,/!input\.quotationId&&\(input\.taxMode!==['"]TAXABLE['"]\|\|input\.priceInputMode!==['"]HT['"]\).*assertAgencyBusinessPermission\(request,['"]sales\.tax\.override['"]\)/);
+  assert.match(service,/assertAgencyBusinessPermissionInContext\(context,'sales\.tax\.override'\)/);
 });
 
 test('SALE-TAX-11 conserve les verrous marge et minimum',()=>{

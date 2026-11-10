@@ -1,2 +1,3 @@
 export interface AuthUser { sub: string; email: string; roles: string[]; agencyId: string | null; sid: string }
 export interface RequestRbacContext { roleId:string|null; roleCode:string|null; isSuperAdmin:boolean; permissions:Map<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'|null> }
+export interface RequestAgencyRbacContext { userId:string;sessionId:string;activeAgencyId:string|null;contextVersion:number;isSuperAdmin:boolean;agencies:Array<{agencyId:string;code:string;name:string;isPrimary:boolean;concessionId:string}>;roles:Array<{id:string;code:string;name:string}>;permissions:Map<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'|null> }

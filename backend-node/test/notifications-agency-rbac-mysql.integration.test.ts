@@ -1,0 +1,45 @@
+import assert from'node:assert/strict';
+import{createServer}from'node:http';
+import{after,test}from'node:test';
+import{randomUUID}from'node:crypto';
+import supertest from'supertest';
+import WebSocket from'ws';
+import type{ResultSetHeader,RowDataPacket}from'mysql2/promise';
+import{createApp}from'../src/app.js';
+import{execute,pool,query}from'../src/config/database.js';
+import{bootstrapDatabase}from'../src/scripts/database-bootstrap.js';
+import{createRealtimeServer}from'../src/realtime/socket.js';
+import{createUserNotification}from'../src/modules/notifications/notification.service.js';
+import{issueMysqlAccessToken}from'./helpers/mysql-auth-session-fixture.js';
+
+const enabled=process.env.NOTIFICATIONS_AGENCY_MYSQL_TEST==='1';if(enabled)after(()=>pool.end());
+const add=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
+const waitMessage=(socket:WebSocket,predicate:(message:string)=>boolean,timeout=3000)=>new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>{socket.off('message',listener);reject(new Error('WebSocket timeout'))},timeout),listener=(data:WebSocket.RawData)=>{const message=String(data);if(predicate(message)){clearTimeout(timer);socket.off('message',listener);resolve(message)}};socket.on('message',listener)});
+const noMessage=async(socket:WebSocket,predicate:(message:string)=>boolean,timeout=350)=>{try{await waitMessage(socket,predicate,timeout);return false}catch{return true}};
+
+test('PH2C2B LOT1 notifications HTTP, MySQL et Socket.IO',{skip:!enabled,timeout:300000},async()=>{
+ assert.match(process.env.DB_NAME??'',/isolated|test|phase2c2b/i);assert.ok((await bootstrapDatabase()).version>=115);
+ const suffix=randomUUID().replaceAll('-','').slice(0,10),concession=await add('INSERT INTO concessions(name,code)VALUES(?,?)',[`N21 ${suffix}`,`N21${suffix}`]),a1=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'N21 A',`NA${suffix}`]),a2=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'N21 B',`NB${suffix}`]);
+ const codes=['notifications.view','notifications.update','notifications.archive','notifications.delete'],permissions=Object.fromEntries((await query<RowDataPacket[]>(`SELECT id,code FROM permissions WHERE code IN (${codes.map(()=>'?').join(',')})`,codes)).map(row=>[String(row.code),String(row.id)]));assert.equal(Object.keys(permissions).length,4);
+ const role=await add('INSERT INTO roles(name,code,is_system,is_active)VALUES(?,?,FALSE,TRUE)',[`N21 ${suffix}`,`N21_${suffix}`]);for(const code of codes)await execute("INSERT INTO role_permissions(role_id,permission_id,scope)VALUES(?,?,'OWN')",[role,permissions[code]]);
+ const email=`n21-${suffix}@test.local`,user=await add("INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active)VALUES(?,'N21','Owner',?,'unused',TRUE)",[a1,email]),other=await add("INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active)VALUES(?,'N21','Other',?,'unused',TRUE)",[a1,`other-${email}`]);await execute('INSERT INTO user_roles(user_id,role_id)VALUES(?,?),(?,?)',[user,role,other,role]);
+ const ua1=await add("INSERT INTO user_agencies(user_id,agency_id,is_primary,status)VALUES(?,?,TRUE,'ACTIVE')",[user,a1]),ua2=await add("INSERT INTO user_agencies(user_id,agency_id,is_primary,status)VALUES(?,?,FALSE,'ACTIVE')",[user,a2]),otherUa=await add("INSERT INTO user_agencies(user_id,agency_id,is_primary,status)VALUES(?,?,TRUE,'ACTIVE')",[other,a1]);await execute('INSERT INTO user_agency_roles(user_agency_id,role_id)VALUES(?,?),(?,?),(?,?)',[ua1,role,ua2,role,otherUa,role]);
+ const notification=async(target:string,agency:string|null,label:string)=>add(`INSERT INTO notifications(user_id,channel,subject,message,status,delivery_status,sent_at,event_key,actor_type,operation_agency_id)VALUES(?,'notification',?,?,'sent','sent',NOW(),?,'SYSTEM',?)`,[target,label,label,`${label}-${suffix}`,agency]);
+ const personal=await notification(user,null,'Personnel'),ownA1=await notification(user,a1,'Agence A'),ownA2=await notification(user,a2,'Agence B'),otherA1=await notification(other,a1,'Autre');
+ const session=await issueMysqlAccessToken({userId:user,email,agencyId:a1}),api=supertest(createApp()),auth=(call:supertest.Test)=>call.set('Authorization',`Bearer ${session.accessToken}`);
+ let response=await auth(api.get('/api/notifications'));assert.equal(response.status,200,response.text);assert.deepEqual(response.body.items.map((x:any)=>x.id).sort(),[personal,ownA1].sort());
+ assert.equal((await auth(api.get('/api/notifications?scope=agency'))).status,403);assert.equal((await auth(api.get('/api/notifications?scope=global'))).status,403);
+ assert.equal((await auth(api.patch(`/api/notifications/${ownA1}/read`))).status,200);assert.equal((await auth(api.patch(`/api/notifications/${ownA2}/read`))).status,403);assert.equal((await auth(api.patch(`/api/notifications/${otherA1}/read`))).status,404);assert.equal((await auth(api.patch('/api/notifications/999999999/read'))).status,404);
+ response=await auth(api.patch('/api/notifications/read-all'));assert.equal(response.status,200,response.text);const states=await query<RowDataPacket[]>('SELECT id,read_at FROM notifications WHERE id IN (?,?,?) ORDER BY id',[personal,ownA1,ownA2]);assert.ok(states.find(x=>String(x.id)===personal)?.read_at);assert.ok(states.find(x=>String(x.id)===ownA1)?.read_at);assert.equal(states.find(x=>String(x.id)===ownA2)?.read_at,null);
+ assert.equal((await auth(api.patch(`/api/notifications/${personal}/archive`))).status,200);assert.equal((await auth(api.delete(`/api/notifications/${ownA1}`))).status,200);
+ await execute("UPDATE role_permissions SET scope='AGENCY' WHERE role_id=? AND permission_id=?",[role,permissions['notifications.view']]);response=await auth(api.get('/api/notifications?scope=agency'));assert.equal(response.status,200,response.text);assert.ok(response.body.items.some((x:any)=>x.id===otherA1));assert.ok(response.body.items.every((x:any)=>x.operationAgencyId===a1));
+ response=await auth(api.put('/api/rbac/agency-context').send({agencyId:a2}));assert.equal(response.status,200,response.text);response=await auth(api.get('/api/notifications'));assert.equal(response.status,200,response.text);assert.ok(response.body.items.some((x:any)=>x.id===ownA2));assert.ok(response.body.items.every((x:any)=>x.id===ownA2||x.operationAgencyId===null));
+ await execute("UPDATE role_permissions SET scope='GLOBAL' WHERE role_id=? AND permission_id=?",[role,permissions['notifications.view']]);assert.equal((await auth(api.get('/api/notifications'))).status,403);await execute("UPDATE role_permissions SET scope='OWN' WHERE role_id=? AND permission_id=?",[role,permissions['notifications.view']]);
+ await execute('DELETE FROM user_agency_roles WHERE user_agency_id=?',[ua2]);assert.equal((await auth(api.get('/api/notifications'))).status,403);await execute('INSERT INTO user_agency_roles(user_agency_id,role_id)VALUES(?,?)',[ua2,role]);
+ await auth(api.put('/api/rbac/agency-context').send({agencyId:a1}));
+ const http=createServer(),realtime=createRealtimeServer(http);await new Promise<void>(resolve=>http.listen(0,'127.0.0.1',resolve));const address=http.address();assert.ok(address&&typeof address==='object');const socket=new WebSocket(`ws://127.0.0.1:${address.port}/socket.io/?EIO=4&transport=websocket`);await waitMessage(socket,m=>m.startsWith('0'));socket.send(`40/realtime,${JSON.stringify({token:session.accessToken})}`);await waitMessage(socket,m=>m.startsWith('40/realtime'));
+ await createUserNotification({userId:user,subject:'Hors agence',message:'Hors agence',actorType:'system',operationAgencyId:a2,eventKey:`outside-${suffix}`});assert.equal(await noMessage(socket,m=>m.includes('notifications:created')),true);
+ const received=waitMessage(socket,m=>m.includes('notifications:created'));await createUserNotification({userId:user,subject:'Agence active',message:'Agence active',actorType:'system',operationAgencyId:a1,eventKey:`inside-${suffix}`});assert.match(await received,/notifications:created/);
+ socket.close();await new Promise<void>(resolve=>realtime.io.close(()=>resolve()));await new Promise<void>(resolve=>http.close(()=>resolve()));
+ await execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE id=?',[session.sid]);assert.equal((await auth(api.get('/api/notifications'))).status,401);
+});

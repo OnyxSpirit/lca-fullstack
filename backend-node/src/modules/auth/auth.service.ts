@@ -10,6 +10,7 @@ import type { Request } from 'express';
 import * as twoFactor from './two-factor.service.js';
 import{consumeTrustedDevice,cookieFrom,createTrustedDevice,trustedDeviceRequestAllowed}from'./trusted-device.service.js';
 import{getTwoFactorSecuritySettings}from'./two-factor-security-settings.js';
+import{disconnectSession}from'../../realtime/socket.js';
 
 interface UserRow extends RowDataPacket { id: string; agency_id: string; agency_name?:string; agency_code?:string; avatar_path?:string|null; first_name: string; last_name: string; email: string; password_hash: string; is_active: number }
 interface RoleRow extends RowDataPacket { code: string }
@@ -40,7 +41,7 @@ function tokensFor(user: UserRow, roles: string[], sessionId: string) {
 
 async function issueTokens(user: UserRow, roles: string[],twoFactorVerified=false,strongAuthentication=true) {
   const sessionId = randomUUID(), tokens = tokensFor(user, roles, sessionId);
-  await transaction(async connection=>{await connection.execute("INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,two_factor_verified_at,strong_auth_at,strong_auth_method,two_factor_grandfathered) VALUES(?,?,?,FROM_UNIXTIME(?),IF(?,UTC_TIMESTAMP(),NULL),IF(?,UTC_TIMESTAMP(),NULL),IF(? ,IF(?,'PASSWORD_TOTP','PASSWORD'),NULL),FALSE)", [sessionId, user.id, tokens.refreshHash, tokens.refreshExpiresAt,twoFactorVerified,strongAuthentication,strongAuthentication,twoFactorVerified]);await connection.execute('UPDATE users SET last_login_at=NOW() WHERE id=?',[user.id])});
+  await transaction(async connection=>{await connection.execute("INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id,two_factor_verified_at,strong_auth_at,strong_auth_method,two_factor_grandfathered) VALUES(?,?,?,FROM_UNIXTIME(?),(SELECT ua.agency_id FROM user_agencies ua WHERE ua.user_id=? AND ua.is_primary=TRUE AND ua.status='ACTIVE' LIMIT 1),IF(?,UTC_TIMESTAMP(),NULL),IF(?,UTC_TIMESTAMP(),NULL),IF(? ,IF(?,'PASSWORD_TOTP','PASSWORD'),NULL),FALSE)", [sessionId,user.id,tokens.refreshHash,tokens.refreshExpiresAt,user.id,twoFactorVerified,strongAuthentication,strongAuthentication,twoFactorVerified]);await connection.execute('UPDATE users SET last_login_at=NOW() WHERE id=?',[user.id])});
   return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
 }
 
@@ -96,6 +97,6 @@ export async function logout(refreshToken: string, sessionId: string, userId: st
   try {
     const payload=jwt.verify(refreshToken,env.jwt.refreshSecret,{algorithms:['HS256'],ignoreExpiration:true}) as {sub:string;jti:string;sid:string;type:string};
     if(payload.type!=='refresh'||!payload.jti||payload.sid!==sessionId||payload.sub!==userId)throw new Error();
-    await execute('UPDATE refresh_tokens SET revoked_at=COALESCE(revoked_at,NOW()) WHERE id=? AND user_id=?',[sessionId,userId]);
+    await execute('UPDATE refresh_tokens SET revoked_at=COALESCE(revoked_at,NOW()) WHERE id=? AND user_id=?',[sessionId,userId]);disconnectSession(sessionId);
   } catch { throw new HttpError(401,'Refresh token invalide'); }
 }

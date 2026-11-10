@@ -6,7 +6,7 @@ import {vehicleScope} from '../src/modules/vehicles/vehicle.routes.js';
 
 const source=readFileSync(new URL('../src/modules/vehicles/vehicle.routes.ts',import.meta.url),'utf8');
 const sales=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
-const request=(scope:'AGENCY'|'CONCESSION'|'GLOBAL',agencyId='10')=>({user:{sub:'1',agencyId,roles:['DYNAMIC_STOCK']},query:{},rbac:{roleId:'1',roleCode:'DYNAMIC_STOCK',isSuperAdmin:false,permissions:new Map([['vehicles.view',scope]])}}) as unknown as Request;
+const request=(scope:'AGENCY'|'CONCESSION'|'GLOBAL',agencyId='10')=>({user:{sub:'1',agencyId,roles:['DYNAMIC_STOCK'],sid:'session-1'},query:{},rbac:{roleId:'1',roleCode:'DYNAMIC_STOCK',isSuperAdmin:false,permissions:new Map([['vehicles.view',scope]])},agencyRbac:{userId:'1',sessionId:'session-1',activeAgencyId:agencyId,contextVersion:1,isSuperAdmin:false,permissions:new Map([['vehicles.view',scope]]),assignments:[]}}) as unknown as Request;
 
 test('STOCK-FILTER-01 conserve recherche, vue, statut, type, énergie, emplacement et stock dormant',()=>{
   for(const token of ['request.query.search','request.query.view','request.query.status','request.query.fuel','request.query.locationType','request.query.assignment','request.query.dormant'])assert.match(source,new RegExp(token.replaceAll('.','\\.')));
@@ -20,10 +20,10 @@ test('STOCK-FILTER-02/03/04/05 marque et modèle sont des filtres SQL paramétr�
   assert.match(source,/COUNT\(\*\) total[\s\S]*clauses\.join\(' AND '\)/);
   assert.doesNotMatch(source,/b\.id=\$\{value\}|m\.id=\$\{value\}/);
 });
-test('STOCK-FILTER-08/09/10 les filtres restent dans le scope AGENCY, CONCESSION ou GLOBAL',()=>{
+test('STOCK-FILTER-08/09/10 les filtres restent exclusivement dans le scope AGENCY',()=>{
   assert.deepEqual(vehicleScope(request('AGENCY'),'vehicles.view'),{sql:'v.agency_id=?',params:['10']});
-  assert.match(vehicleScope(request('CONCESSION'),'vehicles.view').sql,/concession_id/);
-  assert.deepEqual(vehicleScope(request('GLOBAL'),'vehicles.view'),{sql:'1=1',params:[]});
+  assert.throws(()=>vehicleScope(request('CONCESSION'),'vehicles.view'),(error:any)=>error.status===403);
+  assert.throws(()=>vehicleScope(request('GLOBAL'),'vehicles.view'),(error:any)=>error.status===403);
   assert.match(source,/filter-options[\s\S]*vehicleScope\(request,'vehicles\.view'\)/);
 });
 test('STOCK-KPI-01/02/04/06 seul available est compté par MySQL dans le scope courant',()=>{

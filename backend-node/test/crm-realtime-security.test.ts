@@ -38,9 +38,10 @@ test('REALTIME VISIBILITY ⊆ HTTP READ VISIBILITY avec Lead A et Opportunity B 
 
 test('le routage utilise uniquement les rooms utilisateur et la permission persistée',()=>{
   const source=read('../src/modules/crm/crm.realtime.ts');
-  assert.doesNotMatch(source,/SUPER_ADMIN|is_system/);
+  assert.doesNotMatch(source,/SUPER_ADMIN/);
+  assert.match(source,/r\.is_system=FALSE/);
   assert.match(source,/p\.code='crm\.prospect\.view'/);
-  assert.match(source,/emitToUser/);
+  assert.match(source,/emitToUserAgencyContext/);
   assert.doesNotMatch(source,/emitToAgency|emitToAgencyAndGlobals|broadcast/);
 });
 
@@ -52,7 +53,7 @@ test('payload CRM minimal et sans donnée métier sensible',()=>{
 
 test('TX-01..05 chaque publication métier est placée après la transaction et reste best-effort',()=>{
   const crm=read('../src/modules/crm/crm.routes.ts'),showroom=read('../src/modules/showroom/showroom.routes.ts'),quotation=read('../src/modules/quotations/quotation.service.ts'),sale=read('../src/modules/sales/sale.service.ts'),publisher=read('../src/modules/crm/crm.realtime.ts');
-  assert.ok(crm.indexOf('const created=await transaction')<crm.indexOf("changeType:'created'"));
+  assert.ok(crm.indexOf('const created=await withCurrentAgencyAuthorization')<crm.indexOf("changeType:'created'"));
   assert.ok(crm.indexOf("UPDATE opportunities SET stage=?")<crm.indexOf("changeType:'stage'"));
   assert.ok(showroom.indexOf('const result=await transaction')<showroom.indexOf("changeType:'test_drive'"));
   assert.ok(quotation.indexOf('const created=await createLegacy')<quotation.indexOf("changeType:'quotation'"));

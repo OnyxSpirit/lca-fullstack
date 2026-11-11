@@ -26,6 +26,24 @@ export type MysqlActorOptions={
   twoFactorVerified?:boolean;
 };
 
+export async function assignMysqlAgencyRole(options:{userId:string;agencyId:string;roleId:string;primary?:boolean}){
+  await pool.execute(
+    `INSERT INTO user_agencies(user_id,agency_id,is_primary,status)
+     VALUES(?,?,?,'ACTIVE')
+     ON DUPLICATE KEY UPDATE status='ACTIVE',is_primary=VALUES(is_primary)`,
+    [options.userId,options.agencyId,options.primary??true],
+  );
+  const[assignment]=await query<RowDataPacket[]>(
+    'SELECT id FROM user_agencies WHERE user_id=? AND agency_id=? LIMIT 1',
+    [options.userId,options.agencyId],
+  );
+  await pool.execute(
+    'INSERT IGNORE INTO user_agency_roles(user_agency_id,role_id) VALUES(?,?)',
+    [assignment.id,options.roleId],
+  );
+  return String(assignment.id);
+}
+
 export const workshopPartsHttpPermissions=[
   'customers.view','customers.create','customers.update','vehicles.view','vehicles.create','vehicles.update',
   'service.order.view','service.order.create','service.order.update','service.order.receive','service.order.diagnose',
@@ -36,7 +54,7 @@ export const workshopPartsHttpPermissions=[
   'workshop.intervention.update','workshop.intervention.view','workshop.resources.manage','workshop.resources.view',
   'workshop.schedule.manage','workshop.schedule.view','workshop.session.manage','workshop.session.track',
   'workshop.session.view','workshop.technicians.manage','workshop.technicians.view','workshop.time.adjust',
-  'workshop.time.view','parts.catalog.manage','parts.catalog.view','parts.inventory.manage','parts.inventory.view',
+  'workshop.time.view','service.labor.override','parts.catalog.manage','parts.catalog.view','parts.inventory.manage','parts.inventory.view',
   'parts.purchase_order.approve','parts.purchase_order.create','parts.purchase_order.receive',
   'parts.purchase_order.update','parts.purchase_order.view','parts.reservation.consume','parts.reservation.create',
   'parts.reservation.release','parts.reservation.view','parts.stock.adjust','parts.stock.manage','parts.stock.move',
@@ -55,15 +73,35 @@ export const legacyHttpIntegrationPermissions=[...workshopPartsHttpPermissions,
 ] as const;
 
 export async function issueMysqlAccessToken(options:MysqlSessionOptions){
+  // Several historical integration fixtures still declare their local role in user_roles.
+  // Materialize that test data in the final agency-scoped model before issuing the session;
+  // production authorization never falls back to the legacy table.
+  if(options.agencyId){
+    await pool.execute(
+      `INSERT INTO user_agencies(user_id,agency_id,is_primary,status)
+       VALUES(?,?,TRUE,'ACTIVE')
+       ON DUPLICATE KEY UPDATE status='ACTIVE'`,
+      [options.userId,options.agencyId],
+    );
+    await pool.execute(
+      `INSERT IGNORE INTO user_agency_roles(user_agency_id,role_id)
+       SELECT ua.id,ur.role_id
+       FROM user_agencies ua
+       JOIN user_roles ur ON ur.user_id=ua.user_id
+       JOIN roles r ON r.id=ur.role_id AND r.is_system=FALSE
+       WHERE ua.user_id=? AND ua.agency_id=?`,
+      [options.userId,options.agencyId],
+    );
+  }
   const sid=randomUUID();
   const expiresAt=options.sessionExpiresAt??new Date(Date.now()+60*60*1000);
   const tokenHash=createHash('sha256').update(`fixture:${sid}`).digest('hex');
   await execute(
     `INSERT INTO refresh_tokens(
-       id,user_id,token_hash,expires_at,revoked_at,two_factor_verified_at,
+       id,user_id,token_hash,expires_at,revoked_at,active_agency_id,two_factor_verified_at,
        strong_auth_at,strong_auth_method,two_factor_grandfathered
-     ) VALUES(?,?,?,?,?,?,?,? ,?)`,
-    [sid,options.userId,tokenHash,expiresAt,options.revoked?new Date():null,
+     ) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+    [sid,options.userId,tokenHash,expiresAt,options.revoked?new Date():null,options.agencyId??null,
       options.twoFactorVerified===false?null:new Date(),
       options.twoFactorVerified===false?null:new Date(),
       options.twoFactorVerified===false?null:'PASSWORD_TOTP',
@@ -94,7 +132,7 @@ export async function createMysqlActor(options:MysqlActorOptions){
     [options.agencyId,'B31',options.label,email,options.passwordHash??'fixture-not-used'],
   );
   const userId=String((userResult as ResultSetHeader).insertId);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[userId,roleId]);
+  await assignMysqlAgencyRole({userId,agencyId:options.agencyId,roleId});
   const session=await issueMysqlAccessToken({userId,email,agencyId:options.agencyId,twoFactorVerified:options.twoFactorVerified});
   return{userId,roleId,email,...session};
 }

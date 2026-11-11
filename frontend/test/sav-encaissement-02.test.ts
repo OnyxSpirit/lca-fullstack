@@ -30,6 +30,6 @@ test('SAV-ENCAISSEMENT-02 pending, erreur et reconstruction restent pilotés par
 });
 
 test('SAV-ENCAISSEMENT-02 conserve le résumé financier en lecture seule avant la remise',()=>{
- const positions=['<CardTitle>Facturation</CardTitle>','<CardTitle>Résumé financier</CardTitle>','Remise / clôture'].map(value=>order.indexOf(value));
+ const positions=['<CardTitle>Récapitulatif final</CardTitle>','<CardTitle>Facturation</CardTitle>','Remise / clôture'].map(value=>order.indexOf(value));
  assert.ok(positions.every(value=>value>=0));assert.deepEqual([...positions].sort((a,b)=>a-b),positions);
 });

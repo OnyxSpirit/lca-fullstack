@@ -61,8 +61,16 @@ export async function assertTestDriveStartAvailable(connection:PoolConnection,in
   const[advisors]=await connection.execute<RowDataPacket[]>('SELECT id FROM users WHERE id=? FOR UPDATE',[input.advisorId]);
   if(!advisors[0])throw new HttpError(409,'Commercial indisponible pour un essai');
   const exclude=input.excludeDriveId??'0';
-  const[vehicleDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE vehicle_id=? AND status IN ('planned','in_progress') AND id<>? FOR UPDATE`,[input.vehicleId,exclude]);
+  const scheduled=input.scheduledAt;
+  const duration=input.durationMinutes;
+  const overlap=scheduled&&duration
+    ?`AND (status='in_progress' OR (status='planned' AND scheduled_at<? AND DATE_ADD(scheduled_at,INTERVAL duration_minutes MINUTE)>?))`
+    :'';
+  const overlapParams=scheduled&&duration?[new Date(scheduled.getTime()+duration*60_000),scheduled]:[];
+  const[vehicleDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE vehicle_id=? AND status IN ('planned','in_progress') AND id<>? ${overlap} FOR UPDATE`,[input.vehicleId,exclude,...overlapParams]);
   if(vehicleDrives.length)throw new HttpError(409,'Ce véhicule est déjà réservé pour un essai',{code:'TEST_DRIVE_VEHICLE_CONFLICT'});
+  const[advisorDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE advisor_id=? AND status IN ('planned','in_progress') AND id<>? ${overlap} FOR UPDATE`,[input.advisorId,exclude,...overlapParams]);
+  if(advisorDrives.length)throw new HttpError(409,'Ce commercial est déjà affecté à un essai sur ce créneau',{code:'TEST_DRIVE_ADVISOR_CONFLICT'});
   if(input.visitId){const[visitDrives]=await connection.execute<RowDataPacket[]>(`SELECT id FROM showroom_test_drives WHERE visit_id=? AND status IN ('planned','in_progress') AND id<>? FOR UPDATE`,[input.visitId,exclude]);if(visitDrives.length)throw new HttpError(409,'Cette visite possède déjà un essai actif',{code:'TEST_DRIVE_VISIT_CONFLICT'})}
   return vehicle;
 }

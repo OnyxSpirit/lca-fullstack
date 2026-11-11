@@ -37,5 +37,5 @@ test('RBAC-CONVERT-06 conversion et clôture conservent leurs permissions distin
   assert.match(page,/canConvertShowroomVisitToLead\(visit,canConvertToLead\)/);
   assert.match(page,/canComplete=can\('showroom\.status\.update'\)/);
   assert.match(page,/canComplete&&visit\.origin==='showroom'/);
-  assert.match(backend,/post\('\/showroom\/:id\/convert-to-lead',requirePermission\('showroom\.visitor\.update'\)/);
+  assert.match(backend,/post\('\/showroom\/:id\/convert-to-lead',requireAgencyBusinessPermission\('showroom\.visitor\.update'\)/);
 });

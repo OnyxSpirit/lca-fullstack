@@ -6,7 +6,7 @@ const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
 const fallbackSource=app.slice(app.indexOf('function RouteLoadingFallback'),app.indexOf('const lazyPage'));
 
 test('toutes les pages déclarées sont chargées par import dynamique',()=>{
-  const pages=['DashboardPage','ModulesPortalPage','CrmPage','ShowroomPage','VehiclesListPage','VehicleDetailPage','SalesListPage','SaleDetailPage','DeliveriesPage','DeliveryDetailPage','VehicleReturnPage','CustomersListPage','CustomerDetailPage','ServiceDashboardPage','RepairOrderDetailPage','WorkshopPlanningPage','SparePartsPage','SparePartDetailPage','BillingPage','InvoiceDetailPage','TreasuryPage','ReportsPage','DocumentsGedPage','HrAdministrationPage','UsersManagementPage','SettingsPage','NotificationsPage','ActivityPage','LoginPage','NotFoundPage'];
+  const pages=['DashboardPage','ModulesPortalPage','CrmPage','ShowroomPage','VehiclesListPage','VehicleDetailPage','SalesListPage','QuotationsPage','SaleDetailPage','DeliveriesPage','DeliveryDetailPage','VehicleReturnPage','CustomersListPage','CustomerDetailPage','ServiceDashboardPage','RepairOrderDetailPage','WorkshopPlanningPage','SparePartsPage','SparePartDetailPage','BillingPage','InvoiceDetailPage','TreasuryPage','ReportsPage','DocumentsGedPage','HrAdministrationPage','UsersManagementPage','SettingsPage','NotificationsPage','ActivityPage','LoginPage','NotFoundPage'];
   for(const page of pages){
     assert.match(app,new RegExp(`const ${page}=lazy\\(\\(\\)=>import\\(`),`${page} doit être lazy`);
     assert.doesNotMatch(app,new RegExp(`import \\{ ${page} \\} from`),`${page} ne doit plus être importée statiquement`);

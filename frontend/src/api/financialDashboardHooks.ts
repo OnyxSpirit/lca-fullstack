@@ -1,0 +1,10 @@
+import {useQuery} from '@tanstack/react-query';
+import {apiRequest} from '../services/apiClient';
+
+export type DashboardFilters={from:string;to:string;asOf:string;granularity:'day'|'week'|'month'|'quarter'|'year';agencyId?:string;currency?:string};
+export type FinancialDashboard={meta:{from:string;to:string;asOf:string;agencyId:string|null;currency:string|null;granularity:string;availableSections:string[]};treasury:Array<Record<string,any>>;accounts:Array<Record<string,any>>;trends:Array<Record<string,any>>;sources:Array<Record<string,any>>;paymentMethods:Array<Record<string,any>>;agencies:Array<Record<string,any>>;bank:Array<Record<string,any>>;sections:Record<string,Array<Record<string,any>>|null>};
+export type FinancialActivity={id:string;occurredAt:string;valueDate:string;eventType:string;sourceId:string;reference:string|null;description:string;direction:'IN'|'OUT';amount:number;currencyCode:string;status:string;accountName:string;agencyName:string;authorName:string|null};
+const params=(f:DashboardFilters)=>{const p=new URLSearchParams({from:f.from,to:f.to,asOf:f.asOf,granularity:f.granularity});if(f.agencyId)p.set('agencyId',f.agencyId);if(f.currency)p.set('currency',f.currency);return p};
+export const useFinancialDashboard=(f:DashboardFilters)=>useQuery({queryKey:['treasury','financial-dashboard',f],queryFn:()=>apiRequest<FinancialDashboard>(`/reports/financial-dashboard?${params(f)}`),retry:false});
+export const useFinancialActivities=(f:DashboardFilters,page:number,search:string,source:string)=>useQuery({queryKey:['treasury','financial-activities',f,page,search,source],queryFn:()=>{const p=params(f);p.set('page',String(page));p.set('pageSize','20');if(search)p.set('search',search);if(source)p.set('source',source);return apiRequest<{items:FinancialActivity[];page:number;pageSize:number;total:number}>(`/reports/financial-dashboard/activities?${p}`)},retry:false});
+export const dashboardExportUrl=(f:DashboardFilters,format:'csv'|'xlsx'|'pdf',mode:'summary'|'detailed')=>{const p=params(f);p.set('mode',mode);return `/reports/financial-dashboard/export/${format}?${p}`};

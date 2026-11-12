@@ -287,7 +287,7 @@ export function useTreasuryJournal(filters: {
   categoryId?: string;
   from?: string;
   to?: string;
-}) {
+}, enabled=true) {
   const params = new URLSearchParams(
     Object.entries(filters)
       .filter(([, v]) => v !== undefined && v !== "")
@@ -303,6 +303,7 @@ export function useTreasuryJournal(filters: {
         total: number;
         totalPages: number;
       }>(`/treasury/journal?${params}`),
+    enabled,
   });
 }
 export function useTreasuryActions() {

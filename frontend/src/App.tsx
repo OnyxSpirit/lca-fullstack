@@ -15,6 +15,7 @@ const ShowroomPage=lazy(()=>import('./modules/showroom/ShowroomPage').then(modul
 const VehiclesListPage=lazy(()=>import('./modules/vehicles/VehiclesListPage').then(module=>({default:module.VehiclesListPage})));
 const VehicleDetailPage=lazy(()=>import('./modules/vehicles/VehicleDetailPage').then(module=>({default:module.VehicleDetailPage})));
 const SalesListPage=lazy(()=>import('./modules/sales/SalesListPage').then(module=>({default:module.SalesListPage})));
+const QuotationsPage=lazy(()=>import('./modules/sales/QuotationsPage').then(module=>({default:module.QuotationsPage})));
 const ProformasPage=lazy(()=>import('./modules/proformas/ProformasPage').then(module=>({default:module.ProformasPage})));
 const SaleDetailPage=lazy(()=>import('./modules/sales/SaleDetailPage').then(module=>({default:module.SaleDetailPage})));
 const DeliveriesPage=lazy(()=>import('./modules/deliveries/DeliveriesPage').then(module=>({default:module.DeliveriesPage})));
@@ -32,6 +33,9 @@ const PartsWorkQueuePage=lazy(()=>import('./modules/parts/PartsWorkQueuePage').t
 const BillingPage=lazy(()=>import('./modules/billing/BillingPage').then(module=>({default:module.BillingPage})));
 const InvoiceDetailPage=lazy(()=>import('./modules/billing/InvoiceDetailPage').then(module=>({default:module.InvoiceDetailPage})));
 const TreasuryPage=lazy(()=>import('./modules/treasury/TreasuryPage').then(module=>({default:module.TreasuryPage})));
+const FinancialDashboardPage=lazy(()=>import('./modules/treasury/FinancialDashboardPage').then(module=>({default:module.FinancialDashboardPage})));
+const TreasurySectionPage=lazy(()=>import('./modules/treasury/TreasurySectionPage').then(module=>({default:module.TreasurySectionPage})));
+const TreasuryReconciliationPage=lazy(()=>import('./modules/treasury/TreasurySectionPage').then(module=>({default:module.TreasuryReconciliationPage})));
 const ReportsPage=lazy(()=>import('./modules/reports/ReportsPage').then(module=>({default:module.ReportsPage})));
 const DocumentsGedPage=lazy(()=>import('./modules/documents/DocumentsGedPage').then(module=>({default:module.DocumentsGedPage})));
 const HrAdministrationPage=lazy(()=>import('./modules/hr/HrAdministrationPage').then(module=>({default:module.HrAdministrationPage})));
@@ -87,6 +91,7 @@ export default function App() {
           <Route path="vehicles/catalog" element={<Navigate to="/vehicles" replace />} />
           <Route path="vehicles/:id" element={<ModuleGuard module="vehicles">{lazyPage(<VehicleDetailPage />)}</ModuleGuard>} />
           <Route path="sales" element={<ModuleGuard module="sales">{lazyPage(<SalesListPage />)}</ModuleGuard>} />
+          <Route path="sales/quotations" element={<PermissionGuard permission="quotations.view">{lazyPage(<QuotationsPage />)}</PermissionGuard>} />
           <Route path="proformas" element={<PermissionGuard permission="proformas.view">{lazyPage(<ProformasPage />)}</PermissionGuard>} />
           <Route path="sales/:id" element={<ModuleGuard module="sales">{lazyPage(<SaleDetailPage />)}</ModuleGuard>} />
           <Route path="deliveries" element={<ModuleGuard module="deliveries">{lazyPage(<DeliveriesPage />)}</ModuleGuard>} />
@@ -104,7 +109,11 @@ export default function App() {
           <Route path="notifications" element={<ModuleGuard module="notifications">{lazyPage(<NotificationsPage />)}</ModuleGuard>} />
           <Route path="billing" element={<ModuleGuard module="billing">{lazyPage(<BillingPage />)}</ModuleGuard>} />
           <Route path="billing/:id" element={<ModuleGuard module="billing">{lazyPage(<InvoiceDetailPage />)}</ModuleGuard>} />
-          <Route path="treasury" element={<ModuleGuard module="treasury">{lazyPage(<TreasuryPage />)}</ModuleGuard>} />
+          <Route path="treasury" element={<ModuleGuard module="treasury"><PermissionGuard permission="reporting.view">{lazyPage(<FinancialDashboardPage />)}</PermissionGuard></ModuleGuard>} />
+          <Route path="treasury/operations" element={<ModuleGuard module="treasury">{lazyPage(<TreasurySectionPage section="operations" />)}</ModuleGuard>} />
+          <Route path="treasury/commitments" element={<PermissionGuard permission="treasury.coverage.view">{lazyPage(<TreasurySectionPage section="commitments" />)}</PermissionGuard>} />
+          <Route path="treasury/reconciliation" element={<PermissionGuard permission="treasury.reconciliation.view">{lazyPage(<TreasuryReconciliationPage />)}</PermissionGuard>} />
+          <Route path="treasury/settings" element={<ModuleGuard module="treasury">{lazyPage(<TreasurySectionPage section="settings" />)}</ModuleGuard>} />
           <Route path="reports" element={<ModuleGuard module="reports">{lazyPage(<ReportsPage />)}</ModuleGuard>} />
           <Route path="documents" element={<ModuleGuard module="documents">{lazyPage(<DocumentsGedPage />)}</ModuleGuard>} />
           <Route path="hr" element={<ModuleGuard module="hr">{lazyPage(<HrAdministrationPage />)}</ModuleGuard>} />

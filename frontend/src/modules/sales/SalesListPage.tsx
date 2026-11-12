@@ -12,8 +12,7 @@ import {
   ArrowRight,
   TrendingUp,
 } from 'lucide-react';
-import { useQuotationsPageQuery, useRetryQuotationArchive, useSalesPageQuery } from '../../api/erpHooks';
-import { useUiStore } from '../../stores/uiStore';
+import { useSalesPageQuery } from '../../api/erpHooks';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -24,27 +23,20 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { SaleWizardModal } from './SaleWizardModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
-import { openBusinessPdf } from '../../services/businessPdf';
 import { salePaymentLabel } from './salePaymentLabel';
-import{businessArchiveStatusLabel}from'../../services/businessArchiveStatus';
+import { SalesSectionTabs } from './SalesSectionTabs';
 
 export const SalesListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-  const [salesPage,setSalesPage]=useState(1),[quotationPage,setQuotationPage]=useState(1);
+  const [salesPage,setSalesPage]=useState(1);
   const salesQuery = useSalesPageQuery({page:salesPage,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
   const sales = salesQuery.data?.items ?? [];
-  const canViewQuotations=useAuthStore(state=>state.can('quotations.view'));
-  const canValidateQuotation=useAuthStore(state=>state.can('quotations.validate'));
-  const quotationsQuery=useQuotationsPageQuery({page:quotationPage,pageSize:7},canViewQuotations),quotations=quotationsQuery.data?.items??[];
-  const retryQuotationArchive=useRetryQuotationArchive();
-  const { addToast } = useUiStore();
   const navigate = useNavigate();
   const canCreate=useAuthStore(state=>state.can('sales.create'));
 
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   useEffect(()=>{if(salesQuery.data&&salesQuery.data.page!==salesPage)setSalesPage(salesQuery.data.page)},[salesQuery.data,salesPage]);
-  useEffect(()=>{if(quotationsQuery.data&&quotationsQuery.data.page!==quotationPage)setQuotationPage(quotationsQuery.data.page)},[quotationsQuery.data,quotationPage]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
   const totalRevenue = salesQuery.data?.summary.totalRevenue??0;
@@ -68,6 +60,8 @@ export const SalesListPage: React.FC = () => {
           </Button>:null
         }
       />
+
+      <SalesSectionTabs active="sales" />
 
       {/* KPI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -131,8 +125,6 @@ export const SalesListPage: React.FC = () => {
           </select>
         </div>
       </div>
-
-      {canViewQuotations&&<Card padding="none"><div className="border-b p-4"><h2 className="font-bold text-slate-900">Propositions et devis</h2><p className="text-xs text-slate-500">Même source de vérité que les devis créés depuis le CRM.</p></div>{quotationsQuery.isError&&<div className="p-4 text-sm text-red-700">Chargement des devis impossible : {quotationsQuery.error.message}</div>}<div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50"><tr><th className="p-3">Référence</th><th>Client</th><th>Véhicule</th><th>Commercial</th><th>Montant</th><th>Statut</th><th></th></tr></thead><tbody>{quotations.map(quote=><tr key={quote.id} className="border-t"><td className="p-3 font-mono font-bold">{quote.quotationNumber}</td><td>{quote.customerName}</td><td>{quote.vehicleLabel}</td><td>{quote.salespersonName}</td><td>{formatCurrency(quote.total)}</td><td><div>{quote.status}</div>{quote.identitySnapshot&&<div className={quote.archiveAvailable?'text-[10px] text-emerald-700':'text-[10px] text-amber-700'}>{retryQuotationArchive.variables===quote.id&&retryQuotationArchive.isPending?'Archivage en cours':retryQuotationArchive.variables===quote.id&&retryQuotationArchive.isError?'Archivage en échec':businessArchiveStatusLabel(quote.archiveStatus)}</div>}</td><td><div className="flex gap-2"><Button size="xs" variant="outline" disabled={Boolean(quote.identitySnapshot&&!quote.archiveAvailable)} onClick={()=>openBusinessPdf('quotation',quote.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button>{canValidateQuotation&&Boolean(quote.identitySnapshot)&&quote.archiveStatus==='MISSING_RECORD'&&['sent','negotiation'].includes(quote.status)&&<Button size="xs" loading={retryQuotationArchive.isPending&&retryQuotationArchive.variables===quote.id} disabled={retryQuotationArchive.isPending} onClick={()=>retryQuotationArchive.mutateAsync(quote.id).then(()=>addToast({type:'success',title:'Archive officielle finalisée'})).catch(error=>addToast({type:'error',title:'Archivage toujours indisponible',description:error instanceof Error?error.message:'Erreur API'}))}>Finaliser l’archivage</Button>}</div></td></tr>)}{!quotationsQuery.isLoading&&!quotations.length&&<TableEmptyState colSpan={7} message="Aucun devis"/>}</tbody></table></div><div className="flex items-center justify-between border-t p-3 text-xs"><span>{quotationsQuery.data?.total??0} devis</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={quotationPage<=1} onClick={()=>setQuotationPage(p=>p-1)}>Précédent</Button><span>Page {quotationPage}/{Math.max(1,quotationsQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={quotationPage>=(quotationsQuery.data?.totalPages??1)} onClick={()=>setQuotationPage(p=>p+1)}>Suivant</Button></div></div></Card>}
 
       {/* Sales Table */}
       <Card padding="none">

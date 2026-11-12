@@ -40,6 +40,8 @@ export const detailRoutes = {
   invoice: (id: string) => `${ROUTES.billing}/${encodeURIComponent(id)}`,
 };
 
+export const treasuryRoutes={overview:'/treasury',operations:'/treasury/operations',commitments:'/treasury/commitments',reconciliation:'/treasury/reconciliation',settings:'/treasury/settings',accounting:'/treasury/accounting'} as const;
+
 export function notificationRoute(referenceType: string, referenceId: string): string {
   const routes: Record<string, string> = {
     sale: detailRoutes.sale(referenceId),

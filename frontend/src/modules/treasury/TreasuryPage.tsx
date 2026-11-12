@@ -37,7 +37,7 @@ import { BankReconciliationPanel } from "./BankReconciliationPanel";
 import { TreasuryFlowMappingsTable } from "./TreasuryFlowMappingsTable";
 import { BudgetTreasuryPanel } from "./BudgetTreasuryPanel";
 import { apiDownload } from "../../services/apiClient";
-type Tab =
+export type TreasuryLegacyTab =
   | "overview"
   | "coverage"
   | "budgets"
@@ -47,6 +47,7 @@ type Tab =
   | "categories"
   | "flows";
 type Direction = "IN" | "OUT";
+type Tab=TreasuryLegacyTab;
 type CategoryDirection = "IN" | "OUT" | "BOTH";
 type CategoryForm = {
   code: string;
@@ -145,12 +146,12 @@ const accountError = (form: AccountForm, editing: boolean) => {
   if(form.attachmentType==='AGENCY'&&!form.agencyId)return "L’agence est obligatoire pour un compte d’agence.";
   return "";
 };
-export const TreasuryPage: React.FC = () => {
+export const TreasuryPage: React.FC<{initialTab?:TreasuryLegacyTab;hideTabs?:boolean}> = ({initialTab="overview",hideTabs=false}) => {
   const can = useAuthStore((s) => s.can),
     permissionScope = useAuthStore((s) => s.permissionScope),
     toast = useUiStore((s) => s.addToast),
     today = new Date().toISOString().slice(0, 10);
-  const [tab, setTab] = useState<Tab>("overview"),
+  const [tab, setTab] = useState<Tab>(initialTab),
     [page, setPage] = useState(1),
     [filters, setFilters] = useState({
       accountId: "",
@@ -221,17 +222,17 @@ export const TreasuryPage: React.FC = () => {
     [reservationHistoryId,setReservationHistoryId]=useState<string>();
   const canViewCoverage = can("treasury.coverage.view"),
     canViewReservations = can("treasury.reservation.view"),
-    accounts = useTreasuryAccounts(),
+    accounts = useTreasuryAccounts(["overview","coverage","accounts","journal","flows"].includes(tab)),
     accountTerritories=useTreasuryAccountTerritories(can("treasury.account.manage")),
-    categories = useTreasuryCategories(),
-    summary = useTreasurySummary(),
-    coverage = useTreasuryCoverage(canViewCoverage),
-    budgetIndicators = useTreasuryBudgetIndicators(canViewCoverage),
-    reservations = useTreasuryReservations(canViewReservations),
+    categories = useTreasuryCategories(["journal","categories"].includes(tab)||Boolean(manual)),
+    summary = useTreasurySummary(tab==="overview"),
+    coverage = useTreasuryCoverage(canViewCoverage&&tab==="coverage"),
+    budgetIndicators = useTreasuryBudgetIndicators(canViewCoverage&&tab==="coverage"),
+    reservations = useTreasuryReservations(canViewReservations&&tab==="coverage"),
     reservationHistory=useTreasuryReservationHistory(reservationHistoryId,canViewReservations),
     reservableExpenses=useTreasuryReservableExpenses(reservationForm.accountId,reservationModal&&can("treasury.reservation.create")),
     reservationActions = useTreasuryReservationActions(),
-    journal = useTreasuryJournal({ page, pageSize: 20, ...filters }),
+    journal = useTreasuryJournal({ page, pageSize: 20, ...filters },tab==="journal"),
     actions = useTreasuryActions();
   const canAccounts = can("treasury.account.manage"),
     manageScope = permissionScope("treasury.account.manage"),
@@ -630,7 +631,7 @@ export const TreasuryPage: React.FC = () => {
           </div>
         }
       />
-      <div className="flex gap-2 border-b">
+      {!hideTabs&&<div className="flex gap-2 overflow-x-auto border-b" role="tablist" aria-label="Sections Treasury historiques">
         {(
           [
             "overview",
@@ -667,7 +668,7 @@ export const TreasuryPage: React.FC = () => {
               }
             </button>
           ))}
-      </div>
+      </div>}
       {tab === "overview" && (
         <>
           {(summary.data?.byCurrency??[]).map(kpi=><div key={kpi.currencyCode} className="grid gap-4 md:grid-cols-4">

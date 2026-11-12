@@ -1,0 +1,9 @@
+import{useMutation,useQuery,useQueryClient}from'@tanstack/react-query';import{apiRequest}from'../services/apiClient';
+const qs=(x:Record<string,string>)=>new URLSearchParams(Object.entries(x).filter(([,v])=>v)).toString();
+export const useLedger=(filters:Record<string,string>)=>useQuery({queryKey:['accounting','advanced','ledger',filters],queryFn:()=>apiRequest<any>(`/accounting/advanced/ledger?${qs(filters)}`)});
+export const useBalance=(filters:Record<string,string>)=>useQuery({queryKey:['accounting','advanced','balance',filters],queryFn:()=>apiRequest<any>(`/accounting/advanced/balance?${qs(filters)}`)});
+export const useAuxiliaries=(filters:Record<string,string>)=>useQuery({queryKey:['accounting','advanced','auxiliaries',filters],queryFn:()=>apiRequest<any>(`/accounting/advanced/auxiliaries?${qs(filters)}`)});
+export const useAdvancedJournals=(filters:Record<string,string>)=>useQuery({queryKey:['accounting','advanced','journals',filters],queryFn:()=>apiRequest<any[]>(`/accounting/advanced/journals?${qs(filters)}`)});
+export const useControlRuns=()=>useQuery({queryKey:['accounting','advanced','controls'],queryFn:()=>apiRequest<any[]>('/accounting/advanced/controls')});
+export const useClosures=()=>useQuery({queryKey:['accounting','advanced','closures'],queryFn:()=>apiRequest<any[]>('/accounting/advanced/closures')});
+export const useAdvancedAction=()=>{const q=useQueryClient(),m=(path:string,body:unknown={})=>apiRequest(path,{method:'POST',body:JSON.stringify(body)}).then(x=>{q.invalidateQueries({queryKey:['accounting']});return x});return useMutation({mutationFn:({path,body}:{path:string;body?:unknown})=>m(path,body)})};

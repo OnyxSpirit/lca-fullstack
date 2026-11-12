@@ -115,7 +115,7 @@ CREATE TABLE refresh_tokens (
 
 CREATE TABLE roles (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
     code VARCHAR(80) NOT NULL UNIQUE,
     description TEXT NULL,
     is_system BOOLEAN NOT NULL DEFAULT FALSE,
@@ -124,6 +124,7 @@ CREATE TABLE roles (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_roles_active (is_active),
+    INDEX idx_roles_name (name),
     CONSTRAINT fk_role_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
@@ -994,6 +995,7 @@ CREATE TABLE sales (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_sales_quotation_id (quotation_id),
+    UNIQUE KEY uq_sales_opportunity_id (opportunity_id),
     UNIQUE KEY uk_sales_idempotency (idempotency_key),
     INDEX idx_sales_created_by (created_by),
     CONSTRAINT fk_sale_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT,

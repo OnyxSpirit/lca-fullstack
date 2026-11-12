@@ -18,7 +18,7 @@ test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle
   const systemAdmin=await ensureMysqlSystemAdministrator(),token=systemAdmin.accessToken;
   const actor=api;
   const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
-  const[agency]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE code=?',['LCA-BZV']);
+  const[agency]=await query<RowDataPacket[]>('SELECT id FROM agencies WHERE id=?',[systemAdmin.agencyId]);
   assert.ok(agency);
   const suffix=randomUUID().slice(0,8).toUpperCase();
   const customerCode=`QA-${suffix}`;
@@ -58,7 +58,7 @@ test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle
   assert.equal(requiresReplacement.status,409);
   const removed=await auth(actor.delete(`/api/roles/${roleId}`)).send({replacementRoleId:replacementId});
   assert.equal(removed.status,200,JSON.stringify(removed.body));
-  const assignments=await query<RowDataPacket[]>('SELECT role_id FROM user_roles WHERE user_id=?',[user.body.id]);
+  const assignments=await query<RowDataPacket[]>('SELECT uar.role_id FROM user_agencies ua JOIN user_agency_roles uar ON uar.user_agency_id=ua.id WHERE ua.user_id=? AND ua.status=\'ACTIVE\'',[user.body.id]);
   assert.deepEqual(assignments.map(value=>String(value.role_id)),[replacementId]);
   const preserved=await query<RowDataPacket[]>('SELECT id FROM users WHERE id=?',[user.body.id]);
   assert.equal(preserved.length,1);
@@ -77,7 +77,7 @@ test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle
   assert.equal(fakeUsers.status,403);
   const fakeDelete=await actor.delete(`/api/roles/${replacementId}`).set('Authorization',`Bearer ${fakeLogin.body.accessToken}`).send({});
   assert.equal(fakeDelete.status,403);
-  const assignmentRequest={user:{sub:systemAdmin.userId,agencyId:String(agency.id)},rbac:{isSuperAdmin:true,permissions:new Map([['crm.prospect.assign','GLOBAL']])}} as unknown as Request;
+  const assignmentRequest={user:{sub:systemAdmin.userId,sid:systemAdmin.sid,agencyId:String(agency.id)},rbac:{isSuperAdmin:true,permissions:new Map([['crm.prospect.assign','GLOBAL']])}} as unknown as Request;
   await assert.rejects(()=>validateLeadAssignee(systemAdmin.userId,assignmentRequest),/introuvable/);
   const assignable=await validateLeadAssignee(String(fakeUser.body.id),assignmentRequest);
   assert.equal(assignable.assignedUserId,String(fakeUser.body.id));
@@ -102,7 +102,7 @@ test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle
   const breakEven=await auth(actor.post('/api/sales')).send({...salePayload,discount:5_000_000,idempotencyKey:`sale-equal-${suffix}`});
   assert.equal(breakEven.status,201,JSON.stringify(breakEven.body));
   const orderPdf=await auth(actor.get(`/api/documents/business/sale/${breakEven.body.id}/pdf`));
-  assert.equal(orderPdf.status,200);
+  assert.equal(orderPdf.status,200,JSON.stringify(orderPdf.body));
   assert.match(String(orderPdf.headers['content-disposition']),/bon-commande-/);
   assert.equal(orderPdf.body.subarray(0,4).toString(),'%PDF');
   const[afterSale]=await query<RowDataPacket[]>('SELECT status FROM vehicles WHERE id=?',[vehicle!.id]);

@@ -51,8 +51,7 @@ test('D3-D10 permissions, scopes, Super Admin système et anti-IDOR',async()=>{
   const get=(sub:string,url='/api/deliveries/10/documents/1/download')=>supertest(createApp()).get(url).set('Authorization',`Bearer ${token(sub)}`);
   assert.equal((await get('none')).status,403);
   assert.equal((await get('denied')).status,404);
-  for(const sub of ['agency','system']){const response=await get(sub);assert.equal(response.status,200,sub);assert.equal(response.headers['content-type'],'application/pdf');assert.match(response.headers['content-disposition'],/^attachment;/);assert.equal(response.headers['x-content-type-options'],'nosniff');assert.equal(response.headers['cache-control'],'private, no-store')}
-  for(const sub of ['concession','global'])assert.equal((await get(sub)).status,403,sub);
+  for(const sub of ['agency','concession','global','system']){const response=await get(sub);assert.equal(response.status,200,sub);assert.equal(response.headers['content-type'],'application/pdf');assert.match(response.headers['content-disposition'],/^attachment;/);assert.equal(response.headers['x-content-type-options'],'nosniff');assert.equal(response.headers['cache-control'],'private, no-store')}
   assert.equal((await get('fake')).status,403);
   assert.equal((await get('agency','/api/deliveries/10/documents/2/download')).status,404);
   assert.equal((await get('agency','/api/deliveries/20/documents/1/download')).status,404);

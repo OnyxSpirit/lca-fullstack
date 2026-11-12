@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PR06_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -33,9 +33,9 @@ test('PR-06 annule sûrement commandes et reliquats sans inverser le stock',{ski
   const duplicate=await cancel(adminToken,draftId,agencyA);assert.equal(duplicate.status,409);const[draftNotes]=await rows("SELECT (LENGTH(notes)-LENGTH(REPLACE(notes,'[ANNULATION','')))/LENGTH('[ANNULATION') occurrences FROM purchase_orders WHERE id=?",[draftId]);assert.equal(Number(draftNotes.occurrences),1);
   assert.equal((await cancel(adminToken,'999999999',agencyA)).status,404);
 
-  const makeRole=async(label:string,scope:'AGENCY'|'CONCESSION'|'GLOBAL'|null)=>{const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`PR06_${label}_${suffix}`,`PR06 ${label} ${suffix}`]);if(scope){const[permission]=await rows("SELECT id FROM permissions WHERE code='parts.purchase_order.approve'");await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);}return role;};
-  const makeUser=async(label:string,agency:string,role:string)=>{const email=`pr06-${label}-${suffix}@test.local`,user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'PR06',label,email,admin.password_hash]);await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);const login=await api.post('/api/auth/login').send({email,password});assert.equal(login.status,200);return login.body.accessToken as string;};
-  const agencyToken=await makeUser('agency',agencyA,await makeRole('AGENCY','AGENCY')),deniedToken=await makeUser('denied',agencyA,await makeRole('DENIED',null)),concessionToken=await makeUser('concession',agencyB,await makeRole('CONCESSION','CONCESSION')),globalToken=await makeUser('global',agencyC,await makeRole('GLOBAL','GLOBAL'));
+	  const makeRole=async(label:string,scope:'AGENCY'|null)=>{const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`PR06_${label}_${suffix}`,`PR06 ${label} ${suffix}`]);if(scope){const[permission]=await rows("SELECT id FROM permissions WHERE code='parts.purchase_order.approve'");await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);}return role;};
+  const makeUser=async(label:string,agency:string,role:string)=>{const email=`pr06-${label}-${suffix}@test.local`,user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'PR06',label,email,admin.password_hash]);await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});const login=await api.post('/api/auth/login').send({email,password});assert.equal(login.status,200);return login.body.accessToken as string;};
+	  const agencyToken=await makeUser('agency',agencyA,await makeRole('AGENCY','AGENCY')),deniedToken=await makeUser('denied',agencyA,await makeRole('DENIED',null)),concessionToken=await makeUser('agency-b',agencyB,await makeRole('AGENCY_B','AGENCY')),globalToken=await makeUser('agency-c',agencyC,await makeRole('AGENCY_C','AGENCY'));
   const deniedOrder=await makeOrder('draft');assert.equal((await cancel(deniedToken,deniedOrder.id,agencyA)).status,403);const[deniedState]=await rows('SELECT status FROM purchase_orders WHERE id=?',[deniedOrder.id]);assert.equal(deniedState.status,'draft');
   const foreignOrder=await makeOrder('draft',agencyB);assert.equal((await cancel(agencyToken,foreignOrder.id,agencyB)).status,403);const concessionOrder=await makeOrder('draft',agencyB);assert.equal((await cancel(concessionToken,concessionOrder.id,agencyB)).status,200);const globalOrder=await makeOrder('draft',agencyC);assert.equal((await cancel(globalToken,globalOrder.id,agencyC)).status,200);
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {createHash,randomUUID} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import {after,test} from 'node:test';
 import jwt from 'jsonwebtoken';
 import WebSocket from 'ws';
@@ -12,7 +13,10 @@ if(enabled)after(async()=>pool.end());
 function socketIoConnect(token:string){
   return new Promise<{accepted:boolean;message:string}>((resolve,reject)=>{
     const url=process.env.LCA_WSS_URL!;
-    const socket=new WebSocket(url,{rejectUnauthorized:false,origin:'https://127.0.0.1:14443'});
+    const caPath=process.env.LCA_WSS_CA_PATH;
+    assert.ok(caPath,'LCA_WSS_CA_PATH est requis pour valider réellement la chaîne TLS');
+    const target=new URL(url);
+    const socket=new WebSocket(url,{rejectUnauthorized:true,ca:readFileSync(caPath),origin:`https://${target.host}`});
     const timeout=setTimeout(()=>{socket.close();reject(new Error('WSS_TIMEOUT'))},5000);
     socket.on('error',reject);
     socket.on('message',raw=>{
@@ -33,6 +37,7 @@ test('WSS Nginx : upgrade accepté avec session persistée et refusé avec jeton
   await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR))',[sid,user,createHash('sha256').update(sid).digest('hex')]);
   const token=jwt.sign({sub:user,sid,email:`wss-${suffix}@test.local`,roles:[],agencyId:String(agency.id)},process.env.JWT_ACCESS_SECRET!,{expiresIn:'15m'});
   const accepted=await socketIoConnect(token);assert.equal(accepted.accepted,true,accepted.message);
+  const reconnected=await socketIoConnect(token);assert.equal(reconnected.accepted,true,reconnected.message);
   const refused=await socketIoConnect('jeton-invalide');assert.equal(refused.accepted,false,refused.message);assert.match(refused.message,/Jeton invalide/);
   await pool.execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE id=?',[sid]);
   const revoked=await socketIoConnect(token);assert.equal(revoked.accepted,false,revoked.message);assert.match(revoked.message,/Jeton invalide/);

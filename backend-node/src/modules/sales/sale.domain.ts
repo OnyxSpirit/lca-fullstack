@@ -3,7 +3,7 @@ import { HttpError } from '../../shared/http-error.js';
 export const SALE_STATUSES = ['draft','reserved','ordered','confirmed','preparation','ready_for_delivery','delivered','cancelled'] as const;
 export type SaleStatus = typeof SALE_STATUSES[number];
 export const SALE_TRANSITIONS: Record<SaleStatus, readonly SaleStatus[]> = {
-  draft: ['reserved','cancelled'], reserved: ['ordered','cancelled'], ordered: ['confirmed','cancelled'],
+  draft: ['reserved','cancelled'], reserved: ['ordered','confirmed','cancelled'], ordered: ['confirmed','cancelled'],
   confirmed: ['preparation','cancelled'], preparation: ['ready_for_delivery','cancelled'],
   ready_for_delivery: ['delivered','cancelled'], delivered: [], cancelled: [],
 };

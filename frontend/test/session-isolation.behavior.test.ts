@@ -140,10 +140,11 @@ test('T8 une reconnexion du même utilisateur repart avec un cache vide', async 
   assert.equal(useAuthStore.getState().currentUser?.id, 'A');
 });
 
-test('un changement d’agence du même utilisateur purge le contexte de scope', () => {
+test('un changement d’agence du même utilisateur purge le contexte de scope', async () => {
   installSession('A');
   seedSensitiveA();
-  useAuthStore.getState().setCurrentAgency({ id: 'other-agency', name: 'Other', code: 'O', city: '', address: '', phone: '', email: '', isMain: false, isActive: true });
+  globalThis.fetch=async()=>json({activeAgencyId:'other-agency',agencies:[{agencyId:'other-agency',name:'Other',code:'O',isPrimary:false}],roles:[{code:'EMPLOYEE'}],permissions:[{code:'dashboard.view',scope:'OWN'}]});
+  await useAuthStore.getState().setCurrentAgency({ id: 'other-agency', name: 'Other', code: 'O', city: '', address: '', phone: '', email: '', isMain: false, isActive: true });
   assertAIsGone();
 });
 

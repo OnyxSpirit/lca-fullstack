@@ -8,7 +8,7 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('NOTIF-UX-01 conserve les catégories produites et délègue les portées au RBAC',()=>{
   assert.deepEqual(notificationScopesFor('OWN'),['mine']);
-  assert.deepEqual(notificationCategories.map(([value])=>value),['lead','sale','showroom','vehicle','repair_order','delivery','invoice','payment']);
+  assert.deepEqual(notificationCategories.map(([value])=>value),['lead','sale','showroom','vehicle','repair_order','delivery','invoice','payment','user','employee_bonus','budget_expense']);
   const page=read('../src/modules/notifications/NotificationsPage.tsx');
   assert.match(page,/notificationScopesFor\(permissionScope\)/);
 });

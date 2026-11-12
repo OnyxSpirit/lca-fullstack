@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_OPS_UX01_FINAL_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -25,13 +25,13 @@ test('OPS-UX-01 final: kilométrage strict et conflit Planning concurrent',{skip
   const vehicle=await insert('INSERT INTO vehicles(version_id,agency_id,vin)VALUES(?,?,?)',[version,agency,`OPS${suffix}VIN`]);
   const mileageOrder=await insert('INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,mileage_in,status,created_by)VALUES(?,?,?,?,?,0,\'planned\',?)',[`OR-OPS-KM-${suffix}`,customer,vehicle,agency,admin.id,admin.id]);
   const inspect=(mileage:unknown)=>auth(api.post(`/api/repair-orders/${mileageOrder}/inspection`)).send({fuelLevel:'50 %',cleanliness:'Propre',mileage});
-  const accepted=await inspect(45000);assert.equal(accepted.status,200,JSON.stringify(accepted.body));
-  for(const invalid of [45000.5,-1,'NaN','Infinity']){const response=await inspect(invalid);assert.equal(response.status,400,`${String(invalid)}: ${JSON.stringify(response.body)}`)}
+	  for(const invalid of [45000.5,-1,'NaN','Infinity']){const response=await inspect(invalid);assert.equal(response.status,400,`${String(invalid)}: ${JSON.stringify(response.body)}`)}
+	  const accepted=await inspect(45000);assert.equal(accepted.status,200,JSON.stringify(accepted.body));
   const [persisted]=await rows('SELECT mileage FROM vehicle_reception_inspections WHERE repair_order_id=?',[mileageOrder]);assert.equal(Number(persisted.mileage),45000);
 
   const role=await insert('INSERT INTO roles(code,name,is_active,is_system)VALUES(?,?,TRUE,FALSE)',[`OPS_TECH_${suffix}`,`OPS Tech ${suffix}`]);
   const [permission]=await rows("SELECT id FROM permissions WHERE code='workshop.session.track'");await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope)VALUES(?,?,\'AGENCY\')',[role,permission.id]);
-  const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active)VALUES(?,?,?,?,?,TRUE)',[agency,'Tech','OPS',`tech-${suffix}@test.local`,admin.password_hash]);await pool.execute('INSERT INTO user_roles(user_id,role_id)VALUES(?,?)',[user,role]);
+	  const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active)VALUES(?,?,?,?,?,TRUE)',[agency,'Tech','OPS',`tech-${suffix}@test.local`,admin.password_hash]);await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});
   const technician=await insert('INSERT INTO technicians(user_id,agency_id,is_active)VALUES(?,?,TRUE)',[user,agency]);
   const bay=await insert("INSERT INTO workshop_bays(agency_id,name,capacity,status)VALUES(?,?,1,'available')",[agency,`Pont OPS ${suffix}`]);
   const seedOrder=await insert('INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,status,created_by)VALUES(?,?,?,?,?,\'in_progress\',?)',[`OR-OPS-1-${suffix}`,customer,vehicle,agency,admin.id,admin.id]);

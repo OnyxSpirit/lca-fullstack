@@ -28,7 +28,7 @@ test('session valide + permission atteint la route, permission absente est un 40
   const denied = fixture.createRbacTestSession({ user: { id: '102', agencyId: '11' }, roleCode: 'ROLE_SHOWROOM_NONE' });
   const response = await get(denied.accessToken);
   assert.equal(response.status, 403);
-  assert.match(response.body.message, /showroom\.view/);
+  assert.match(response.body.message, /Permission agence insuffisante/);
 });
 
 test('AGENCY autorise la ressource de la même agence et masque une agence sœur', async () => {

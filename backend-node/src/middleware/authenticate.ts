@@ -6,9 +6,9 @@ import type { AuthUser } from '../types/index.js';
 import type { RowDataPacket } from 'mysql2/promise';
 import { query } from '../config/database.js';
 import {resolveAgencyRbacContext} from '../modules/rbac/agency-rbac.service.js';
+import {legacyRbacContextFromAgency} from '../modules/rbac/rbac.service.js';
 import { assertSessionCurrent } from '../modules/auth/two-factor.service.js';
 
-const legacyContext=(context:Awaited<ReturnType<typeof resolveAgencyRbacContext>>)=>{const first=context.roles[0]??null,permissions=new Map<string,'OWN'|'AGENCY'|null>();for(const[code,scope]of context.permissions)permissions.set(code,scope==='OWN'?'OWN':scope==null?null:'AGENCY');return{roleId:first?.id??null,roleCode:first?.code??(context.isSuperAdmin?'SUPER_ADMIN':null),isSuperAdmin:context.isSuperAdmin,permissions}};
 const isAgencyContextRecoveryRoute=(request:Request)=>request.method==='GET'&&(request.path==='/rbac/agencies'||request.path==='/rbac/agency-context')||request.method==='PUT'&&request.path==='/rbac/agency-context';
 
 export async function authenticate(request: Request, _response: Response, next: NextFunction) {
@@ -29,7 +29,7 @@ export async function authenticate(request: Request, _response: Response, next: 
     user.agencyId=agencyContext.activeAgencyId;
     request.user=user;
     request.agencyRbac=agencyContext;
-    request.rbac=legacyContext(agencyContext);
+    request.rbac=legacyRbacContextFromAgency(agencyContext);
     // Un utilisateur dont le dernier rôle vient d'être retiré doit encore
     // pouvoir consulter ses affectations et basculer vers une autre agence.
     // Toutes les autres routes restent fermées tant qu'aucun rôle n'est actif.

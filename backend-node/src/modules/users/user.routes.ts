@@ -34,7 +34,7 @@ userRouter.delete('/users/:id/agencies/:assignmentId/roles/:roleId',requireAgenc
 userRouter.get('/permissions',requireAgencyBusinessOrCentralPermission('roles.view'),asyncHandler(async(req,res)=>res.json(await service.permissionsCatalog(req))));
 userRouter.get('/roles',requireAgencyBusinessOrCentralPermission('roles.view'),asyncHandler(async(_req,res)=>res.json(await service.rolesList())));
 userRouter.get('/roles/:id/permissions',requireAgencyBusinessOrCentralPermission('roles.view'),asyncHandler(async(req,res)=>res.json(await service.rolePermissions(routeId(req.params.id)))));
-userRouter.post('/roles',requireCentralAgencyPermission('roles.create'),asyncHandler(async(req,res)=>res.status(201).json(await withCurrentCentralAuthorization(req,'roles.create',()=>service.createRole(req.body,req)))));
-userRouter.patch('/roles/:id',requireCentralAgencyPermission('roles.update'),asyncHandler(async(req,res)=>res.json(await withCurrentCentralAuthorization(req,'roles.update',()=>service.updateRole(routeId(req.params.id),req.body,req)))));
-userRouter.patch('/roles/:id/status',requireCentralAgencyPermission('roles.disable'),asyncHandler(async(req,res)=>res.json(await withCurrentCentralAuthorization(req,'roles.disable',()=>service.roleStatus(routeId(req.params.id),req.body.isActive,req)))));
-userRouter.delete('/roles/:id',requireCentralAgencyPermission('roles.delete'),asyncHandler(async(req,res)=>res.json(await withCurrentCentralAuthorization(req,'roles.delete',()=>service.deleteRole(routeId(req.params.id),req.body?.replacementRoleId,req)))));
+userRouter.post('/roles',requireCentralAgencyPermission('roles.create'),asyncHandler(async(req,res)=>res.status(201).json(await service.createRole(req.body,req))));
+userRouter.patch('/roles/:id',requireCentralAgencyPermission('roles.update'),asyncHandler(async(req,res)=>res.json(await service.updateRole(routeId(req.params.id),req.body,req))));
+userRouter.patch('/roles/:id/status',requireCentralAgencyPermission('roles.disable'),asyncHandler(async(req,res)=>res.json(await service.roleStatus(routeId(req.params.id),req.body.isActive,req))));
+userRouter.delete('/roles/:id',requireCentralAgencyPermission('roles.delete'),asyncHandler(async(req,res)=>res.json(await service.deleteRole(routeId(req.params.id),req.body?.replacementRoleId,req))));

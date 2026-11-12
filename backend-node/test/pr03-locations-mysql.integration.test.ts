@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PR03_DB_TEST==='1';
 if(enabled)after(async()=>{await pool.end()});
@@ -19,8 +19,8 @@ test('PR-03 administration des emplacements sur MySQL 8.4 isolé',{skip:!enabled
   assert.equal(adminLogin.status,200,JSON.stringify(adminLogin.body));
   const adminToken=adminLogin.body.accessToken as string;
   const auth=(request:supertest.Test,token=adminToken)=>request.set('Authorization',`Bearer ${token}`);
-  const [admin]=await rows('SELECT password_hash FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);
-  const [home]=await rows('SELECT id,concession_id FROM agencies WHERE code=?',['LCA-BZV']);
+	  const [admin]=await rows('SELECT password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);
+	  const [home]=await rows('SELECT id,concession_id FROM agencies WHERE id=?',[admin.agency_id]);
   const agencyA=String(home.id);
   const agencyB=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[home.concession_id,`Agence B ${suffix}`,`PR03_B_${suffix}`]);
   const [group]=await rows('SELECT id FROM groups_company LIMIT 1');
@@ -35,7 +35,7 @@ test('PR-03 administration des emplacements sur MySQL 8.4 isolé',{skip:!enabled
   const makeUser=async(role:string,agency:string,name:string)=>{
     const email=`pr03-${name.toLowerCase()}-${suffix}@example.test`;
     const id=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'Recette',name,email,admin.password_hash]);
-    await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[id,role]);
+	    await assignMysqlAgencyRole({userId:id,agencyId:agency,roleId:role});
     const login=await api.post('/api/auth/login').send({email,password:process.env.ADMIN_PASSWORD});
     assert.equal(login.status,200,JSON.stringify(login.body));
     return{id,token:login.body.accessToken as string};
@@ -107,16 +107,17 @@ test('PR-03 administration des emplacements sur MySQL 8.4 isolé',{skip:!enabled
   const concessionRole=await makeRole('Concession',permissions,'CONCESSION');
   const concessionUser=await makeUser(concessionRole,agencyA,'Concession');
   const concessionAgencies=await auth(api.get('/api/part-locations/agencies'),concessionUser.token);
-  assert.ok(concessionAgencies.body.some((item:{id:string})=>item.id===agencyB));
-  assert.ok(!concessionAgencies.body.some((item:{id:string})=>item.id===agencyC));
+	  assert.equal(concessionAgencies.status,200);
+	  assert.deepEqual(concessionAgencies.body.map((item:{id:string})=>item.id),[agencyA]);
   const concessionCreate=await createLocation(agencyB,`B-02 ${suffix}`,concessionUser.token);
-  assert.equal(concessionCreate.status,201,JSON.stringify(concessionCreate.body));
+	  assert.equal(concessionCreate.status,403,JSON.stringify(concessionCreate.body));
   const concessionDenied=await createLocation(agencyC,'Interdit',concessionUser.token);
   assert.equal(concessionDenied.status,403);
   const globalRole=await makeRole('Global',permissions,'GLOBAL');
   const globalUser=await makeUser(globalRole,agencyA,'Global');
   const globalAgencies=await auth(api.get('/api/part-locations/agencies'),globalUser.token);
-  assert.ok(globalAgencies.body.some((item:{id:string})=>item.id===agencyC));
+	  assert.equal(globalAgencies.status,200);
+	  assert.deepEqual(globalAgencies.body.map((item:{id:string})=>item.id),[agencyA]);
   const globalCreate=await createLocation(agencyC,`C-01 ${suffix}`,globalUser.token);
-  assert.equal(globalCreate.status,201,JSON.stringify(globalCreate.body));
+	  assert.equal(globalCreate.status,403,JSON.stringify(globalCreate.body));
 });

@@ -105,6 +105,15 @@ export const isCompatiblePermissionScope = (
   scope: PermissionScope | null,
 ) => scope !== null && allowedScopesForPermission(code).includes(scope);
 
+export type HistoricalScopeDecision="AGENCY"|"OWN_OR_REMOVE"|"POLICY_REVIEW"|"SYSTEM_PROTECTED";
+export function historicalScopeDecision(code:string,isSystemRole=false):HistoricalScopeDecision{
+  if(isSystemRole)return"SYSTEM_PROTECTED";
+  const allowed=allowedScopesForPermission(code);
+  if(allowed.includes("AGENCY"))return"AGENCY";
+  if(allowed.includes("OWN"))return"OWN_OR_REMOVE";
+  return"POLICY_REVIEW";
+}
+
 const scopeRank: Record<PermissionScope, number> = {
   OWN: 1,
   AGENCY: 2,

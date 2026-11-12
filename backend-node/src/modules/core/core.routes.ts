@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAgencyPermission as requirePermission } from '../rbac/agency-authorization.js';
+import { requireAgencyBusinessPermission as requirePermission } from '../rbac/agency-authorization.js';
 import { one as accessibleSale } from '../sales/sale.service.js';
 import { asyncHandler } from '../../middleware/error-handler.js';
 import { renderSaleOrderDocument } from '../documents/commercial-document.js';

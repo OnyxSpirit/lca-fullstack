@@ -44,8 +44,8 @@ test('NOTIF-FE-06 le clic vérifie encore la permission de la destination',()=>{
 
 test('NOTIF-FE-07 titre et message sont rendus comme texte React sans HTML injecté',()=>{
   const page=source('src/modules/notifications/NotificationsPage.tsx');
-  assert.match(page,/\{n\.subject\}/);
-  assert.match(page,/\{n\.message\}/);
+  assert.match(page,/\{view\.title\}/);
+  assert.match(page,/\{view\.message\}/);
   assert.doesNotMatch(page,/dangerouslySetInnerHTML/);
 });
 
@@ -57,9 +57,9 @@ test('NOTIF-FE-08 date invalide et état vide restent explicites',()=>{
 test('NOTIF-FE-09 archive remplace la suppression et dépend de la permission dynamique',()=>{
   const page=source('src/modules/notifications/NotificationsPage.tsx');
   assert.match(page,/can\('notifications\.archive'\)/);
-  assert.match(page,/canArchive&&<Button/);
+  assert.match(page,/personal&&canArchive/);
   assert.match(page,/archiveNotification\.mutateAsync/);
-  assert.match(page,/>Archiver<\/Button>/);
+  assert.match(page,/>Archiver<\/MenuAction>/);
   assert.doesNotMatch(page,/>Supprimer<\/Button>|deleteNotification|Trash2/);
   assert.match(hooks,/\/notifications\/\$\{id\}\/archive`,'PATCH'/);
   assert.doesNotMatch(hooks,/DELETE/);
@@ -68,7 +68,7 @@ test('NOTIF-FE-09 archive remplace la suppression et dépend de la permission dy
 test('NOTIF-FE-10 le marquage comme lu dépend de notifications.update',()=>{
   const page=source('src/modules/notifications/NotificationsPage.tsx');
   assert.match(page,/can\('notifications\.update'\)/);
-  assert.match(page,/n\.isRead\|\|!canUpdate/);
+  assert.match(page,/personal&&!n\.isRead&&canUpdate/);
   assert.match(source('src/components/layout/Header.tsx'),/notif\.isRead\|\|!canUpdateNotifications/);
   assert.match(source('src/modules/dashboard/DashboardPage.tsx'),/notification\.isRead\|\|!canUpdateNotifications/);
 });

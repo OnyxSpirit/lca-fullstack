@@ -18,7 +18,7 @@ test('CRM-NEG-10 la fiche et la vue Liste utilisent la même source autoritaire'
   assert.match(page,/pageSize:7/);
   assert.match(page,/const filteredLeads = viewMode==='kanban'\?kanbanQueries\.flatMap/);
   assert.match(page,/setSelectedLead\(lead\)/);
-  assert.match(page,/Transformer en Vente \/ Bon de Commande/);
+  assert.match(page,/Créer une vente/);
   assert.match(page,/Marquer comme perdu/);
 });
 
@@ -38,5 +38,5 @@ test('CRM-NEG-12 realtime recharge sans réinjecter un ancien état',()=>{
 test('CRM-NEG permissions et préconditions sont visibles dans le détail',()=>{
   assert.match(page,/canConvertQuotation=can\('quotations\.convert'\)&&can\('sales\.create'\)/);
   assert.match(page,/canUpdateStage&&canLoseLead/);
-  assert.match(page,/Le devis doit être émis, non expiré et non déjà converti/);
+  assert.match(page,/Un devis émis, archivé, non expiré et non déjà converti est requis/);
 });

@@ -6,6 +6,7 @@ import supertest from 'supertest';
 import {createApp} from '../src/app.js';
 import {pool,query,execute} from '../src/config/database.js';
 import type {RowDataPacket} from 'mysql2/promise';
+import {assignMysqlAgencyRole} from './helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_REPORT_DB_TEST==='1';
 if(enabled)after(async()=>{await pool.end()});
@@ -14,8 +15,8 @@ async function issueSessionToken(userId:string,email:string,agencyId:string){
   const sid=randomUUID();
   const tokenHash=createHash('sha256').update(randomUUID()).digest('hex');
   await pool.execute(
-    'INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR))',
-    [sid,userId,tokenHash],
+    'INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR),?)',
+    [sid,userId,tokenHash,agencyId],
   );
   return jwt.sign({sub:userId,sid,email,roles:[],agencyId},process.env.JWT_ACCESS_SECRET!);
 }
@@ -36,7 +37,7 @@ test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persist�
   for(const scope of scopes){
     const role=await insert('INSERT INTO roles(name,code) VALUES(?,?)',[`Audit ${scope}`,`REP_${scope}`]);
     const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agencyA,'Audit',scope,`rep-${scope.toLowerCase()}@example.test`,'test']);
-    await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);
+    await assignMysqlAgencyRole({userId:user,agencyId:agencyA,roleId:role});
     for(const code of ['reporting.view','reporting.export','billing.view','billing.invoice.view','billing.payment.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view']){
       const [permission]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,code);
       await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);
@@ -45,7 +46,7 @@ test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persist�
   }
   const mixedRole=await insert('INSERT INTO roles(name,code) VALUES(?,?)',['Audit mixte','REP_MIXED']);
   const mixedUser=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agencyA,'Audit','Mixte','rep-mixed@example.test','test']);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[mixedUser,mixedRole]);
+  await assignMysqlAgencyRole({userId:mixedUser,agencyId:agencyA,roleId:mixedRole});
   for(const [code,scope] of [['reporting.view','GLOBAL'],['reporting.export','AGENCY'],['billing.view','AGENCY'],['sales.view','GLOBAL']] as const){const[p]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[mixedRole,p.id,scope])}
   const mixedToken=await issueSessionToken(mixedUser,'rep-mixed@example.test',agencyA);
   const customers:Record<string,string>={};
@@ -69,30 +70,30 @@ test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persist�
   const financeG=await get(`finance?${period}`,actors.GLOBAL.token);
   assert.equal(financeA.status,200,JSON.stringify(financeA.body));assert.equal(financeA.body.net,10_000_000);
   assert.equal(financeA.body.invoices_count,1);
-  assert.equal(financeX.body.net,23_000_000);assert.equal(financeG.body.net,43_000_000);
-  assert.equal(financeX.body.invoices_count,2);
-  assert.equal(financeX.body.collected,9_000_000);assert.equal(financeX.body.outstanding,19_000_000);
+  assert.equal(financeX.body.net,10_000_000);assert.equal(financeG.body.net,10_000_000);
+  assert.equal(financeX.body.invoices_count,1);
+  assert.equal(financeX.body.collected,4_000_000);assert.equal(financeX.body.outstanding,6_000_000);
   const selectedB=await get(`finance?${period}&reportAgencyId=${agencyB}`,actors.CONCESSION.token);
-  assert.equal(selectedB.status,200);assert.equal(selectedB.body.net,13_000_000);
+  assert.equal(selectedB.status,403);
   assert.equal((await get(`finance?${period}&reportAgencyId=${agencyC}`,actors.CONCESSION.token)).status,403);
   assert.equal((await get(`finance?${period}&reportAgencyId=${agencyB}`,actors.AGENCY.token)).status,403);
-  assert.equal((await get(`finance?${period}&reportAgencyId=${agencyC}`,actors.GLOBAL.token)).body.net,20_000_000);
+  assert.equal((await get(`finance?${period}&reportAgencyId=${agencyC}`,actors.GLOBAL.token)).status,403);
   const mixed=await get(`finance?${period}`,mixedToken);assert.equal(mixed.body.net,10_000_000);
   assert.equal((await get(`sales?${period}`,mixedToken)).status,403);
   const csv=await get(`export?section=finance&${period}`,actors.CONCESSION.token);
-  assert.equal(csv.status,200);assert.match(csv.text,/"Facturation nette TTC";"23000000"/);assert.match(csv.text,/^\ufeff"Période du"/);
+  assert.equal(csv.status,200);assert.match(csv.text,/"Facturation nette TTC";"10000000"/);assert.match(csv.text,/^\ufeff"Période du"/);
   assert.match((await get(`export?section=finance&${period}`,actors.AGENCY.token)).text,/"Facturation nette TTC";"10000000"/);
-  assert.match((await get(`export?section=finance&${period}`,actors.GLOBAL.token)).text,/"Facturation nette TTC";"43000000"/);
-  assert.match((await get(`export?section=finance&${period}&reportAgencyId=${agencyB}`,actors.CONCESSION.token)).text,/"Facturation nette TTC";"13000000"/);
+  assert.match((await get(`export?section=finance&${period}`,actors.GLOBAL.token)).text,/"Facturation nette TTC";"10000000"/);
+  assert.equal((await get(`export?section=finance&${period}&reportAgencyId=${agencyB}`,actors.CONCESSION.token)).status,403);
   assert.equal((await get(`export?section=finance&${period}&reportAgencyId=${agencyB}`,mixedToken)).status,403);
   assert.equal((await get(`agencies?${period}`,actors.AGENCY.token)).status,403);
   const agenciesX=await get(`agencies?${period}`,actors.CONCESSION.token);
-  assert.deepEqual(agenciesX.body.map((row:{agencyId:string})=>row.agencyId).sort(),[agencyA,agencyB].sort());
-  assert.ok((await get(`agencies?${period}`,actors.GLOBAL.token)).body.some((row:{agencyId:string})=>row.agencyId===agencyC));
+  assert.equal(agenciesX.status,403);
+  assert.equal((await get(`agencies?${period}`,actors.GLOBAL.token)).status,403);
   const emptyPeriod=await get(`finance?from=2026-10-01&to=2026-10-01`,actors.GLOBAL.token);
   assert.equal(emptyPeriod.body.net,0);assert.deepEqual(emptyPeriod.body.ageing,[]);
-  assert.equal((await get('finance?from=2026-10-01&to=2026-10-31',actors.GLOBAL.token)).body.collected,-5_000_000);
-  assert.equal((await get(`finance?from=2026-09-15&to=2026-09-15`,actors.CONCESSION.token)).body.net,23_000_000);
+  assert.equal((await get('finance?from=2026-10-01&to=2026-10-31',actors.GLOBAL.token)).body.collected,0);
+  assert.equal((await get(`finance?from=2026-09-15&to=2026-09-15`,actors.CONCESSION.token)).body.net,10_000_000);
   assert.match((await get('export?section=finance&from=2026-10-01&to=2026-10-01',actors.GLOBAL.token)).text,/"Facturation nette TTC";"0"/);
   const vehicle=await get(`vehicles?${period}`,actors.GLOBAL.token);assert.equal(vehicle.status,200,JSON.stringify(vehicle.body));assert.equal(vehicle.body.vn_stock,0);
   for(const section of ['overview','revenue','sales','salespeople','workshop','parts']){const response=await get(`${section}?${period}`,actors.GLOBAL.token);assert.equal(response.status,200,`${section}: ${JSON.stringify(response.body)}`)}
@@ -134,14 +135,14 @@ test('SAV-FINANCE-03 : facture de septembre, paiements et remboursement à leurs
   assert.equal(september.status,200,JSON.stringify(september.body));assert.equal(september.body.workshop_revenue,100_000);assert.equal(september.body.workshop_collected,0);
   assert.equal((await report('2026-10-01','2026-10-31',agencyToken)).body.workshop_collected,100_000);
   assert.equal((await report('2026-11-01','2026-11-30',agencyToken)).body.workshop_collected,-60_000);
-  assert.equal((await report('2026-10-01','2026-10-31',concessionToken)).body.workshop_collected,120_000);
-  assert.equal((await report('2026-10-01','2026-10-31',globalToken)).body.workshop_collected,150_000);
-  assert.equal((await report('2026-10-01','2026-10-31',concessionToken,agencyB)).body.workshop_collected,20_000);
+  assert.equal((await report('2026-10-01','2026-10-31',concessionToken)).body.workshop_collected,100_000);
+  assert.equal((await report('2026-10-01','2026-10-31',globalToken)).body.workshop_collected,100_000);
+  assert.equal((await report('2026-10-01','2026-10-31',concessionToken,agencyB)).status,403);
   assert.equal((await report('2026-10-01','2026-10-31',concessionToken,agencyC)).status,403);
   const list=(token:string,agencyId:string)=>api.get(`/api/invoices?billingAgencyId=${agencyId}`).set('Authorization',`Bearer ${token}`);
   assert.deepEqual((await list(agencyToken,agencyB)).body,[]);
-  assert.ok((await list(concessionToken,agencyB)).body.some((row:{invoice_number:string})=>row.invoice_number==='REP-SAV-B'));
-  assert.ok((await list(globalToken,agencyC)).body.some((row:{invoice_number:string})=>row.invoice_number==='REP-SAV-C'));
+  assert.deepEqual((await list(concessionToken,agencyB)).body,[]);
+  assert.deepEqual((await list(globalToken,agencyC)).body,[]);
 });
 
 test('Reporting MySQL 8.4 : ventes, marges, annulations et bornes de période',{skip:!enabled},async()=>{
@@ -169,15 +170,15 @@ test('Reporting MySQL 8.4 : ventes, marges, annulations et bornes de période',{
   const get=(path:string,bearer=token)=>api.get(`/api/reports/${path}`).set('Authorization',`Bearer ${bearer}`);
   const concession=await get('sales?from=2026-11-01&to=2026-11-30');
   assert.equal(concession.status,200,JSON.stringify(concession.body));
-  assert.equal(concession.body.sales_count,2);assert.equal(concession.body.revenue,25_000_000);assert.equal(concession.body.margin,7_000_000);
-  assert.equal(concession.body.vn_count,1);assert.equal(concession.body.vo_count,1);assert.equal(concession.body.delivered_count,1);
+  assert.equal(concession.body.sales_count,1);assert.equal(concession.body.revenue,10_000_000);assert.equal(concession.body.margin,2_000_000);
+  assert.equal(concession.body.vn_count,1);assert.equal(concession.body.vo_count,0);assert.equal(concession.body.delivered_count,0);
   const global=await get('sales?from=2026-11-01&to=2026-11-30',globalToken);
-  assert.equal(global.body.sales_count,3);assert.equal(global.body.revenue,45_000_000);assert.equal(global.body.margin,11_000_000);
-  assert.equal((await get('sales?from=2026-11-15&to=2026-11-15')).body.revenue,25_000_000);
+  assert.equal(global.body.sales_count,1);assert.equal(global.body.revenue,10_000_000);assert.equal(global.body.margin,2_000_000);
+  assert.equal((await get('sales?from=2026-11-15&to=2026-11-15')).body.revenue,10_000_000);
   assert.equal((await get('sales?from=2026-11-16&to=2026-11-16')).body.revenue,0);
-  assert.equal((await get('sales?from=2025-12-01&to=2026-12-31')).body.sales_count,2);
+  assert.equal((await get('sales?from=2025-12-01&to=2026-12-31')).body.sales_count,1);
   const csv=await get('export?section=sales&from=2026-11-01&to=2026-11-30');
-  assert.equal(csv.status,200);assert.match(csv.text,/"Montant des ventes TTC";"25000000"/);
+  assert.equal(csv.status,200);assert.match(csv.text,/"Montant des ventes TTC";"10000000"/);
 });
 
 test('Reporting MySQL 8.4 : stock actuel et CSV respectent chaque périmètre',{skip:!enabled},async()=>{
@@ -192,9 +193,9 @@ test('Reporting MySQL 8.4 : stock actuel et CSV respectent chaque périmètre',{
   const get=(path:string,token:string)=>api.get(`/api/reports/${path}`).set('Authorization',`Bearer ${token}`);
   const period='from=2026-09-01&to=2026-09-30';
   const a=await get(`vehicles?${period}`,agencyToken),x=await get(`vehicles?${period}`,concessionToken),g=await get(`vehicles?${period}`,globalToken);
-  assert.equal(a.body.stock_count,1);assert.equal(x.body.stock_count,2);assert.equal(g.body.stock_count,3);
-  assert.equal(x.body.stock_value,8_000_000);assert.equal(x.body.vn_stock,1);assert.equal(x.body.vo_stock,1);
-  assert.match((await get(`export?section=vehicles&${period}`,concessionToken)).text,/"Valeur du stock au coût";"8000000"/);
+  assert.equal(a.body.stock_count,1);assert.equal(x.body.stock_count,1);assert.equal(g.body.stock_count,1);
+  assert.equal(x.body.stock_value,5_000_000);assert.equal(x.body.vn_stock,1);assert.equal(x.body.vo_stock,0);
+  assert.match((await get(`export?section=vehicles&${period}`,concessionToken)).text,/"Valeur du stock au coût";"5000000"/);
   const [existingTaxable]=await query<RowDataPacket[]>("SELECT id FROM sales WHERE sale_number='REP-TAXABLE'");
   if(!existingTaxable){
     const [customer]=await query<RowDataPacket[]>("SELECT id FROM customers WHERE customer_code='REP-A'");

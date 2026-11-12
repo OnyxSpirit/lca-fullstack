@@ -203,6 +203,9 @@ const mapLead = (r: any): Lead => ({
   testDriveStatus: r.testDriveStatus ?? null,
   testDriveReturnedAt: r.testDriveReturnedAt ?? undefined,
   canCreateQuotation: Boolean(r.canCreateQuotation),
+  saleAssociation: r.saleAssociation?.state==='ACCESSIBLE'
+    ? {state:'ACCESSIBLE',id:s(r.saleAssociation.id),number:String(r.saleAssociation.number),status:saleStatusFromDb[r.saleAssociation.status as keyof typeof saleStatusFromDb]??String(r.saleAssociation.status)}
+    : r.saleAssociation?.state==='INACCESSIBLE'?{state:'INACCESSIBLE'}:{state:'NONE'},
 });
 const mapSale = (r: any): Sale => ({
   id: s(r.id),

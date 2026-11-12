@@ -74,7 +74,7 @@ test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { 
   const unsupported = await auth(admin.accessToken, api.patch(`/api/document-marks/stamps/${stampId}/document-types`)).send({ documentContexts: ['REPAIR_ORDER'] });
   assert.equal(unsupported.status, 400, unsupported.text);
   assert.equal(Number((await query<RowDataPacket[]>('SELECT COUNT(*) total FROM service_stamp_document_types WHERE stamp_id=?', [stampId]))[0]!.total), 2);
-  const explicitWorkflow = await auth(admin.accessToken, api.put('/api/document-marks/policies/DELIVERY_REPORT')).send({ signatureRequired: true, stampRequired: true, missingMarkBehavior: 'BLOCK', isActive: true });
+  const explicitWorkflow = await auth(admin.accessToken, api.put('/api/document-marks/policies/DELIVERY_REPORT')).send({ agencyId: admin.agencyId, signatureRequired: true, stampRequired: true, missingMarkBehavior: 'BLOCK', isActive: true });
   assert.equal(explicitWorkflow.status, 409, explicitWorkflow.text);
 
   const viewer = await createMysqlActor({ label: 'B321 viewer', agencyId: admin.agencyId, permissions: [{ code: 'stamp.view', scope: 'AGENCY' }] });
@@ -88,11 +88,11 @@ test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { 
   assert.equal(crossScope.status, 403, crossScope.text);
 
   assert.equal((await auth(admin.accessToken, api.patch(`/api/document-marks/stamps/${stampId}/status`)).send({ isActive: false })).status, 200);
-  const inactivePolicy = await auth(admin.accessToken, api.put('/api/document-marks/policies/INVOICE')).send({ signatureRequired: false, stampRequired: true, missingMarkBehavior: 'BLOCK', defaultStampId: stampId, isActive: true });
+  const inactivePolicy = await auth(admin.accessToken, api.put('/api/document-marks/policies/INVOICE')).send({ agencyId: admin.agencyId, signatureRequired: false, stampRequired: true, missingMarkBehavior: 'BLOCK', defaultStampId: stampId, isActive: true });
   assert.equal(inactivePolicy.status, 400, inactivePolicy.text);
   assert.equal((await auth(admin.accessToken, api.patch(`/api/document-marks/stamps/${stampId}/status`)).send({ isActive: true })).status, 200);
   const revoked = await auth(admin.accessToken, api.post(`/api/document-marks/stamps/${stampId}/revoke`)).send({ reason: 'Fin de recette B.3.2.1' });
   assert.equal(revoked.status, 200, revoked.text);
-  const revokedPolicy = await auth(admin.accessToken, api.put('/api/document-marks/policies/INVOICE')).send({ signatureRequired: false, stampRequired: true, missingMarkBehavior: 'BLOCK', defaultStampId: stampId, isActive: true });
+  const revokedPolicy = await auth(admin.accessToken, api.put('/api/document-marks/policies/INVOICE')).send({ agencyId: admin.agencyId, signatureRequired: false, stampRequired: true, missingMarkBehavior: 'BLOCK', defaultStampId: stampId, isActive: true });
   assert.equal(revokedPolicy.status, 400, revokedPolicy.text);
 });

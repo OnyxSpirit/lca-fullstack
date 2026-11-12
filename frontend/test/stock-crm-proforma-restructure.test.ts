@@ -18,9 +18,9 @@ test('la fiche véhicule lance une pro forma avec le véhicule préselectionné'
   assert.match(proformas,/searchParams\.get\('vehicleId'\)/);
 });
 
-test('le CRM propose toutes les étapes et verrouille les cartes terminales',()=>{
+test('le CRM propose toutes les étapes et verrouille les cartes liées à une vente',()=>{
   const crm=read('../src/modules/crm/CrmPage.tsx');
-  assert.match(crm,/draggable=\{canUpdateStage&&!\['GAGNE','PERDU'\]\.includes\(lead\.stage\)\}/);
+  assert.match(crm,/draggable=\{canUpdateStage&&lead\.saleAssociation\.state==='NONE'\}/);
   assert.match(crm,/\{stages\.map\(\(s\)/);
   assert.doesNotMatch(crm,/\['NOUVEAU','CONTACTE'\]\.includes\(selectedLead\.stage\)/);
 });

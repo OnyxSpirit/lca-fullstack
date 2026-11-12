@@ -23,3 +23,4 @@ export function disconnectRealtime(expectedSocket?: Socket | null) {
 }
 export function getRealtimeSocket() { return socket; }
 export function refreshRealtimeToken(token:string){if(!socket)return;socket.auth={token};if(!socket.connected)socket.connect()}
+export function refreshRealtimeAgencyContext(){if(!socket?.connected)return Promise.resolve();return new Promise<void>((resolve,reject)=>{const timer=window.setTimeout(()=>reject(new Error('Actualisation temps réel de l’agence expirée.')),5000);socket!.emit('agency:refresh',{},(result?:{ok?:boolean})=>{window.clearTimeout(timer);result?.ok?resolve():reject(new Error('Actualisation temps réel de l’agence impossible.'))})})}

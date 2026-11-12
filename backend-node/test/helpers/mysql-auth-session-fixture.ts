@@ -151,7 +151,9 @@ export async function ensureMysqlHttpAdministrator(permissionCodes:ReadonlyArray
   const agencyId=String(fallback.id),email=`b31-http-admin-${suffix}@test.local`,password=`B31-${suffix}-Admin!`;
   const actor=await createMysqlActor({
     label:`HTTP ${suffix}`,agencyId,email,passwordHash:await argon2.hash(password),
-    permissions:[...new Set(permissionCodes)].map(code=>({code,scope:'GLOBAL' as const})),
+    // This is an agency business actor, not an implicit central administrator.
+    // Final RBAC only permits OWN/AGENCY on local business roles.
+    permissions:[...new Set(permissionCodes)].map(code=>({code,scope:'AGENCY' as const})),
   });
   process.env.ADMIN_EMAIL=email;
   process.env.ADMIN_PASSWORD=password;

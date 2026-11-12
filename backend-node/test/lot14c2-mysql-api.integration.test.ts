@@ -5,7 +5,7 @@ import jwt from'jsonwebtoken';
 import supertest from'supertest';
 import type{ResultSetHeader,RowDataPacket}from'mysql2/promise';
 import{createApp}from'../src/app.js';
-import{env}from'../src/config/env.js';
+import{env}from'../src/config/env.js';import{assignMysqlAgencyRole}from'./helpers/mysql-auth-session-fixture.js';
 import{pool,query}from'../src/config/database.js';
 
 const enabled=process.env.LOT14C2_MYSQL_TEST==='1';
@@ -24,10 +24,10 @@ test('Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4',{skip:!en
   const noPermissionRole=await insert('INSERT INTO roles(name,code,is_system) VALUES(?,?,FALSE)',[`Sans droits ${suffix}`,`NONE_${suffix}`]);
   const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agency,'API','Test',`api-${suffix}@test.invalid`,'not-used']);
   const deniedUser=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agency,'Sans','Droits',`none-${suffix}@test.invalid`,'not-used']);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?),(?,?)',[user,role,deniedUser,noPermissionRole]);
+  await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});await assignMysqlAgencyRole({userId:deniedUser,agencyId:agency,roleId:noPermissionRole});
   const permissions=['customers.view','customers.history.view','vehicles.view','workshop.vehicles.view','workshop.external_vehicle.create','workshop.vehicle.associations.create','workshop.vehicle.associations.view','workshop.vehicle.associations.close','service.order.create','service.order.view','service.order.receive'];
   await pool.execute(`INSERT INTO role_permissions(role_id,permission_id,scope) SELECT ?,id,'AGENCY' FROM permissions WHERE code IN (${permissions.map(()=>'?').join(',')})`,[role,...permissions]);
-  const sid=randomUUID(),revokedSid=randomUUID();await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY)),(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY))',[sid,user,`${suffix}1`.padEnd(64,'1'),revokedSid,user,`${suffix}2`.padEnd(64,'2')]);await pool.execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE id=?',[revokedSid]);
+  const sid=randomUUID(),revokedSid=randomUUID();await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY),?),(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY),?)',[sid,user,`${suffix}1`.padEnd(64,'1'),agency,revokedSid,user,`${suffix}2`.padEnd(64,'2'),agency]);await pool.execute('UPDATE refresh_tokens SET revoked_at=NOW() WHERE id=?',[revokedSid]);
   const token=(sub:string,session:string)=>jwt.sign({sub,sid:session},env.jwt.accessSecret,{algorithm:'HS256',expiresIn:'15m'}),auth=token(user,sid);
   const customer=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name,email,assigned_user_id,created_by) VALUES(?,?,?,?,?,?,?)',[`CLI-${suffix}`,agency,'Ada','Atelier',`ada-${suffix}@test.invalid`,user,user]);
   const foreignCustomer=await insert('INSERT INTO customers(customer_code,agency_id,last_name,email) VALUES(?,?,?,?)',[`CLX-${suffix}`,foreign,'Hors scope',`x-${suffix}@test.invalid`]);
@@ -37,7 +37,7 @@ test('Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4',{skip:!en
   assert.equal((await api.get('/api/workshop/vehicles/search?brand=LCA').set('Authorization','Bearer invalide')).status,401);
   assert.equal((await api.get('/api/workshop/vehicles/search?brand=LCA').set('Authorization',`Bearer ${token(user,randomUUID())}`)).status,401);
   assert.equal((await api.get('/api/workshop/vehicles/search?brand=LCA').set('Authorization',`Bearer ${token(user,revokedSid)}`)).status,401);
-  const deniedSid=randomUUID();await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY))',[deniedSid,deniedUser,`${suffix}3`.padEnd(64,'3')]);assert.equal((await api.get('/api/workshop/vehicles/search?brand=LCA').set('Authorization',`Bearer ${token(deniedUser,deniedSid)}`)).status,403);
+  const deniedSid=randomUUID();await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY),?)',[deniedSid,deniedUser,`${suffix}3`.padEnd(64,'3'),agency]);assert.equal((await api.get('/api/workshop/vehicles/search?brand=LCA').set('Authorization',`Bearer ${token(deniedUser,deniedSid)}`)).status,403);
   const clientSearch=await api.get('/api/customers?search=Ada').set('Authorization',`Bearer ${auth}`);assert.equal(clientSearch.status,200);assert.ok(clientSearch.body.some((x:any)=>x.id===customer));
   const search=await api.get('/api/workshop/vehicles/search?brand=LCA').set('Authorization',`Bearer ${auth}`);assert.equal(search.status,200);assert.equal(search.body.items.length,1);
   const invalid=await api.post('/api/workshop/external-vehicles').set('Authorization',`Bearer ${auth}`).send({customerId:customer,agencyId:agency,brand:'Libre',model:'Route',vin:'FAUX'});assert.equal(invalid.status,400);

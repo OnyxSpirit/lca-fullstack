@@ -45,43 +45,43 @@ async function openNegotiation(scope:Scope,without?:'quotations.convert'|'sales.
 
 for(const scope of scopes)test(`CRM-NEG-UI scope ${scope} compatible : bouton visible`,async()=>{
   const{screen,cleanup,client}=await openNegotiation(scope);
-  assert.ok(screen.getByRole('button',{name:'Transformer en Vente / Bon de Commande'}));
+  assert.ok(screen.getByRole('button',{name:'Créer une vente'}));
   cleanup();client.clear();
 });
 
 test('CRM-NEG-UI-01/07 utilisateur autorisé et devis convertible : bouton visible',async()=>{
   const{screen,cleanup,client}=await openNegotiation('AGENCY');
-  const button=screen.getByRole('button',{name:'Transformer en Vente / Bon de Commande'}) as HTMLButtonElement;
+  const button=screen.getByRole('button',{name:'Créer une vente'}) as HTMLButtonElement;
   assert.equal(button.disabled,false);
   cleanup();client.clear();
 });
 
 for(const missing of ['quotations.convert','sales.create'] as const)test(`CRM-NEG-UI permission absente ${missing} : bouton absent`,async()=>{
   const{screen,cleanup,client}=await openNegotiation('AGENCY',missing);
-  assert.equal(screen.queryByRole('button',{name:'Transformer en Vente / Bon de Commande'}),null);
+  assert.equal(screen.queryByRole('button',{name:'Créer une vente'}),null);
   cleanup();client.clear();
 });
 
 test('CRM-NEG-UI-08 clic ouvre le parcours de conversion avec les identifiants liés',async()=>{
   const{fireEvent,screen,cleanup,client}=await openNegotiation('AGENCY');
-  fireEvent.click(screen.getByRole('button',{name:'Transformer en Vente / Bon de Commande'}));
+  fireEvent.click(screen.getByRole('button',{name:'Créer une vente'}));
   assert.ok(await screen.findByText('Créer une vente automobile'));
   cleanup();client.clear();
 });
 
 test('LOT1 archive absente : reprise visible, PDF et conversion bloqués',async()=>{
   quotation.archiveAvailable=false;quotation.archiveStatus='MISSING_RECORD';
-  try{const{screen,cleanup,client}=await openNegotiation('AGENCY');assert.ok(screen.getByText('Archive absente'));assert.ok(screen.getByRole('button',{name:'Finaliser l’archivage'}));assert.equal((screen.getByRole('button',{name:'PDF'})as HTMLButtonElement).disabled,true);assert.equal((screen.getByRole('button',{name:'Transformer en Vente / Bon de Commande'})as HTMLButtonElement).disabled,true);cleanup();client.clear()}finally{quotation.archiveAvailable=true;quotation.archiveStatus='AVAILABLE'}
+  try{const{screen,cleanup,client}=await openNegotiation('AGENCY');assert.ok(screen.getByText('Archive absente'));assert.ok(screen.getByRole('button',{name:'Finaliser l’archivage'}));assert.equal((screen.getByRole('button',{name:'PDF'})as HTMLButtonElement).disabled,true);assert.equal((screen.getByRole('button',{name:'Créer une vente'})as HTMLButtonElement).disabled,true);cleanup();client.clear()}finally{quotation.archiveAvailable=true;quotation.archiveStatus='AVAILABLE'}
 });
 
 test('CRM-NEG-UI F5 réhydrate les permissions serveur avant de décider l’action',async()=>{
   const context=await renderCrm('AGENCY','quotations.convert');
   context.fireEvent.click(await context.screen.findByText(/Awa Négociation/));
   await context.screen.findByText('DEV-CRM-NEG-UI');
-  assert.equal(context.screen.queryByRole('button',{name:'Transformer en Vente / Bon de Commande'}),null);
+  assert.equal(context.screen.queryByRole('button',{name:'Créer une vente'}),null);
   const{useAuthStore}=await import('../src/stores/authStore.js');
   await context.act(()=>useAuthStore.getState().refreshPermissions());
-  assert.ok(await context.screen.findByRole('button',{name:'Transformer en Vente / Bon de Commande'}));
+  assert.ok(await context.screen.findByRole('button',{name:'Créer une vente'}));
   context.cleanup();context.client.clear();
 });
 

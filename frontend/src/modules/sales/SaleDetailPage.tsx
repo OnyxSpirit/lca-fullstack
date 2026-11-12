@@ -64,9 +64,9 @@ export const SaleDetailPage: React.FC = () => {
   };
 
   const nextStatus: Partial<Record<typeof sale.status, keyof typeof saleStatusToDb>> = {
-    RESERVATION: 'COMMANDE', COMMANDE: 'FINANCEMENT_VALIDE', FINANCEMENT_VALIDE: 'PREPARATION', PREPARATION: 'PRET_LIVRAISON',
+    RESERVATION: 'FINANCEMENT_VALIDE', COMMANDE: 'FINANCEMENT_VALIDE', FINANCEMENT_VALIDE: 'PREPARATION', PREPARATION: 'PRET_LIVRAISON',
   };
-  const nextLabel: Record<string, string> = { COMMANDE: 'Confirmer la commande', FINANCEMENT_VALIDE: 'Confirmer la vente', PREPARATION: 'Lancer la préparation', PRET_LIVRAISON: 'Déclarer prêt à livrer' };
+  const nextLabel: Record<string, string> = { FINANCEMENT_VALIDE: 'Confirmer la vente', PREPARATION: 'Lancer la préparation', PRET_LIVRAISON: 'Déclarer prêt à livrer' };
   const next=nextStatus[sale.status],isFinancialTransition=next==='PREPARATION'||next==='PRET_LIVRAISON';
   const currentBalance=Number(invoice?.remainingAmountTTC??sale.remainingBalanceTTC),activeAuthorization=authorizationQuery.data?.find((row:any)=>row.status==='AUTHORIZED'),authorizationValid=Boolean(activeAuthorization&&currentBalance>0&&currentBalance<=Number(activeAuthorization.balance_due_snapshot)+.001),financialBlocked=isFinancialTransition&&!sale.financiallyCleared&&!authorizationValid;
   const financialBlockReason=invoice?`Préparation impossible — solde restant : ${formatCurrency(invoice.remainingAmountTTC)}`:'Une facture émise et intégralement réglée est requise.';

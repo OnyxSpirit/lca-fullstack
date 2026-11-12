@@ -21,7 +21,7 @@ test('QUOTE-FE-07 : remise pilotée par quotations.discount.manage',()=>{
 });
 
 test('QUOTE-FE-08/09 : état expiré bloque préventivement la conversion et le backend reste autoritaire',()=>{
-  const crm=read('../src/modules/crm/CrmPage.tsx'),hooks=read('../src/api/erpHooks.ts');assert.match(crm,/quotationCanConvert/);assert.match(crm,/disabled=\{!quotationCanConvert/);
+  const crm=read('../src/modules/crm/CrmPage.tsx'),hooks=read('../src/api/erpHooks.ts');assert.match(crm,/quotationCanConvert/);assert.match(crm,/disabled=\{!convertibleQuotation\}/);
   assert.match(hooks,/\/quotations\/\$\{id\}\/cancel/);assert.match(hooks,/\/quotations\/\$\{id\}\/validate/);
 });
 

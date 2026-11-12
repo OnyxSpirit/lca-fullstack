@@ -58,3 +58,10 @@ export async function assertAssignableRoles(request: Request, roles: string[]) {
     if(systemRole&&!await isSuperAdmin(request))throw new HttpError(403,'FORBIDDEN_SUPER_ADMIN_ACTION');
   }
 }
+
+export async function assertAssignableAgencyRoles(request:Request,roles:string[]){
+  if(!roles.length)throw new HttpError(400,'Chaque agence doit posséder au moins un rôle métier.');
+  if(new Set(roles).size!==roles.length)throw new HttpError(400,'Un rôle ne peut être attribué deux fois dans la même agence.');
+  if(roles.includes('SUPER_ADMIN'))throw new HttpError(403,'Le rôle système ne peut pas être attribué dans une agence.');
+  if(!request.user)throw new HttpError(401,'Session utilisateur absente.');
+}

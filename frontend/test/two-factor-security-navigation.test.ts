@@ -13,9 +13,9 @@ test('NAV-2FA-01 le centre est visible avec chacune des permissions effectives p
   assert.equal(canAccessSecurityCenter(undefined),false);
 });
 
-test('NAV-2FA-02 la sidebar conserve un bouton unique Utilisateurs & RBAC',()=>{
+test('NAV-2FA-02 la sidebar conserve un bouton unique Utilisateurs et habilitations',()=>{
   const sidebar=source('src/components/layout/Sidebar.tsx');
-  assert.equal((sidebar.match(/label: 'Utilisateurs & RBAC'/g)??[]).length,1);
+  assert.equal((sidebar.match(/label: 'Utilisateurs et habilitations'/g)??[]).length,1);
   assert.doesNotMatch(sidebar,/children:/);
   assert.doesNotMatch(sidebar,/aria-expanded/);
   assert.match(sidebar,/canAccessSecurityCenter\(currentUser\.permissions\)/);
@@ -28,8 +28,8 @@ test('NAV-2FA-03 les trois sections restent internes à la page historique',()=>
   assert.match(users,/useSearchParams/);
   assert.match(users,/requestedTab==='matrix'/);
   assert.match(users,/>Collaborateurs<\/button>/);
-  assert.match(users,/>Matrice RBAC<\/button>/);
-  assert.match(users,/>Centre de sécurité 2FA<\/button>/);
+  assert.match(users,/>Rôles et permissions<\/button>/);
+  assert.match(users,/>Sécurité du compte<\/button>/);
   assert.match(users,/<TwoFactorSecurityCenterPage embedded\/>/);
   assert.match(app,/path="security\/2fa"[\s\S]*<UsersManagementPage/);
   assert.match(app,/can\('users\.view'\)\|\|can\('roles\.view'\)\|\|SECURITY_CENTER_PERMISSIONS\.some\(can\)/);

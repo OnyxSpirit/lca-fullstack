@@ -19,7 +19,20 @@ export async function execute(sql: string, params: any[] = []): Promise<ResultSe
 
 export async function transaction<T>(work: (connection: PoolConnection) => Promise<T>): Promise<T> {
   const connection = await pool.getConnection();
-  try { await connection.beginTransaction(); const value = await work(connection); await connection.commit(); return value; }
+  try {
+    // Financial and stock workflows deliberately wait on parent-row locks before
+    // reading their children. READ COMMITTED makes every statement observe the
+    // winner that just released such a lock; REPEATABLE READ could keep the
+    // pre-wait snapshot and over-credit or over-refund the same invoice.
+    // Unit-test doubles intentionally implement only the transaction contract;
+    // a real mysql2 connection is identifiable by its numeric thread id.
+    if(typeof (connection as PoolConnection&{threadId?:unknown}).threadId==='number')
+      await connection.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+    await connection.beginTransaction();
+    const value = await work(connection);
+    await connection.commit();
+    return value;
+  }
   catch (error) { await connection.rollback(); throw error; }
   finally { connection.release(); }
 }

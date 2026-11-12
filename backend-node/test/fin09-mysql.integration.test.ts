@@ -7,6 +7,7 @@ import supertest from 'supertest';
 import { createApp } from '../src/app.js';
 import { pool, query } from '../src/config/database.js';
 import { bootstrapDatabase } from '../src/scripts/database-bootstrap.js';
+import {assignMysqlAgencyRole} from './helpers/mysql-auth-session-fixture.js';
 
 const enabled = process.env.FIN09_MYSQL_TEST === '1';
 if (enabled) after(() => pool.end());
@@ -25,13 +26,13 @@ test('FIN09 MySQL 8.4 protège les réservations contre les sorties libres concu
     await pool.execute("INSERT INTO role_permissions(role_id,permission_id,scope) SELECT ?,id,'AGENCY' FROM permissions WHERE code=?", [role, code]);
   }
   const user = await add('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)', [agency, 'Recette', 'FIN09', `fin09-${suffix}@test.local`, 'unused']);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)', [user, role]);
+  await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});
   const sid = randomUUID();
-  await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR))', [sid, user, randomUUID().replaceAll('-', '').padEnd(64, '0')]);
+  await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR),?)', [sid, user, randomUUID().replaceAll('-', '').padEnd(64, '0'),agency]);
   const approver = await add('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)', [agency, 'Approbateur', 'FIN09', `fin09-approver-${suffix}@test.local`, 'unused']);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)', [approver, role]);
+  await assignMysqlAgencyRole({userId:approver,agencyId:agency,roleId:role});
   const approverSid = randomUUID();
-  await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR))', [approverSid, approver, randomUUID().replaceAll('-', '').padEnd(64, '0')]);
+  await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR),?)', [approverSid, approver, randomUUID().replaceAll('-', '').padEnd(64, '0'),agency]);
   const account = await add("INSERT INTO treasury_accounts(concession_id,agency_id,attachment_type,code,name,account_type,currency_code,created_by) VALUES(?,?,'AGENCY',?,?,'BANK','XAF',?)", [concession, agency, `BANK${suffix}`, 'Banque FIN09', user]);
   const category = await add("INSERT INTO treasury_categories(concession_id,code,name,allowed_direction,created_by) VALUES(?,?,?,'OUT',?)", [concession, `OUT${suffix}`, 'Sorties FIN09', user]);
   await pool.execute("INSERT INTO treasury_movements(account_id,direction,amount,currency_code,value_date,description,source_type,source_id,event_type,status,created_by) VALUES(?,'IN',5000000,'XAF','2026-10-10','Solde fictif','OPENING_BALANCE',?,'OPENED','POSTED',?)", [account, account, user]);

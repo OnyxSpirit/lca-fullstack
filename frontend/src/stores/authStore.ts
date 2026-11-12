@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User, Agency, PermissionAction, EffectivePermissionScope } from '../types';
 import { apiRequest, markAuthSessionBoundary } from '../services/apiClient';
-import { disconnectRealtime } from '../services/realtime';
+import { disconnectRealtime,refreshRealtimeAgencyContext } from '../services/realtime';
 import { hasDynamicPermission } from '../navigation/permissions';
 import { clearSessionClientState } from '../services/sessionIsolation';
 
@@ -26,7 +26,7 @@ interface AuthState {
   cancelTwoFactorChallenge:()=>void;
   logout: () => void;
   setCurrentUser: (user: User) => void;
-  setCurrentAgency: (agency: Agency) => void;
+  setCurrentAgency: (agency: Agency) => Promise<void>;
   setDirectory: (users: User[], agencies: Agency[]) => void;
   hasPermission: (action: PermissionAction, module: string) => boolean;
   can: (permissionCode: string) => boolean;
@@ -35,6 +35,7 @@ interface AuthState {
 }
 
 type AuthProfile = { id: string; firstName: string; lastName: string; email: string; agencyId: string; agencyName: string; agencyCode: string; avatar: string | null; roles: string[]; role: { id: string | null; code: string; isSystemSuperAdmin?: boolean }; permissions: { code: string; scope: EffectivePermissionScope | null }[] };
+type AgencyContextResponse={activeAgencyId:string;agencies:{agencyId:string;code:string;name:string;isPrimary:boolean}[];roles:{code:string}[];permissions:{code:string;scope:EffectivePermissionScope|null}[]};
 type AuthenticatedResponse={status:'authenticated';accessToken:string;refreshToken:string;user:AuthProfile;recoveryCodes?:string[]};
 type LoginResponse=AuthenticatedResponse|{status:'two_factor_required'|'two_factor_setup_required';challengeToken:string;expiresIn:number;trustedDeviceAvailable:boolean;trustedDeviceDurationDays:number};
 type PendingAuthenticatedSession={accessToken:string;refreshToken:string;user:User;agency:Agency};
@@ -92,12 +93,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ currentUser: user, currentAgency: get().allAgencies.find((a) => a.id === user.agencyId) ?? get().currentAgency, isAuthenticated: true });
   },
 
-  setCurrentAgency: (agency) => {
-    if (get().currentAgency?.id !== agency.id){markAuthSessionBoundary();clearSessionClientState();}
-    set({ currentAgency: agency });
+  setCurrentAgency: async (agency) => {
+    if(get().currentAgency?.id===agency.id)return;
+    const context=await apiRequest<AgencyContextResponse>('/rbac/agency-context',{method:'PUT',body:JSON.stringify({agencyId:agency.id})});
+    const selected=context.agencies.find(value=>value.agencyId===context.activeAgencyId);if(!selected)throw new Error('L’agence sélectionnée n’est plus accessible.');
+    markAuthSessionBoundary();clearSessionClientState();
+    const current=get().currentUser;if(!current)throw new Error('Session utilisateur absente.');const roles=context.roles.map(value=>value.code),user={...current,agencyId:selected.agencyId,agencyName:selected.name,roles,role:roles[0]??'',primaryRole:roles[0]??'',roleCode:roles[0]??'',permissions:Object.fromEntries(context.permissions.map(value=>[value.code,value.scope]))};
+    const allAgencies=context.agencies.map(value=>{const known=get().allAgencies.find(item=>item.id===value.agencyId);return known?{...known,name:value.name,code:value.code,isMain:value.isPrimary}:{id:value.agencyId,name:value.name,code:value.code,city:'',address:'',phone:'',email:'',isMain:value.isPrimary,isActive:true}});
+    localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(user));set({currentUser:user,currentAgency:allAgencies.find(value=>value.id===selected.agencyId)!,allAgencies});await refreshRealtimeAgencyContext();
   },
 
-  setDirectory: (users, agencies) => set((state) => ({ allUsers: users, allAgencies: agencies, currentAgency: agencies.find((a) => a.id === state.currentUser?.agencyId) ?? state.currentAgency })),
+  setDirectory: (users, agencies) => set((state) => {const allAgencies=state.allAgencies.map(access=>{const details=agencies.find(agency=>agency.id===access.id);return details?{...details,isMain:access.isMain}:access});return{allUsers:users,allAgencies,currentAgency:allAgencies.find(agency=>agency.id===state.currentUser?.agencyId)??state.currentAgency}}),
 
   hasPermission: (action, module) => {
     const { currentUser } = get();
@@ -108,9 +114,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   can: (permissionCode) => hasDynamicPermission(get().currentUser?.permissions,permissionCode),
   permissionScope: (permissionCode) => get().currentUser?.permissions?.[permissionCode],
   refreshPermissions: async () => {
-    const { user: profile } = await apiRequest<{ user: AuthProfile }>('/auth/me');
+    const [{ user: profile },directory] = await Promise.all([apiRequest<{ user: AuthProfile }>('/auth/me'),apiRequest<{activeAgencyId:string;agencies:{agencyId:string;code:string;name:string;isPrimary:boolean}[]}>('/rbac/agencies')]);
     const user = toUser(profile);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    set((state) => ({ currentUser: user, currentAgency: { id: user.agencyId, name: user.agencyName, code: profile.agencyCode, city: '', address: '', phone: '', email: '', isMain: true, isActive: true }, allUsers: state.allUsers.map((entry) => entry.id === user.id ? user : entry) }));
+    set((state) => {const accesses=Array.isArray(directory?.agencies)&&directory.agencies.length?directory.agencies:[{agencyId:user.agencyId,name:user.agencyName,code:profile.agencyCode,isPrimary:true}],allAgencies=accesses.map(access=>{const known=state.allAgencies.find(agency=>agency.id===access.agencyId);return known?{...known,name:access.name,code:access.code,isMain:access.isPrimary}:{id:access.agencyId,name:access.name,code:access.code,city:'',address:'',phone:'',email:'',isMain:access.isPrimary,isActive:true}});return{currentUser:user,currentAgency:allAgencies.find(agency=>agency.id===(directory?.activeAgencyId??user.agencyId))??allAgencies[0]!,allAgencies,allUsers:state.allUsers.map(entry=>entry.id===user.id?user:entry)}});
   },
 }));

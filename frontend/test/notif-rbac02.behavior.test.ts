@@ -9,13 +9,13 @@ test('NOTIF-RBAC-02 dérive les boutons de la portée dynamique accordée',()=>{
   assert.deepEqual(notificationScopesFor(undefined),[]);
   assert.deepEqual(notificationScopesFor('OWN'),['mine']);
   assert.deepEqual(notificationScopesFor('AGENCY'),['mine','agency']);
-  assert.deepEqual(notificationScopesFor('CONCESSION'),['mine','agency','concession']);
-  assert.deepEqual(notificationScopesFor('GLOBAL'),['mine','agency','concession','global']);
+  assert.deepEqual(notificationScopesFor('CONCESSION'),['mine','agency']);
+  assert.deepEqual(notificationScopesFor('GLOBAL'),['mine','agency']);
 });
 
 test('NOTIF-RBAC-02 transmet la portée et l inclut dans la clé de cache',()=>{
   const page=read('../src/modules/notifications/NotificationsPage.tsx'),hooks=read('../src/api/notificationHooks.ts');
-  assert.match(page,/useNotificationsQuery\(\{page,pageSize:PAGE_SIZE,scope,unreadOnly,referenceType\}/);
+  assert.match(page,/useNotificationsQuery\(\{page,pageSize,scope,unreadOnly,referenceType\}/);
   assert.match(page,/availableScopes\.map/);
   assert.match(hooks,/list:notificationListKey/);
   assert.match(hooks,/Object\.entries\(filters\)/);
@@ -29,7 +29,7 @@ test('NOTIF-RBAC-02 sépare chaque combinaison portée, catégorie, statut et pa
 
 test('NOTIF-RBAC-02 garde les mutations sur les seules notifications personnelles',()=>{
   const page=read('../src/modules/notifications/NotificationsPage.tsx');
-  assert.match(page,/personal=scope==='mine'/);
-  assert.match(page,/!personal\|\|n\.isRead\|\|!canUpdate/);
+  assert.match(page,/personal=\{scope==='mine'&&n\.isOwn\}/);
+  assert.match(page,/personal&&!n\.isRead&&canUpdate/);
   assert.match(page,/personal&&canArchive/);
 });

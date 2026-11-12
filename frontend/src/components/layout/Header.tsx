@@ -26,6 +26,7 @@ import { useChangeMyPassword, useUploadMyAvatar } from '../../api/userHooks';
 import { usePwaInstall } from '../../hooks/usePwaInstall';
 import { canAccessSettings,canNavigateWithPermissions, SECURITY_CENTER_PERMISSIONS } from '../../navigation/permissions';
 import { TwoFactorSettings } from '../../modules/auth/TwoFactorSettings';
+import { notificationNavigationLabel, notificationPresentation } from '../../modules/notifications/notificationPresentation';
 
 export const Header: React.FC = () => {
   const { currentUser, currentAgency, allAgencies, setCurrentAgency, logout, can } = useAuthStore();
@@ -48,6 +49,7 @@ export const Header: React.FC = () => {
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [twoFactorOpen,setTwoFactorOpen]=useState(false);
+  const [agencyChangePending,setAgencyChangePending]=useState(false);
 
   const unread = notificationsQuery.data?.unreadCount ?? 0;
   const recentNotifications = notifications.slice(0, 5);
@@ -95,10 +97,8 @@ export const Header: React.FC = () => {
                 {allAgencies.map((agency) => (
                   <button
                     key={agency.id}
-                    onClick={() => {
-                      setCurrentAgency(agency);
-                      setAgencyDropdownOpen(false);
-                    }}
+                    disabled={agencyChangePending}
+                    onClick={() => {setAgencyChangePending(true);void setCurrentAgency(agency).then(()=>setAgencyDropdownOpen(false)).catch(error=>useUiStore.getState().addToast({type:'error',title:'Changement d’agence impossible',description:error instanceof Error?error.message:'Erreur API'})).finally(()=>setAgencyChangePending(false));}}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-blue-50 transition-colors cursor-pointer ${
                       agency.id === currentAgency.id ? 'bg-blue-50/80 font-bold text-blue-700' : 'text-slate-700'
                     }`}
@@ -184,6 +184,8 @@ export const Header: React.FC = () => {
             onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
             className="relative p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
             aria-label="Notifications"
+            aria-expanded={notifDropdownOpen}
+            aria-haspopup="menu"
           >
             <Bell className="w-5 h-5" />
             {unread > 0 && (
@@ -199,37 +201,33 @@ export const Header: React.FC = () => {
               <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 z-30 py-2 animate-in fade-in zoom-in-95 duration-100">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-900">Notifications</span>
-                    {unread > 0 && <Badge variant="danger" size="sm">{unread} nouvelles</Badge>}
+                    <span className="text-sm font-bold text-slate-900">Centre de notifications</span>
+                    {unread > 0 && <Badge variant="danger" size="sm">{unread} non lue{unread>1?'s':''}</Badge>}
                   </div>
                   <Link
                     to="/notifications"
                     onClick={() => setNotifDropdownOpen(false)}
                     className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    Voir tout
+                    Ouvrir le centre
                   </Link>
                 </div>
 
                 <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                  {recentNotifications.map((notif) => (
-                    <div
+                  {notificationsQuery.isLoading&&Array.from({length:3},(_,index)=><div key={index} className="flex animate-pulse gap-3 p-3"><span className="h-9 w-9 rounded-lg bg-slate-200"/><span className="h-12 flex-1 rounded bg-slate-100"/></div>)}
+                  {!notificationsQuery.isLoading&&recentNotifications.map((notif) => {const view=notificationPresentation(notif),navigationLabel=notificationNavigationLabel(notif.referenceType),navigable=Boolean(navigationLabel&&notif.linkRoute!=='/notifications'&&canNavigateWithPermissions(currentUser.permissions,notif.linkRoute));return (
+                    <button
                       key={notif.id}
-                      onClick={() => {
-                        const go=()=>{if(canNavigateWithPermissions(currentUser.permissions,notif.linkRoute))navigate(notif.linkRoute);setNotifDropdownOpen(false)};
-                        if(notif.isRead||!canUpdateNotifications)go();else void markAsRead.mutateAsync(notif.id).then(go).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}));
-                      }}
-                      className={`p-3 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${
-                        !notif.isRead ? 'bg-blue-50/40' : ''
-                      }`}
+                      type="button"
+                      onClick={() => {const finish=()=>{if(navigable)navigate(notif.linkRoute);else navigate('/notifications');setNotifDropdownOpen(false)};if(notif.isRead||!canUpdateNotifications)finish();else void markAsRead.mutateAsync(notif.id).then(finish).catch(error=>useUiStore.getState().addToast({type:'error',title:'Notification non mise à jour',description:error instanceof Error?error.message:'Erreur API'}));}}
+                      className={`flex w-full gap-3 p-3 text-left text-xs transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none ${!notif.isRead ? 'bg-[#fbf3f3]/60' : 'bg-white'}`}
+                      aria-label={`${notif.isRead?'Notification lue':'Notification non lue'} : ${view.title}`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-slate-800">{notif.subject}</span>
-                        <span className="text-[10px] text-slate-400">{formatNotificationDate(notif.createdAt)}</span>
-                      </div>
-                      <p className="text-slate-600 leading-snug line-clamp-2">{notif.message}</p>
-                    </div>
-                  ))}
+                      <span className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-lg ${view.iconBackgroundClass}`}><view.Icon className={`h-4 w-4 ${view.iconClass}`} aria-hidden="true"/>{!notif.isRead&&<span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#8f1722]"/>}</span>
+                      <span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-2"><span className={`${notif.isRead?'font-semibold':'font-bold'} text-slate-900`}>{view.title}</span><span className="shrink-0 text-[11px] text-slate-500">{formatNotificationDate(notif.createdAt)}</span></span><span className="mt-0.5 block font-medium text-slate-500">{view.categoryLabel} · {view.priorityLabel}</span><span className="mt-1 block text-slate-600 leading-snug line-clamp-2">{view.message}</span></span>
+                    </button>
+                  )})}
+                  {!notificationsQuery.isLoading&&!recentNotifications.length&&<div className="p-6 text-center text-sm text-slate-500">Aucune notification pour le moment.</div>}
                 </div>
               </div>
             </>
@@ -271,7 +269,7 @@ export const Header: React.FC = () => {
                   <button onClick={async()=>{const current=await promptAction('Mot de passe actuel',{label:'Mot de passe actuel',inputType:'password'});if(!current)return;const next=await promptAction('Nouveau mot de passe',{description:'Le nouveau mot de passe doit contenir au moins 8 caractères.',label:'Nouveau mot de passe',inputType:'password'});if(!next)return;try{await changePassword.mutateAsync({currentPassword:current,newPassword:next});useUiStore.getState().addToast({type:'success',title:'Mot de passe modifié',description:'Vos sessions ont été révoquées. Reconnectez-vous.'});logout();navigate('/login',{replace:true})}catch(error){useUiStore.getState().addToast({type:'error',title:'Modification impossible',description:error instanceof Error?error.message:'Erreur API'})}}} className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><LockKeyhole className="w-4 h-4 text-slate-500"/>Changer mon mot de passe</button>
                   {can('auth.2fa.view')&&<button onClick={()=>{setUserMenuOpen(false);setTwoFactorOpen(true)}} className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><ShieldCheck className="w-4 h-4 text-slate-500"/>Double authentification</button>}
                   {can('signature.view.self')&&<Link to="/profile/signature" onClick={()=>setUserMenuOpen(false)} className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><PenTool className="w-4 h-4 text-slate-500"/>Ma signature</Link>}
-                  {SECURITY_CENTER_PERMISSIONS.some(can)&&<Link to="/security/2fa" onClick={()=>setUserMenuOpen(false)} className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><ShieldCheck className="w-4 h-4 text-slate-500"/>Centre de sécurité 2FA</Link>}
+                  {SECURITY_CENTER_PERMISSIONS.some(can)&&<Link to="/security/2fa" onClick={()=>setUserMenuOpen(false)} className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"><ShieldCheck className="w-4 h-4 text-slate-500"/>Sécurité du compte</Link>}
                   {canViewSettings && <Link
                     to="/settings"
                     onClick={() => setUserMenuOpen(false)}

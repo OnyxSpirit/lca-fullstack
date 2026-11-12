@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 import supertest from 'supertest';
+import{assignMysqlAgencyRole}from'./helpers/mysql-auth-session-fixture.js';
 import {pool,query} from '../src/config/database.js';
 import {createApp} from '../src/app.js';
 import {aggregateWorkshopReport} from '../src/modules/reports/workshop-report.service.js';
@@ -61,9 +62,9 @@ test('14C5B MySQL 8.4 : origines, dates financières, déduplication et réconci
   const makeActor=async(label:string,codes:string[])=>{
     const role=await insert('INSERT INTO roles(name,code,is_active) VALUES(?,?,TRUE)',[`14C5B ${label} ${suffix}`,`C5_${label}_${suffix}`]);
     const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agency,'Audit',label,`${label}-${suffix}@test.local`,'test']);
-    await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);
+    await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});
     for(const code of codes){const permission=(await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]))[0];assert.ok(permission,code);await pool.execute("INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,'AGENCY')",[role,permission.id])}
-    const sid=randomUUID();await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY))',[sid,user,randomUUID().replaceAll('-','').padEnd(64,'0')]);
+    const sid=randomUUID();await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 DAY),?)',[sid,user,randomUUID().replaceAll('-','').padEnd(64,'0'),agency]);
     return jwt.sign({sub:user,sid,email:`${label}-${suffix}@test.local`,roles:[],agencyId:agency},process.env.JWT_ACCESS_SECRET!,{algorithm:'HS256',expiresIn:'15m'});
   };
   const full=await makeActor('full',['reporting.view','reporting.export','workshop.productivity.view','billing.view','billing.payment.view']);

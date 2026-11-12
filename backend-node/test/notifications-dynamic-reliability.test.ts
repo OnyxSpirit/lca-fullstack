@@ -50,9 +50,9 @@ test('NOTIF-04 la création refuse cible inactive et contenu invalide puis persi
 
 test('NOTIF-05 la sélection collective dépend des permissions/scopes persistées',()=>{
   assert.match(service,/p\.code IN \(\$\{marks\}\)/);
-  assert.match(service,/rp\.scope='GLOBAL'/);
-  assert.match(service,/rp\.scope='CONCESSION'/);
-  assert.match(service,/rp\.scope='AGENCY'/);
+  assert.match(service,/JOIN user_agencies ua ON ua\.user_id=u\.id AND ua\.status='ACTIVE' AND ua\.agency_id=\?/);
+  assert.match(service,/JOIN user_agency_roles uar ON uar\.user_agency_id=ua\.id/);
+  assert.doesNotMatch(service,/rp\.scope='(?:GLOBAL|CONCESSION)'/);
   assert.doesNotMatch(service,/SUPER_ADMIN/);
   assert.doesNotMatch(service,/notifyRoles|roles:string\[\]/);
 });

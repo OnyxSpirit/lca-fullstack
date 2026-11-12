@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_SAV1618_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -20,7 +20,7 @@ test('SAV-OR-16 à 18 sur MySQL 8.4 : étapes, annulation et finance séparée',
   const brand=await insert('INSERT INTO brands(name,code) VALUES(?,?)',[`SAV1618 ${suffix}`,`S1618_${suffix}`]),model=await insert('INSERT INTO models(brand_id,name) VALUES(?,?)',[brand,'Modèle']),version=await insert('INSERT INTO versions(model_id,name) VALUES(?,?)',[model,'Version']);
   const customer=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name) VALUES(?,?,?,?)',[`C1618_${suffix}`,agency,'Client','SAV']),vehicle=await insert('INSERT INTO vehicles(version_id,agency_id,vin) VALUES(?,?,?)',[version,agency,`S1618${suffix}VIN`]);
   const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`TECH1618_${suffix}`,`Technicien recette ${suffix}`]);const[track]=await rows("SELECT id FROM permissions WHERE code='workshop.session.track'");await pool.execute("INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,'AGENCY')",[role,track.id]);
-  const techUser=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'Tech','Recette',`tech-${suffix}@test.local`,admin.password_hash]);await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[techUser,role]);
+	  const techUser=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'Tech','Recette',`tech-${suffix}@test.local`,admin.password_hash]);await assignMysqlAgencyRole({userId:techUser,agencyId:agency,roleId:role});
   const makeOrder=async(status:string)=>insert('INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,mileage_in,complaint,status,created_by) VALUES(?,?,?,?,?,100,?,?,?)',[`OR-${status}-${suffix}-${randomUUID().slice(0,4)}`,customer,vehicle,agency,admin.id,'Test SAV',status,admin.id]);
   const cancelAllowed=['planned','received','diagnosis','waiting_approval','in_progress','quality_control'];
   for(const status of cancelAllowed){const id=await makeOrder(status),response=await auth(api.patch(`/api/repair-orders/${id}/status`)).send({status:'cancelled',reason:`Annulation ${status}`});assert.equal(response.status,200,`${status}: ${JSON.stringify(response.body)}`);const[current]=await rows('SELECT status FROM repair_orders WHERE id=?',[id]);assert.equal(current.status,'cancelled')}

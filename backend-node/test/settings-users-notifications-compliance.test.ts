@@ -32,7 +32,8 @@ test('NOTIF-TEST-04/05/06/07 isolation, idempotence et événements financiers',
   assert.match(routes,/user_id=\?/);
   assert.match(routes,/id=\? AND user_id=\?/);
   assert.match(notifications,/INSERT IGNORE INTO notifications/);
-  assert.match(notifications,/concession_id=\(SELECT concession_id FROM agencies WHERE id=\?\)/);
+  assert.match(notifications,/ua\.status='ACTIVE' AND ua\.agency_id=\?/);
+  assert.doesNotMatch(notifications,/concession_id=\(SELECT concession_id FROM agencies WHERE id=\?\)/);
   assert.match(billing,/payment\.received/);
   assert.match(billing,/invoice\.paid/);
 });

@@ -7,7 +7,7 @@ import type {RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {execute,pool,query} from '../src/config/database.js';
 import {archiveBusinessDocument,renderBusinessPdf} from '../src/modules/documents/business-document.service.js';
-import {ensureMysqlHttpAdministrator} from './helpers/mysql-auth-session-fixture.js';
+import {assignMysqlAgencyRole,ensureMysqlHttpAdministrator} from './helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PDF_SESSION_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -21,12 +21,12 @@ test('PDF GED : une session révoquée perd immédiatement le téléchargement, 
   const businessPermission:Record<string,string>={delivery:'delivery.view',invoice:'billing.invoice.view',sale:'sales.view',vehicle:'vehicles.view',customer:'customers.view',repair_order:'service.order.view'};
   const permissionCodes=['ged.view',businessPermission[String(document.entity_type)]];
   assert.ok(permissionCodes[1],`Type GED non pris en charge par cette fixture: ${String(document.entity_type)}`);
-  for(const code of permissionCodes){const [permission]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,`Permission ${code} absente`);await pool.execute("INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,'GLOBAL')",[role,permission.id])}
+  for(const code of permissionCodes){const [permission]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,`Permission ${code} absente`);await pool.execute("INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,'AGENCY')",[role,permission.id])}
   const user=String((await execute('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[document.agency_id,'PDF','Session',`pdf-${suffix}@test.local`,'x'])).insertId);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);
+  await assignMysqlAgencyRole({userId:user,agencyId:String(document.agency_id),roleId:role});
   const issue=async()=>{
     const sid=randomUUID();
-    await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR))',[sid,user,createHash('sha256').update(sid).digest('hex')]);
+    await pool.execute('INSERT INTO refresh_tokens(id,user_id,token_hash,expires_at,active_agency_id) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR),?)',[sid,user,createHash('sha256').update(sid).digest('hex'),document.agency_id]);
     return{sid,token:jwt.sign({sub:user,sid,email:`pdf-${suffix}@test.local`,roles:[],agencyId:String(document.agency_id)},process.env.JWT_ACCESS_SECRET!,{expiresIn:'15m'})};
   };
   const api=supertest(createApp()),first=await issue();

@@ -17,7 +17,7 @@ export interface RbacContext { roleId:string|null; roleCode:string|null; isSuper
  */
 export function legacyRbacContextFromAgency(context:AgencyRbacContext):RbacContext{
   const first=context.roles[0]??null,permissions=new Map<string,PermissionScope|null>();
-  for(const[code,scope]of context.permissions)permissions.set(code,scope==='OWN'?'OWN':scope==null?null:'AGENCY');
+  for(const[code,scope]of context.permissions)permissions.set(code,context.isSuperAdmin?scope:scope==='OWN'?'OWN':scope==null?null:'AGENCY');
   return{roleId:first?.id??null,roleCode:first?.code??(context.isSuperAdmin?'SUPER_ADMIN':null),isSuperAdmin:context.isSuperAdmin,permissions};
 }
 

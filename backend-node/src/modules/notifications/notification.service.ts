@@ -37,7 +37,15 @@ async function persistUserNotification(input: CreateNotificationInput, resolvedC
   if(!subject||!message)throw new HttpError(400,'Titre et message de notification requis');
   if(subject.length>255||message.length>10000)throw new HttpError(400,'Contenu de notification trop long');
   if(!['low','normal','high','urgent'].includes(priority))throw new HttpError(400,'Priorité de notification invalide');
-  const[active]=await query<RowDataPacket[]>(`SELECT u.id FROM users u WHERE u.id=? AND u.is_active=TRUE AND EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id AND r.is_active=TRUE JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id AND p.is_active=TRUE WHERE ur.user_id=u.id AND p.code='notifications.view')`,[input.userId]);
+  const[active]=await query<RowDataPacket[]>(`SELECT u.id FROM users u WHERE u.id=? AND u.is_active=TRUE AND EXISTS(
+    SELECT 1 FROM user_agencies ua
+    JOIN user_agency_roles uar ON uar.user_agency_id=ua.id
+    JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE
+    JOIN role_permissions rp ON rp.role_id=r.id
+    JOIN permissions p ON p.id=rp.permission_id AND p.is_active=TRUE
+    WHERE ua.user_id=u.id AND ua.status='ACTIVE' AND p.code='notifications.view'
+      AND (? IS NULL OR ua.agency_id=?)
+  )`,[input.userId,input.operationAgencyId??null,input.operationAgencyId??null]);
   if(!active)return null;
   const context=resolvedContext??await resolveHistoricalContext(input),channel=input.channel??'notification';
   const result=await execute(`INSERT IGNORE INTO notifications(user_id,channel,subject,message,status,delivery_status,sent_at,reference_type,reference_id,event_type,priority,event_key,actor_type,actor_user_id,actor_display_name_snapshot,operation_agency_id,operation_agency_name_snapshot) VALUES(?,?,?,?,?,'sent',NOW(),?,?,?,?,?,?,?,?,?,?)`,[input.userId,channel,subject,message,'sent',input.referenceType??null,input.referenceId??null,input.eventType??null,priority,input.eventKey??null,context.actorType.toUpperCase(),context.actorUserId,context.actorDisplayNameSnapshot,context.operationAgencyId,context.operationAgencyNameSnapshot]);
@@ -48,4 +56,10 @@ async function persistUserNotification(input: CreateNotificationInput, resolvedC
 }
 export async function createUserNotification(input:CreateNotificationInput){return persistUserNotification(input)}
 export interface NotifyPermissionsInput extends Omit<CreateNotificationInput,'userId'|'operationAgencyId'>{agencyId:string;permissions:string[];excludeUserIds?:string[]}
-export async function notifyPermissions(input:NotifyPermissionsInput){const excluded=new Set((input.excludeUserIds??[]).map(String)),marks=input.permissions.map(()=>'?').join(',');if(!marks)return 0;const users=await query<RowDataPacket[]>(`SELECT DISTINCT u.id FROM users u JOIN agencies ua ON ua.id=u.agency_id JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE u.is_active=TRUE AND r.is_active=TRUE AND p.is_active=TRUE AND p.code IN (${marks}) AND (rp.scope='GLOBAL' OR (rp.scope='CONCESSION' AND ua.concession_id=(SELECT concession_id FROM agencies WHERE id=?)) OR (rp.scope='AGENCY' AND ua.id=?))`,[...input.permissions,input.agencyId,input.agencyId]);const base={...input,userId:'0',operationAgencyId:input.agencyId},context=await resolveHistoricalContext(base);let created=0;for(const user of users){const userId=String(user.id);if(excluded.has(userId))continue;try{if(await persistUserNotification({...base,userId,eventKey:input.eventKey?`${input.eventKey}:user:${userId}`:null},context))created++}catch(error){console.error('Notification non créée',error)}}return created}
+export async function notifyPermissions(input:NotifyPermissionsInput){const excluded=new Set((input.excludeUserIds??[]).map(String)),marks=input.permissions.map(()=>'?').join(',');if(!marks)return 0;const users=await query<RowDataPacket[]>(`SELECT DISTINCT u.id FROM users u
+  JOIN user_agencies ua ON ua.user_id=u.id AND ua.status='ACTIVE' AND ua.agency_id=?
+  JOIN user_agency_roles uar ON uar.user_agency_id=ua.id
+  JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE
+  JOIN role_permissions rp ON rp.role_id=r.id
+  JOIN permissions p ON p.id=rp.permission_id AND p.is_active=TRUE
+  WHERE u.is_active=TRUE AND p.code IN (${marks})`,[input.agencyId,...input.permissions]);const base={...input,userId:'0',operationAgencyId:input.agencyId},context=await resolveHistoricalContext(base);let created=0;for(const user of users){const userId=String(user.id);if(excluded.has(userId))continue;try{if(await persistUserNotification({...base,userId,eventKey:input.eventKey?`${input.eventKey}:user:${userId}`:null},context))created++}catch(error){console.error('Notification non créée',error)}}return created}

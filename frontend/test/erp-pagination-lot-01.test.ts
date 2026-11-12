@@ -7,14 +7,16 @@ const notifications=read('../src/modules/notifications/NotificationsPage.tsx');
 const ged=read('../src/modules/documents/DocumentsGedPage.tsx');
 const hr=read('../src/modules/hr/HrAdministrationPage.tsx');
 
-test('NOTIF-PAGE-01..07 utilise cinq éléments avec navigation, total et reset préservés',()=>{
- assert.match(notifications,/const PAGE_SIZE=5/);
- assert.match(notifications,/pageSize:PAGE_SIZE/);
- assert.match(notifications,/Math\.ceil\(\(data\?\.total\?\?0\)\/PAGE_SIZE\)/);
- assert.match(notifications,/page\*PAGE_SIZE>=\(data\?\.total\?\?0\)/);
+test('NOTIF-PAGE-01..07 utilise dix éléments par défaut, taille serveur réglable et resets préservés',()=>{
+ assert.match(notifications,/const DEFAULT_PAGE_SIZE=10/);
+ assert.match(notifications,/useState\(DEFAULT_PAGE_SIZE\)/);
+ assert.match(notifications,/useNotificationsQuery\(\{page,pageSize,scope/);
+ assert.match(notifications,/Math\.ceil\(\(data\?\.total\?\?0\)\/pageSize\)/);
+ assert.match(notifications,/value=\{20\}/);
  assert.match(notifications,/setScope\(value\);setPage\(1\)/);
  assert.match(notifications,/setUnreadOnly\(true\);setPage\(1\)/);
  assert.match(notifications,/setReferenceType\(value\);setPage\(1\)/);
+ assert.match(notifications,/setPageSize\(Number\(e\.target\.value\)\);setPage\(1\)/);
 });
 
 test('GED-PAGE-01..11 utilise dix documents et conserve pagination et resets',()=>{

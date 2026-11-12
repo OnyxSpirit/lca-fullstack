@@ -1,5 +1,6 @@
 import { confirmAction, promptAction } from '../../components/ui/BusinessDialog';
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   Plus,
@@ -47,6 +48,7 @@ export const commercialProgressLabel=(lead:Pick<Lead,'commercialProgress'|'comme
 const kanbanDbStages=['new','contacted','qualified','appointment','test_drive','offer','negotiation','won','lost'] as const;
 
 export const CrmPage: React.FC = () => {
+  const navigate=useNavigate();
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -77,6 +79,7 @@ export const CrmPage: React.FC = () => {
   const canUpdateStage = can('crm.pipeline.advance');
   const canLoseLead=can('crm.prospect.lose'),canCreateActivity=can('crm.activity.create'),canCreateAppointment=can('crm.appointment.create'),canCreateTestDrive=can('crm.test_drive.create');
   const quotationCanConvert=(quotation:Quotation)=>quotation.archiveAvailable&&['sent','negotiation'].includes(quotation.status)&&(!quotation.validUntil||quotation.validUntil.slice(0,10)>=new Date().toISOString().slice(0,10));
+  const convertibleQuotation=quotations.find(quotation=>quotationCanConvert(quotation));
   const quotationArchiveLabel=(quotation:Quotation)=>retryQuotationArchive.variables===quotation.id&&retryQuotationArchive.isPending?'Archivage en cours':retryQuotationArchive.variables===quotation.id&&retryQuotationArchive.isError?'Archivage en échec':businessArchiveStatusLabel(quotation.archiveStatus);
 
   useEffect(() => {
@@ -220,7 +223,7 @@ export const CrmPage: React.FC = () => {
             const dbStage=opportunityStageToDb[stage],columnQuery=kanbanQueries[kanbanDbStages.indexOf(dbStage as typeof kanbanDbStages[number])],aggregate=columnQuery?.data?.stageSummary?.[dbStage],stageTotalBudget=aggregate?.budget??0,columnTotal=columnQuery?.data?.total??0;
 
             return (
-              <div key={stage} onDragOver={event=>{if(canUpdateStage)event.preventDefault()}} onDrop={event=>{event.preventDefault();const leadId=event.dataTransfer.getData('text/crm-lead-id'),source=event.dataTransfer.getData('text/crm-source-stage') as LeadStage;if(leadId&&source!==stage&&!['GAGNE','PERDU'].includes(source))void handleStageChange(leadId,stage)}} className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]">
+              <div key={stage} onDragOver={event=>{if(canUpdateStage)event.preventDefault()}} onDrop={event=>{event.preventDefault();const leadId=event.dataTransfer.getData('text/crm-lead-id'),source=event.dataTransfer.getData('text/crm-source-stage') as LeadStage;if(leadId&&source!==stage)void handleStageChange(leadId,stage)}} className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]">
                 {/* Stage Header */}
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
                   <div className="flex items-center gap-2">
@@ -239,7 +242,7 @@ export const CrmPage: React.FC = () => {
                   {stageLeads.map((lead) => (
                     <div
                       key={lead.id}
-                      draggable={canUpdateStage&&!['GAGNE','PERDU'].includes(lead.stage)}
+                      draggable={canUpdateStage&&lead.saleAssociation.state==='NONE'}
                       onDragStart={event=>{event.dataTransfer.setData('text/crm-lead-id',lead.id);event.dataTransfer.setData('text/crm-source-stage',lead.stage);event.dataTransfer.effectAllowed='move'}}
                       onClick={() => setSelectedLead(lead)}
                       onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setSelectedLead(lead)}}}
@@ -298,7 +301,7 @@ export const CrmPage: React.FC = () => {
                       <div className="flex items-center justify-between pt-1 text-[10px]">
                         <span className="text-slate-400 truncate">{lead.assignedToName.split(' ')[0]}</span>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          {canUpdateStage && !['GAGNE','PERDU'].includes(stage) && <select aria-label={`Déplacer ${lead.firstName} ${lead.lastName}`} value={stage} onChange={event=>void handleStageChange(lead.id,event.target.value as LeadStage)} className="max-w-28 rounded border bg-white px-1 py-0.5 text-[10px] font-semibold"><option value={stage}>{stages.find(item=>item.stage===stage)?.label}</option>{stages.filter(item=>item.stage!==stage).map(item=><option key={item.stage} value={item.stage}>{item.label}</option>)}</select>}
+                          {canUpdateStage&&lead.saleAssociation.state==='NONE'&&<select aria-label={`Déplacer ${lead.firstName} ${lead.lastName}`} value={stage} onChange={event=>void handleStageChange(lead.id,event.target.value as LeadStage)} className="max-w-28 rounded border bg-white px-1 py-0.5 text-[10px] font-semibold"><option value={stage}>{stages.find(item=>item.stage===stage)?.label}</option>{stages.filter(item=>item.stage!==stage).map(item=><option key={item.stage} value={item.stage}>{item.label}</option>)}</select>}
                         </div>
                       </div>
                     </div>
@@ -416,7 +419,7 @@ export const CrmPage: React.FC = () => {
                 <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
                   Étape Actuelle du Pipeline
                 </span>
-                {canUpdateStage&&!['GAGNE','PERDU'].includes(selectedLead.stage) ? <select
+                {canUpdateStage&&selectedLead.saleAssociation.state==='NONE' ? <select
                   value={selectedLead.stage}
                   onChange={(e) => handleStageChange(selectedLead.id, e.target.value as LeadStage)}
                   className="text-xs font-bold p-1.5 rounded-lg border border-blue-400 bg-white text-blue-800 focus:outline-none"
@@ -446,6 +449,13 @@ export const CrmPage: React.FC = () => {
                   Email
                 </a>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Transformation en vente</span>
+              {selectedLead.saleAssociation.state==='NONE'&&<p className="mt-1 text-slate-600">Aucune vente associée à cette opportunité.</p>}
+              {selectedLead.saleAssociation.state==='INACCESSIBLE'&&<p className="mt-1 text-amber-700">Une vente est associée, mais vous n’êtes pas autorisé à la consulter.</p>}
+              {selectedLead.saleAssociation.state==='ACCESSIBLE'&&<div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p><b>{selectedLead.saleAssociation.number}</b> · {selectedLead.saleAssociation.status}</p><Button size="xs" variant="outline" onClick={()=>navigate(`/sales/${selectedLead.saleAssociation.state==='ACCESSIBLE'?selectedLead.saleAssociation.id:''}`)}>Consulter la vente</Button></div>}
             </div>
 
             {/* Vehicle requirement & budget */}
@@ -520,9 +530,9 @@ export const CrmPage: React.FC = () => {
               {canCreateTestDrive&&selectedLead.stage!=='GAGNE'&&selectedLead.stage!=='PERDU'&&<Button size="sm" onClick={async()=>{setTestDriveLead(selectedLead);setSelectedLead(null)}}>Créer un essai</Button>}
               {canCreateQuotation&&selectedLead.stage!=='GAGNE'&&selectedLead.stage!=='PERDU'&&<Button size="sm" onClick={()=>setQuotationLead(selectedLead)}>Créer un devis</Button>}
               {canUpdateStage&&selectedLead.stage==='OFFRE'&&<Button size="sm" variant="outline" loading={stageMutation.isPending} onClick={()=>void handleStageChange(selectedLead.id,'NEGOCIATION')}>Entrer en négociation</Button>}
-              {canConvertQuotation&&['OFFRE','NEGOCIATION'].includes(selectedLead.stage)&&quotations[0]&&<Button variant="primary" size="sm" disabled={!quotationCanConvert(quotations[0])} title={!quotations[0].archiveAvailable?'Finalisez d’abord l’archivage officiel du devis.':!quotationCanConvert(quotations[0])?'Le devis doit être émis, non expiré et non déjà converti.':undefined} onClick={()=>setSaleQuotation(quotations[0])}>Transformer en Vente / Bon de Commande</Button>}
+              {canConvertQuotation&&selectedLead.saleAssociation.state==='NONE'&&['OFFRE','NEGOCIATION','GAGNE'].includes(selectedLead.stage)&&quotations.length>0&&<Button variant="primary" size="sm" disabled={!convertibleQuotation} title={!convertibleQuotation?'Un devis émis, archivé, non expiré et non déjà converti est requis.':undefined} onClick={()=>convertibleQuotation&&setSaleQuotation(convertibleQuotation)}>Créer une vente</Button>}
+              {canConvertQuotation&&selectedLead.saleAssociation.state==='NONE'&&selectedLead.stage==='GAGNE'&&!quotations.length&&<span className="text-xs text-amber-700">Création indisponible : un devis éligible est obligatoire.</span>}
               {canUpdateStage&&canLoseLead&&!['GAGNE','PERDU'].includes(selectedLead.stage)&&<Button variant="outline" size="sm" onClick={()=>handleStageChange(selectedLead.id,'PERDU')}>Marquer comme perdu</Button>}
-              {selectedLead.stage==='GAGNE'&&<span className="text-xs font-semibold text-emerald-700">Déjà transformée en vente</span>}
             </div>}
           </div>
         </Modal>

@@ -13,7 +13,7 @@ test('B3420 restaure le choix employé et les quatre champs RH historiques',()=>
 
 test('B3420 création et modification transmettent le contrat RH seulement avec la permission',()=>{
   assert.match(page,/canManageEmployees=auth\.can\('hr\.employees\.manage'\)/);
-  assert.match(page,/canManageEmployees\?form/);
+  assert.match(page,/canManageEmployees\?payload/);
   assert.match(page,/if\(canManageEmployees\)Object\.assign/);
   assert.match(hooks,/isEmployee\?:boolean/);
 });

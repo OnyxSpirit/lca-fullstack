@@ -48,7 +48,7 @@ async function resolveWith(runner:AgencyRbacRunner,userId:string,sessionId:strin
   const roleRows=await rows(runner,`SELECT r.id,r.code,r.name FROM user_agencies ua JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE AND r.is_system=FALSE WHERE ua.user_id=? AND ua.agency_id=? AND ua.status='ACTIVE' ORDER BY r.code,r.id`,[userId,activeAgencyId]);
   roles=roleRows.map(role=>({id:String(role.id),code:String(role.code),name:String(role.name)}));
   const grants=await rows(runner,`SELECT p.code,rp.scope FROM user_agencies ua JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE AND r.is_system=FALSE JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id AND p.is_active=TRUE WHERE ua.user_id=? AND ua.agency_id=? AND ua.status='ACTIVE'`,[userId,activeAgencyId]);
-  permissions=mergeAgencyPermissions(grants.map(row=>({code:String(row.code),scope:row.scope==null?null:String(row.scope) as PermissionScope})));
+  permissions=mergeAgencyPermissions(grants.map(row=>({code:String(row.code),scope:row.scope==null?null:String(row.scope)==='OWN'?'OWN':'AGENCY'})));
  }
  return{userId,sessionId,activeAgencyId,contextVersion:Number(session.agency_context_version)+(persistFallback&&activeAgencyId&&String(session.active_agency_id??'')!==activeAgencyId?1:0),isSuperAdmin:superAdmin,agencies,roles,permissions};
 }

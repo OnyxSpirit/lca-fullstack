@@ -51,7 +51,7 @@ test('CRM-02 MySQL 8.4 sérialise la réservation exclusive des véhicules',{ski
   await clear();
   assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle1,advisor2,visit2)])).sort(),['conflict','created'],'même véhicule');
   await clear();
-  assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle2,advisor1,visit2)])).sort(),['created','created'],'un commercial peut planifier deux véhicules au même horaire');
+	  assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle2,advisor1,visit2)])).sort(),['conflict','created'],'un commercial ne peut pas planifier deux essais au même horaire');
   await clear();
   assert.deepEqual((await Promise.all([reserve(vehicle1,advisor1,visit1),reserve(vehicle2,advisor2,visit2)])).sort(),['created','created'],'ressources indépendantes');
   await clear();

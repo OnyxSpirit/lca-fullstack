@@ -7,6 +7,7 @@ import{execute,pool,query,transaction}from'../src/config/database.js';
 import type{RowDataPacket}from'mysql2/promise';
 import{cancelUnpaidInvoice}from'../src/modules/billing/invoice-cancellation.service.js';
 import{issueTestAccessToken}from'./helpers/auth-session-fixture.js';
+import{assignMysqlAgencyRole}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_SALE_CANCEL_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -16,8 +17,8 @@ test('VENTE-ANNULATION-02 MySQL 8.4 : atomicité, refus financiers et concurrenc
  const concession=await insert('INSERT INTO concessions(name,code) VALUES(?,?)',[`Annulation ${suffix}`,`CAN-${suffix}`]);
  const agency=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concession,'Agence annulation',`CANA-${suffix}`]);
  const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agency,'Audit','Annulation',`cancel-${suffix}@test.local`,'test']);
- const role=await insert('INSERT INTO roles(name,code,is_system,is_active) VALUES(?,?,FALSE,TRUE)',[`Commercial recette ${suffix}`,`SALES_AUDIT_${suffix}`]);await pool.execute("INSERT INTO role_permissions(role_id,permission_id,scope) SELECT ?,id,'AGENCY' FROM permissions WHERE code='sales.create'",[role]);
- await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);
+	 const role=await insert('INSERT INTO roles(name,code,is_system,is_active) VALUES(?,?,FALSE,TRUE)',[`Commercial recette ${suffix}`,`SALES_AUDIT_${suffix}`]);for(const code of['sales.create','sales.cancel','billing.invoice.create','billing.payment.collect'])await pool.execute("INSERT INTO role_permissions(role_id,permission_id,scope) SELECT ?,id,'AGENCY' FROM permissions WHERE code=?",[role,code]);
+	 await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});
  const token=issueTestAccessToken({userId:user,email:`cancel-${suffix}@test.local`,roles:[`SALES_AUDIT_${suffix}`],agencyId:agency,permissions:[{code:'sales.create',scope:'AGENCY'},{code:'sales.cancel',scope:'AGENCY'},{code:'billing.invoice.create',scope:'AGENCY'},{code:'billing.payment.collect',scope:'AGENCY'}],mockRbac:true}),auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
  const customerA=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name) VALUES(?,?,?,?)',[`CA-${suffix}`,agency,'Client','A']);
  const customerB=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name) VALUES(?,?,?,?)',[`CB-${suffix}`,agency,'Client','B']);

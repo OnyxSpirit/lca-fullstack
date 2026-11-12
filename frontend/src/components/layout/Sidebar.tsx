@@ -1,4 +1,4 @@
-import React from 'react';
+import React,{useEffect,useState} from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -19,10 +19,12 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Sparkles,
   Landmark,
   X,
   History,
+  Building2,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationsQuery } from '../../api/notificationHooks';
@@ -43,6 +45,7 @@ export const Sidebar: React.FC = () => {
   } = useUiStore();
 
   const unreadNotifs = notifications?.unreadCount??0;
+  const [openSections,setOpenSections]=useState<Record<string,boolean>>({});
 
   interface NavItem {
     to?: string;
@@ -197,7 +200,7 @@ export const Sidebar: React.FC = () => {
         },
         {
           to: ROUTES.users,
-          label: 'Utilisateurs & RBAC',
+          label: 'Utilisateurs et habilitations',
           icon: <ShieldCheck className="w-4 h-4" />,
           module: 'users',
           visible: can('users.view')||can('roles.view')||canAccessSecurityCenter(currentUser.permissions),
@@ -210,14 +213,23 @@ export const Sidebar: React.FC = () => {
           module: 'settings',
           visible: canAccessSettings(currentUser.permissions),
         },
+        {
+          to: `${ROUTES.settings}?tab=agencies`,
+          label: 'Agences',
+          icon: <Building2 className="w-4 h-4" />,
+          module: 'settings',
+          visible: can('settings.agencies.view'),
+          active: location.pathname===ROUTES.settings&&new URLSearchParams(location.search).get('tab')==='agencies',
+        },
       ],
     },
   ];
 
   const isVisible=(item:NavItem)=>item.visible??Boolean(item.to&&canNavigateWithPermissions(currentUser.permissions,item.to));
+  useEffect(()=>{const active=sections.find(section=>section.items.some(item=>item.active||(item.to&&location.pathname===item.to.split('?')[0])));if(active)setOpenSections(current=>({...current,[active.title]:true}))},[location.pathname,location.search]);
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#fffffff] text-zinc-400 select-none">
+    <div className="flex h-full flex-col bg-white text-slate-600 select-none">
       {/* Brand Header */}
       <div className="h-20 px-5 flex items-center align-middle justify-center border-b border-white/10">
         <NavLink
@@ -247,13 +259,11 @@ export const Sidebar: React.FC = () => {
           if (visibleItems.length === 0) return null;
 
           return (
-            <div key={sIdx} className={sIdx > 0 ? 'pt-4 border-t border-white/8' : ''}>
+            <div key={sIdx} className={sIdx > 0 ? 'pt-3 border-t border-slate-100' : ''}>
               {!sidebarCollapsed && (
-                <div className="px-3 mb-2 text-[9px] uppercase tracking-[0.18em] font-bold text-gray-600">
-                  {section.title}
-                </div>
+                <button type="button" aria-label={`${openSections[section.title]===false?'Déplier':'Replier'} ${section.title}`} onClick={()=>setOpenSections(current=>({...current,[section.title]:current[section.title]===false}))} className="mb-2 flex w-full items-center justify-between px-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500"><span>{section.title}</span><ChevronDown className={`h-3 w-3 transition-transform ${openSections[section.title]===false?'-rotate-90':''}`}/></button>
               )}
-              <div className="space-y-1">
+              <div className={`${!sidebarCollapsed&&openSections[section.title]===false?'hidden':''} space-y-1`}>
                 {visibleItems.map((item) => (
                   <NavLink
                     key={item.to!}
@@ -264,7 +274,7 @@ export const Sidebar: React.FC = () => {
                         'relative flex items-center gap-3 px-3 py-2 rounded-sm transition-colors cursor-pointer',
                         (item.active??isActive)
                           ? 'bg-[#8f1722] text-white font-semibold before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[3px] before:bg-grey-800'
-                          : ' text-gray-950 hover:bg-white/7 hover:text-red-800',
+                          : 'text-slate-700 hover:bg-slate-100 hover:text-[#8f1722]',
                         sidebarCollapsed && 'justify-center px-2'
                       )
                     }
@@ -297,20 +307,20 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* User Footer Profile & Collapse Toggle */}
-      <div className="p-3 border-t border-white/10 bg-[#111113]">
+      <div className="border-t border-slate-200 bg-slate-50 p-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-sm bg-[#8f1722]/20 border border-[#8f1722]/60 flex items-center justify-center text-[#d2767e] shrink-0 font-bold text-xs">
             {currentUser.name.charAt(0)}
           </div>
           {!sidebarCollapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-white text-xs font-semibold truncate">{currentUser.name}</div>
+              <div className="truncate text-xs font-semibold text-slate-900">{currentUser.name}</div>
               <div className="text-[11px] text-slate-500 truncate">{currentUser.roleTitle}</div>
             </div>
           )}
           <button
             onClick={toggleSidebar}
-            className="hidden lg:flex p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors cursor-pointer ml-auto shrink-0"
+            className="ml-auto hidden shrink-0 cursor-pointer rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-800 lg:flex"
             title={sidebarCollapsed ? 'Déplier le menu' : 'Replier le menu'}
           >
             {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -325,7 +335,7 @@ export const Sidebar: React.FC = () => {
       {/* Desktop Persistent Sidebar */}
       <aside
         className={cn(
-          'hidden lg:block bg-white shrink-0 transition-all duration-200 ease-in-out border-r border-slate-800 z-20',
+          'hidden lg:block bg-white shrink-0 transition-all duration-200 ease-in-out border-r border-slate-200 z-20',
           sidebarCollapsed ? 'w-18' : 'w-64'
         )}
       >
@@ -338,7 +348,7 @@ export const Sidebar: React.FC = () => {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="fixed inset-0 bg-white-900/60 backdrop-blur-xl transition-opacity"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
             onClick={() => setMobileMenuOpen(false)}
           />
           <div className="fixed inset-y-0 left-0 w-72 max-w-full z-10 shadow-2xl animate-in slide-in-from-left duration-200">

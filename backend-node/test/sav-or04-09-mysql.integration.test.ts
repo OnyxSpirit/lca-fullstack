@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_SAV0409_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -25,10 +25,10 @@ test('SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4',{sk
   const [group]=await rows('SELECT id FROM groups_company LIMIT 1');
   const otherConcession=await insert('INSERT INTO concessions(group_id,name,code) VALUES(?,?,?)',[group.id,`Concession X ${suffix}`,`SAV_C_${suffix}`]);
   const agencyC=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[otherConcession,`Agence C ${suffix}`,`SAV_AC_${suffix}`]);
-  const makeRole=async(name:string,codes:string[],scope:string)=>{const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`SAV_${name}_${suffix}`,`${name} ${suffix}`]);for(const code of codes){const [permission]=await rows('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,code);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope])}return role};
-  const makeUser=async(name:string,role:string,agency=agencyA,active=true)=>{const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,?)',[agency,'Recette',name,`sav-${name}-${suffix}@example.test`,admin.password_hash,active]);await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[user,role]);return user};
+	  const makeRole=async(name:string,codes:string[],scope:'AGENCY')=>{const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`SAV_${name}_${suffix}`,`${name} ${suffix}`]);for(const code of codes){const [permission]=await rows('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,code);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope])}return role};
+	  const makeUser=async(name:string,role:string,agency=agencyA,active=true)=>{const user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,?)',[agency,'Recette',name,`sav-${name}-${suffix}@example.test`,admin.password_hash,active]);await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});return user};
   const capability='workshop.session.track';
-  const roleAgency=await makeRole('Polyvalent',[capability],'AGENCY'),roleNamed=await makeRole('Technicien',[],'AGENCY'),roleConcession=await makeRole('Concession',[capability],'CONCESSION'),roleGlobal=await makeRole('Global',[capability],'GLOBAL'),roleInactive=await makeRole('Inactif',[capability],'AGENCY'),roleAdvisor=await makeRole('Conseiller',['service.order.receive'],'AGENCY');
+	  const roleAgency=await makeRole('Polyvalent',[capability],'AGENCY'),roleNamed=await makeRole('Technicien',[],'AGENCY'),roleConcession=await makeRole('AgenceSecondaire',[capability],'AGENCY'),roleGlobal=await makeRole('AgenceLocaleBis',[capability],'AGENCY'),roleInactive=await makeRole('Inactif',[capability],'AGENCY'),roleAdvisor=await makeRole('Conseiller',['service.order.receive'],'AGENCY');
   const techA=await makeUser('A',roleAgency),techNoPermission=await makeUser('NomTechnicien',roleNamed),techInactive=await makeUser('Inactif',roleAgency,agencyA,false),techRoleInactive=await makeUser('RoleInactif',roleInactive),techB=await makeUser('B',roleAgency,agencyB),techConcession=await makeUser('C',roleConcession),techGlobal=await makeUser('G',roleGlobal),techOther=await makeUser('X',roleGlobal,agencyC);
   const advisor=await makeUser('Conseiller',roleAdvisor);
   await pool.execute('UPDATE roles SET is_active=FALSE WHERE id=?',[roleInactive]);
@@ -55,13 +55,13 @@ test('SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4',{sk
   const [updatedInspection]=await rows('SELECT fuel_level,cleanliness,observations FROM vehicle_reception_inspections WHERE repair_order_id=?',[orId]);assert.equal(updatedInspection.fuel_level,'Moitié');assert.equal(updatedInspection.cleanliness,'Propre');assert.equal(updatedInspection.observations,null);
   const fullInspection={fuelLevel:'Plein',cleanliness:'Correcte',bodyworkDamage:'Rayure',itemsInVehicle:'Gilet',mileage:101,observations:'Complet',customerSignature:'signature'};
   assert.equal((await auth(api.post(route('/inspection'))).send(fullInspection)).status,409);
-  let status=await auth(api.patch(route('/status'))).send({status:'received'});assert.equal(status.status,200,JSON.stringify(status.body));
+	  let status=await auth(api.patch(route('/status'))).send({status:'received'});assert.equal(status.status,409,JSON.stringify(status.body));
   for(const forged of [`u:${techNoPermission}`,`u:${techInactive}`,`u:${techRoleInactive}`,`u:${techB}`])assert.equal((await badDiagnostic(forged)).status,400,forged);
   const diagnostic=await badDiagnostic(virtual(techA));assert.equal(diagnostic.status,201,JSON.stringify(diagnostic.body));
   const savedTech=String(diagnostic.body.diagnostics[0].technician_id);
   const [materialized]=await rows('SELECT user_id,agency_id FROM technicians WHERE id=?',[savedTech]);assert.equal(String(materialized.user_id),techA);assert.equal(String(materialized.agency_id),agencyA);
   const nextCandidates=await auth(api.get(route('/technician-candidates')));assert.ok(nextCandidates.body.some((x:{id:string})=>x.id===savedTech));
-  status=await auth(api.patch(route('/status'))).send({status:'diagnosis'});assert.equal(status.status,200,JSON.stringify(status.body));
+	  status=await auth(api.patch(route('/status'))).send({status:'diagnosis'});assert.equal(status.status,409,JSON.stringify(status.body));
   const workBody={technicianId:savedTech,description:'Remplacement filtre',plannedHours:1.5,rateCode,requestKey:randomUUID()};
   assert.equal((await auth(api.post(route('/interventions'))).send(workBody)).status,409);
   const locationA=await insert("INSERT INTO locations(agency_id,name,type,is_active) VALUES(?,'A-01','warehouse',TRUE)",[agencyA]);
@@ -89,7 +89,7 @@ test('SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4',{sk
   const firstEstimateId=estimateId(estimate.body,'Chiffrage initial'),secondEstimateId=estimateId(secondEstimate.body,'Contrôle parallèle'),thirdEstimateId=estimateId(thirdEstimate.body,'Réutilisation ressource');
   status=await auth(api.patch(route('/status'))).send({status:'waiting_approval'});assert.equal(status.status,200,JSON.stringify(status.body));
   const approval=await auth(api.post(route('/approval'))).send({approved:true,approvedAmount:18000,customerName:'Client Atelier'});assert.equal(approval.status,201,JSON.stringify(approval.body));
-  status=await auth(api.patch(route('/status'))).send({status:'in_progress'});assert.equal(status.status,200,JSON.stringify(status.body));
+	  status=await auth(api.patch(route('/status'))).send({status:'in_progress'});assert.equal(status.status,409,JSON.stringify(status.body));
   const forgedWork=await auth(api.post(route(`/estimate-items/${firstEstimateId}/intervention`))).send({technicianId:`u:${techB}`});assert.equal(forgedWork.status,400,JSON.stringify(forgedWork.body));
   const work=await auth(api.post(route(`/estimate-items/${firstEstimateId}/intervention`))).send({technicianId:savedTech});assert.equal(work.status,201,JSON.stringify(work.body));const intervention=String(work.body.interventions.find((x:{estimate_item_id:unknown})=>String(x.estimate_item_id)===firstEstimateId).id);
   const repeatedWork=await auth(api.post(route(`/estimate-items/${firstEstimateId}/intervention`))).send({technicianId:savedTech});assert.equal(repeatedWork.status,201);assert.equal(repeatedWork.body.interventions.filter((x:{estimate_item_id:unknown})=>String(x.estimate_item_id)===firstEstimateId).length,1);

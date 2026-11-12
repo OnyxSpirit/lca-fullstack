@@ -146,15 +146,14 @@ function bearer(permissions:TestPermission[]){
 const expectStatus=(actual:number,expected:number,label:string)=>assert.equal(actual,expected,`${label}: HTTP ${actual} au lieu de ${expected}`);
 
 describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
-  for(const [scope,expectedIds] of [['OWN',['101']],['AGENCY',['101','104']],['CONCESSION',['101','102','104']],['GLOBAL',['101','102','103','104']]] as const){
+  for(const [scope,expectedIds] of [['OWN',['101']],['AGENCY',['101','104']],['CONCESSION',['101','104']],['GLOBAL',['101','104']]] as const){
     test(`showroom.view ${scope}: collection filtrée et détails R1/R2/R3`,async()=>{
       const token=bearer([{code:'showroom.view',scope}]);
       const list=await request(app).get('/api/showroom').set('Authorization',token);
-      if(scope==='CONCESSION'||scope==='GLOBAL'){expectStatus(list.status,403,`${scope} liste refusée`);return}
       expectStatus(list.status,200,`${scope} liste`);assert.deepEqual(list.body.items.map((v:{id:string})=>v.id),expectedIds);
       for(const resource of resources.slice(0,3)){
         const response=await request(app).get(`/api/showroom/${resource.id}`).set('Authorization',token);
-        const allowed=scope==='AGENCY'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
+        const allowed=scope!=='OWN'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
         expectStatus(response.status,allowed?200:404,`${scope} détail ${resource.id}`);
       }
     });
@@ -163,7 +162,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
   for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const agency of [A1,A2,B1]){
     test(`showroom.visitor.create ${scope} -> agence ${agency}`,async()=>{
       const response=await request(app).post('/api/showroom').set('Authorization',bearer([{code:'showroom.visitor.create',scope}])).send({visitorName:'Runtime',reason:'Recette',agencyId:agency});
-      const allowed=(scope==='OWN'||scope==='AGENCY')&&agency===A1;
+      const allowed=agency===A1;
       expectStatus(response.status,allowed?201:403,`${scope} création ${agency}`);
     });
   }
@@ -172,14 +171,14 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
     test(`showroom.assign ${scope} -> R${resource.id} / commercial même agence`,async()=>{
       const visit=visits.find(v=>v.id===resource.id)!;visit.status='waiting';visit.assigned_user_id=null;visit.greeted_by=resource.ownerId;
       const response=await request(app).patch(`/api/showroom/${resource.id}/assign`).set('Authorization',bearer([{code:'showroom.assign',scope}])).send({assignedUserId:assigneeByAgency[resource.agencyId],expectedAssignedUserId:null});
-      const allowed=scope==='AGENCY'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
-      expectStatus(response.status,allowed?200:scope==='CONCESSION'||scope==='GLOBAL'?403:404,`${scope} affectation ${resource.id} ${response.text}`);
+      const allowed=scope!=='OWN'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
+      expectStatus(response.status,allowed?200:404,`${scope} affectation ${resource.id} ${response.text}`);
     });
   }
   test('showroom.assign GLOBAL conserve la contrainte métier agence visite/commercial',async()=>{
     const visit=visits[0];visit.status='waiting';visit.assigned_user_id=null;
     const response=await request(app).patch('/api/showroom/101/assign').set('Authorization',bearer([{code:'showroom.assign',scope:'GLOBAL'}])).send({assignedUserId:CA2,expectedAssignedUserId:null});
-    expectStatus(response.status,403,'ancien scope GLOBAL refusé avant affectation');
+    expectStatus(response.status,400,'scope GLOBAL rabattu sur AGENCY puis contrainte visite/commercial appliquée');
   });
   test('ASSIGN-01/03/04/05 liste seulement les candidats éligibles de l’agence et respecte le scope',async()=>{
     const agencyToken=bearer([{code:'showroom.assign',scope:'AGENCY'}]);
@@ -202,8 +201,8 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
   for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const)for(const resource of resources.slice(0,3)){
     test(`showroom.status.update ${scope} -> annuler R${resource.id}`,async()=>{
       const response=await request(app).patch(`/api/showroom/${resource.id}/cancel`).set('Authorization',bearer([{code:'showroom.status.update',scope}])).send({reason:'Recette'});
-      const allowed=scope==='AGENCY'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
-      expectStatus(response.status,allowed?200:scope==='CONCESSION'||scope==='GLOBAL'?403:404,`${scope} statut ${resource.id}`);
+      const allowed=scope!=='OWN'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
+      expectStatus(response.status,allowed?200:404,`${scope} statut ${resource.id}`);
     });
   }
 
@@ -211,8 +210,8 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
     test(`showroom.visitor.update ${scope} -> conversion ordinaire R${resource.id}`,async()=>{
       visits.find(visit=>visit.id===resource.id)!.status='completed';
       const response=await request(app).post(`/api/showroom/${resource.id}/convert-to-lead`).set('Authorization',bearer([{code:'showroom.visitor.update',scope},{code:'crm.prospect.assign',scope}])).send({title:'Projet'});
-      const allowed=scope==='AGENCY'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
-      expectStatus(response.status,allowed?201:scope==='CONCESSION'||scope==='GLOBAL'?403:404,`${scope} modification ${resource.id}`);
+      const allowed=scope!=='OWN'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
+      expectStatus(response.status,allowed?201:404,`${scope} modification ${resource.id}`);
     });
   }
 
@@ -251,9 +250,9 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
         :operation==='complete'
           ?await request(app).patch(`/api/showroom/test-drives/${driveByAgency[resource.agencyId]}/complete`).set('Authorization',token).send({mileageIn:110})
           :await request(app).patch(`/api/showroom/test-drives/${driveByAgency[resource.agencyId]}/cancel`).set('Authorization',token).send({reason:'Recette'});
-      const scopeAllows=scope==='AGENCY'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
+      const scopeAllows=scope!=='OWN'&&resource.agencyId===A1||scope==='OWN'&&resource.agencyId===A1&&resource.ownerId===U1;
       const expected=operation==='start'&&scopeAllows&&resource.agencyId!==A1?400:scopeAllows?(operation==='start'?201:200):404;
-      expectStatus(response.status,scope==='CONCESSION'||scope==='GLOBAL'?403:expected,`${operation} ${scope} ${resource.agencyId}`);
+      expectStatus(response.status,expected,`${operation} ${scope} ${resource.agencyId}`);
     });
   }
 
@@ -262,7 +261,7 @@ describe('RBAC-PERMISSION-RECETTE-02 — matrice runtime Showroom',()=>{
       drives.forEach(drive=>{drive.status='completed'});
       const permissions:TestPermission[]=[{code:'showroom.visitor.update',scope},{code:'crm.test_drive.create',scope}];
       const response=await request(app).post(`/api/showroom/crm/leads/${leadByAgency[agency]}/test-drives`).set('Authorization',bearer(permissions)).send({vehicleId:vehicleByAgency[agency],licenseNumber:'PERMIS',mileageOut:100});
-      const allowed=scope==='AGENCY'&&agency===A1;
+      const allowed=agency===A1;
       expectStatus(response.status,allowed?201:403,`CRM ${scope} ${agency}`);
     });
   }

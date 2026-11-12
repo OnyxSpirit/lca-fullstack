@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_TARGETED_DB_TEST==='1';
 if(enabled)after(async()=>{await pool.end()});
@@ -51,7 +51,7 @@ test('PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé', {skip:!enabled},async()=>
   await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,? ,?)',[role,permission.id,'AGENCY']);
   const [admin]=await rows('SELECT password_hash FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);
   const advisor=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agencyId,'Recette','Polyvalent',`advisor-${suffix}@example.test`,admin.password_hash]);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[advisor,role]);
+	  await assignMysqlAgencyRole({userId:advisor,agencyId,roleId:role});
   const candidate=await auth(api.get('/api/repair-orders/advisor-candidates').query({agencyId}));
   assert.equal(candidate.status,200,JSON.stringify(candidate.body));
   assert.ok(candidate.body.some((item:{id:string})=>item.id===advisor));
@@ -60,7 +60,7 @@ test('PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé', {skip:!enabled},async()=>
 
   const emptyRole=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`QA_EMPTY_${suffix}`,`Magasinier ${suffix}`]);
   const unprivileged=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agencyId,'Recette','Sans permission',`empty-${suffix}@example.test`,admin.password_hash]);
-  await pool.execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[unprivileged,emptyRole]);
+	  await assignMysqlAgencyRole({userId:unprivileged,agencyId,roleId:emptyRole});
   const emptyLogin=await api.post('/api/auth/login').send({email:`empty-${suffix}@example.test`,password:process.env.ADMIN_PASSWORD});
   assert.equal(emptyLogin.status,200);
   const deniedCategory=await api.post('/api/part-categories').set('Authorization',`Bearer ${emptyLogin.body.accessToken}`).send({name:'Interdit',code:`DENIED_${suffix}`});
@@ -102,19 +102,19 @@ test('PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé', {skip:!enabled},async()=>
   assert.equal(secondReloaded.status,200);
   assert.equal(String(secondReloaded.body.customer_id),customerB);
   assert.equal(String(secondReloaded.body.vehicle_id),vehicleB);
-  await pool.execute('UPDATE users SET agency_id=? WHERE id=?',[sisterAgency,advisor]);
+	  await pool.execute('UPDATE users SET agency_id=? WHERE id=?',[sisterAgency,advisor]);await pool.execute('UPDATE user_agencies SET agency_id=? WHERE user_id=?',[sisterAgency,advisor]);
   const agencyOnly=await auth(api.get('/api/repair-orders/advisor-candidates').query({agencyId}));
   assert.ok(!agencyOnly.body.some((item:{id:string})=>item.id===advisor));
-  await pool.execute("UPDATE role_permissions SET scope='CONCESSION' WHERE role_id=? AND permission_id=?",[role,permission.id]);
+	  await pool.execute('UPDATE users SET agency_id=? WHERE id=?',[agencyId,advisor]);await pool.execute('UPDATE user_agencies SET agency_id=? WHERE user_id=?',[agencyId,advisor]);
   const concessionCandidates=await auth(api.get('/api/repair-orders/advisor-candidates').query({agencyId}));
   assert.ok(concessionCandidates.body.some((item:{id:string})=>item.id===advisor));
   const [group]=await rows('SELECT id FROM groups_company LIMIT 1');
   const otherConcession=await insert('INSERT INTO concessions(group_id,name,code) VALUES(?,?,?)',[group.id,`Concession externe ${suffix}`,`EXT_${suffix}`]);
   const externalAgency=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[otherConcession,`Agence externe ${suffix}`,`EXA_${suffix}`]);
-  await pool.execute('UPDATE users SET agency_id=? WHERE id=?',[externalAgency,advisor]);
+	  await pool.execute('UPDATE users SET agency_id=? WHERE id=?',[externalAgency,advisor]);await pool.execute('UPDATE user_agencies SET agency_id=? WHERE user_id=?',[externalAgency,advisor]);
   const concessionDenied=await auth(api.get('/api/repair-orders/advisor-candidates').query({agencyId}));
   assert.ok(!concessionDenied.body.some((item:{id:string})=>item.id===advisor));
-  await pool.execute("UPDATE role_permissions SET scope='GLOBAL' WHERE role_id=? AND permission_id=?",[role,permission.id]);
+	  await pool.execute('UPDATE users SET agency_id=? WHERE id=?',[agencyId,advisor]);await pool.execute('UPDATE user_agencies SET agency_id=? WHERE user_id=?',[agencyId,advisor]);
   const globalCandidates=await auth(api.get('/api/repair-orders/advisor-candidates').query({agencyId}));
   assert.ok(globalCandidates.body.some((item:{id:string})=>item.id===advisor));
   await pool.execute('UPDATE roles SET is_active=FALSE WHERE id=?',[role]);

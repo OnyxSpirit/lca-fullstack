@@ -7,7 +7,7 @@ import { saleScope } from '../src/modules/sales/sale.service.js';
 import { assertSaleTransition } from '../src/modules/sales/sale.domain.js';
 
 type Scope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
-const request=(permissions:Record<string,Scope>={},superAdmin=false)=>({user:{sub:'42',sid:'session-1',email:'dynamic@lca.local',roles:['SALES_DYNAMIC_TEST'],agencyId:'7'},query:{},agencyRbac:{userId:'42',sessionId:'session-1',activeAgencyId:'7',contextVersion:1,isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))}}) as unknown as Request;
+const request=(permissions:Record<string,Scope>={},superAdmin=false)=>{const context={userId:'42',sessionId:'session-1',activeAgencyId:'7',contextVersion:1,isSuperAdmin:superAdmin,permissions:new Map(Object.entries(permissions))};const effective=new Map(Object.entries(permissions).map(([code,scope])=>[code,scope==='CONCESSION'||scope==='GLOBAL'?'AGENCY':scope]));return({user:{sub:'42',sid:'session-1',email:'dynamic@lca.local',roles:['SALES_DYNAMIC_TEST'],agencyId:'7'},query:{},agencyRbac:context,rbac:{permissions:effective,isSuperAdmin:superAdmin}}) as unknown as Request};
 const routes=readFileSync(new URL('../src/modules/sales/sale.routes.ts',import.meta.url),'utf8');
 const service=readFileSync(new URL('../src/modules/sales/sale.service.ts',import.meta.url),'utf8');
 
@@ -17,11 +17,11 @@ test('SALE-01/06/10/12/16/21/28 : permissions absentes refusées sans bypass de 
   assert.doesNotMatch(service,/roles\.includes|roles\.some|notifyRoles|unrestricted|SALES_AGENT|SALES_MANAGER|DIRECTOR/);
 });
 
-test('SALE-02/03/04/05 : seuls OWN et AGENCY sont admis et restent liés à l’agence active',()=>{
+test('SALE-02/03/04/05 : les portées historiques sont rabattues sur l’agence active',()=>{
   const own=saleScope(request({'sales.view':'OWN'}),'sales.view');assert.match(own.sql,/salesperson_id=\?/);assert.deepEqual(own.params,['7','42']);
   assert.deepEqual(saleScope(request({'sales.view':'AGENCY'}),'sales.view'),{sql:'s.agency_id=?',params:['7']});
-  assert.throws(()=>saleScope(request({'sales.view':'CONCESSION'}),'sales.view'),/OWN\/AGENCY/);
-  assert.throws(()=>saleScope(request({'sales.view':'GLOBAL'}),'sales.view'),/OWN\/AGENCY/);
+  assert.deepEqual(saleScope(request({'sales.view':'CONCESSION'}),'sales.view'),{sql:'s.agency_id=?',params:['7']});
+  assert.deepEqual(saleScope(request({'sales.view':'GLOBAL'}),'sales.view'),{sql:'s.agency_id=?',params:['7']});
 });
 
 test('SALE-11/20/22/27 : chaque opération emploie son scope et un rôle dynamique fonctionne',async()=>{

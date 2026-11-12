@@ -4,10 +4,12 @@ import {test} from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
-test('RBAC personnel utilise un rôle métier exclusif',()=>{
+test('RBAC personnel utilise des rôles métier propres à chaque agence',()=>{
   const page=read('../src/modules/users/UsersManagementPage.tsx');
-  assert.doesNotMatch(page,/type="checkbox"/);
-  assert.match(page,/roles:e\.target\.value\?\[e\.target\.value\]:\[\]/);
+  assert.match(page,/Agences d’affectation/);
+  assert.match(page,/type="checkbox"/);
+  assert.match(page,/Rôles dans cette agence/);
+  assert.match(page,/!r\.is_system/);
 });
 
 test('RBAC Comptable conserve la facturation sans exposition SAV',()=>{

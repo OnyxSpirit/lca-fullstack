@@ -43,7 +43,7 @@ test('SALE-TAX-11 conserve les verrous marge et minimum',()=>{
 });
 
 test('SALE-TAX-12 conserve la machine de statuts Vente',()=>{
-  assert.match(domain,/reserved: \['ordered','cancelled'\], ordered: \['confirmed','cancelled'\]/);
+  assert.match(domain,/reserved: \['ordered','confirmed','cancelled'\], ordered: \['confirmed','cancelled'\]/);
   assert.match(domain,/confirmed: \['preparation','cancelled'\]/);
 });
 

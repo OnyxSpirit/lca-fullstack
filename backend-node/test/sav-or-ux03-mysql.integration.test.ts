@@ -30,7 +30,7 @@ test('SAV-OR-UX-03 persiste et isole les actions one-shot par OR',{skip:!enabled
   const firstReload=await auth(api.get(`/api/repair-orders/${first}`));assert.ok(firstReload.body.inspection);
   const secondReload=await auth(api.get(`/api/repair-orders/${second}`));assert.equal(secondReload.body.inspection,null);
   assert.equal((await auth(api.post(`/api/repair-orders/${second}/inspection`)).send(inspection)).status,200);
-  assert.equal((await auth(api.patch(`/api/repair-orders/${first}/status`)).send({status:'received'})).status,200);
+	  assert.equal((await auth(api.patch(`/api/repair-orders/${first}/status`)).send({status:'received'})).status,409);
   const diagnostic={diagnosis:'Diagnostic persistant',recommendations:'Réparer',estimatedHours:2.25};
   assert.equal((await auth(api.post(`/api/repair-orders/${first}/diagnostics`)).send(diagnostic)).status,201);
   assert.equal((await auth(api.post(`/api/repair-orders/${first}/diagnostics`)).send(diagnostic)).status,409);
@@ -41,7 +41,7 @@ test('SAV-OR-UX-03 persiste et isole les actions one-shot par OR',{skip:!enabled
   const failed={plannedWorkCompleted:false,defectCorrected:false,roadTestPerformed:false,noLeaks:false,levelsChecked:false,cleanlinessChecked:false,result:'failed',reason:'Reprise nécessaire'};
   assert.equal((await auth(api.post(`/api/repair-orders/${qualityOrder}/quality-control`)).send(failed)).status,201);
   assert.equal((await auth(api.post(`/api/repair-orders/${qualityOrder}/quality-control`)).send(failed)).status,409);
-  assert.equal((await auth(api.patch(`/api/repair-orders/${qualityOrder}/status`)).send({status:'in_progress'})).status,200);
+	  assert.equal((await auth(api.patch(`/api/repair-orders/${qualityOrder}/status`)).send({status:'in_progress'})).status,409);
   await pool.execute("INSERT INTO repair_order_items(repair_order_id,item_type,description,quantity,unit_price,discount,tax_rate,line_total) VALUES(?,'labor','Reprise contrôle qualité',1,1000,0,0,1000)",[qualityOrder]);
   const qualityRetry=await auth(api.patch(`/api/repair-orders/${qualityOrder}/status`)).send({status:'quality_control'});assert.equal(qualityRetry.status,200,JSON.stringify(qualityRetry.body));
   const passed={plannedWorkCompleted:true,defectCorrected:true,roadTestPerformed:true,noLeaks:true,levelsChecked:true,cleanlinessChecked:true,result:'passed'};

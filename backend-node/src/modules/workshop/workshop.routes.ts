@@ -656,6 +656,12 @@ workshopRouter.post(
         const raw=r.body[key];if(raw!=null&&typeof raw!=='string')throw new HttpError(400,`${label} invalide`);
         return txt(raw,label,max,required);
       };
+      let mileage:number|null=null;
+      if(Object.prototype.hasOwnProperty.call(r.body,'mileage')){
+        const parsed=Number(r.body.mileage);
+        if(!Number.isSafeInteger(parsed)||parsed<0)throw new HttpError(400,'Kilométrage invalide');
+        mileage=parsed;
+      }
       await c.execute(
       `INSERT INTO vehicle_reception_inspections(repair_order_id,fuel_level,cleanliness,bodywork_damage,items_in_vehicle,mileage,observations,customer_signature,inspected_by)VALUES(?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE fuel_level=VALUES(fuel_level),cleanliness=VALUES(cleanliness),bodywork_damage=VALUES(bodywork_damage),items_in_vehicle=VALUES(items_in_vehicle),mileage=VALUES(mileage),observations=VALUES(observations),customer_signature=VALUES(customer_signature),inspected_by=VALUES(inspected_by),inspected_at=NOW()`,
       [
@@ -664,7 +670,7 @@ workshopRouter.post(
         value('cleanliness','cleanliness','Propreté',100,true),
         value('bodyworkDamage','bodywork_damage','Dommages carrosserie',5000),
         value('itemsInVehicle','items_in_vehicle','Objets dans le véhicule',5000),
-        null,
+        mileage,
         value('observations','observations','Observations',5000),
         null,
         r.user!.sub,

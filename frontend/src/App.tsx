@@ -36,6 +36,7 @@ const TreasuryPage=lazy(()=>import('./modules/treasury/TreasuryPage').then(modul
 const FinancialDashboardPage=lazy(()=>import('./modules/treasury/FinancialDashboardPage').then(module=>({default:module.FinancialDashboardPage})));
 const TreasurySectionPage=lazy(()=>import('./modules/treasury/TreasurySectionPage').then(module=>({default:module.TreasurySectionPage})));
 const TreasuryReconciliationPage=lazy(()=>import('./modules/treasury/TreasurySectionPage').then(module=>({default:module.TreasuryReconciliationPage})));
+const AccountingPage=lazy(()=>import('./modules/treasury/AccountingPage').then(module=>({default:module.AccountingPage})));
 const ReportsPage=lazy(()=>import('./modules/reports/ReportsPage').then(module=>({default:module.ReportsPage})));
 const DocumentsGedPage=lazy(()=>import('./modules/documents/DocumentsGedPage').then(module=>({default:module.DocumentsGedPage})));
 const HrAdministrationPage=lazy(()=>import('./modules/hr/HrAdministrationPage').then(module=>({default:module.HrAdministrationPage})));
@@ -114,6 +115,7 @@ export default function App() {
           <Route path="treasury/commitments" element={<PermissionGuard permission="treasury.coverage.view">{lazyPage(<TreasurySectionPage section="commitments" />)}</PermissionGuard>} />
           <Route path="treasury/reconciliation" element={<PermissionGuard permission="treasury.reconciliation.view">{lazyPage(<TreasuryReconciliationPage />)}</PermissionGuard>} />
           <Route path="treasury/settings" element={<ModuleGuard module="treasury">{lazyPage(<TreasurySectionPage section="settings" />)}</ModuleGuard>} />
+          <Route path="treasury/accounting" element={<PermissionGuard permission="accounting.chart.view">{lazyPage(<AccountingPage />)}</PermissionGuard>} />
           <Route path="reports" element={<ModuleGuard module="reports">{lazyPage(<ReportsPage />)}</ModuleGuard>} />
           <Route path="documents" element={<ModuleGuard module="documents">{lazyPage(<DocumentsGedPage />)}</ModuleGuard>} />
           <Route path="hr" element={<ModuleGuard module="hr">{lazyPage(<HrAdministrationPage />)}</ModuleGuard>} />

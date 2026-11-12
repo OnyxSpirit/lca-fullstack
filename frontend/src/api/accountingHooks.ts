@@ -1,0 +1,17 @@
+import{useMutation,useQuery,useQueryClient}from'@tanstack/react-query';
+import{apiRequest}from'../services/apiClient';
+export type AccountingAccount={id:string;number:string;label:string;accountClass:number;accountType:string;isReference:boolean;isPostable:boolean;isActive:boolean;parentId:string|null;parentNumber:string|null};
+export type FiscalRow={id:string;code:string;name:string;startDate:string;endDate:string;status:string;periodId:string|null;periodNumber:number|null;periodName:string|null;periodStart:string|null;periodEnd:string|null;periodStatus:string|null};
+export type Journal={id:string;code:string;name:string;journalType:string;isActive:boolean};
+export type Mapping={id:string;treasuryAccountId:string;treasuryAccountName:string;treasuryAccountType:string;currencyCode:string;accountingAccountId:string;accountingNumber:string;accountingLabel:string;agencyName:string|null;effectiveFrom:string;isActive:boolean};
+const useWrite=(path:string,method:'POST'|'PATCH'='POST')=>{const qc=useQueryClient();return useMutation({mutationFn:(body:any)=>apiRequest(path,{method,body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:['accounting']})})};
+export const useAccountingAccounts=(filters:Record<string,string>)=>useQuery({queryKey:['accounting','accounts',filters],queryFn:()=>apiRequest<{items:AccountingAccount[];total:number}>(`/accounting/accounts?${new URLSearchParams(filters)}`)});
+export const useCreateAccountingAccount=()=>useWrite('/accounting/accounts');
+export const useImportAccountingAccounts=()=>useWrite('/accounting/accounts/import');
+export const useFiscalYears=()=>useQuery({queryKey:['accounting','fiscal-years'],queryFn:()=>apiRequest<FiscalRow[]>('/accounting/fiscal-years')});
+export const useCreateFiscalYear=()=>useWrite('/accounting/fiscal-years');
+export const usePeriodStatus=(id:string)=>useWrite(`/accounting/periods/${id}/status`,'PATCH');
+export const useJournals=()=>useQuery({queryKey:['accounting','journals'],queryFn:()=>apiRequest<{items:Journal[];total:number}>('/accounting/journals?pageSize=100')});
+export const useCreateJournal=()=>useWrite('/accounting/journals');
+export const useMappings=()=>useQuery({queryKey:['accounting','mappings'],queryFn:()=>apiRequest<Mapping[]>('/accounting/mappings')});
+export const useCreateMapping=()=>useWrite('/accounting/mappings');

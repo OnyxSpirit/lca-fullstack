@@ -14,10 +14,10 @@ const seed:VehicleRow[]=[
   row('203',B1,'WVWZZZ1JZXW000003','VIN-B1'),
 ];
 function row(id:string,agency:string,vin:string,notes:string):VehicleRow{return{id,agency_id:agency,vin,stock_number:`STK-${id}`,registration_number:`REG-${id}`,status:'received',notes,created_by:U1,brand_id:'1',brand:'MarqueScope',model_id:'1',model:'ModeleScope',version_id:'1',version:'Runtime',agency_name:`Agence ${agency}`,purchase_price:10,sale_price:20,catalog_price:22,minimum_price:18,refurbishment_cost:1,transport_cost:1,administrative_cost:1,additional_costs:1,archived_at:null,location_id:null,vehicle_location_id:null,supplier_id:null,mileage:100,vehicle_type:'used',entry_date:'2026-01-01',created_at:'2026-01-01',updated_at:'2026-01-01'}}
-let vehicles:VehicleRow[]=[];let nextId=900,failMovementInsert=false,transactionSnapshot:VehicleRow[]=[];
+let vehicles:VehicleRow[]=[];let nextId=900,nextMovementId=5000,failMovementInsert=false,transactionSnapshot:VehicleRow[]=[],movements=new Map<string,{vehicleId:string;agencyId:string}>();
 const auth=new RbacTestSessionFixture(),app=createApp();
 const originalExecute=pool.execute.bind(pool),originalGetConnection=pool.getConnection.bind(pool);
-function reset(){vehicles=seed.map(item=>({...item}));nextId=900;failMovementInsert=false;transactionSnapshot=[]}
+function reset(){vehicles=seed.map(item=>({...item}));nextId=900;nextMovementId=5000;failMovementInsert=false;transactionSnapshot=[];movements=new Map()}
 function roleRows(userId:string){const role=auth.roles.get(auth.userRoles.get(userId)??'');return role?[{id:role.id,code:role.code,is_system:0}]:[]}
 function scoped(sql:string,params:unknown[],vehicle:VehicleRow,idFirst=false){
   const whereOffset=idFirst?(sql.slice(0,sql.indexOf('v.id=?')).match(/\?/g)??[]).length:0,offset=idFirst?whereOffset+1:0;
@@ -45,6 +45,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.startsWith('SELECT a.id,a.name,a.code,c.currency_code FROM agencies a JOIN concessions c')){
     const id=String(params[0]);return [{id,name:`Agence ${id}`,code:`A${id}`,currency_code:'XAF'}];
   }
+  if(sql.startsWith('SELECT c.id concession_id,c.name trade_name')){const id=String(params[0]);return[{concession_id:concession(id),trade_name:'Concession Test',legal_name:'Concession Test SA',legal_form:'SA',tax_identifier:'NIU-TEST',rccm:'RCCM-TEST',rib:null,website:null,concession_address:null,concession_city:'Brazzaville',country:'Congo',currency_code:'XAF',timezone:'Africa/Brazzaville',document_logo:null,document_logo_mime:null,agency_id:id,agency_name:`Agence ${id}`,agency_address:null,agency_city:'Brazzaville',phone:null,email:null}]}
   if(sql.includes('JOIN refresh_tokens rt'))return auth.authRows(params);
   if(sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles'))return roleRows(String(params[0]));
   if(sql.includes('SELECT p.code,rp.scope FROM role_permissions'))return auth.roles.get(String(params[0]))?.permissions??[];
@@ -64,6 +65,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.startsWith('SELECT DISTINCT m.id'))return[{id:1,brand_id:1,name:'ModeleScope'}];
   if(sql.startsWith('SELECT id FROM agencies WHERE id=? AND is_active=TRUE'))return [A1,A2,B1].includes(String(params[0]))?[{id:params[0]}]:[];
   if(sql.startsWith('UPDATE vehicles SET archived_at=')){const v=vehicles.find(x=>x.id===String(params[0]));if(v)v.archived_at='2026-09-26';return{affectedRows:v?1:0}}
+  if(sql.includes('FROM vehicle_movements vm JOIN vehicles v')){const movement=movements.get(String(params[0])),vehicle=movement&&vehicles.find(item=>item.id===movement.vehicleId);return movement&&vehicle?[{id:String(params[0]),vehicle_id:vehicle.id,stock_number:vehicle.stock_number,vin:vehicle.vin,movement_type:'entry',from_agency:null,to_agency:`Agence ${movement.agencyId}`,from_location:null,to_location:null,reason:'Entrée initiale en stock',performed_name:'Acteur Stock Test',moved_at:'2026-11-13',archive_agency_id:movement.agencyId}]:[]}
   return [];
 }
 async function connectionQuery(sql:string,params:unknown[]=[]):Promise<any>{
@@ -86,7 +88,8 @@ async function connectionQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.startsWith('SELECT id FROM vehicle_images WHERE'))return[{id:params[0]}];
   if(sql.startsWith('SELECT * FROM vehicle_images WHERE'))return[{id:params[0],vehicle_id:params[1],file_path:null,thumbnail_path:null,is_primary:0}];
   if(sql.startsWith('DELETE FROM vehicle_images')||sql.startsWith('UPDATE vehicle_images'))return{affectedRows:1};
-  if(sql.startsWith('INSERT INTO vehicle_movements')&&failMovementInsert)throw new Error('forced movement failure');
+  if(sql.startsWith('INSERT INTO vehicle_movements')){if(failMovementInsert)throw new Error('forced movement failure');const movementId=String(nextMovementId++),vehicleId=String(params[0]),agencyId=String(params[2]??params[4]??vehicles.find(item=>item.id===vehicleId)?.agency_id??A1);movements.set(movementId,{vehicleId,agencyId});return{insertId:Number(movementId),affectedRows:1}}
+  if(sql.startsWith('INSERT INTO documents'))return{insertId:9902,affectedRows:1};
   if(sql.startsWith('INSERT INTO')||sql.startsWith('UPDATE '))return{affectedRows:1};
   return domainQuery(sql,params);
 }

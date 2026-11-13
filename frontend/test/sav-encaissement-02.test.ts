@@ -25,7 +25,7 @@ test('SAV-ENCAISSEMENT-02 réserve formulaire, historique et reçu à Facturatio
 });
 
 test('SAV-ENCAISSEMENT-02 pending, erreur et reconstruction restent pilotés par mutation et serveur',()=>{
- assert.match(shared,/if\(payment\.isPending\)return/);assert.match(shared,/disabled=\{payment\.isPending\}/);assert.match(shared,/Encaissement impossible/);
+ assert.match(shared,/if\s*\(payment\.isPending\s*\|\|\s*uploading/);assert.match(shared,/disabled=\{payment\.isPending\}/);assert.match(shared,/Encaissement impossible/);
  assert.match(hooks,/qc\.invalidateQueries\(\{queryKey:erpKeys\.repairOrders\}\)/);assert.match(order,/useRepairDetailQuery\(id\)/);assert.match(invoice,/useInvoiceQuery/);assert.doesNotMatch(order,/useInvoicePaymentsQuery/);
 });
 

@@ -27,7 +27,7 @@ test("les listes principales RH et Treasury utilisent des paginations indépenda
   for (const [file, names] of [
     ["modules/hr/RemunerationsAdministration.tsx", ["remunerationPage"]],
     ["modules/treasury/BudgetTreasuryPanel.tsx", ["budgetPage", "requestPage"]],
-    ["modules/treasury/BankReconciliationPanel.tsx", ["statementPage", "linePage"]],
+    ["modules/treasury/BankReconciliationPanel.tsx", ["statementRows", "lines"]],
     ["modules/treasury/TreasuryFlowMappingsTable.tsx", ["mappingPage"]],
   ] as const) {
     const source = read(file);

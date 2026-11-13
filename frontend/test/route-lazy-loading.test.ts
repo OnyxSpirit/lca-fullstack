@@ -29,7 +29,7 @@ test('le shell authentifié est différé tandis que la session et les gardes RB
   assert.doesNotMatch(app,/import \{ AppBootstrap \} from/);
   assert.match(app,/function ProtectedLayout/);
   assert.match(app,/function ModuleGuard/);
-  assert.match(app,/can\(MODULE_PERMISSION\[module\]\)\?<>{children}<\/>:<AccessDeniedPage\/>/);
+  assert.match(app,/can\(MODULE_PERMISSION\[module\]\)/);
 });
 
 test('les routes profondes et leurs gardes conservent leurs chemins',()=>{

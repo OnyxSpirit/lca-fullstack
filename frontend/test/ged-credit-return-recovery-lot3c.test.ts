@@ -2,12 +2,12 @@ import assert from'node:assert/strict';
 import{readFileSync}from'node:fs';
 import test from'node:test';
 
-const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8'),hooks=read('../src/api/erpHooks.ts'),invoice=read('../src/modules/billing/InvoiceDetailPage.tsx'),returns=read('../src/modules/vehicle-returns/VehicleReturnPage.tsx');
+const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8'),hooks=read('../src/api/erpHooks.ts'),invoice=read('../src/modules/billing/InvoiceDetailPage.tsx')+read('../src/modules/billing/InvoicePaymentComponents.tsx'),returns=read('../src/modules/vehicle-returns/VehicleReturnPage.tsx');
 
 test('LOT3C expose état, PDF et reprise exceptionnelle des avoirs standards',()=>{
  assert.match(hooks,/archiveStatus:x\.archive_status/);assert.match(invoice,/businessArchiveStatusLabel\(item\.archiveStatus\)/);
  assert.match(invoice,/`\/credit-notes\/\$\{credit\.id\}\/pdf`/);assert.match(invoice,/`\/credit-notes\/\$\{credit\.id\}\/archive`/);
- assert.match(invoice,/canCancel&&recoverable/);assert.match(invoice,/disabled=\{!item\.archiveAvailable\}/);
+ assert.match(invoice,/canCancel\s*&&\s*recoverable/);assert.match(invoice,/disabled=\{!item\.archiveAvailable\}/);
 });
 
 test('LOT3C expose le PV et les avoirs du retour sans rejouer le workflow',()=>{

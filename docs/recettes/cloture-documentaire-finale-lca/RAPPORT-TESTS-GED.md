@@ -1,7 +1,9 @@
 # Tests GED
 
-Les mécanismes GED historiques ont été préservés : clé source unique, empreinte SHA, stockage contrôlé, reprise sur doublon et archives commerciales existantes.
+Les mécanismes GED historiques sont préservés : clé source unique, empreinte SHA-256, stockage contrôlé, agence, auteur, version et origine `generated`.
 
-Les nouveaux endpoints GET ne créent aucune archive, conformément à la séparation consultation/mutation.
+Le test MySQL `document-finalization-archive-mysql.integration.ts` a validé **12/12** archives officielles : remboursement, annulations paiement/facture/vente, essai, mouvement véhicule, réception et mouvement pièces, écriture comptable, relevé bancaire, contrôle qualité et restitution SAV. Pour chaque cas, le premier appel crée ou retrouve l’archive, le rejeu retourne le même identifiant avec `created=false`, et une seule ligne GED porte la clé source.
 
-Réserve majeure : les nouvelles archives ABS finalisées ne sont pas toutes branchées sur leurs transitions métier. L’idempotence et l’immuabilité de ces nouvelles archives ne peuvent donc pas être déclarées réussies. Les inventaires restent correctement non archivés.
+La campagne HTTP officielle a contrôlé que les 22 GET PDF laissent le compteur GED inchangé (**16 avant, 16 après**). Les inventaires restent correctement non archivés. L’accès anonyme renvoie 401 et l’accès croisé agence renvoie 404.
+
+Résultat : **FIN-001 clôturée**.

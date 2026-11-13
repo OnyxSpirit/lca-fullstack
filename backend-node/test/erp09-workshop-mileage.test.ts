@@ -16,5 +16,5 @@ test('REC09-KM verrouille le véhicule et préserve les rejouages',()=>{
   assert.match(routes,/WHERE v\.id=\? FOR UPDATE/);
   assert.match(routes,/if\(current===previous\)return/);
   assert.match(routes,/if\(existing\[0\]\)return/);
-  assert.match(routes,/if\(ro\.status==='delivered'\|\|ro\.status==='closed'\)return/);
+  assert.match(routes,/if\(ro\.status==='delivered'\|\|ro\.status==='closed'\).*return res\.json/s);
 });

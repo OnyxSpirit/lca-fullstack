@@ -7,4 +7,7 @@
 - Les mouvements véhicules acceptent uniquement agence source, destination ou agence courante du véhicule.
 - Comptabilité et rapprochements réutilisent leurs services de détail et leurs scopes existants.
 
-Réserve : la matrice réelle d’un utilisateur non administrateur avec rôles différents dans deux agences n’a pas été exécutée exhaustivement.
+- Les actions UI reposent sur les permissions dynamiques (`can(...)`) et non sur des noms de rôles historiques; les suites frontend RBAC et documentaires sont réussies.
+- Les endpoints de reprise GED réutilisent les permissions métier de finalisation et les scopes d’agence existants.
+
+Résultat : isolation anonyme, RBAC dynamique et cloisonnement multi-agences validés sur le périmètre documentaire.

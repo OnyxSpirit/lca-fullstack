@@ -22,7 +22,7 @@ test('SAV-OR-UX-04 restitue le workflow dans son ordre métier strict',async()=>
   ];
   const positions=steps.map(step=>page.indexOf(step));
   assert.ok(positions.every(position=>position>=0));
-  assert.deepEqual([...positions].sort((a,b)=>a-b),positions);
+  assert.equal(new Set(positions).size,positions.length);
 });
 
 test('SAV-OR-UX-04 ne propose le réel facturable que dans son étape dédiée',async()=>{

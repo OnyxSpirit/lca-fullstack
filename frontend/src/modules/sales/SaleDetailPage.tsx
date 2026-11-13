@@ -24,7 +24,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Card, CardHeader, CardTitle } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatCurrency, formatDate, formatDateTime } from '../../lib/utils';
-import { openBusinessPdf } from '../../services/businessPdf';
+import { openBusinessPdf, openOfficialPdf } from '../../services/businessPdf';
 import { useAuthStore } from '../../stores/authStore';
 import{businessArchiveStatusLabel}from'../../services/businessArchiveStatus';
 import {DeliveryFinancialAuthorizationPanel} from '../deliveries/DeliveryFinancialAuthorizationPanel';
@@ -102,6 +102,7 @@ export const SaleDetailPage: React.FC = () => {
             {next&&canConfirm&&<div title={financialBlocked?financialBlockReason:undefined}><Button variant="primary" size="sm" loading={saleStatus.isPending} disabled={financialBlocked} icon={<CheckCircle2 className="w-4 h-4" />} onClick={() => handleStatusChange(next)}>{nextLabel[next]}</Button></div>}
             {sale.status === 'PRET_LIVRAISON'&&canPlanDelivery&&<Button variant="success" size="sm" icon={<Truck className="w-4 h-4" />} onClick={() => navigate(`/deliveries?saleId=${encodeURIComponent(sale.id)}`)}>Planifier la livraison</Button>}
             {canCancelSale&&!['LIVRE','ANNULE'].includes(sale.status)&&<div title={cancellationBlocked?'Une vente encaissée ou engagée en livraison ne peut plus être annulée.':undefined}><Button variant="danger" size="sm" loading={saleStatus.isPending} disabled={cancellationBlocked} onClick={async()=>{const reason=await promptAction("Motif obligatoire d’annulation");if(reason?.trim())void handleStatusChange('ANNULE',reason.trim())}}>Annuler la vente</Button></div>}
+            {sale.status==='ANNULE'&&can('sales.view')&&<Button variant="outline" size="sm" icon={<FileText className="w-4 h-4"/>} onClick={()=>void openOfficialPdf(`/sales/${sale.id}/cancellation-pdf`,`annulation-vente-${sale.saleNumber}.pdf`).catch(error=>addToast({type:'error',title:'Justificatif indisponible',description:error instanceof Error?error.message:'Erreur API'}))}>Justificatif d’annulation</Button>}
           </div>
         }
       />

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 
-const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
+const raw=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8'),read=(path:string)=>raw(path)+(path.endsWith('InvoiceDetailPage.tsx')?raw('../src/modules/billing/InvoicePaymentComponents.tsx'):'');
 
 test('RBAC personnel utilise des rôles métier propres à chaque agence',()=>{
   const page=read('../src/modules/users/UsersManagementPage.tsx');
@@ -31,9 +31,9 @@ test('les actions commerciales sont pilotées uniquement par les permissions dyn
 
 test('PAY double clic désactive immédiatement la validation et conserve une intention',()=>{
   const page=read('../src/modules/billing/InvoiceDetailPage.tsx');
-  assert.match(page,/pending=action\.isPending/);
-  assert.match(page,/props\.type==='submit'&&pending/);
-  assert.match(page,/idempotencyKey:operationKey/);
+  assert.match(page,/payment\.isPending/);
+  assert.match(page,/disabled=\{payment\.isPending\}/);
+  assert.match(page,/idempotencyKey:\s*operationKey/);
   assert.match(page,/setOperationKey\(generateUuid\(\)\)/);
 });
 

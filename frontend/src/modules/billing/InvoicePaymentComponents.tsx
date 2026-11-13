@@ -11,6 +11,7 @@ import { formatCurrency, formatDateTime } from "../../lib/utils";
 import { generateUuid } from "../../lib/uuid";
 import { apiDownload, apiRequest } from "../../services/apiClient";
 import { businessArchiveStatusLabel } from "../../services/businessArchiveStatus";
+import { openOfficialPdf } from "../../services/businessPdf";
 import { useUiStore } from "../../stores/uiStore";
 import type { InvoicePayment } from "../../types";
 import { canCollectInvoicePayment } from "./invoicePaymentPolicy";
@@ -485,6 +486,29 @@ export const InvoicePaymentHistory: React.FC<{
                           Annuler
                         </Button>
                       )}
+                    {item.status === "cancelled" && (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() =>
+                          void openOfficialPdf(
+                            `/payments/${item.id}/cancellation-pdf`,
+                            `annulation-reglement-${item.paymentNumber}.pdf`,
+                          ).catch((error) =>
+                            toast({
+                              type: "error",
+                              title: "Justificatif indisponible",
+                              description:
+                                error instanceof Error
+                                  ? error.message
+                                  : "Erreur API",
+                            }),
+                          )
+                        }
+                      >
+                        Justificatif d’annulation
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

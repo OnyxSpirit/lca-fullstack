@@ -17,5 +17,5 @@ test('DOC-CPT-02 l’export collecte toutes les pages et bannit la coupe histori
  assert.match(route,/items\.length<first\.total/);
  assert.doesNotMatch(route,/slice\(0,1500\)/);
  assert.match(route,/grand-livre-comptable/);
- assert.match(route,/addWorksheet\(report==='ledger'\?'Grand livre':'Balance générale'\)/);
+ assert.match(route,/financialWorkbook\(\{sheetName:report==='ledger'\?'Grand livre':'Balance générale'/);
 });

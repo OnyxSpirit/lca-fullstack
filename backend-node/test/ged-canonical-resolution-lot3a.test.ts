@@ -35,7 +35,7 @@ test('LOT3A résolution canonique, fallback historique explicite et diagnostics 
 
   add('quotation:1:issued:v2','missing.pdf','canonical',3);files.delete('missing.pdf');
   assert.equal(await service.diagnoseBusinessArchive('quotation:1:issued:v2'),'FILE_MISSING');
-  await assert.rejects(()=>service.requiredHistoricalBusinessPdf('quotation:1:issued:v2','quotation:1:issued:'),/Fichier documentaire indisponible/,'aucun fallback si le canonique est illisible');
+  assert.equal((await service.requiredHistoricalBusinessPdf('quotation:1:issued:v2','quotation:1:issued:')).toString(),'legacy','un fichier canonique absent peut être repris depuis une version historique lisible');
 
   files.set('missing.pdf',{buffer:Buffer.from('canonical'),status:'STORAGE_UNAVAILABLE'});
   assert.equal(await service.diagnoseBusinessArchive('quotation:1:issued:v2'),'STORAGE_UNAVAILABLE');

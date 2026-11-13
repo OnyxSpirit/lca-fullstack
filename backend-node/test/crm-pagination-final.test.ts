@@ -15,10 +15,10 @@ test('CRM-PAG-13..15 applique scope et filtres avant agrégats puis un tri stabl
  assert.ok(route.indexOf('crmLeadScope')<route.indexOf('SELECT o.stage,COUNT(*) count'));
  assert.ok(route.indexOf('const where=')<route.indexOf('SELECT o.stage,COUNT(*) count'));
  assert.match(route,/ORDER BY l\.updated_at DESC,l\.id DESC LIMIT \? OFFSET \?/);
- assert.match(route,/response\.json\(paged\(rows\.map\(mapLead\),total,meta,\{stageSummary\}\)\)/);
+ assert.match(route,/response\.json\(paged\(rows\.map\(row=>mapLead\(row,request\)\),total,meta,\{stageSummary\}\)\)/);
 });
 
 test('le contrat historique du pipeline reste un tableau limité comme avant',()=>{
  const source=readFileSync(new URL('../src/modules/crm/crm.routes.ts',import.meta.url),'utf8');
- assert.match(source,/if\(!paginationRequested\).*LIMIT 200.*response\.json\(rows\.map\(mapLead\)\)/s);
+ assert.match(source,/if\(!paginationRequested\).*LIMIT 200.*response\.json\(rows\.map\(row=>mapLead\(row,request\)\)\)/s);
 });

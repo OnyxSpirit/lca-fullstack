@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   useBillingAction,
   useInvoicePaymentsQuery,
+  useInvoiceRefundsQuery,
   useInvoiceQuery,
 } from "../../api/erpHooks";
 import { PageHeader } from "../../components/common/PageHeader";
@@ -31,6 +32,7 @@ import {
 } from "./creditNoteValidation";
 import type { CreditNote, InvoicePayment } from "../../types";
 import { businessArchiveStatusLabel } from "../../services/businessArchiveStatus";
+import { openOfficialPdf } from "../../services/businessPdf";
 
 export const InvoiceDetailPage: React.FC = () => {
   const { id } = useParams(),
@@ -47,6 +49,7 @@ export const InvoiceDetailPage: React.FC = () => {
     canRefund = can("billing.payment.refund");
   const query = useInvoiceQuery(id, agencyId, canView),
     paymentsQuery = useInvoicePaymentsQuery(id, canViewPayments),
+    refundsQuery = useInvoiceRefundsQuery(id, canViewPayments),
     action = useBillingAction(),
     toast = useUiStore((s) => s.addToast);
   const [modal, setModal] = useState<"credit" | "cancel" | "">(""),
@@ -441,6 +444,27 @@ export const InvoiceDetailPage: React.FC = () => {
                     Annuler
                   </Button>
                 )}
+              {canView && invoice.status === "ANNULEE" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void openOfficialPdf(
+                      `/invoices/${id}/cancellation-pdf`,
+                      `annulation-facture-${invoice.invoiceNumber}.pdf`,
+                    ).catch((error) =>
+                      toast({
+                        type: "error",
+                        title: "Justificatif indisponible",
+                        description:
+                          error instanceof Error ? error.message : "Erreur API",
+                      }),
+                    )
+                  }
+                >
+                  Justificatif d’annulation
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -483,6 +507,48 @@ export const InvoiceDetailPage: React.FC = () => {
             onRefund={openRefund}
             onCancel={cancelPayment}
           />
+        </Card>
+      )}
+      {canViewPayments && Boolean(refundsQuery.data?.length) && (
+        <Card>
+          <h2 className="mb-3 font-bold">Remboursements</h2>
+          <div className="space-y-2">
+            {refundsQuery.data?.map((refund) => (
+              <div
+                key={refund.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-sm"
+              >
+                <div>
+                  <b>RMB-{refund.id}</b> · {refund.paymentNumber} · {refund.creditNoteNumber}
+                  <small className="block text-slate-500">
+                    {formatDateTime(refund.refundedAt)} · {refund.refundedByName || "—"} · {refund.reason}
+                  </small>
+                </div>
+                <div className="flex items-center gap-2">
+                  <b>{formatCurrency(refund.amount)}</b>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() =>
+                      void openOfficialPdf(
+                        `/payment-refunds/${refund.id}/pdf`,
+                        `remboursement-${refund.id}.pdf`,
+                      ).catch((error) =>
+                        toast({
+                          type: "error",
+                          title: "Justificatif indisponible",
+                          description:
+                            error instanceof Error ? error.message : "Erreur API",
+                        }),
+                      )
+                    }
+                  >
+                    Justificatif PDF
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
       {(canViewPayments || canCancel || canRefund) && (

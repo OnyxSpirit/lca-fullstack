@@ -72,6 +72,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   if(sql.startsWith('SELECT COUNT(*) total')&&sql.includes('FROM showroom_visits sv')){const rows=visits.filter(visit=>visible(sql,params,visit));return[{total:rows.length,waiting:rows.filter(row=>row.status==='waiting').length,assigned:rows.filter(row=>row.status==='assigned').length,in_progress:rows.filter(row=>row.status==='in_progress').length,completed:rows.filter(row=>row.status==='completed').length,cancelled:rows.filter(row=>row.status==='cancelled').length,average_wait_minutes:0,active_advisors:0,transformed:0,quotations:0}]}
   if(sql.includes('FROM showroom_visits sv'))return visits.filter(visit=>visible(sql,params,visit)).map(decorated);
   if(sql.includes('FROM showroom_test_drives td')&&sql.includes('WHERE td.visit_id=?'))return drives.filter(drive=>drive.visit_id===String(params[0]));
+  if(sql.includes('FROM showroom_test_drives td JOIN vehicles v')){const drive=drives.find(item=>item.id===String(params[0]));return drive?[{...drive,driver_name:'Conducteur test',driver_phone:null,license_number:'TEST',registration_number:`REG-${drive.vehicle_id}`,stock_number:`STK-${drive.vehicle_id}`,vin:'WVWZZZ1JZXW000001',mileage_in:110,started_at:'2026-11-13',returned_at:'2026-11-13',customer_feedback:'OK',advisor_name:'Conseiller test'}]:[]}
   if(sql.includes('FROM showroom_test_drives td JOIN showroom_visits sv')){
     const drive=drives.find(item=>item.id===String(params[0]));
     const allowed=drive&&(
@@ -106,6 +107,7 @@ async function domainQuery(sql:string,params:unknown[]=[]):Promise<any>{
   return [];
 }
 async function connectionExecute(sql:string,params:unknown[]=[]):Promise<any>{
+  if(sql.startsWith('INSERT INTO documents'))return{insertId:9901,affectedRows:1};
   if((sql.startsWith('SELECT agency_id,assigned_user_id,greeted_by,status FROM showroom_visits')||sql.startsWith('SELECT sv.* FROM showroom_visits sv')||sql.startsWith('SELECT * FROM showroom_visits WHERE'))&&sql.includes('FOR UPDATE')){
     const visit=visits.find(item=>item.id===String(params[0]));return visit?[visit]:[];
   }

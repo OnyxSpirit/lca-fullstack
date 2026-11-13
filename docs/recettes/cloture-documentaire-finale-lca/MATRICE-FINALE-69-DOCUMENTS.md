@@ -25,53 +25,53 @@ Abréviations : **C** conforme selon les preuves acquises, **P** partiel/réserv
 | DOC-019 | PV retour véhicule | PDF | C | archive clôture existante |
 | DOC-020 | Grand livre | PDF | C | harmonisé première mission |
 | DOC-021 | Balance | PDF | C | harmonisée première mission |
-| DOC-022 | Pilotage financier | PDF | P | migration complète vers socle non revalidée |
-| DOC-023 | Plan comptable | XLSX | P | réouverture exhaustive non rejouée |
-| DOC-024 | Écritures | XLSX | P | idem |
+| DOC-022 | Pilotage financier | PDF | C | campagne MySQL HTTP 200, PDF officiel |
+| DOC-023 | Plan comptable | XLSX | C | réouverture ExcelJS conforme |
+| DOC-024 | Écritures | XLSX | C | réouverture ExcelJS conforme |
 | DOC-025 | Grand livre | XLSX | C | corrigé première mission |
 | DOC-026 | Balance | XLSX | C | corrigée première mission |
-| DOC-027 | Pilotage synthétique | XLSX | P | campagne finale manquante |
-| DOC-028 | Pilotage détaillé | XLSX | P | campagne finale manquante |
-| DOC-029 | Facturation | CSV | P | campagne finale manquante |
-| DOC-030 | Journal trésorerie | CSV | P | campagne finale manquante |
-| DOC-031 | Rapprochement | CSV | P | campagne finale manquante |
-| DOC-032 | Plan comptable | CSV | P | campagne finale manquante |
-| DOC-033 | Écritures | CSV | P | campagne finale manquante |
+| DOC-027 | Pilotage synthétique | XLSX | C | réouverture ExcelJS conforme |
+| DOC-028 | Pilotage détaillé | XLSX | C | réouverture ExcelJS conforme |
+| DOC-029 | Facturation | CSV | C | campagne réelle UTF-8/BOM/CRLF/injection |
+| DOC-030 | Journal trésorerie | CSV | C | campagne réelle UTF-8/BOM/CRLF/injection |
+| DOC-031 | Rapprochement | CSV | C | campagne réelle UTF-8/BOM/CRLF/injection |
+| DOC-032 | Plan comptable | CSV | C | campagne réelle UTF-8/BOM/CRLF/injection |
+| DOC-033 | Écritures | CSV | C | campagne réelle UTF-8/BOM/CRLF/injection |
 | DOC-034 | Grand livre | CSV | C | protection `financialCsv` acquise |
 | DOC-035 | Balance | CSV | C | protection `financialCsv` acquise |
-| DOC-036 | Pilotage synthétique | CSV | P | campagne finale manquante |
-| DOC-037 | Pilotage détaillé | CSV | P | campagne finale manquante |
-| DOC-038 | Trésorerie reporting | CSV | P | francisation exhaustive non prouvée |
-| DOC-039 | Créances | CSV | P | idem |
-| DOC-040 | Budgets | CSV | P | idem |
-| DOC-041 | Fournisseurs | CSV | P | idem |
-| DOC-042 | Rémunérations | CSV | P | idem |
-| DOC-043 | Couverture | CSV | P | idem |
-| DOC-044 | Synthèse ERP | CSV | P | idem |
-| DOC-045 | Ventes | CSV | P | idem |
-| DOC-046 | Finance | CSV | P | idem |
-| DOC-047 | Stock véhicules | CSV | P | idem |
-| DOC-048 | Atelier | CSV | P | idem |
-| DOC-049 | Pièces | CSV | P | idem |
+| DOC-036 | Pilotage synthétique | CSV | C | campagne réelle conforme |
+| DOC-037 | Pilotage détaillé | CSV | C | campagne réelle conforme |
+| DOC-038 | Trésorerie reporting | CSV | C | campagne réelle conforme |
+| DOC-039 | Créances | CSV | C | campagne réelle conforme |
+| DOC-040 | Budgets | CSV | C | campagne réelle conforme |
+| DOC-041 | Fournisseurs | CSV | C | campagne réelle conforme |
+| DOC-042 | Rémunérations | CSV | C | campagne réelle conforme |
+| DOC-043 | Couverture | CSV | C | campagne réelle conforme |
+| DOC-044 | Synthèse ERP | CSV | C | campagne réelle conforme |
+| DOC-045 | Ventes | CSV | C | campagne réelle conforme |
+| DOC-046 | Finance | CSV | C | campagne réelle conforme |
+| DOC-047 | Stock véhicules | CSV | C | campagne réelle conforme |
+| DOC-048 | Atelier | CSV | C | campagne réelle conforme |
+| DOC-049 | Pièces | CSV | C | campagne réelle conforme |
 | DOC-050 | Pièce GED utilisateur | original | NA | contenu externe |
 | DOC-051 | Pièce remise livraison | original | NA | contenu externe |
 | ABS-001 | Fiche prospect | PDF | C | MySQL 200, RBAC agence/OWN, UI CRM |
 | ABS-002 | Fiche client | PDF | C | MySQL 200, UI client |
 | ABS-003 | Fiche visite | PDF | C | MySQL 200, UI détail showroom |
-| ABS-004 | Fiche essai | PDF | P | MySQL/UI OK, archive finale absente |
+| ABS-004 | Fiche essai | PDF | C | MySQL/UI/GED idempotente |
 | ABS-005 | Inventaire véhicules | PDF | C | instantané non GED, UI stock |
-| ABS-006 | Mouvement véhicule | PDF | P | MySQL/UI OK, archive finale absente |
-| ABS-007 | Remboursement | PDF | P | MySQL OK, archive/UI exhaustive manquantes |
-| ABS-008 | Annulation | PDF | P | facture/vente/paiement MySQL OK, GED/UI incomplets |
+| ABS-006 | Mouvement véhicule | PDF | C | MySQL/UI/GED idempotente |
+| ABS-007 | Remboursement | PDF | C | MySQL/UI/GED idempotente |
+| ABS-008 | Annulation | PDF | C | 3 variantes MySQL, UI et GED idempotentes |
 | ABS-009 | Diagnostic | PDF | C | MySQL 200, UI OR |
-| ABS-010 | Contrôle qualité | PDF | P | MySQL/UI OK, GED manquante |
-| ABS-011 | Restitution | PDF | P | MySQL/UI/visuel OK, GED manquante |
+| ABS-010 | Contrôle qualité | PDF | C | MySQL/UI/GED idempotente |
+| ABS-011 | Restitution | PDF | C | MySQL/UI/visuel/GED idempotente |
 | ABS-012 | Demande pièces | PDF | C | MySQL 200, UI demande atelier |
-| ABS-013 | Commande/réception pièces | PDF | P | deux variantes MySQL OK, UI/GED incomplets |
-| ABS-014 | Sortie/retour pièces | PDF | P | MySQL OK, UI/GED incomplets |
+| ABS-013 | Commande/réception pièces | PDF | C | deux variantes MySQL, UI et GED réception |
+| ABS-014 | Sortie/retour pièces | PDF | C | MySQL/UI/GED mouvement |
 | ABS-015 | Inventaire/transfert pièces | PDF | C | inventaire instantané UI/MySQL |
 | ABS-016 | Journal comptable | PDF | C | MySQL 200, UI journaux |
-| ABS-017 | Pièce comptable | PDF | P | MySQL/UI OK, archive comptabilisation absente |
-| ABS-018 | Rapprochement | PDF | P | MySQL/UI OK, archive validation absente |
+| ABS-017 | Pièce comptable | PDF | C | MySQL/UI/GED comptabilisation |
+| ABS-018 | Rapprochement | PDF | C | MySQL/UI/GED validation |
 
-Les permissions, endpoints et scopes détaillés sont consignés dans la matrice de la deuxième intervention.
+Verdict : **67 entrées générées par l’ERP conformes** et **2 pièces externes classées NA**. Aucun statut partiel ne subsiste.

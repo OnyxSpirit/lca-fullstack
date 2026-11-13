@@ -19,4 +19,8 @@ Pour chaque action, se connecter, sélectionner l’agence puis ouvrir l’objet
 | ABS-017 | Comptabilité > Écritures > détail | `accounting.entry.view` | Pièce PDF |
 | ABS-018 | Trésorerie > Rapprochements | `treasury.reconciliation.export` | Rapprochement PDF |
 
-Attendre un PDF A4 avec identité, NIU et pagination. Un objet inexistant/hors agence doit répondre 404; une permission absente 403; une session absente 401. Les inventaires ne doivent pas créer d’archive GED. Ne pas valider la GED des autres familles tant que les raccordements de transition ne sont pas achevés.
+Attendre un PDF A4 avec identité, NIU et pagination. Un objet inexistant ou hors agence doit répondre 404, une permission absente 403 et une session absente 401. Les inventaires restent des instantanés et ne créent pas d’archive GED.
+
+Pour une transition finalisée (essai, mouvement, remboursement/annulation, contrôle qualité, restitution, réception ou mouvement pièces, écriture comptable, relevé bancaire), vérifier dans la GED une archive `generated`, son agence, son auteur, son empreinte SHA-256 et sa référence métier. Rejouer la finalisation : le même document doit être retourné sans doublon. Un simple GET PDF ne doit jamais augmenter le nombre de lignes GED.
+
+Pour DOC-023 à DOC-028, ouvrir le fichier dans Excel/LibreOffice et vérifier feuille nommée, en-tête en gras, filtre et volet figé. Pour DOC-029 à DOC-049, vérifier UTF-8 avec BOM, séparateur `;`, fins de ligne CRLF et neutralisation des cellules commençant par `=`, `+`, `-` ou `@`.

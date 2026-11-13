@@ -662,15 +662,11 @@ deliveryRouter.post(
         request.body.signatureData,
         "Signature",
         2_000_000,
-        true,
-      )!,
+      ),
       consent = text(request.body.consentText, "Consentement", 500, true)!;
     const requestedStampId=request.body.serviceStampId==null||request.body.serviceStampId===''?null:idOf(request.body.serviceStampId);
-    if (
-      !signature.startsWith("data:image/png;base64,") ||
-      signature.length < 200
-    )
-      throw new HttpError(400, "Une signature manuscrite PNG est requise");
+    if (signature&&(!signature.startsWith("data:image/png;base64,")||signature.length<200))
+      throw new HttpError(400, "Le fac-similé de signature doit être une image PNG valide");
     const requestedMileage=request.body.mileageAtDelivery;
     const signedAt=new Date(),signedAtSql=signedAt.toISOString().slice(0,19).replace('T',' ');
     let archiveAbsolute:string|null=null;let result:{duplicate:boolean;agencyId:string;deliveryNumber:string;documentId?:string};try{result=await withCurrentAgencyBusinessAuthorization(request,'delivery.complete',async connection=>{
@@ -693,7 +689,7 @@ deliveryRouter.post(
       if(vehicle.status!=='sold')throw new HttpError(409,`Le statut actuel du véhicule (${vehicle.status}) est incompatible avec la livraison`);
       const mileage=assertHandoverMileage(vehicle.mileage,requestedMileage);
       await activateAtDelivery(connection,{saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),mileage,signedAt:signedAtSql,userId:request.user!.sub});
-      const hash=deliverySignatureHash({deliveryId:id,saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),signer,mileage,signedAt:signedAt.toISOString(),signature});
+      const hash=deliverySignatureHash({deliveryId:id,saleId:String(delivery.sale_id),vehicleId:String(delivery.vehicle_id),signer,mileage,signedAt:signedAt.toISOString(),signature:signature??''});
       await connection.execute('INSERT INTO delivery_signatures(delivery_id,signer_name,signed_by,user_signature_version_id,service_stamp_version_id,signature_data,consent_text,document_hash,signed_at,ip_address) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,signer,request.user!.sub,userSignatureVersionId,serviceStampVersionId,signature,consent,hash,signedAtSql,request.ip??null]);
       await connection.execute("UPDATE deliveries SET status='delivered',delivered_at=?,mileage_at_delivery=? WHERE id=?",[signedAtSql,mileage,id]);
       await connection.execute("UPDATE sales SET status='delivered',sold_at=COALESCE(sold_at,?) WHERE id=?",[signedAtSql,delivery.sale_id]);

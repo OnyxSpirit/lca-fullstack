@@ -51,7 +51,8 @@ export function drawSection(doc:PDFKit.PDFDocument,title:string,y:number){
 
 export function documentFooterLines(identity:any){
   const website=documentText(identity.website).replace(/^https?:\/\//i,'').replace(/\/$/,'');
-  const legal=[["RCCM",identity.rccm],["NIU",identity.taxIdentifier],["RIB",identity.rib],["Site web",website]].flatMap(([label,value])=>{const clean=documentText(value);return clean?[`${label} : ${clean}`]:[]}).join(' • ');
+  const company=[documentText(identity.legalName||identity.tradeName),documentText(identity.legalForm)].filter(Boolean).join(' — ');
+  const legal=[company,...[["RCCM",identity.rccm],["NIU",identity.taxIdentifier],["RIB",identity.rib],["Site web",website]].flatMap(([label,value])=>{const clean=documentText(value);return clean?[`${label} : ${clean}`]:[]})].filter(Boolean).join(' • ');
   const address=[identity.agencyAddress||identity.concessionAddress,identity.agencyCity||identity.concessionCity].filter(Boolean).map(documentText).join(', ');
   const contact=[["Adresse",address],["Tél.",identity.phone]].flatMap(([label,value])=>{const clean=documentText(value);return clean?[`${label} : ${clean}`]:[]}).join(' • ');
   return{legal,contact};

@@ -6,6 +6,7 @@ import{useUiStore}from'../../stores/uiStore';
 import{Modal}from'../../components/ui/Modal';
 import{Button}from'../../components/ui/Button';
 import{selectCustomerVehicle,vehiclesForRepairOrderMode}from'./repairOrderVehicleSelection';
+import{normalizeVinInput}from'../vehicles/vehicleVin';
 
 interface Props{isOpen:boolean;onClose:()=>void;initialCustomerId?:string;initialVehicleId?:string}
 type Mode='internal'|'external';
@@ -56,7 +57,7 @@ export const NewRepairOrderModal:React.FC<Props>=({isOpen,onClose,initialCustome
  const continueWithNewCustomer=()=>{setConfirmedCustomer(null);setCustomerDecision('new');setForm(current=>({...current,customerId:'',customerName:customerForm.type==='Professionnel'?customerForm.company.trim():`${customerForm.firstName} ${customerForm.lastName}`.trim(),vehicleId:''}));setCustomerError('')};
  const useExternalVehicle=(vehicle:WorkshopVehicleMatch)=>{setConfirmedVehicle(vehicle);setVehicleDecision('existing');setConflict(null)};
  const updateCustomerForm=(change:Partial<CustomerForm>)=>{setCustomerForm(current=>({...current,...change}));setCustomerDecision('pending');setConfirmedCustomer(null)};
- const updateExternalForm=(change:Partial<ExternalForm>)=>{setExternalForm(current=>({...current,...change}));if(change.vin!==undefined||change.registrationNumber!==undefined){setVehicleDecision('new');setConfirmedVehicle(null)}};
+ const updateExternalForm=(change:Partial<ExternalForm>)=>{const normalized=change.vin===undefined?change:{...change,vin:normalizeVinInput(change.vin)};setExternalForm(current=>({...current,...normalized}));if(change.vin!==undefined||change.registrationNumber!==undefined){setVehicleDecision('new');setConfirmedVehicle(null)}};
 
  const validateNewCustomer=()=>{if(customerForm.type==='Particulier'&&!customerForm.lastName.trim())return'Le nom est obligatoire.';if(customerForm.type==='Professionnel'&&!customerForm.company.trim())return'La raison sociale est obligatoire.';if(!customerForm.phone.trim()&&!customerForm.email.trim())return'Un téléphone ou une adresse e-mail est requis.';return''};
  const ensureExternalCustomer=async():Promise<RepairOrderCustomerOption>=>{if(customerDecision==='existing'&&confirmedCustomer)return confirmedCustomer;if(customerDecision!=='new')throw new Error('Confirmez un client existant ou choisissez de continuer avec un nouveau client.');const validation=validateNewCustomer();if(validation)throw new Error(validation);if(!canCreateCustomer)throw new Error('Vous ne disposez pas de la permission de créer un client.');const created=await createCustomer.mutateAsync({customerType:customerForm.type==='Particulier'?'individual':'company',civility:customerForm.civility,firstName:customerForm.firstName,lastName:customerForm.lastName,companyName:customerForm.company||undefined,email:customerForm.email,phone:customerForm.phone,city:customerForm.city,country:'Congo',agencyId:currentAgency?.id});return{id:created.id,code:created.code,civility:created.civility??'',firstName:created.firstName??'',lastName:created.lastName??'',companyName:created.company??'',phone:created.phone??'',email:created.email??'',agencyId:created.agencyId??currentAgency!.id}};

@@ -2,7 +2,7 @@ import assert from'node:assert/strict';
 import test from'node:test';
 import type{Request}from'express';
 import type{RowDataPacket}from'mysql2/promise';
-import{assertAgencyAccess,assertAgencyBusinessPermission,assertAgencyPermission,assertAgencyResource,assertAnyAgencyPermission,assertCentralAgencyPermission,assertInterAgencyAuthorization,authorizeAgencyResource,resolveAgencyDataScope,type AuthorizationRunner}from'../src/modules/rbac/agency-authorization.js';
+import{assertAgencyAccess,assertAgencyBusinessPermission,assertAgencyPermission,assertAgencyResource,assertAnyAgencyBusinessPermission,assertAnyAgencyPermission,assertCentralAgencyPermission,assertInterAgencyAuthorization,authorizeAgencyResource,resolveAgencyDataScope,type AuthorizationRunner}from'../src/modules/rbac/agency-authorization.js';
 import{HttpError}from'../src/shared/http-error.js';
 
 const request=(permissions:Record<string,any>,agency='10',superAdmin=false)=>({user:{sub:'7',sid:'session',email:'x@test',roles:[],agencyId:'99'},agencyRbac:{userId:'7',sessionId:'session',activeAgencyId:agency,contextVersion:3,isSuperAdmin:superAdmin,agencies:[],roles:[],permissions:new Map(Object.entries(permissions))}})as unknown as Request;
@@ -12,6 +12,14 @@ test('PH2C2A permissions agence explicites sans héritage historique',async()=>{
  const r=request({read:'AGENCY',own:'OWN',historic:'GLOBAL'});assert.equal(await assertAgencyPermission(r,'read'),'AGENCY');assert.equal(await assertAgencyBusinessPermission(r,'own'),'OWN');assert.deepEqual(await assertAnyAgencyPermission(r,['missing','own']),{permission:'own',scope:'OWN'});
  await assert.rejects(()=>assertAgencyPermission(r,'missing'),(e:any)=>e instanceof HttpError&&e.status===403);
  await assert.rejects(()=>assertAgencyBusinessPermission(r,'historic'),/OWN ou AGENCY/);
+});
+
+test('le Super Administrateur exerce une permission globale comme AGENCY dans les modules métier migrés',async()=>{
+ const direct=request({'customers.view':'GLOBAL','vehicles.view':'GLOBAL'},'10',true);
+ assert.equal(await assertAgencyBusinessPermission(direct,'customers.view'),'AGENCY');
+ assert.equal(direct.agencyRbac!.permissions.get('customers.view'),'AGENCY');
+ assert.deepEqual(await assertAnyAgencyBusinessPermission(direct,['missing','vehicles.view']),{permission:'vehicles.view',scope:'AGENCY'});
+ assert.equal(direct.agencyRbac!.permissions.get('vehicles.view'),'AGENCY');
 });
 
 test('PH2C2A compatibilité de ressource 2B refuse agence et propriétaire falsifiés',async()=>{

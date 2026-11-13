@@ -34,7 +34,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { VehicleStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { apiDownload } from '../../services/apiClient';
-import { openBusinessPdf } from '../../services/businessPdf';
+import { openBusinessPdf, openOfficialPdf } from '../../services/businessPdf';
 import { UploadModal } from '../documents/DocumentsGedPage';
 import { DocumentPreview, type PreviewDocument } from '../documents/DocumentPreview';
 import { VehicleTransferModal } from './VehicleTransferModal';
@@ -404,7 +404,7 @@ export const VehicleDetailPage: React.FC = () => {
           </CardHeader>
           <div className="space-y-4 text-xs">
             {vehicleQuery.data?.statusHistory?.map((event:any)=><div key={`status-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-red-100 text-red-800 flex items-center justify-center shrink-0 font-bold">●</div><div><div className="font-bold text-slate-900">Statut : {event.old_status||'entrée'} → {event.new_status}</div><p className="text-slate-500 text-[11px]">{event.reason||'Changement de statut'} · {event.changed_by_name||'Système'}</p><span className="text-[10px] text-slate-400">{formatDate(event.changed_at)}</span></div></div>)}
-            {vehicleQuery.data?.movements?.map((event:any)=><div key={`movement-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shrink-0"><ArrowRight className="w-4 h-4"/></div><div><div className="font-bold text-slate-900">Mouvement : {event.movement_type}</div><p className="text-slate-500 text-[11px]">{event.from_location_name||event.from_agency_name||'Non affecté'} → {event.to_location_name||event.to_agency_name||'Non affecté'}</p><p className="text-[11px] text-slate-500">{event.reason||'Sans motif'} · {event.performed_by_name||'Système'}</p><span className="text-[10px] text-slate-400">{formatDate(event.moved_at)}</span></div></div>)}
+            {vehicleQuery.data?.movements?.map((event:any)=><div key={`movement-${event.id}`} className="flex gap-4 items-start"><div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shrink-0"><ArrowRight className="w-4 h-4"/></div><div><div className="font-bold text-slate-900">Mouvement : {event.movement_type}</div><p className="text-slate-500 text-[11px]">{event.from_location_name||event.from_agency_name||'Non affecté'} → {event.to_location_name||event.to_agency_name||'Non affecté'}</p><p className="text-[11px] text-slate-500">{event.reason||'Sans motif'} · {event.performed_by_name||'Système'}</p><span className="text-[10px] text-slate-400">{formatDate(event.moved_at)}</span><Button size="xs" variant="outline" className="ml-2" onClick={()=>void openOfficialPdf(`/vehicle-movements/${event.id}/pdf`,`mouvement-vehicule-${event.id}.pdf`)}>Bon PDF</Button></div></div>)}
             {!vehicleQuery.data?.statusHistory?.length&&!vehicleQuery.data?.movements?.length&&<p className="text-slate-500">Aucun historique enregistré.</p>}
           </div>
         </Card>

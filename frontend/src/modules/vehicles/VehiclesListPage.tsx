@@ -25,6 +25,7 @@ import { VehicleStatus, FuelType } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { NewVehicleModal } from './NewVehicleModal';
 import { implicitVehicleAgencyFilter } from './vehicleScopePolicy';
+import { openOfficialPdf } from '../../services/businessPdf';
 import {CommercialCatalogPage} from './CommercialCatalogPage';
 
 export const VehiclesListPage: React.FC = () => {
@@ -101,6 +102,7 @@ export const VehiclesListPage: React.FC = () => {
               </button>
             </div>
 
+            <Button variant="outline" size="sm" onClick={()=>void openOfficialPdf(`/vehicles/inventory/pdf${selectedStatus==='ALL'?'':`?status=${encodeURIComponent(selectedStatus)}`}`,'inventaire-vehicules.pdf')}>Inventaire PDF</Button>
             {canCreate&&<Button
               variant="primary"
               size="sm"

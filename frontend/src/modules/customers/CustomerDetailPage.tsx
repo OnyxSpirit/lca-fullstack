@@ -27,6 +27,7 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { Modal } from '../../components/ui/Modal';
 import { useEntityDocuments } from '../../api/documentHooks';
 import { apiDownload } from '../../services/apiClient';
+import { openOfficialPdf } from '../../services/businessPdf';
 import { useAuthStore } from '../../stores/authStore';
 import {CUSTOMER_360_PAGE_SIZES,newCustomer360Pages,synchronizeCustomer360Pages,type Customer360PageKey} from './customer360Pagination';
 import { quotationStatusLabel } from '../../lib/userFacingLabels';
@@ -103,6 +104,7 @@ export const CustomerDetailPage: React.FC = () => {
         badge={<Badge variant={customer.type === 'Professionnel' ? 'primary' : 'default'} size="md">{customer.type}</Badge>}
         actions={
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={()=>void openOfficialPdf(`/customers/${customer.id}/official-pdf`,`fiche-client-${customer.code}.pdf`)}>Fiche PDF</Button>
             {canCreateRepairOrder&&<Button
               variant="outline"
               size="sm"

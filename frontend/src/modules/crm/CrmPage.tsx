@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useCancelCrmAppointment, useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCreateProforma, useCrmTeamMembersQuery, useKanbanColumnsQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useRetryQuotationArchive, useUpdateCrmAppointment, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
+import { openOfficialPdf } from '../../services/businessPdf';
 import { useUiStore } from '../../stores/uiStore';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -433,6 +434,7 @@ export const CrmPage: React.FC = () => {
               </div>
 
               <div className="flex gap-2">
+                <Button size="xs" variant="outline" onClick={()=>void openOfficialPdf(`/leads/${selectedLead.id}/official-pdf`,`fiche-prospect-${selectedLead.id}.pdf`)}>Imprimer la fiche</Button>
                 {(canUpdateLead||canAssignLead)&&<Button size="xs" variant="outline" onClick={async()=>{setEditLead(selectedLead);setSelectedLead(null)}}>{canUpdateLead?'Modifier':'Affecter'}</Button>}
                 <a
                   href={`tel:${selectedLead.phone}`}

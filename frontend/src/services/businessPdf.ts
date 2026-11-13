@@ -22,3 +22,10 @@ export async function openDeliveryPlanningPdf(date: string) {
   window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+
+export async function openOfficialPdf(endpoint:string,downloadName='document-officiel.pdf'){
+  const blob=await apiDownload(endpoint),url=URL.createObjectURL(blob);
+  const target=window.open(url,'_blank','noopener,noreferrer');
+  if(!target){const a=document.createElement('a');a.href=url;a.download=downloadName;a.click()}
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}

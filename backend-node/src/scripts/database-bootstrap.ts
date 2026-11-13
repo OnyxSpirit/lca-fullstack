@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
-import {ensureMigrationStepJournal,executeResilientMigration,migrationChecksum,migrationLockName,splitSqlStatements,type MigrationFaultHook} from './mysql-migration-runner.js';
+import {ensureMigrationStepJournal,executeResilientMigration,historicalMigrationCompatibility,migrationChecksum,migrationLockName,splitSqlStatements,type MigrationFaultHook} from './mysql-migration-runner.js';
 
 export const FRESH_BASELINE_VERSION=71;
 export const FRESH_BASELINE_NAME=`baseline_001_${String(FRESH_BASELINE_VERSION).padStart(3,'0')}`;
@@ -46,7 +46,9 @@ export async function bootstrapDatabase(options:{faultHook?:MigrationFaultHook}=
   let migrationLock=false;
   try{
     const lockName=migrationLockName(process.env.DB_NAME??'');
-    const[locks]=await connection.execute<RowDataPacket[]>('SELECT GET_LOCK(?,30) acquired',[lockName]);
+    const lockTimeout=Math.max(1,Number(process.env.MIGRATION_LOCK_TIMEOUT_SECONDS??300));
+    if(!Number.isFinite(lockTimeout))throw new Error('MIGRATION_LOCK_TIMEOUT_INVALID: MIGRATION_LOCK_TIMEOUT_SECONDS doit être un nombre positif');
+    const[locks]=await connection.execute<RowDataPacket[]>('SELECT GET_LOCK(?,?) acquired',[lockName,lockTimeout]);
     if(Number(locks[0]?.acquired)!==1)throw new Error('MIGRATION_LOCK_TIMEOUT: un autre runner détient le verrou de migration');
     migrationLock=true;
     const[tables]=await connection.query<RowDataPacket[]>(`SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'`);
@@ -78,11 +80,18 @@ export async function bootstrapDatabase(options:{faultHook?:MigrationFaultHook}=
     const names=futureMigrationNames(await readdir(databasePath('migrations')));
     const futureVersions=names.map(versionOf);
     if(new Set(futureVersions).size!==futureVersions.length)throw new Error('DUPLICATE_MIGRATION_VERSION: une seule migration est autorisée par numéro.');
+    const warnings:string[]=[],driftedMigrations:Array<{filename:string;sql:string}>=[];
     for(const row of versions){
       const version=Number(row.version),name=String(row.name);if(isConsolidatedBaselineName(name)||baselineVersion!=null&&version<=baselineVersion)continue;
       const filename=names.find(candidate=>versionOf(candidate)===version);if(!filename)continue;
       const sql=await readFile(databasePath(`migrations/${filename}`),'utf8');
-      if(String(row.checksum)!==migrationChecksum(sql))throw new Error(`MIGRATION_CHECKSUM_MISMATCH: ${filename} diffère du fichier déjà appliqué`);
+      if(String(row.checksum)!==migrationChecksum(sql)){
+        const compatibility=await historicalMigrationCompatibility(connection,sql);
+        driftedMigrations.push({filename,sql});
+        const detail=compatibility.compatible?'schéma compatible':`écart de schéma détecté (${compatibility.incompatibilities.map(x=>`étape ${x.step}: ${x.state}`).join(', ')}), une migration additive en attente peut le réparer`;
+        const warning=`MIGRATION_CHECKSUM_WARNING: ${filename} diffère du fichier déjà appliqué; ${detail}; aucune réexécution`;
+        warnings.push(warning);console.warn(warning);
+      }
     }
     for(const name of names){
       const version=versionOf(name);if(!shouldApplyMigration(version,applied,baselineVersion))continue;
@@ -91,8 +100,10 @@ export async function bootstrapDatabase(options:{faultHook?:MigrationFaultHook}=
       await executeResilientMigration(connection,{version,name,sql},options.faultHook);
       applied.add(version);
     }
+    for(const drift of driftedMigrations){const compatibility=await historicalMigrationCompatibility(connection,drift.sql);if(!compatibility.compatible)throw new Error(`MIGRATION_SCHEMA_INCOMPATIBLE: ${drift.filename} reste incompatible après les migrations additives (${compatibility.incompatibilities.map(x=>`étape ${x.step}: ${x.state}`).join(', ')}); correction additive requise`)}
     await ensureSystemPermissionAdministration(connection);
-    return {state,version:Math.max(...applied),migrations:names};
+    console.log(`Résumé migrations: niveau ${Math.max(...applied)}, ${warnings.length} avertissement(s) historique(s)`);
+    return {state,version:Math.max(...applied),migrations:names,warnings};
   }finally{
     if(migrationLock)await connection.execute('SELECT RELEASE_LOCK(?)',[migrationLockName(process.env.DB_NAME??'')]).catch(()=>undefined);
     await connection.end();

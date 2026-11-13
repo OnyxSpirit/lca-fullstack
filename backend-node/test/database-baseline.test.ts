@@ -95,13 +95,14 @@ test('BOOT-09C baseline 53 applique 054 à 056',()=>{const applied=new Set([53])
 test('BOOT-09D baseline 55 applique seulement 056',()=>{const applied=new Set([55]);assert.deepEqual([54,55,56].filter(v=>shouldApplyMigration(v,applied,55)),[56])});
 test('BOOT-10 baseline 60 tolère une trace individuelle redondante',()=>{const applied=new Set([34,60]);for(let version=34;version<=60;version++)assert.equal(shouldApplyMigration(version,applied,60),false)});
 
-test('BOOTSTRAP-05/06/07 les protections checksum et DDL partielle restent actives',()=>{
+test('BOOTSTRAP-05/06/07 les dérives checksum compatibles avertissent et les incompatibilités DDL bloquent',()=>{
   const runner=read('backend-node/src/scripts/mysql-migration-runner.ts'),bootstrap=read('backend-node/src/scripts/database-bootstrap.ts');
   assert.match(runner,/DROP\\s\+FOREIGN\\s\+KEY/);
   assert.match(runner,/previous\.statement_checksum!==statementHash.*MIGRATION_CHECKSUM_MISMATCH/s);
   assert.match(runner,/previous\?\.status==='FAILED_PARTIAL'.*MIGRATION_FAILED_PARTIAL/s);
   assert.match(runner,/markFailed[\s\S]*MIGRATION_FAILED_PARTIAL/);
-  assert.match(bootstrap,/String\(row\.checksum\)!==migrationChecksum\(sql\).*MIGRATION_CHECKSUM_MISMATCH/s);
+  assert.match(bootstrap,/String\(row\.checksum\)!==migrationChecksum\(sql\).*historicalMigrationCompatibility.*MIGRATION_CHECKSUM_WARNING/s);
+  assert.match(bootstrap,/driftedMigrations[\s\S]*MIGRATION_SCHEMA_INCOMPATIBLE/);
   assert.equal(isConsolidatedBaselineName('baseline_001_046'),true);
   assert.equal(isConsolidatedBaselineName('047_warranty_manufacturer_lifecycle_foundation.sql'),false);
 });

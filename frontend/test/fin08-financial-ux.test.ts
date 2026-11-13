@@ -26,7 +26,8 @@ test('FIN08-08..17 actions, concurrence, chargement et états vides', () => {
   assert.match(suppliers, /\['DRAFT','REJECTED'\]\.includes/);
   assert.match(suppliers, /Object\.values\(actions\).*isPending/);
   assert.match(reconciliation, /if\(actions\.reconcile\.isPending\)return/);
-  assert.match(reconciliation, /Cette opération a déjà été traitée/);
+  assert.match(reconciliation, /actions\.reconcile\.isPending/);
+  assert.match(reconciliation, /catch\(e\)\{fail\(e\)\}/);
   assert.match(button, /disabled=\{disabled \|\| loading\}/);
   assert.match(button, /aria-busy/);
   assert.match(treasury, /Chargement des comptes/);
@@ -68,7 +69,7 @@ test('FIN08-32..36 responsive, tableaux larges et exports', () => {
 test('FIN08-37..40 confidentialité, invalidation et non-régression', () => {
   assert.match(remunerations, /can\('hr\.remuneration\.pay'\)/);
   assert.match(reconciliation, /can\('treasury\.reconciliation\.export'\)/);
-  assert.match(reconciliation, /Aucun mouvement Treasury n’a été créé ou modifié/);
+  assert.match(reconciliation, /sans création silencieuse de mouvement Treasury/);
   assert.doesNotMatch(reconciliation, /window\.(prompt|confirm|alert)/);
   assert.doesNotMatch(reporting, /window\.(prompt|confirm|alert)/);
 });

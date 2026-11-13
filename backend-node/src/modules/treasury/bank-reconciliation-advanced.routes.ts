@@ -1,7 +1,15 @@
 import{Router}from'express';import{asyncHandler}from'../../middleware/error-handler.js';import{requireAgencyPermission as permit}from'../rbac/agency-authorization.js';import*as s from'./bank-reconciliation-advanced.service.js';
+import*as profiles from'./bank-import-profile.service.js';
+import*as groupQueries from'./bank-reconciliation-group-query.service.js';
 export const bankReconciliationAdvancedRouter=Router();
 bankReconciliationAdvancedRouter.get('/treasury/bank-reconciliation/dashboard',permit('treasury.reconciliation.dashboard'),asyncHandler(async(r,res)=>res.json(await s.dashboard(r))));
+bankReconciliationAdvancedRouter.get('/treasury/bank-reconciliation/groups',permit('treasury.reconciliation.view'),asyncHandler(async(r,res)=>res.json(await groupQueries.groups(r))));
+bankReconciliationAdvancedRouter.get('/treasury/bank-reconciliation/groups/:id',permit('treasury.reconciliation.view'),asyncHandler(async(r,res)=>res.json(await groupQueries.groupDetail(r,String(r.params.id)))));
 bankReconciliationAdvancedRouter.post('/treasury/bank-reconciliation/groups',permit('treasury.reconciliation.reconcile'),asyncHandler(async(r,res)=>res.status(201).json(await s.reconcileMany(r,r.body))));
 bankReconciliationAdvancedRouter.post('/treasury/bank-reconciliation/groups/:id/cancel',permit('treasury.reconciliation.cancel'),asyncHandler(async(r,res)=>res.json(await s.cancelGroup(r,String(r.params.id),r.body?.reason))));
 bankReconciliationAdvancedRouter.get('/treasury/bank-reconciliation/discrepancies',permit('treasury.reconciliation.view'),asyncHandler(async(r,res)=>res.json(await s.discrepancies(r))));
 bankReconciliationAdvancedRouter.post('/treasury/bank-reconciliation/discrepancies',permit('treasury.reconciliation.discrepancy.manage'),asyncHandler(async(r,res)=>res.status(201).json(await s.createDiscrepancy(r,r.body))));
+bankReconciliationAdvancedRouter.get('/treasury/bank-import-profiles',permit('treasury.reconciliation.view'),asyncHandler(async(r,res)=>res.json(await profiles.importProfiles(r))));
+bankReconciliationAdvancedRouter.post('/treasury/bank-import-profiles',permit('treasury.reconciliation.profile.manage'),asyncHandler(async(r,res)=>res.status(201).json(await profiles.saveImportProfile(r,null,r.body))));
+bankReconciliationAdvancedRouter.patch('/treasury/bank-import-profiles/:id',permit('treasury.reconciliation.profile.manage'),asyncHandler(async(r,res)=>res.json(await profiles.saveImportProfile(r,String(r.params.id),r.body))));
+bankReconciliationAdvancedRouter.patch('/treasury/bank-import-profiles/:id/status',permit('treasury.reconciliation.profile.manage'),asyncHandler(async(r,res)=>res.json(await profiles.importProfileStatus(r,String(r.params.id),r.body?.status))));

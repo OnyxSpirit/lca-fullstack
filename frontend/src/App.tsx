@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useAuthStore } from './stores/authStore';
 import { ROUTES } from './navigation/routes';
 import type { ModuleKey } from './navigation/routes';
-import { canAccessSettings,SECURITY_CENTER_PERMISSIONS } from './navigation/permissions';
+import { canAccessAccounting,canAccessSettings,SECURITY_CENTER_PERMISSIONS } from './navigation/permissions';
 import { AccessDeniedPage } from './modules/errors/AccessDeniedPage';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
 import { BusinessDialogHost } from './components/ui/BusinessDialog';
@@ -67,12 +67,14 @@ function SessionBootstrap(){
 const MODULE_PERMISSION: Record<ModuleKey, string> = { dashboard:'dashboard.view', modules:'dashboard.view', crm:'crm.prospect.view', showroom:'showroom.view', vehicles:'vehicles.view', sales:'sales.view', deliveries:'delivery.view', customers:'customers.view', service:'service.order.view', workshop:'workshop.view', parts:'parts.view', billing:'billing.view', treasury:'treasury.view', reports:'reporting.view', documents:'ged.view', hr:'hr.view', users:'users.view', settings:'settings.view', notifications:'notifications.view',activity:'activity.view' };
 function ModuleGuard({module,children}:{module:ModuleKey;children:React.ReactNode}) {
   const can=useAuthStore(state=>state.can);
-  return can(MODULE_PERMISSION[module])?<>{children}</>:<AccessDeniedPage/>;
+  const allowed=module==='billing'?(can('billing.view')||can('billing.invoice.view')||can('billing.payment.view')||can('billing.payment.collect')):can(MODULE_PERMISSION[module]);
+  return allowed?<>{children}</>:<AccessDeniedPage/>;
 }
 function PermissionGuard({permission,children}:{permission:string;children:React.ReactNode}){const can=useAuthStore(state=>state.can);return can(permission)?<>{children}</>:<AccessDeniedPage/>}
 function SecurityCenterGuard({children}:{children:React.ReactNode}){const can=useAuthStore(state=>state.can);return SECURITY_CENTER_PERMISSIONS.some(can)?<>{children}</>:<AccessDeniedPage/>}
 function UsersRbacGuard({children}:{children:React.ReactNode}){const can=useAuthStore(state=>state.can);return can('users.view')||can('roles.view')||SECURITY_CENTER_PERMISSIONS.some(can)?<>{children}</>:<AccessDeniedPage/>}
 function SettingsGuard({children}:{children:React.ReactNode}){const permissions=useAuthStore(state=>state.currentUser?.permissions);return canAccessSettings(permissions)?<>{children}</>:<AccessDeniedPage/>}
+function AccountingGuard({children}:{children:React.ReactNode}){const permissions=useAuthStore(state=>state.currentUser?.permissions);return canAccessAccounting(permissions)?<>{children}</>:<AccessDeniedPage/>}
 
 export default function App() {
   return (
@@ -115,7 +117,7 @@ export default function App() {
           <Route path="treasury/commitments" element={<PermissionGuard permission="treasury.coverage.view">{lazyPage(<TreasurySectionPage section="commitments" />)}</PermissionGuard>} />
           <Route path="treasury/reconciliation" element={<PermissionGuard permission="treasury.reconciliation.view">{lazyPage(<TreasuryReconciliationPage />)}</PermissionGuard>} />
           <Route path="treasury/settings" element={<ModuleGuard module="treasury">{lazyPage(<TreasurySectionPage section="settings" />)}</ModuleGuard>} />
-          <Route path="treasury/accounting" element={<PermissionGuard permission="accounting.chart.view">{lazyPage(<AccountingPage />)}</PermissionGuard>} />
+          <Route path="treasury/accounting" element={<AccountingGuard>{lazyPage(<AccountingPage />)}</AccountingGuard>} />
           <Route path="reports" element={<ModuleGuard module="reports">{lazyPage(<ReportsPage />)}</ModuleGuard>} />
           <Route path="documents" element={<ModuleGuard module="documents">{lazyPage(<DocumentsGedPage />)}</ModuleGuard>} />
           <Route path="hr" element={<ModuleGuard module="hr">{lazyPage(<HrAdministrationPage />)}</ModuleGuard>} />

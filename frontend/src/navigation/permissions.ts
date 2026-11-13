@@ -16,6 +16,13 @@ export const SECURITY_CENTER_PERMISSIONS = [
   'auth.2fa.devices.revoke',
   'auth.2fa.view',
 ] as const;
+export const ACCOUNTING_SPACE_PERMISSIONS=[
+  'accounting.entry.view','accounting.ledger.view','accounting.balance.view','accounting.journal.advanced.view',
+  'accounting.control.view','accounting.statement.view','accounting.integration.view','accounting.scheme.view',
+  'accounting.chart.view','accounting.fiscal.view','accounting.journal.view','accounting.mapping.view',
+] as const;
+export const canAccessAccounting=(permissions:Record<string,unknown>|undefined)=>
+  ACCOUNTING_SPACE_PERMISSIONS.some(permission=>hasDynamicPermission(permissions,permission));
 export const SETTINGS_SECTION_PERMISSIONS=['settings.general.view','settings.general.manage','settings.documents.view','settings.documents.manage','settings.workshop_rates.view','settings.workshop_rates.manage','settings.agencies.view','settings.agencies.manage','settings.manufacturers.view','delivery.service.view','delivery.service.manage','delivery.checklist.config.view','delivery.checklist.config.manage','workshop.resources.view','workshop.resources.manage','parts.suppliers.view','parts.suppliers.manage','vehicles.assignments.view','vehicles.assignments.manage','stamp.view','stamp.manage'] as const;
 
 export const canAccessSecurityCenter=(permissions:Record<string,unknown>|undefined)=>
@@ -63,7 +70,7 @@ export function moduleForRoute(path:string):ModulePermission|null{
 }
 
 const dynamicModuleCodes:Record<ModulePermission,string>={dashboard:'dashboard.view',modules:'dashboard.view',crm:'crm.prospect.view',customers:'customers.view',vehicles:'vehicles.view',showroom:'showroom.view',sales:'sales.view',deliveries:'delivery.view',service:'service.order.view',workshop:'workshop.view',parts:'parts.view',billing:'billing.view',treasury:'treasury.view',documents:'ged.view',notifications:'notifications.view',reports:'reporting.view',hr:'hr.view',users:'users.view',settings:'settings.view',activity:'activity.view'};
-export function canNavigateWithPermissions(permissions:Record<string,unknown>|undefined,path:string){const module=moduleForRoute(path);return module!==null&&hasDynamicPermission(permissions,dynamicModuleCodes[module])}
+export function canNavigateWithPermissions(permissions:Record<string,unknown>|undefined,path:string){const module=moduleForRoute(path);if(module==='billing')return['billing.view','billing.invoice.view','billing.payment.view','billing.payment.collect'].some(code=>hasDynamicPermission(permissions,code));return module!==null&&hasDynamicPermission(permissions,dynamicModuleCodes[module])}
 
 export function canNavigateToRoute(roles:UserRole[]|UserRole,path:string):boolean{
   const module=moduleForRoute(path);

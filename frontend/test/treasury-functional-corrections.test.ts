@@ -23,7 +23,9 @@ test("transfert : solde, réservations et disponible sont visibles et bornent la
 test("import bancaire : zone fichier, métadonnées, retrait et erreur visible", () => {
   const panel = read("modules/treasury/BankReconciliationPanel.tsx");
   assert.match(panel, /Choisir un fichier/);
-  assert.match(panel, /5 Mo maximum/);
+  assert.match(panel, /\.csv\$\/i\.test\(name\)\?5/);
+  assert.match(panel, /\.xlsx\$\/i\.test\(name\)\?10/);
+  assert.match(panel, /\.pdf\$\/i\.test\(name\)\?15/);
   assert.match(panel, /file\.size\/1024/);
   assert.match(panel, />Retirer</);
   assert.match(panel, /uploadError/);

@@ -31,7 +31,7 @@ import { useNotificationsQuery } from '../../api/notificationHooks';
 import { useUiStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { ROUTES } from '../../navigation/routes';
-import { canAccessSecurityCenter,canAccessSettings, canNavigateWithPermissions } from '../../navigation/permissions';
+import { canAccessAccounting,canAccessSecurityCenter,canAccessSettings, canNavigateWithPermissions } from '../../navigation/permissions';
 
 export const Sidebar: React.FC = () => {
   const { currentUser, can } = useAuthStore();
@@ -156,10 +156,11 @@ export const Sidebar: React.FC = () => {
           module: 'billing',
         },
         {
-          to: ROUTES.treasury,
+          to: can('treasury.view')?ROUTES.treasury:'/treasury/accounting',
           label: 'Comptabilité & Trésorerie',
           icon: <Landmark className="w-4 h-4" />,
           module: 'treasury',
+          visible: can('treasury.view')||canAccessAccounting(currentUser.permissions),
         },
         {
           to: ROUTES.reports,

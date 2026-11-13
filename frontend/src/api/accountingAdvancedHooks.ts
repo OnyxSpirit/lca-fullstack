@@ -5,5 +5,8 @@ export const useBalance=(filters:Record<string,string>)=>useQuery({queryKey:['ac
 export const useAuxiliaries=(filters:Record<string,string>)=>useQuery({queryKey:['accounting','advanced','auxiliaries',filters],queryFn:()=>apiRequest<any>(`/accounting/advanced/auxiliaries?${qs(filters)}`)});
 export const useAdvancedJournals=(filters:Record<string,string>)=>useQuery({queryKey:['accounting','advanced','journals',filters],queryFn:()=>apiRequest<any[]>(`/accounting/advanced/journals?${qs(filters)}`)});
 export const useControlRuns=()=>useQuery({queryKey:['accounting','advanced','controls'],queryFn:()=>apiRequest<any[]>('/accounting/advanced/controls')});
+export const useControlDetail=(id:string)=>useQuery({queryKey:['accounting','advanced','controls',id],queryFn:()=>apiRequest<any>(`/accounting/advanced/controls/${id}`),enabled:Boolean(id)});
 export const useClosures=()=>useQuery({queryKey:['accounting','advanced','closures'],queryFn:()=>apiRequest<any[]>('/accounting/advanced/closures')});
+export const useStatementTemplates=()=>useQuery({queryKey:['accounting','advanced','statement-templates'],queryFn:()=>apiRequest<any[]>('/accounting/advanced/statements/templates')});
+export const useExchangeProfiles=()=>useQuery({queryKey:['accounting','advanced','exchange-profiles'],queryFn:()=>apiRequest<any[]>('/accounting/advanced/exchange/profiles')});
 export const useAdvancedAction=()=>{const q=useQueryClient(),m=(path:string,body:unknown={})=>apiRequest(path,{method:'POST',body:JSON.stringify(body)}).then(x=>{q.invalidateQueries({queryKey:['accounting']});return x});return useMutation({mutationFn:({path,body}:{path:string;body?:unknown})=>m(path,body)})};

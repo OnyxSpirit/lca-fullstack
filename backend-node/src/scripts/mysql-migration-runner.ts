@@ -3,7 +3,7 @@ import type {Connection,RowDataPacket} from 'mysql2/promise';
 
 export type MigrationPhase='before-step'|'after-statement-before-journal'|'before-migration-journal';
 export type MigrationFaultHook=(event:{phase:MigrationPhase;version:number;step:number;kind:'DDL'|'DML'})=>void|Promise<void>;
-type StepRow=RowDataPacket&{step_no:number;statement_checksum:string;status:'RUNNING'|'APPLIED'|'FAILED_PARTIAL';kind:'DDL'|'DML'};
+type StepRow=RowDataPacket&{step_no:number;statement_checksum:string;status:'RUNNING'|'APPLIED'|'FAILED_SAFE'|'FAILED_PARTIAL';kind:'DDL'|'DML'};
 
 export class SimulatedMigrationInterruption extends Error{}
 
@@ -48,7 +48,7 @@ async function objectExists(connection:Connection,type:'table'|'column'|'index'|
   const[rows]=await connection.execute<RowDataPacket[]>(queries[type],name?[table,name]:[table]);return rows.length>0;
 }
 
-const normalizedSqlType=(value:string)=>value.trim().toLowerCase().replace(/^boolean$/,'tinyint(1)').replace(/\s+/g,' ').replace(/\s*,\s*/g,',');
+const normalizedSqlType=(value:string)=>value.trim().toLowerCase().replace(/^boolean$/,'tinyint(1)').replace(/\s+/g,' ').replace(/\(\s+/g,'(').replace(/\s+\)/g,')').replace(/\s*,\s*/g,',');
 type ExpectedColumn={name:string;type:string;nullable:boolean};
 function expectedAddedColumns(statement:string):ExpectedColumn[]{
   return [...statement.matchAll(/\bADD\s+COLUMN\s+`?([a-zA-Z0-9_]+)`?\s+((?:ENUM\s*\([^)]*\)|[a-zA-Z]+(?:\s*\([^)]*\))?)(?:\s+UNSIGNED)?)\s+(NOT\s+NULL|NULL)\b/gi)].map(match=>({name:identifier(match[1]!),type:normalizedSqlType(match[2]!),nullable:!/^NOT\s+NULL$/i.test(match[3]!)}));
@@ -65,11 +65,36 @@ async function modifiedColumnState(connection:Connection,table:string,expected:E
   return normalizedSqlType(String(actualType))===expected.type&&(String(actualNullable)==='YES')===expected.nullable?'SATISFIED':'AMBIGUOUS';
 }
 
-export async function ddlState(connection:Connection,statement:string):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
+function topLevelDefinitions(statement:string):string[]{
+  const start=statement.indexOf('('),end=statement.lastIndexOf(')');if(start<0||end<=start)return[];
+  const definitions:string[]=[];let current='',depth=0,quote='',escaped=false;
+  for(const character of statement.slice(start+1,end)){
+    if(quote){current+=character;if(escaped){escaped=false;continue}if(character==='\\'){escaped=true;continue}if(character===quote)quote='';continue}
+    if(character==="'"||character==='"'||character==='`'){quote=character;current+=character;continue}
+    if(character==='('){depth++;current+=character;continue}if(character===')'){depth--;current+=character;continue}
+    if(character===','&&depth===0){if(current.trim())definitions.push(current.trim());current='';continue}current+=character;
+  }
+  if(current.trim())definitions.push(current.trim());return definitions;
+}
+
+async function createTableState(connection:Connection,statement:string,table:string):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
+  if(!await objectExists(connection,'table',table))return'ABSENT';
+  const definitions=topLevelDefinitions(statement),columns:ExpectedColumn[]=[],indexes:string[]=[],constraints:string[]=[];
+  for(const definition of definitions){
+    const column=/^`?([a-zA-Z0-9_]+)`?\s+((?:ENUM\s*\([^)]*\)|[a-zA-Z]+(?:\s*\([^)]*\))?)(?:\s+UNSIGNED)?)(?:\s+(NOT\s+NULL|NULL))?/i.exec(definition);
+    if(column&&!/^(?:PRIMARY|UNIQUE|KEY|INDEX|CONSTRAINT|CHECK|FOREIGN)$/i.test(column[1]!)){columns.push({name:identifier(column[1]!),type:normalizedSqlType(column[2]!),nullable:!/(?:\bNOT\s+NULL\b|\bPRIMARY\s+KEY\b)/i.test(definition)});continue}
+    const index=/^(?:UNIQUE\s+)?(?:KEY|INDEX)\s+`?([a-zA-Z0-9_]+)`?/i.exec(definition);if(index){indexes.push(identifier(index[1]!));continue}
+    const constraint=/^CONSTRAINT\s+`?([a-zA-Z0-9_]+)`?/i.exec(definition);if(constraint)constraints.push(identifier(constraint[1]!));
+  }
+  const columnStates=await Promise.all(columns.map(column=>modifiedColumnState(connection,table,column))),indexStates=await Promise.all(indexes.map(name=>objectExists(connection,'index',table,name))),constraintStates=await Promise.all(constraints.map(name=>objectExists(connection,'constraint',table,name)));
+  return columnStates.every(x=>x==='SATISFIED')&&indexStates.every(Boolean)&&constraintStates.every(Boolean)?'SATISFIED':'AMBIGUOUS';
+}
+
+export async function ddlState(connection:Connection,statement:string,strictDefinition=false):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
   const createIndex=/^CREATE\s+(?:UNIQUE\s+)?INDEX\s+(`?[a-zA-Z0-9_]+`?)\s+ON\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
   if(createIndex)return await objectExists(connection,'index',identifier(createIndex[2]!),identifier(createIndex[1]!))?'SATISFIED':'ABSENT';
   const create=/^CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
-  if(create)return await objectExists(connection,'table',identifier(create[1]!))?'SATISFIED':'ABSENT';
+  if(create)return strictDefinition?createTableState(connection,statement,identifier(create[1]!)):await objectExists(connection,'table',identifier(create[1]!))?'SATISFIED':'ABSENT';
   const alter=/^ALTER\s+TABLE\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
   if(!alter)return 'AMBIGUOUS';
   const table=identifier(alter[1]!),objects:Array<Promise<boolean>>=[];
@@ -87,14 +112,22 @@ export async function ddlState(connection:Connection,statement:string):Promise<'
   return'AMBIGUOUS';
 }
 
+export async function historicalMigrationCompatibility(connection:Connection,sql:string){
+  const checks=[] as Array<{step:number;state:'ABSENT'|'AMBIGUOUS'}>;const statements=splitSqlStatements(sql);
+  for(let index=0;index<statements.length;index++){const statement=statements[index]!;if(!isDdl(statement))continue;const state=await ddlState(connection,statement,true);if(state!=='SATISFIED')checks.push({step:index+1,state})}
+  return{compatible:checks.length===0,incompatibilities:checks};
+}
+
 export async function ensureMigrationStepJournal(connection:Connection){
   await connection.query(`CREATE TABLE IF NOT EXISTS schema_migration_steps(
     version INT UNSIGNED NOT NULL, migration_name VARCHAR(190) NOT NULL, step_no INT UNSIGNED NOT NULL,
     statement_checksum CHAR(64) NOT NULL, kind ENUM('DDL','DML') NOT NULL,
-    status ENUM('RUNNING','APPLIED','FAILED_PARTIAL') NOT NULL, error_message VARCHAR(500) NULL,
+    status ENUM('RUNNING','APPLIED','FAILED_SAFE','FAILED_PARTIAL') NOT NULL, error_message VARCHAR(500) NULL,
     started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, applied_at DATETIME NULL,
     PRIMARY KEY(version,step_no)
   ) ENGINE=InnoDB`);
+  const[columns]=await connection.execute<RowDataPacket[]>(`SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='schema_migration_steps' AND column_name='status'`);
+  if(columns[0]&&!String(columns[0].COLUMN_TYPE??columns[0].column_type).includes('FAILED_SAFE'))await connection.query("ALTER TABLE schema_migration_steps MODIFY status ENUM('RUNNING','APPLIED','FAILED_SAFE','FAILED_PARTIAL') NOT NULL");
 }
 
 async function markFailed(connection:Connection,version:number,step:number,error:unknown){
@@ -107,8 +140,11 @@ export async function executeResilientMigration(connection:Connection,migration:
   const recorded=new Map(rows.map(row=>[Number(row.step_no),row]));
   for(let index=0;index<statements.length;index++){
     const step=index+1,statement=statements[index]!,statementHash=hash(statement),kind=isDdl(statement)?'DDL':'DML',previous=recorded.get(step);
-    if(previous&&previous.statement_checksum!==statementHash)throw new Error(`MIGRATION_CHECKSUM_MISMATCH: ${migration.name} étape ${step}`);
+    if(previous&&previous.statement_checksum!==statementHash&&previous.status!=='FAILED_SAFE')throw new Error(`MIGRATION_CHECKSUM_MISMATCH: ${migration.name} étape ${step}`);
     if(previous?.status==='FAILED_PARTIAL')throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; état automatique non prouvable, intervention requise`);
+    if(previous?.status==='FAILED_SAFE'){
+      if(kind!=='DDL'||await ddlState(connection,statement)!=='ABSENT')throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; l’état sûr précédent ne correspond plus au schéma`);
+    }
     if(previous?.status==='APPLIED'){
       if(kind==='DDL'&&await ddlState(connection,statement)!=='SATISFIED')throw new Error(`MIGRATION_SCHEMA_DIVERGED: ${migration.name} étape ${step}`);
       continue;
@@ -133,13 +169,13 @@ export async function executeResilientMigration(connection:Connection,migration:
     }
     await faultHook?.({phase:'before-step',version:migration.version,step,kind});
     if(kind==='DDL'){
-      await connection.execute(`INSERT INTO schema_migration_steps(version,migration_name,step_no,statement_checksum,kind,status) VALUES(?,?,?,?,?,'RUNNING') ON DUPLICATE KEY UPDATE status='RUNNING',error_message=NULL,started_at=NOW(),applied_at=NULL`,[migration.version,migration.name,step,statementHash,kind]);
+      await connection.execute(`INSERT INTO schema_migration_steps(version,migration_name,step_no,statement_checksum,kind,status) VALUES(?,?,?,?,?,'RUNNING') ON DUPLICATE KEY UPDATE migration_name=VALUES(migration_name),statement_checksum=VALUES(statement_checksum),kind=VALUES(kind),status='RUNNING',error_message=NULL,started_at=NOW(),applied_at=NULL`,[migration.version,migration.name,step,statementHash,kind]);
       console.log(`Migration ${migration.name} étape ${step}: RUNNING DDL`);
       try{
         await connection.query(statement);
         await faultHook?.({phase:'after-statement-before-journal',version:migration.version,step,kind});
         await connection.execute(`UPDATE schema_migration_steps SET status='APPLIED',applied_at=NOW() WHERE version=? AND step_no=?`,[migration.version,step]);
-      }catch(error){if(error instanceof SimulatedMigrationInterruption)throw error;await markFailed(connection,migration.version,step,error);throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; DDL peut persister, intervention requise`,{cause:error});}
+      }catch(error){if(error instanceof SimulatedMigrationInterruption)throw error;const state=await ddlState(connection,statement);if(state==='ABSENT'){const message=(error instanceof Error?error.message:String(error)).slice(0,500);await connection.execute(`UPDATE schema_migration_steps SET status='FAILED_SAFE',error_message=? WHERE version=? AND step_no=?`,[message,migration.version,step]);throw new Error(`MIGRATION_FAILED_SAFE: ${migration.name} étape ${step}; aucune postcondition appliquée, SQL corrigeable puis reprise autorisée`,{cause:error})}await markFailed(connection,migration.version,step,error);throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; DDL peut persister, intervention requise`,{cause:error});}
     }else{
       await connection.beginTransaction();
       try{

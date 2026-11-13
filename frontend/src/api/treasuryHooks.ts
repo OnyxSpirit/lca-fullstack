@@ -508,6 +508,12 @@ export function useBankStatement(id: string) {
   });
 }
 export function useBankStatementHistory(id:string){return useQuery({queryKey:["treasury","bank-statements",id,"history"],queryFn:()=>apiRequest<Array<{id:string;action:string;reason:string|null;actor_name:string|null;created_at:string}>>(`/treasury/bank-statements/${id}/history`),enabled:Boolean(id)})}
+export function useBankReconciliationDashboard(enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','dashboard'],queryFn:()=>apiRequest<any>('/treasury/bank-reconciliation/dashboard'),enabled})}
+export function useBankReconciliationGroups(enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','groups'],queryFn:()=>apiRequest<any[]>('/treasury/bank-reconciliation/groups'),enabled})}
+export function useBankDiscrepancies(enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','discrepancies'],queryFn:()=>apiRequest<any[]>('/treasury/bank-reconciliation/discrepancies'),enabled})}
+export function useBankUnmatched(enabled=true){return useQuery({queryKey:['treasury','bank-unmatched'],queryFn:()=>apiRequest<any[]>('/treasury/bank-unmatched'),enabled})}
+export function useBankImportProfiles(enabled=true){return useQuery({queryKey:['treasury','bank-import-profiles'],queryFn:()=>apiRequest<any[]>('/treasury/bank-import-profiles'),enabled})}
+export function useBankExtractionDiagnostics(enabled=true){return useQuery({queryKey:['treasury','bank-extraction','diagnostics'],queryFn:()=>apiRequest<any>('/treasury/bank-extraction/diagnostics'),enabled})}
 export function useBankProposals(lineId: string) {
   return useQuery({
     queryKey: ["treasury", "bank-proposals", lineId],
@@ -546,6 +552,7 @@ export function useBankReconciliationActions() {
         }),
       onSuccess: refresh,
     }),
+    cancelImport:useMutation({mutationFn:({id,reason}:{id:string;reason:string})=>apiRequest(`/treasury/bank-statements/${id}/cancel`,{method:'POST',body:JSON.stringify({reason})}),onSuccess:refresh}),
     reconcile: useMutation({
       mutationFn: (body: {
         statementLineId: string;
@@ -567,5 +574,10 @@ export function useBankReconciliationActions() {
         }),
       onSuccess: refresh,
     }),
+    reconcileGroup:useMutation({mutationFn:(body:any)=>apiRequest('/treasury/bank-reconciliation/groups',{method:'POST',body:JSON.stringify(body)}),onSuccess:refresh}),
+    cancelGroup:useMutation({mutationFn:({id,reason}:{id:string;reason:string})=>apiRequest(`/treasury/bank-reconciliation/groups/${id}/cancel`,{method:'POST',body:JSON.stringify({reason})}),onSuccess:refresh}),
+    createDiscrepancy:useMutation({mutationFn:(body:any)=>apiRequest('/treasury/bank-reconciliation/discrepancies',{method:'POST',body:JSON.stringify(body)}),onSuccess:refresh}),
+    saveProfile:useMutation({mutationFn:({id,body}:{id?:string;body:any})=>apiRequest(id?`/treasury/bank-import-profiles/${id}`:'/treasury/bank-import-profiles',{method:id?'PATCH':'POST',body:JSON.stringify(body)}),onSuccess:refresh}),
+    profileStatus:useMutation({mutationFn:({id,status}:{id:string;status:string})=>apiRequest(`/treasury/bank-import-profiles/${id}/status`,{method:'PATCH',body:JSON.stringify({status})}),onSuccess:refresh}),
   };
 }

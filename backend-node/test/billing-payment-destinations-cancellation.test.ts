@@ -1,0 +1,10 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFileSync}from'node:fs';
+const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
+
+test('migration 125 preserves history and enables explicit multiple destinations',()=>{const sql=read('../database/migrations/125_billing_payment_destinations_and_cancellations.sql');assert.match(sql,/treasury_account_id BIGINT UNSIGNED NULL/);assert.match(sql,/created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP/);assert.match(sql,/uq_treasury_mapping_destination\(agency_id,payment_method_id,treasury_account_id\)/);assert.match(sql,/HAVING COUNT\(\*\)=1 AND COUNT\(DISTINCT account_id\)=1/);assert.match(sql,/CREATE TABLE payment_cancellations/);assert.match(sql,/billing\.payment\.cancel/)});
+
+test('billing revalidates the selected destination and never falls back',()=>{const routes=read('../src/modules/billing/billing.routes.ts'),flow=read('../src/modules/treasury/treasury-flow.service.ts');assert.match(routes,/payment-destinations/);assert.match(routes,/treasuryAccountId=id\(r\.body\.treasuryAccountId\)/);assert.match(routes,/treasury_account_id,received_by/);assert.match(flow,/AND m\.treasury_account_id=\?/);assert.match(flow,/Le compte de trésorerie choisi est inactif, incompatible ou hors périmètre/)});
+
+test('accounting events carry the real treasury account',()=>{const service=read('../src/modules/accounting/accounting-integration.service.ts');assert.match(service,/PAYMENT_CONFIRMED[\s\S]*treasuryAccountId/);assert.match(service,/PAYMENT_REFUNDED[\s\S]*treasuryAccountId/);assert.match(service,/PAYMENT_CANCELLED/);assert.match(service,/p\.created_at>=/)});
+
+test('cancellation is audited, idempotent and references the original movement',()=>{const routes=read('../src/modules/billing/billing.routes.ts'),flow=read('../src/modules/treasury/treasury-flow.service.ts');assert.match(routes,/payment_cancellations WHERE idempotency_key=\? OR payment_id=\?/);assert.match(routes,/Un règlement déjà remboursé ne peut pas être annulé/);assert.match(routes,/brg\.status='CONFIRMED'/);assert.match(flow,/reversalOfId:String\(original\.id\)/)});

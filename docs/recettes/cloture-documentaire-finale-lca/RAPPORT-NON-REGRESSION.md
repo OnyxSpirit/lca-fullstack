@@ -1,5 +1,12 @@
 # Non-régression finale
 
+## Worker comptable MySQL 8.4 — 13 novembre 2026
+
+- Correction ciblée des quatre jointures `treasury_movements.source_id`, sans migration globale de collation.
+- Filtre des avoirs clients corrigé : `issue_date` remplace la colonne inexistante `created_at`.
+- Test `accounting-integration-collation.test.ts` réussi et backend reconstruit sans erreur TypeScript.
+- Rejeu réel sur `lca_recette` : `{ "discovered": 0, "processed": 0 }`, sans erreur SQL.
+
 - Build backend : réussi.
 - Build frontend : réussi, 2546 modules transformés.
 - Lint TypeScript frontend : réussi.

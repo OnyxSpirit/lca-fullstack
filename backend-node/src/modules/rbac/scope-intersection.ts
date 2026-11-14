@@ -6,10 +6,14 @@ export interface ScopeResource{agency:string;owner?:string;ownRequiresAgency?:bo
 
 export function permissionScopePredicate(request:Request,permission:string,resource:ScopeResource):ScopePredicate|null{
   const migrated=Boolean(request.agencyRbac),scope=(request.agencyRbac?.permissions.get(permission)??request.rbac?.permissions.get(permission)) as PermissionScope|undefined;
-  const agencyId=request.agencyRbac?.activeAgencyId??request.user?.agencyId,userId=request.user?.sub;
+  const agencyId=migrated?request.agencyRbac!.activeAgencyId:request.user?.agencyId,userId=request.user?.sub;
   if(!scope)return null;
   if(scope==='GLOBAL'&&!migrated)return{sql:'1=1',params:[]};
   if(!agencyId)return null;
+  // GLOBAL/CONCESSION are historical system grants, not business scopes. In
+  // the migrated model the authentic system administrator must still select
+  // an active agency, and every business query remains confined to it.
+  if(request.agencyRbac?.isSuperAdmin&&(scope==='GLOBAL'||scope==='CONCESSION'))return{sql:`${resource.agency}=?`,params:[agencyId]};
   if(scope==='CONCESSION'&&!migrated)return{sql:`${resource.agency} IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[agencyId]};
   if(scope==='AGENCY')return{sql:`${resource.agency}=?`,params:[agencyId]};
   if(scope==='OWN'&&resource.owner&&userId)return resource.ownRequiresAgency===false?{sql:`${resource.owner}=?`,params:[userId]}:{sql:`${resource.agency}=? AND ${resource.owner}=?`,params:[agencyId,userId]};

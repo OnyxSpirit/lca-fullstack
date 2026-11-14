@@ -46,3 +46,11 @@ export function formatDateTime(dateString: string): string {
     return dateString;
   }
 }
+
+/** Formats a MySQL civil date-time without applying the browser or UTC offset. */
+export function formatBusinessLocalDateTime(value:string):string{
+  const match=value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if(!match)return value;
+  const[,year,month,day,hour,minute]=match;
+  return `${day}/${month}/${year} ${hour}:${minute}`;
+}

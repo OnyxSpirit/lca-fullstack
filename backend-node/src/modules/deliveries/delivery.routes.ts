@@ -56,10 +56,13 @@ const text = (value: unknown, label: string, max = 500, required = false) => {
   if (result.length > max) throw new HttpError(400, `${label} est trop long`);
   return result || null;
 };
-const mysqlDateTime = (value: unknown, label: string) => {
-  const parsed = new Date(String(value ?? ""));
-  if (Number.isNaN(parsed.getTime())) throw new HttpError(400, `${label} invalide`);
-  return parsed.toISOString().slice(0, 19).replace("T", " ");
+export const mysqlDateTime = (value: unknown, label: string) => {
+  const raw=String(value??'').trim();
+  const local=raw.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if(!local)throw new HttpError(400,`${label} invalide : une date/heure locale sans fuseau est requise`);
+  const[,year,month,day,hour,minute,second='00']=local,canonical=`${year}-${month}-${day}T${hour}:${minute}:${second}`,probe=new Date(`${canonical}Z`);
+  if(Number.isNaN(probe.getTime())||probe.toISOString().slice(0,19)!==canonical)throw new HttpError(400,`${label} invalide`);
+  return canonical.replace('T',' ');
 };
 const permissionScope=(request:Request,permission:DeliveryPermission)=>request.agencyRbac?.permissions.get(permission);
 const authorizationScope=(request:Request,alias='s')=>{const value=permissionScope(request,'delivery.financial_override.authorize');if(value==='OWN')throw new HttpError(403,'Le périmètre OWN ne permet pas une autorisation financière collective.');return scope(request,'delivery.financial_override.authorize',alias)};
@@ -179,9 +182,12 @@ deliveryRouter.get(
       params.push(term, term, term, term, term, term, term);
     }
     const paginationRequested=request.query.page!=null||request.query.pageSize!=null;
+    const sortColumns:Record<string,string>={date:'d.scheduled_at',reference:'d.delivery_number',client:"COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name))",status:'d.status'};
+    const sortBy=typeof request.query.sortBy==='string'?request.query.sortBy:'date',sortOrder=request.query.sortOrder==='asc'?'ASC':'DESC';
+    if(!sortColumns[sortBy])throw new HttpError(400,'Tri invalide');
     const [count]=paginationRequested?await query<RowDataPacket[]>(`SELECT COUNT(*) total FROM deliveries d JOIN sales s ON s.id=d.sale_id JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id WHERE ${conditions.join(" AND ")}`,params):[undefined];
     const meta=paginationRequested?pageMeta(count?.total,pageRequest(request.query)):null;
-    const rows = await query<RowDataPacket[]>(`${selection} WHERE ${conditions.join(" AND ")} ORDER BY d.scheduled_at IS NULL,d.scheduled_at,d.id${meta?' LIMIT ? OFFSET ?':''}`,meta?[...params,meta.pageSize,meta.offset]:params);
+    const rows = await query<RowDataPacket[]>(`${selection} WHERE ${conditions.join(" AND ")} ORDER BY ${sortColumns[sortBy]} IS NULL,${sortColumns[sortBy]} ${sortOrder},d.id ${sortOrder}${meta?' LIMIT ? OFFSET ?':''}`,meta?[...params,meta.pageSize,meta.offset]:params);
     const ids = rows.map((row) => row.id);
     let progress = new Map<string, { total: number; completed: number }>();
     if (ids.length) {
@@ -658,15 +664,10 @@ deliveryRouter.post(
     const id = idOf(request.params.id),
       scopedRow = await accessible(id, request,'delivery.complete'),
       signer = text(request.body.signerName, "Signataire", 200, true)!,
-      signature = text(
-        request.body.signatureData,
-        "Signature",
-        2_000_000,
-      ),
+      signature = null,
       consent = text(request.body.consentText, "Consentement", 500, true)!;
+    if(String(request.body.signatureData??'').trim())throw new HttpError(400,'La capture de signature numérique client est désactivée. Utilisez le PV imprimé signé manuscritement.');
     const requestedStampId=request.body.serviceStampId==null||request.body.serviceStampId===''?null:idOf(request.body.serviceStampId);
-    if (signature&&(!signature.startsWith("data:image/png;base64,")||signature.length<200))
-      throw new HttpError(400, "Le fac-similé de signature doit être une image PNG valide");
     const requestedMileage=request.body.mileageAtDelivery;
     const signedAt=new Date(),signedAtSql=signedAt.toISOString().slice(0,19).replace('T',' ');
     let archiveAbsolute:string|null=null;let result:{duplicate:boolean;agencyId:string;deliveryNumber:string;documentId?:string};try{result=await withCurrentAgencyBusinessAuthorization(request,'delivery.complete',async connection=>{

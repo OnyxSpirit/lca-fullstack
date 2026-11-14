@@ -20,7 +20,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { useCancelCrmAppointment, useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCreateProforma, useCrmTeamMembersQuery, useKanbanColumnsQuery, useLeadActivitiesQuery, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useRetryQuotationArchive, useUpdateCrmAppointment, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
+import { useCancelCrmAppointment, useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCreateProforma, useCrmTeamMembersQuery, useKanbanColumnsQuery, useLeadActivitiesQuery, useLeadArchiveActions, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useRetryQuotationArchive, useUpdateCrmAppointment, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
 import { opportunityStageToDb } from '../../services/mysqlStatusMap';
 import { openOfficialPdf } from '../../services/businessPdf';
 import { useUiStore } from '../../stores/uiStore';
@@ -56,6 +56,7 @@ export const CrmPage: React.FC = () => {
   const [selectedPriority, setSelectedPriority] = useState<string>('ALL');
   const [selectedStage,setSelectedStage]=useState('');
   const [selectedCommercial,setSelectedCommercial]=useState('');
+  const [archiveFilter,setArchiveFilter]=useState<'active'|'archived'|'all'>('active');
   const [page,setPage]=useState(1);
   const [kanbanLimits,setKanbanLimits]=useState<Record<string,number>>(()=>Object.fromEntries(kanbanDbStages.map(stage=>[stage,10])));
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
@@ -70,10 +71,10 @@ export const CrmPage: React.FC = () => {
   const canViewQuotations=can('quotations.view'),canCreateQuotation=can('quotations.create'),canUpdateQuotation=can('quotations.update'),canValidateQuotation=can('quotations.validate'),canCancelQuotation=can('quotations.cancel'),canConvertQuotation=can('quotations.convert')&&can('sales.create');
   const salesUsers=useCrmTeamMembersQuery(canAssignLead).data??[];
   const priority=selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority];
-  const leadsQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,page,pageSize:7},viewMode==='list'),kanbanQueries=useKanbanColumnsQuery({search:debouncedSearch,priority,commercialId:selectedCommercial},kanbanLimits,viewMode==='kanban'),leads=leadsQuery.data?.items??[],leadTotal=leadsQuery.data?.total??0;
+  const leadsQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,archive:archiveFilter,page,pageSize:7},viewMode==='list'),kanbanQueries=useKanbanColumnsQuery({search:debouncedSearch,priority,commercialId:selectedCommercial},kanbanLimits,viewMode==='kanban'&&archiveFilter==='active'),leads=leadsQuery.data?.items??[],leadTotal=leadsQuery.data?.total??0;
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
-  const updateLead=useUpdateLead(),appointmentMutation=useCreateCrmAppointment(),updateAppointmentMutation=useUpdateCrmAppointment(),cancelAppointmentMutation=useCancelCrmAppointment(),updateQuotation=useUpdateQuotation(),validateQuotation=useValidateQuotation(),retryQuotationArchive=useRetryQuotationArchive(),cancelQuotation=useCancelQuotation(),createProforma=useCreateProforma();
+  const updateLead=useUpdateLead(),archiveActions=useLeadArchiveActions(),appointmentMutation=useCreateCrmAppointment(),updateAppointmentMutation=useUpdateCrmAppointment(),cancelAppointmentMutation=useCancelCrmAppointment(),updateQuotation=useUpdateQuotation(),validateQuotation=useValidateQuotation(),retryQuotationArchive=useRetryQuotationArchive(),cancelQuotation=useCancelQuotation(),createProforma=useCreateProforma();
   const canViewActivities=can('crm.activity.view');
   const activitiesQuery=useLeadActivitiesQuery(selectedLead?.id,canViewActivities),quotationsQuery=useLeadQuotationsQuery(selectedLead?.opportunityId,canViewQuotations),quotations=quotationsQuery.data??[];
   const { addToast } = useUiStore();
@@ -87,7 +88,7 @@ export const CrmPage: React.FC = () => {
     const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);
     return()=>window.clearTimeout(timer);
   },[searchQuery]);
-  useEffect(()=>{setPage(1);setKanbanLimits(Object.fromEntries(kanbanDbStages.map(stage=>[stage,10])))},[debouncedSearch,selectedPriority,selectedStage,selectedCommercial]);
+  useEffect(()=>{setPage(1);setKanbanLimits(Object.fromEntries(kanbanDbStages.map(stage=>[stage,10])))},[debouncedSearch,selectedPriority,selectedStage,selectedCommercial,archiveFilter]);
   useEffect(()=>{if(leadsQuery.data&&page>Math.max(1,leadsQuery.data.totalPages))setPage(Math.max(1,leadsQuery.data.totalPages))},[leadsQuery.data,page]);
   useEffect(()=>setPage(1),[viewMode]);
 
@@ -188,6 +189,7 @@ export const CrmPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Filtrer les prospects archivés" value={archiveFilter} onChange={e=>{const value=e.target.value as 'active'|'archived'|'all';setArchiveFilter(value);if(value!=='active')setViewMode('list')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="active">Prospects actifs</option><option value="archived">Prospects archivés</option><option value="all">Tous les prospects</option></select>
           {canAssignLead&&<><select aria-label="Filtrer par étape" value={selectedStage} onChange={e=>setSelectedStage(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="">Toutes les étapes</option>{stages.map(item=><option key={item.stage} value={opportunityStageToDb[item.stage]}>{item.label}</option>)}</select><select aria-label="Filtrer par commercial" value={selectedCommercial} onChange={e=>setSelectedCommercial(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="">Toute l’équipe</option>{salesUsers.map(user=><option key={user.id} value={user.id}>{user.name}</option>)}</select></>}
           <span className="text-xs text-slate-500 font-medium">Priorité :</span>
           <select
@@ -420,7 +422,7 @@ export const CrmPage: React.FC = () => {
                 <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
                   Étape Actuelle du Pipeline
                 </span>
-                {canUpdateStage&&selectedLead.saleAssociation.state==='NONE' ? <select
+                {canUpdateStage&&!selectedLead.isArchived&&selectedLead.saleAssociation.state==='NONE' ? <select
                   value={selectedLead.stage}
                   onChange={(e) => handleStageChange(selectedLead.id, e.target.value as LeadStage)}
                   className="text-xs font-bold p-1.5 rounded-lg border border-blue-400 bg-white text-blue-800 focus:outline-none"
@@ -434,8 +436,10 @@ export const CrmPage: React.FC = () => {
               </div>
 
               <div className="flex gap-2">
+                {selectedLead.isArchived&&<Badge variant="warning">Archivé</Badge>}
                 <Button size="xs" variant="outline" onClick={()=>void openOfficialPdf(`/leads/${selectedLead.id}/official-pdf`,`fiche-prospect-${selectedLead.id}.pdf`)}>Imprimer la fiche</Button>
-                {(canUpdateLead||canAssignLead)&&<Button size="xs" variant="outline" onClick={async()=>{setEditLead(selectedLead);setSelectedLead(null)}}>{canUpdateLead?'Modifier':'Affecter'}</Button>}
+                {(canUpdateLead||canAssignLead)&&!selectedLead.isArchived&&<Button size="xs" variant="outline" onClick={async()=>{setEditLead(selectedLead);setSelectedLead(null)}}>{canUpdateLead?'Modifier':'Affecter'}</Button>}
+                {canUpdateLead&&(selectedLead.isArchived?<Button size="xs" onClick={()=>void archiveActions.reactivate.mutateAsync(selectedLead.id).then(()=>{addToast({type:'success',title:'Prospect réactivé'});setSelectedLead(null)})}>Réactiver</Button>:<Button size="xs" variant="outline" onClick={async()=>{const reason=await promptAction("Motif d’archivage");if(reason?.trim())void archiveActions.archive.mutateAsync({id:selectedLead.id,reason:reason.trim()}).then(()=>{addToast({type:'success',title:'Prospect archivé'});setSelectedLead(null)})}}>Archiver</Button>)}
                 <a
                   href={`tel:${selectedLead.phone}`}
                   className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:bg-emerald-700"

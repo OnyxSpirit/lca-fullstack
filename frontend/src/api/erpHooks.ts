@@ -193,6 +193,10 @@ const mapLead = (r: any): Lead => ({
   estimatedCloseDate: r.expectedCloseDate,
   notes: r.notes ?? "",
   lostReason: r.lostReason ?? "",
+  isArchived: Boolean(r.isArchived),
+  archivedAt: r.archivedAt ?? undefined,
+  archiveReason: r.archiveReason ?? undefined,
+  reactivatedAt: r.reactivatedAt ?? undefined,
   createdAt: r.createdAt ?? "",
   updatedAt: r.updatedAt ?? "",
   score: n(r.probability),
@@ -489,7 +493,7 @@ export const useLeadsQuery = (search = "", priority = "", requestEnabled = true,
   });
 export interface LeadStageAggregate{count:number;budget:number}
 export type LeadStageSummary=Record<string,LeadStageAggregate>;
-export const useLeadsPageQuery=(filters:{search?:string;priority?:string;stage?:string;commercialId?:string;page:number;pageSize:number},requestEnabled=true)=>useQuery({queryKey:[...leadQueryKey(filters.search,filters.priority,filters.stage,filters.commercialId),'page',filters.page,filters.pageSize],queryFn:async()=>{const data=await apiRequest<PagedResult<any>&{stageSummary:LeadStageSummary}>(`/leads?${pageParams(filters)}`);return{...data,items:data.items.map(mapLead)}},enabled:enabled()&&requestEnabled});
+export const useLeadsPageQuery=(filters:{search?:string;priority?:string;stage?:string;commercialId?:string;archive?:'active'|'archived'|'all';page:number;pageSize:number},requestEnabled=true)=>useQuery({queryKey:[...leadQueryKey(filters.search,filters.priority,filters.stage,filters.commercialId),'page',filters.archive,filters.page,filters.pageSize],queryFn:async()=>{const data=await apiRequest<PagedResult<any>&{stageSummary:LeadStageSummary}>(`/leads?${pageParams(filters)}`);return{...data,items:data.items.map(mapLead)}},enabled:enabled()&&requestEnabled});
 export const useKanbanColumnsQuery=(filters:{search?:string;priority?:string;commercialId?:string},limits:Record<string,number>,requestEnabled=true)=>useQueries({queries:Object.entries(limits).map(([stage,pageSize])=>({queryKey:[...leadQueryKey(filters.search,filters.priority,stage,filters.commercialId),'kanban',pageSize],queryFn:async()=>{const data=await apiRequest<PagedResult<any>&{stageSummary:LeadStageSummary}>(`/leads?${pageParams({...filters,stage,page:1,pageSize})}`);return{...data,items:data.items.map(mapLead)}},enabled:enabled()&&requestEnabled,staleTime:10_000}))});
 export interface LeadDuplicateMatch{id:string;displayName:string;emailMatch:boolean;phoneMatch:boolean}
 export const useLeadDuplicateCheck=()=>useMutation({mutationFn:({email='',phone=''}:{email?:string;phone?:string})=>{const params=new URLSearchParams();if(email)params.set('email',email);if(phone)params.set('phone',phone);return apiRequest<LeadDuplicateMatch[]>(`/leads/duplicates?${params}`)}});
@@ -523,6 +527,7 @@ export const useValidateQuotation=()=>{const qc=useQueryClient();return useMutat
 export const useRetryQuotationArchive=()=>{const qc=useQueryClient();return useMutation({mutationFn:(id:string)=>apiRequest<Quotation>(`/quotations/${id}/archive`,{method:'POST'}),onSettled:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useCancelQuotation=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,status='cancelled',reason}:{id:string;status?:'cancelled'|'rejected';reason:string})=>apiRequest<Quotation>(`/quotations/${id}/cancel`,{method:'POST',body:JSON.stringify({status,reason})}),onSuccess:()=>{void qc.invalidateQueries({queryKey:erpKeys.quotations});void qc.invalidateQueries({queryKey:erpKeys.leads})}})};
 export const useUpdateLead=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:Record<string,unknown>&{id:string})=>apiRequest(`/leads/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>qc.invalidateQueries({queryKey:erpKeys.leads})})};
+export const useLeadArchiveActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:erpKeys.leads});return{archive:useMutation({mutationFn:({id,reason}:{id:string;reason:string})=>apiRequest(`/leads/${id}/archive`,{method:'POST',body:JSON.stringify({reason})}),onSuccess:done}),reactivate:useMutation({mutationFn:(id:string)=>apiRequest(`/leads/${id}/reactivate`,{method:'POST'}),onSuccess:done})}};
 type CrmAppointmentMutationResult={id:string;warnings?:string[]};
 export const useCreateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;scheduledAt:string;durationMinutes?:number;subject?:string;description?:string;overrideConflict?:boolean;overrideReason?:string})=>apiRequest<CrmAppointmentMutationResult>(`/leads/${id}/appointments`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.id,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
 export const useUpdateCrmAppointment=()=>{const qc=useQueryClient();return useMutation({mutationFn:({leadId,appointmentId,...body}:{leadId:string;appointmentId:string;scheduledAt:string;durationMinutes:number;subject?:string;description?:string})=>apiRequest<CrmAppointmentMutationResult>(`/leads/${leadId}/appointments/${appointmentId}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:(_data,input)=>{void qc.invalidateQueries({queryKey:erpKeys.leads});void qc.invalidateQueries({queryKey:[...erpKeys.leads,input.leadId,'activities']});void qc.invalidateQueries({queryKey:erpKeys.notifications})}})};
@@ -539,6 +544,8 @@ export interface VehicleFilters {
   modelId?: string;
   dormant?: boolean;
   sort?: string;
+  minPrice?: number;
+  maxPrice?: number;
   page?: number;
   pageSize?: number;
   locationType?: 'PARC'|'SHOWROOM'|'GARAGE'|'';
@@ -595,7 +602,7 @@ export const useVehicleLocationCountsQuery=(agencyId?:string,view:'active'|'sold
 export interface VehicleLocationRecord{id:string;agencyId:string;agencyName:string;name:string;type:'PARC'|'SHOWROOM'|'GARAGE';isActive:boolean}
 export const useVehicleLocationsQuery=(filters:{agencyId?:string;type?:string;active?:boolean}={},requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'locations',filters],queryFn:()=>apiRequest<VehicleLocationRecord[]>(`/vehicle-locations?${pageParams(filters)}`),enabled:enabled()&&requestEnabled});
 export const useVehicleTransferAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-agencies'],queryFn:()=>apiRequest<Array<{id:string;name:string}>>('/vehicle-transfer-agencies'),enabled:enabled()&&requestEnabled});
-export const useVehicleTransferLocationsQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-locations'],queryFn:()=>apiRequest<VehicleLocationRecord[]>('/vehicle-transfer-locations'),enabled:enabled()&&requestEnabled});
+export const useVehicleTransferLocationsQuery=(agencyId?:string,requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'transfer-locations',agencyId],queryFn:()=>apiRequest<VehicleLocationRecord[]>(`/vehicle-transfer-locations?agencyId=${encodeURIComponent(agencyId!)}`),enabled:enabled()&&requestEnabled&&Boolean(agencyId)});
 export const useVehicleLocationActions=()=>{const qc=useQueryClient(),done=()=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles})};return{create:useMutation({mutationFn:(body:{agencyId:string;name:string;type:'PARC'|'SHOWROOM'|'GARAGE'})=>apiRequest('/vehicle-locations',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),update:useMutation({mutationFn:({id,...body}:{id:string;name?:string;isActive?:boolean})=>apiRequest(`/vehicle-locations/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done})}};
 export interface VehicleCreateAgency {id:string;name:string;code:string;currencyCode:string;financialAllowed:boolean}
 export const useVehicleCreateAgenciesQuery=(requestEnabled=true)=>useQuery({queryKey:[...erpKeys.vehicles,'create-agencies'],queryFn:()=>apiRequest<VehicleCreateAgency[]>('/vehicles/agencies/create'),enabled:enabled()&&requestEnabled});
@@ -705,6 +712,9 @@ export function useCreateCustomerContact(customerId?: string) {
       qc.invalidateQueries({ queryKey: ["customers", customerId, "360"] }),
   });
 }
+export const useUpdateCustomer=(customerId?:string)=>{const qc=useQueryClient();return useMutation({mutationFn:(body:Record<string,unknown>)=>apiRequest(`/customers/${customerId}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:()=>{void qc.invalidateQueries({queryKey:['customers',customerId,'360']});void qc.invalidateQueries({queryKey:erpKeys.customers})}})};
+export const useCustomerContactActions=(customerId?:string)=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:['customers',customerId,'360']});return{update:useMutation({mutationFn:({id,...body}:{id:string;firstName:string;lastName:string;roleTitle?:string;email?:string;phone?:string;isPrimary?:boolean})=>apiRequest(`/customers/${customerId}/contacts/${id}`,{method:'PATCH',body:JSON.stringify(body)}),onSuccess:done}),deactivate:useMutation({mutationFn:({id,reason}:{id:string;reason?:string})=>apiRequest(`/customers/${customerId}/contacts/${id}/deactivate`,{method:'POST',body:JSON.stringify({reason})}),onSuccess:done}),reactivate:useMutation({mutationFn:(id:string)=>apiRequest(`/customers/${customerId}/contacts/${id}/reactivate`,{method:'POST'}),onSuccess:done})}};
+export const useCustomerContactHistoryQuery=(customerId?:string,contactId?:string)=>useQuery({queryKey:['customers',customerId,'contacts',contactId,'history'],queryFn:()=>apiRequest<any[]>(`/customers/${customerId}/contacts/${contactId}/history`),enabled:enabled()&&Boolean(customerId&&contactId)});
 export const useVehicleDetailQuery = (id?: string) =>
   useQuery({
     queryKey: ["vehicles", id],
@@ -1141,7 +1151,9 @@ export function useVehicleImages() {
     }),
   };
 }
-export const useVehicleTransfer=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;toAgencyId:string;toLocationId:string|null;reason:string})=>apiRequest(`/vehicles/${id}/transfer`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['vehicles',v.id]});void qc.invalidateQueries({queryKey:['dashboard']})}})};
+export const useVehicleLocationChange=()=>{const qc=useQueryClient();return useMutation({mutationFn:({id,...body}:{id:string;toLocationId:string|null;reason:string})=>apiRequest(`/vehicles/${id}/location`,{method:'POST',body:JSON.stringify(body)}),onSuccess:(_,v)=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['vehicles',v.id]});void qc.invalidateQueries({queryKey:['dashboard']})}})};
+export const useVehicleTransfer=()=>{const qc=useQueryClient(),done=()=>{void qc.invalidateQueries({queryKey:erpKeys.vehicles});void qc.invalidateQueries({queryKey:['vehicle-interagency-transfers']});void qc.invalidateQueries({queryKey:['dashboard']})};return{initiate:useMutation({mutationFn:({id,...body}:{id:string;destinationAgencyId:string;reason:string;reference?:string;observations?:string})=>apiRequest(`/vehicles/${id}/interagency-transfers`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),dispatch:useMutation({mutationFn:(id:string)=>apiRequest(`/vehicle-interagency-transfers/${id}/dispatch`,{method:'POST'}),onSuccess:done}),receive:useMutation({mutationFn:({id,locationId}:{id:string;locationId:string})=>apiRequest(`/vehicle-interagency-transfers/${id}/receive`,{method:'POST',body:JSON.stringify({locationId})}),onSuccess:done}),cancel:useMutation({mutationFn:({id,reason}:{id:string;reason:string})=>apiRequest(`/vehicle-interagency-transfers/${id}/cancel`,{method:'POST',body:JSON.stringify({reason})}),onSuccess:done}),confirmReturn:useMutation({mutationFn:({id,locationId}:{id:string;locationId:string})=>apiRequest(`/vehicle-interagency-transfers/${id}/confirm-return`,{method:'POST',body:JSON.stringify({locationId})}),onSuccess:done})}};
+export const useVehicleInteragencyTransfersQuery=(requestEnabled=true)=>useQuery({queryKey:['vehicle-interagency-transfers'],queryFn:()=>apiRequest<any[]>('/vehicle-interagency-transfers'),enabled:enabled()&&requestEnabled});
 export const useCreateUser = () =>
   mutation<any>(() => "/users", "POST", erpKeys.users);
 export function useCreateActivity() {

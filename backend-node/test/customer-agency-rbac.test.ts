@@ -5,7 +5,7 @@ import test from'node:test';
 const source=readFileSync(new URL('../src/modules/customers/customer.routes.ts',import.meta.url),'utf8');
 
 test('CRUD et contacts clients utilisent OWN/AGENCY sans agence client fiable',()=>{
- assert.equal((source.match(/requireAgencyBusinessPermission\('customers\.(?:view|create|update)'\)/g)??[]).length,9);
+ assert.equal((source.match(/requireAgencyBusinessPermission\('customers\.(?:view|create|update)'\)/g)??[]).length,12);
  assert.match(source,/request\.agencyRbac\?\.activeAgencyId/);
  assert.match(source,/requested&&requested!==agencyId/);
  assert.match(source,/agency_id=\? AND .*assigned_user_id=\?/);

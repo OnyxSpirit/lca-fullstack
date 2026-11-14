@@ -66,7 +66,8 @@ export function resolveVehicleRecommendation<T extends{vehicleId:string;eligible
 export async function vehicleContext(opportunityValue:unknown,testDriveValue:unknown,request:Request){
   const opportunityId=id(opportunityValue,'Opportunité'),testDriveId=testDriveValue==null||testDriveValue===''?null:id(testDriveValue,'Essai');
   return withCurrentAgencyBusinessAuthorization(request,'quotations.create',async connection=>{
-    const[opportunities]=await connection.execute<RowDataPacket[]>(`SELECT o.id,o.lead_id,o.assigned_user_id,l.agency_id FROM opportunities o JOIN leads l ON l.id=o.lead_id WHERE o.id=?`,[opportunityId]),opportunity=opportunities[0];
+    const[opportunities]=await connection.execute<RowDataPacket[]>(`SELECT o.id,o.lead_id,o.assigned_user_id,l.agency_id,l.archived_at FROM opportunities o JOIN leads l ON l.id=o.lead_id WHERE o.id=?`,[opportunityId]),opportunity=opportunities[0];
+    if(opportunity?.archived_at)throw new HttpError(409,'Un prospect archivé ne peut pas recevoir un nouveau devis');
     if(!opportunity)throw new HttpError(404,'Opportunité introuvable');
     await assertRowScope(connection,opportunity,request,'quotations.create');
     const params:Array<string|number>=[String(opportunity.lead_id)];let exact='';
@@ -104,7 +105,15 @@ async function createFlexible(body:unknown,request:Request,taxChoice:{taxMode:Ta
   if(created.opportunityId)await publishCrmLeadUpdated({opportunityId:created.opportunityId,changeType:'quotation',customerChanged:true});return one(created.id,request,'quotations.create')
 }
 
+async function assertQuotationLeadActive(body:unknown){
+  const opportunityId=(body as Record<string,unknown>|null)?.opportunityId;
+  if(!opportunityId)return;
+  const rows=await query<RowDataPacket[]>(`SELECT l.archived_at FROM opportunities o JOIN leads l ON l.id=o.lead_id WHERE o.id=?`,[id(opportunityId,'Opportunité')]);
+  if(rows[0]?.archived_at)throw new HttpError(409,'Un prospect archivé ne peut pas recevoir un nouveau devis');
+}
+
 export async function create(body:unknown,request:Request){
+  await assertQuotationLeadActive(body);
   const payload=(body??{})as Record<string,unknown>,config=await getEffectiveBusinessSettings(request.agencyRbac!.activeAgencyId!);
   const taxMode=payload.taxMode??'TAXABLE',priceInputMode=payload.priceInputMode??'HT',taxRate=payload.taxRate??config.vatRate;
   const changesRequested=taxMode!=='TAXABLE'||priceInputMode!=='HT'||Number(taxRate)!==Number(config.vatRate);

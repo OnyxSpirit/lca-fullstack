@@ -68,7 +68,7 @@ export const VehicleDetailPage: React.FC = () => {
   const [editOpen,setEditOpen]=useState(false);
   const [documentUploadOpen,setDocumentUploadOpen]=useState(false);
   const [previewDocument,setPreviewDocument]=useState<PreviewDocument|null>(null);
-  const [transferOpen,setTransferOpen]=useState(false);
+  const [movementMode,setMovementMode]=useState<'location'|'agency'|null>(null);
   const galleryImages=vehicleQuery.data?.images??[];
   const technicalProfile=vehicleQuery.data?.technicalProfile;
   const technicalValues=vehicleQuery.data?.effectiveTechnical?.values??technicalProfile;
@@ -124,7 +124,8 @@ export const VehicleDetailPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             {canEdit&&!stockLocked&&<Button variant="outline" size="sm" icon={<Edit className="w-4 h-4"/>} onClick={()=>setEditOpen(true)}>Modifier</Button>}
             {canCreateProforma&&<Button variant="primary" size="sm" icon={<FileText className="w-4 h-4"/>} onClick={()=>navigate(`/proformas?vehicleId=${vehicle.id}`)}>Générer une pro forma</Button>}
-            {canTransfer&&!stockLocked&&<Button variant="outline" size="sm" onClick={()=>setTransferOpen(true)}>Transférer</Button>}
+            {canTransfer&&!stockLocked&&<Button variant="outline" size="sm" onClick={()=>setMovementMode('location')}>Changer d’emplacement</Button>}
+            {canTransfer&&!stockLocked&&<Button variant="outline" size="sm" onClick={()=>setMovementMode('agency')}>Transférer vers une agence</Button>}
             {/* Quick Status Selector */}
             {canChangeStatus&&!stockLocked&&manualStatusOptions.length>0&&<select
               value={vehicle.status}
@@ -427,7 +428,7 @@ export const VehicleDetailPage: React.FC = () => {
       />}
       <Card><CardHeader><CardTitle>Dossiers associés</CardTitle></CardHeader><div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">{vehicleQuery.data?.reservations?.map((item:any)=><div key={`r-${item.id}`} className="rounded border p-3 text-xs"><b>Réservation</b><p>{item.customer_name||'Client protégé'} · {item.status}</p></div>)}{vehicleQuery.data?.sales?.map((item:any)=><div key={`s-${item.id}`} className="rounded border p-3 text-xs"><b>Vente {item.sale_number}</b><p>{item.customer_name||'Client protégé'} · {item.status}</p><Link className="font-bold text-[#8f1722]" to={`/sales/${item.id}`}>Voir la vente</Link></div>)}{vehicleQuery.data?.deliveries?.map((item:any)=><div key={`d-${item.id}`} className="rounded border p-3 text-xs"><b>Livraison {item.delivery_number}</b><p>{item.status}</p><Link className="font-bold text-[#8f1722]" to={`/deliveries/${item.id}`}>Voir la livraison</Link></div>)}{vehicleQuery.data?.repairOrders?.map((item:any)=><div key={`o-${item.id}`} className="rounded border p-3 text-xs"><b>OR {item.order_number}</b><p>{item.status}</p><Link className="font-bold text-[#8f1722]" to={`/service/repair-orders/${item.id}`}>Voir l’OR</Link></div>)}{vehicleQuery.data?.warranty&&<div className="rounded border p-3 text-xs"><b>Garantie constructeur</b><p>{vehicleQuery.data.warranty.provider_name_snapshot||vehicleQuery.data.warranty.provider_name||'Fournisseur non renseigné'}</p><p>{vehicleQuery.data.warranty.status} · échéance {vehicleQuery.data.warranty.expiry_date?formatDate(vehicleQuery.data.warranty.expiry_date):'à déterminer'}</p></div>}</div></Card>
       {canViewFinancials&&Boolean(vehicleQuery.data?.priceHistory?.length)&&<Card><CardHeader><CardTitle>Historique des prix</CardTitle></CardHeader><div className="divide-y text-xs">{vehicleQuery.data.priceHistory.map((item:any)=><div key={item.id} className="grid gap-1 py-3 sm:grid-cols-4"><span>{formatDate(item.changed_at)}</span><span>Vente : {formatCurrency(Number(item.old_sale_price),vehicle.currencyCode)} → {formatCurrency(Number(item.new_sale_price),vehicle.currencyCode)}</span><span>Minimum : {formatCurrency(Number(item.old_minimum_price),vehicle.currencyCode)} → {formatCurrency(Number(item.new_minimum_price),vehicle.currencyCode)}</span><span>{item.reason||'Sans motif'} · {item.changed_by_name||'Système'}</span></div>)}</div></Card>}
-      <VehicleTransferModal open={transferOpen} close={()=>setTransferOpen(false)} vehicle={vehicle}/>
+      <VehicleTransferModal open={movementMode!==null} close={()=>setMovementMode(null)} vehicle={vehicle} initialMode={movementMode??'location'}/>
       <EditVehicleModal isOpen={editOpen} onClose={()=>setEditOpen(false)} vehicle={vehicle} technicalProfile={technicalProfile} effectiveTechnical={vehicleQuery.data?.effectiveTechnical}/>
       <DocumentPreview document={previewDocument} onClose={()=>setPreviewDocument(null)} onDownload={downloadDocument}/>
     </div>

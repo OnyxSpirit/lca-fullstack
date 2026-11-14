@@ -16,8 +16,8 @@ test('CRM multi-agences utilise une provenance d’agence persistée',()=>{
   assert.match(routes,/INSERT INTO leads\(agency_id,/);
 });
 
-test('les douze routes CRM utilisent les guards métier OWN\/AGENCY',()=>{
-  assert.equal((routes.match(/crmRouter\.(?:get|post|patch|put|delete)\(/g)??[]).length,12);
+test('toutes les routes CRM utilisent les guards métier OWN\/AGENCY',()=>{
+  assert.equal((routes.match(/crmRouter\.(?:get|post|patch|put|delete)\(/g)??[]).length,14);
   assert.doesNotMatch(routes,/requirePermission\(|requireAnyPermission\(/);
   assert.match(routes,/requireAgencyBusinessPermission/);
   assert.match(routes,/requireAnyAgencyPermission/);

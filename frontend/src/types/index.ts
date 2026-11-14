@@ -108,6 +108,10 @@ export interface Lead {
   canCreateQuotation?: boolean;
   customerId?: string;
   lostReason?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archiveReason?: string;
+  reactivatedAt?: string;
   updatedAt: string;
   score: number; // 0-100 qualification score persisted as opportunities.probability
   commercialProgress: number | null;

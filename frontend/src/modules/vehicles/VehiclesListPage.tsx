@@ -27,6 +27,7 @@ import { NewVehicleModal } from './NewVehicleModal';
 import { implicitVehicleAgencyFilter } from './vehicleScopePolicy';
 import { openOfficialPdf } from '../../services/businessPdf';
 import {CommercialCatalogPage} from './CommercialCatalogPage';
+import {VehicleTransfersPanel} from './VehicleTransfersPanel';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,13 +45,17 @@ export const VehiclesListPage: React.FC = () => {
   const [onlyDormant, setOnlyDormant] = useState(false);
   const [locationType,setLocationType]=useState<''|'PARC'|'SHOWROOM'|'GARAGE'>('');
   const [assignment,setAssignment]=useState('');
+  const [minPrice,setMinPrice]=useState('');
+  const [maxPrice,setMaxPrice]=useState('');
+  const [sort,setSort]=useState('date_desc');
   const [page,setPage]=useState(1);
   const pageSize=20;
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
+  const [transfersOpen,setTransfersOpen]=useState(false);
   const deferredSearch=useDeferredValue(searchQuery);
   const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
   const implicitAgencyId=implicitVehicleAgencyFilter(permissionScope('vehicles.view'),currentAgency?.id);
-  const vehicleFilters={agencyId:implicitAgencyId,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant,locationType,assignment,page,pageSize};
+  const vehicleFilters={agencyId:implicitAgencyId,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant,locationType,assignment,minPrice:minPrice===''?undefined:Number(minPrice),maxPrice:maxPrice===''?undefined:Number(maxPrice),sort,page,pageSize};
   const vehiclesQuery=useVehicleListQuery(vehicleFilters);
   const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:implicitAgencyId,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand,locationType});
   const statsQuery=useVehicleStatsQuery(implicitAgencyId),stats=statsQuery.data;
@@ -59,7 +64,7 @@ export const VehiclesListPage: React.FC = () => {
   const filteredTotal=vehiclesQuery.data?.total??0;
   const totalPages=Math.max(1,vehiclesQuery.data?.totalPages??1),pageNumbers=Array.from(new Set([1,totalPages,page-1,page,page+1].filter(value=>value>=1&&value<=totalPages))).sort((a,b)=>a-b);
   const brands=filterOptionsQuery.data?.brands??[],models=filterOptionsQuery.data?.models??[],locations=filterOptionsQuery.data?.locations??[];
-  useEffect(()=>setPage(1),[deferredSearch,selectedStatus,inventoryView,selectedFuel,selectedType,selectedBrand,selectedModel,onlyDormant,locationType,assignment,implicitAgencyId]);
+  useEffect(()=>setPage(1),[deferredSearch,selectedStatus,inventoryView,selectedFuel,selectedType,selectedBrand,selectedModel,onlyDormant,locationType,assignment,minPrice,maxPrice,sort,implicitAgencyId]);
   useEffect(()=>{if(vehiclesQuery.data&&page>Math.max(1,vehiclesQuery.data.totalPages))setPage(Math.max(1,vehiclesQuery.data.totalPages))},[vehiclesQuery.data,page]);
 
   const filteredVehicles = vehicles;
@@ -67,8 +72,8 @@ export const VehiclesListPage: React.FC = () => {
   const availableCount = stats?.availableForSale??stats?.available??0;
   const dormantCount = stats?.dormant??0;
   const totalStockValue = stats?.stockValue??0;
-  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant||locationType||assignment);
-  const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false);setLocationType('');setAssignment('');setPage(1)};
+  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant||locationType||assignment||minPrice||maxPrice||sort!=='date_desc');
+  const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false);setLocationType('');setAssignment('');setMinPrice('');setMaxPrice('');setSort('date_desc');setPage(1)};
 
   if(stockSection==='models')return <div className="space-y-5"><div className="flex rounded-xl border bg-white p-1"><button className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600" onClick={()=>setStockSection('units')}>Véhicules en stock</button><button className="rounded-lg bg-[#8f1722] px-4 py-2 text-sm font-semibold text-white">Modèles sur commande</button></div><CommercialCatalogPage embedded/></div>;
 
@@ -103,6 +108,7 @@ export const VehiclesListPage: React.FC = () => {
             </div>
 
             <Button variant="outline" size="sm" onClick={()=>void openOfficialPdf(`/vehicles/inventory/pdf${selectedStatus==='ALL'?'':`?status=${encodeURIComponent(selectedStatus)}`}`,'inventaire-vehicules.pdf')}>Inventaire PDF</Button>
+            {can('vehicles.assign_agency')&&<Button variant="outline" size="sm" onClick={()=>setTransfersOpen(true)}>Transferts inter-agences</Button>}
             {canCreate&&<Button
               variant="primary"
               size="sm"
@@ -114,6 +120,7 @@ export const VehiclesListPage: React.FC = () => {
           </div>
         }
       />
+      <VehicleTransfersPanel open={transfersOpen} onClose={()=>setTransfersOpen(false)}/>
 
       {/* KPI Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -192,6 +199,9 @@ export const VehiclesListPage: React.FC = () => {
           </select>
           <select value={locationType} onChange={e=>{setLocationType(e.target.value as ''|'PARC'|'SHOWROOM'|'GARAGE');setAssignment('')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Type d’affectation"><option value="">Tous les emplacements</option><option value="PARC">Parc automobile</option><option value="SHOWROOM">Showroom</option><option value="GARAGE">Garage</option></select>
           <select value={assignment} onChange={e=>setAssignment(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium" aria-label="Affectation précise"><option value="">Toutes les affectations</option><option value="unassigned">Non affecté</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name} · {location.agencyName}</option>)}</select>
+          <input aria-label="Prix minimum" type="number" min="0" step="1" placeholder="Prix min. XAF" value={minPrice} onChange={e=>setMinPrice(e.target.value)} className="w-32 text-xs p-2 rounded-lg border border-slate-200 bg-slate-50"/>
+          <input aria-label="Prix maximum" type="number" min="0" step="1" placeholder="Prix max. XAF" value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} className="w-32 text-xs p-2 rounded-lg border border-slate-200 bg-slate-50"/>
+          <select aria-label="Trier par" value={sort} onChange={e=>setSort(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="date_desc">Date d’entrée — récente</option><option value="date_asc">Date d’entrée — ancienne</option><option value="brand">Marque</option><option value="model">Modèle</option><option value="price_asc">Prix croissant</option><option value="price_desc">Prix décroissant</option></select>
           {/* Status Filter */}
           <select
             value={selectedStatus}

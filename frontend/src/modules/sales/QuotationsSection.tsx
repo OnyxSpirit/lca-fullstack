@@ -11,9 +11,11 @@ import { useUiStore } from '../../stores/uiStore';
 
 export function QuotationsSection() {
   const [page, setPage] = useState(1);
+  const [sortBy,setSortBy]=useState('date');
+  const [sortOrder,setSortOrder]=useState<'asc'|'desc'>('desc');
   const canView = useAuthStore((state) => state.can('quotations.view'));
   const canValidate = useAuthStore((state) => state.can('quotations.validate'));
-  const query = useQuotationsPageQuery({ page, pageSize: 7 }, canView);
+  const query = useQuotationsPageQuery({ page, pageSize: 7, sortBy, sortOrder }, canView);
   const retryArchive = useRetryQuotationArchive();
   const addToast = useUiStore((state) => state.addToast);
   const quotations = query.data?.items ?? [];
@@ -25,7 +27,7 @@ export function QuotationsSection() {
   return (
     <Card padding="none">
       <div className="border-b p-4">
-        <h2 className="font-bold text-slate-900">Propositions et devis</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold text-slate-900">Propositions et devis</h2><div className="flex gap-2"><select aria-label="Trier les devis" value={sortBy} onChange={event=>{setSortBy(event.target.value);setPage(1)}} className="rounded border px-2 py-1 text-xs"><option value="date">Date</option><option value="reference">Référence</option><option value="client">Client</option><option value="amount">Montant</option><option value="validUntil">Validité</option></select><Button size="xs" variant="outline" aria-label="Inverser le sens du tri des devis" onClick={()=>{setSortOrder(value=>value==='asc'?'desc':'asc');setPage(1)}}>{sortOrder==='asc'?'↑ Croissant':'↓ Décroissant'}</Button></div></div>
         <p className="text-xs text-slate-500">Même source de vérité que les devis créés depuis le CRM.</p>
       </div>
       {query.isError && (

@@ -29,8 +29,10 @@ import { SalesSectionTabs } from './SalesSectionTabs';
 export const SalesListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [sortBy,setSortBy]=useState('date');
+  const [sortOrder,setSortOrder]=useState<'asc'|'desc'>('desc');
   const [salesPage,setSalesPage]=useState(1);
-  const salesQuery = useSalesPageQuery({page:salesPage,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
+  const salesQuery = useSalesPageQuery({page:salesPage,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus,sortBy,sortOrder});
   const sales = salesQuery.data?.items ?? [];
   const navigate = useNavigate();
   const canCreate=useAuthStore(state=>state.can('sales.create'));
@@ -110,6 +112,8 @@ export const SalesListPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <select aria-label="Trier les ventes" value={sortBy} onChange={e=>{setSortBy(e.target.value);setSalesPage(1)}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="date">Date</option><option value="reference">Référence</option><option value="client">Client</option><option value="amount">Montant</option><option value="status">Statut</option></select>
+          <Button size="xs" variant="outline" aria-label="Inverser le sens du tri des ventes" onClick={()=>{setSortOrder(value=>value==='asc'?'desc':'asc');setSalesPage(1)}}>{sortOrder==='asc'?'↑ Croissant':'↓ Décroissant'}</Button>
           <select
             value={selectedStatus}
             onChange={(e) => {setSelectedStatus(e.target.value);setSalesPage(1)}}

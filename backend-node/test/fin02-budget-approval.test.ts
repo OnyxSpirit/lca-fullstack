@@ -7,10 +7,10 @@ const treasury=readFileSync(new URL('../src/modules/treasury/treasury.service.ts
 const migration=readFileSync(new URL('../database/migrations/072_budget_expense_approval_workflows.sql',import.meta.url),'utf8');
 const baseline=readFileSync(new URL('../database/baseline/001_initial_schema.sql',import.meta.url),'utf8');
 
-test('BUD-01..10 workflow budget, quatre yeux, motifs et historique',()=>{
+test('BUD-01..10 workflow budget piloté par permissions, motifs et historique',()=>{
  assert.match(routes,/categoryId,'draft',r\.user!\.sub/);
  for(const action of['submit','approve','reject','close'])assert.match(routes,new RegExp(`/hr/budgets/:id/${action}`));
- assert.match(routes,/créateur ne peut pas approuver son propre budget/);
+ assert.doesNotMatch(routes,/créateur ne peut pas approuver son propre budget/);
  assert.match(routes,/decisionReason\(r\.body\.reason,'Motif du rejet'\)/);
  assert.match(routes,/budget_approval_history/);
  assert.match(routes,/Seul un budget approuvé peut être clôturé/);
@@ -18,7 +18,7 @@ test('BUD-01..10 workflow budget, quatre yeux, motifs et historique',()=>{
 
 test('EXP-01..12 engagement seulement à approbation et verrou budget',()=>{
  for(const action of['submit','approve','reject'])assert.match(routes,new RegExp(`/hr/expenses/:id/${action}`));
- assert.match(routes,/demandeur ne peut pas approuver sa propre dépense/);
+ assert.doesNotMatch(routes,/demandeur ne peut pas approuver sa propre dépense/);
  assert.match(routes,/SELECT e\.\*,b\.initial_amount,b\.status[\s\S]*FOR UPDATE/);
  assert.match(routes,/approval_status='approved'/);
  assert.match(routes,/Montant supérieur au budget disponible au moment de l’approbation/);

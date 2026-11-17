@@ -74,6 +74,7 @@ const RemunerationsAdministration = lazy(() =>
     default: module.RemunerationsAdministration,
   })),
 );
+const FiscalAdministration = lazy(() => import("./FiscalAdministration"));
 
 type Tab =
   | "overview"
@@ -84,6 +85,7 @@ type Tab =
   | "remunerations"
   | "stock"
   | "budgets"
+  | "fiscal"
   | "reporting";
 const input =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs";
@@ -163,6 +165,11 @@ export const HrAdministrationPage: React.FC = () => {
           id: "budgets" as Tab,
           label: "Budgets & Dépenses",
           show: can("hr.budget.view"),
+        },
+        {
+          id: "fiscal" as Tab,
+          label: "Fiscalité",
+          show: can("fiscal.obligation.view"),
         },
         {
           id: "reporting" as Tab,
@@ -827,6 +834,11 @@ export const HrAdministrationPage: React.FC = () => {
           )}
           {can("hr.expense.view") && <ExpensesWorkspace budgets={budgets.data??[]} can={can} notify={notify} onOpen={(expense)=>{setSelectedExpense(expense);setSelectedBudget(budgets.data?.find(b=>b.id===expense.budget_id));setModal("expense-disbursement")}} onCancel={(expense)=>{setSelectedExpense(expense);setSelectedBudget(budgets.data?.find(b=>b.id===expense.budget_id));setModal("expense-cancel")}} />}
         </>
+      )}
+      {tab === "fiscal" && (
+        <Suspense fallback={<Card>Chargement de la fiscalité…</Card>}>
+          <FiscalAdministration />
+        </Suspense>
       )}
       {tab === "reporting" && (
         <>

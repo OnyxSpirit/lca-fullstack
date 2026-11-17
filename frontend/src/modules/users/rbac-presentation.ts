@@ -7,14 +7,14 @@ export const isIncompatibleBusinessScope=(scope:RbacScope|null|undefined,allowed
 export const scopeLabel=(scope:RbacScope)=>({OWN:'Mes données',AGENCY:'Agence',CONCESSION:'Ancien périmètre concession',GLOBAL:'Ancien périmètre global'})[scope];
 
 const labels:Record<string,string>={
- settings:'Paramètres',billing:'Facturation',workshop:'Atelier',inventory:'Stock',users:'Utilisateurs',roles:'Rôles et permissions',notifications:'Notifications',documents:'Documents',document:'Documents',delivery:'Livraison',deliveries:'Livraison',sales:'Ventes',vehicles:'Véhicules',customers:'Clients',customer:'Clients',reporting:'Rapports',reports:'Rapports',treasury:'Trésorerie',hr:'Ressources humaines',parts:'Pièces de rechange',crm:'CRM',showroom:'Showroom',security:'Sécurité',auth:'Sécurité du compte',agencies:'Agences',agency:'Agences',permissions:'Permissions',general:'Général',stamp:'Cachets',stamps:'Cachets',service:'Service après-vente',sav:'Service après-vente',
+ settings:'Paramètres',billing:'Facturation',workshop:'Atelier',inventory:'Stock',users:'Utilisateurs',roles:'Rôles et permissions',notifications:'Notifications',documents:'Documents',document:'Documents',delivery:'Livraison',deliveries:'Livraison',sales:'Ventes',vehicles:'Véhicules',customers:'Clients',customer:'Clients',reporting:'Rapports',reports:'Rapports',treasury:'Trésorerie',hr:'Ressources humaines',parts:'Pièces de rechange',crm:'CRM',showroom:'Showroom',security:'Sécurité',auth:'Sécurité du compte',agencies:'Agences',agency:'Agences',permissions:'Permissions',general:'Général',stamp:'Cachets',stamps:'Cachets',service:'Service après-vente',sav:'Service après-vente',accounting:'Comptabilité',activity:'Journal d’activité',bank:'Banque',reconciliation:'Rapprochement',bank_reconciliation:'Rapprochement bancaire',proformas:'Factures pro forma',quotations:'Devis',ged:'GED',fiscal:'Fiscalité',supplier:'Fournisseurs',finance:'Finances',supplier_finance:'Finances fournisseurs',
+ 'achats & finance':'Achats et finances','comptabilité & trésorerie':'Comptabilité et trésorerie','documents & gouvernance':'Documents et gouvernance','identité & fiscalité':'Identité et fiscalité','paramètres · agences':'Agences','pièces & stock':'Pièces et stock','rh & administration':'RH et administration','sécurité et authentification':'Sécurité et authentification','service après vente & atelier':'Service après-vente et atelier',
 };
 const words=(value:string)=>value.trim().split(/[.·/_\s-]+/).filter(Boolean);
-const translate=(value:string)=>words(value).map(word=>labels[word.toLowerCase()]??word.charAt(0).toUpperCase()+word.slice(1).toLowerCase()).join(' ');
+const translate=(value:string)=>labels[value.trim().toLowerCase()]??words(value).map(word=>labels[word.toLowerCase()]??word.charAt(0).toUpperCase()+word.slice(1).toLowerCase()).join(' ');
 export const permissionGroupLabel=(module:string,group?:string|null)=>{
  const moduleLabel=translate(module),groupLabel=group?translate(group):'';
  if(!groupLabel||groupLabel.toLocaleLowerCase('fr')===moduleLabel.toLocaleLowerCase('fr'))return moduleLabel;
- const moduleWords=new Set(words(moduleLabel).map(word=>word.toLocaleLowerCase('fr'))),distinct=words(groupLabel).filter(word=>!moduleWords.has(word.toLocaleLowerCase('fr')));
- return distinct.length?distinct.join(' '):moduleLabel;
+ return groupLabel;
 };
 export const roleDisplayName=(code:string,name:string)=>code==='SUPER_ADMIN'?'Super Administrateur':name;

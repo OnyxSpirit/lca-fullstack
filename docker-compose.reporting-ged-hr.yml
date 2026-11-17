@@ -1,0 +1,16 @@
+services:
+  mysql:
+    volumes:
+      - reporting_ged_hr_mysql:/var/lib/mysql
+  backend:
+    volumes:
+      - reporting_ged_hr_uploads:/app/uploads
+      - reporting_ged_hr_ged:/app/ged-storage
+
+volumes:
+  reporting_ged_hr_mysql:
+    name: lca_reporting_ged_hr_mysql
+  reporting_ged_hr_uploads:
+    name: lca_reporting_ged_hr_uploads
+  reporting_ged_hr_ged:
+    name: lca_reporting_ged_hr_ged

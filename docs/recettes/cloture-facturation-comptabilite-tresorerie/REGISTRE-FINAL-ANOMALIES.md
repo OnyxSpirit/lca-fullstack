@@ -1,15 +1,16 @@
 # Registre final des anomalies
 
-| Référence | État | Preuve actuelle |
+| Référence | État final | Preuve |
 |---|---|---|
-| FIN-001 | Corrigée et recettée | API, MySQL et navigateur : mouvements et soldes vérifiés |
-| FIN-002 | Corrigée sur fixture | Mouvement 6, audit unique, rejeu sans doublon |
-| FIN-003 | Corrigée sur encaissement | Écriture `VE-FIN-2025-000001`, débit = crédit |
-| FIN-004 | Corrigée ; réserve navigateur | API officielle exhaustive sur 6 profils, changement d’agence, révocation/réactivation ; navigateur représentatif |
-| FIN-005 | Corrigée | Tests ciblés réussis |
-| FIN-006 | Qualifiée, aucune écriture requise | Les 118 000 XAF proviennent de `official-document-mysql-fixture.sql`, insertion directe hors métier ; base réelle non modifiée |
-| SAV-MVT-01 | Corrigée | Migration 129 autorise `internal_delivery` et `sav_return`, test ciblé et E2E réussis |
-| UI-FR-SAV-01 | Corrigée | Bundle final : `Terminée`, `Facturé → Clôturé`, aucun statut brut ciblé |
-| AUTH-E2E-01 | Contournée en recette | Limitation 2FA après connexions rapprochées, sans impact fonctionnel persistant |
+| FIN-001 à FIN-005 | Corrigées et recettées | API, MySQL, navigateur et tests globaux |
+| FIN-006 | Qualifiée, aucune écriture requise | Fixture documentaire isolée ; aucun historique réel modifié |
+| SAV-MVT-01 | Corrigée | Migration 129 et scénarios MySQL/SAV réussis |
+| UI-FR-SAV-01 | Corrigée | Statuts SAV francisés |
+| UI-FR-BILL-01 | Corrigée | `FACTURE_MANUELLE` remplacé par « Facture manuelle » dans le bundle final |
+| TS-ACC-01 | Corrigée | Import `FiscalRow`; TypeScript et build réussis |
+| DOCKER-E2E-01 | Corrigée | Volume MySQL isolé reconstruit, migration 129, services sains |
+| AUTH-E2E-01 | Levée | 2FA respecté ; session Super Administrateur validée sans désactivation ni contournement |
+| SUITES-GLOBALES-01 | Levée | Backend 0 échec ; frontend 0 échec |
+| RBAC-NAV-01 | Levée | 7 profils, 2 agences, routes, menus, actions, révocation/réactivation |
 
-Réserve transversale : les suites globales hors périmètre ne sont pas vertes. Le lot financier ciblé et le scénario SAV sont réussis ; cette réserve interdit seulement la qualification « sans réserve ».
+Aucune anomalie bloquante ou majeure du périmètre ne reste ouverte.

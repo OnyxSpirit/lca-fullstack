@@ -8,11 +8,14 @@ const json=async(path,options={})=>{const response=await fetch(`${base}${path}`,
 const login=await json('/auth/login',{method:'POST',body:JSON.stringify({email,password})});
 const verified=await json('/auth/2fa/verify',{method:'POST',body:JSON.stringify({challengeToken:login.challengeToken,code:await generate({secret})})});
 const headers={Authorization:`Bearer ${verified.accessToken}`};
-await json('/rbac/agency-context',{method:'PUT',headers,body:JSON.stringify({agencyId:'1'})});
+await json('/rbac/agency-context',{method:'PUT',headers,body:JSON.stringify({agencyId:process.env.FIN_E2E_AGENCY_ID??'1'})});
+const invoiceId=process.env.FIN_E2E_INVOICE_ID??'1';
+const paymentId=process.env.FIN_E2E_PAYMENT_ID??'1';
+const repairOrderId=process.env.FIN_E2E_REPAIR_ORDER_ID;
 const files=[
-  ['facture-sav.pdf','/invoices/4/pdf'],
-  ['recu-sav.pdf','/payments/7/receipt'],
-  ['ordre-reparation-sav.pdf','/repair-orders/5/pdf'],
+  ['facture.pdf',`/invoices/${invoiceId}/pdf`],
+  ['recu.pdf',`/payments/${paymentId}/receipt`],
+  ...(repairOrderId?[['ordre-reparation-sav.pdf',`/repair-orders/${repairOrderId}/pdf`]]:[]),
   ['rapport-financier.pdf',`/reports/financial-dashboard/export/pdf?from=${new Date().toISOString().slice(0,10)}&to=${new Date().toISOString().slice(0,10)}&mode=detailed`],
 ];
 await mkdir(output,{recursive:true});

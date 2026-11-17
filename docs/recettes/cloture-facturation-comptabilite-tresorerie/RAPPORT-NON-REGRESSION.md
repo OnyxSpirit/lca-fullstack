@@ -1,7 +1,20 @@
 # Rapport de non-régression
 
-Builds frontend et backend réussis. La sélection backend financière compte 17 fichiers réussis sur 17, incluant FIN-005, les intégrations MySQL, la trésorerie manuelle, l’automatisation comptable, le RBAC et les deux procédures historiques. La sélection frontend financière compte 40 tests réussis sur 40 après correction de l’attente devenue obsolète « Mouvements Treasury » vers « Mouvements de trésorerie ».
+## Suites globales définitives
 
-La suite globale backend a été lancée mais présente plusieurs échecs hors périmètre (notamment fixtures d’application/authentification et modules commerciaux). La suite globale frontend a également révélé plusieurs attentes historiques hors périmètre ; elle a été interrompue après collecte, puis la sélection financière a été isolée et entièrement réussie. Ces suites globales ne sont donc pas présentées comme vertes.
+| Contrôle | Résultat |
+|---|---:|
+| Backend `npm test` | 2 215 tests ; 2 112 réussis ; 103 ignorés conditionnellement ; 0 échec |
+| Frontend `npm test` | 1 047 réussis ; 0 échec |
+| Backend `npm run lint` | Réussi |
+| Backend `npm run build` | Réussi |
+| Frontend `npm run lint` | Réussi |
+| Frontend `npm run build` | Réussi |
+| Build Docker frontend | Réussi, 2 547 modules transformés |
+| Bootstrap MySQL isolé | Niveau 129, 0 avertissement historique |
 
-Le 17 novembre, le test ciblé `sav-parts-refonte-foundation.test.ts` réussit après la migration 129, ainsi que les builds backend et frontend. Le dernier lancement global backend a encore observé des échecs dans app/auth, commercial, CRM, livraison et marques documentaires, puis a été interrompu après blocage prolongé. Aucun de ces résultats n’est masqué ni requalifié comme vert.
+Le premier lancement backend sous sandbox a produit des refus `EPERM` sur les tests ouvrant des ports locaux. Il a été interrompu puis intégralement rejoué dans l’environnement autorisé : résultat final 0 échec. Le premier lancement frontend a rencontré le même refus IPC `tsx`, puis le rejeu autorisé a réussi à 1 047/1 047. Ces incidents d’exécution ne sont pas des anomalies du produit.
+
+Les 103 tests backend ignorés sont des intégrations conditionnelles explicitement marquées `SKIP` lorsqu’elles exigent leur propre MySQL/HTTP jetable ; les scénarios MySQL financiers requis ont été exécutés séparément sur MySQL 8.4 réel et sont réussis.
+
+Verdict : aucune régression imputable au lot financier.

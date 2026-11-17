@@ -54,6 +54,7 @@ const field = "w-full rounded border p-2 text-xs",
     provider_contract: "Contrat prestataire",
     treasury_manual_operation: "Opération manuelle de trésorerie",
     budget_expense_disbursement: "Décaissement budgétaire",
+    fiscal_obligation: "Obligation fiscale",
   };
 const PAGE_SIZE = 10;
 export const DocumentsGedPage: React.FC = () => {

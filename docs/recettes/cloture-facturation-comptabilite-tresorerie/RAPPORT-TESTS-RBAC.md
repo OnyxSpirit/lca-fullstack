@@ -1,7 +1,20 @@
 # Tests RBAC
 
-Fixtures créées : super administrateur, six profils, deux agences et affectations multi-agences.
+## Matrice navigateur et API définitive
 
-La recette `financial-e2e-rbac.mjs` a validé les appels directs Facturation, Trésorerie et Comptabilité pour les six profils : tous les codes observés correspondent aux codes attendus (200 ou 403). L’agent de facturation possède `FIN_AGENT_FACTURATION` en agence BZV et `FIN_SANS_PERMISSION` en agence PNR. Après changement d’agence, les permissions passent à zéro et l’appel Facturation retourne 403. Après révocation de PNR, la session revient sur BZV et la sélection directe de PNR retourne 403 ; la réactivation finale est confirmée.
+| Profil | Agence | Facturation UI/API | Trésorerie UI/API | Comptabilité UI/API | Actions visibles | Résultat |
+|---|---|---|---|---|---|---|
+| Super Administrateur | BZV + PNR | Autorisé | Autorisé | Autorisé | Toutes les actions granulaires | Réussi |
+| Responsable facturation | BZV + PNR | Autorisé / 200 | Refusé / 403 | Refusé / 403 | Créer, émettre, exporter selon permission | Réussi |
+| Agent de facturation | BZV | Autorisé / 200 | Refusé / 403 | Refusé / 403 | Créer ; aucun export | Réussi |
+| Agent de facturation | PNR, rôle sans droit | Refusé / 403 après recalcul | Refusé / 403 | Refusé / 403 | Aucun menu financier | Réussi |
+| Agent d’encaissement | BZV + PNR | Autorisé / 200 | Refusé / 403 | Refusé / 403 | Encaissement ; aucune création de facture | Réussi |
+| Comptable | BZV + PNR | Refusé / 403 | Refusé / 403 | Autorisé / 200 | Écritures, intégrations, états selon permission | Réussi |
+| Responsable trésorerie | BZV + PNR | Refusé / 403 | Autorisé / 200 | Refusé / 403 | Entrée, sortie, transfert, rapprochement, paramétrage | Réussi |
+| Utilisateur sans permission | BZV + PNR | Refusé / 403 | Refusé / 403 | Refusé / 403 | Aucun menu ni bouton financier | Réussi |
 
-Le navigateur a confirmé les surfaces autorisées, les routes financières représentatives et le changement d’agence sur les parcours ciblés. La preuve exhaustive par profil est portée par l’API officielle ; une matrice navigateur action par action pour chacun des six profils reste une extension nécessaire uniquement pour obtenir la mention « sans réserve ».
+Les routes directes `/billing`, `/treasury`, `/treasury/operations`, `/treasury/reconciliation`, `/treasury/settings` et `/treasury/accounting` ont été parcourues. Les refus affichent « Accès refusé / Permission insuffisante » et annoncent qu’aucun appel métier n’est lancé.
+
+Le changement BZV → PNR recalcule les rôles et masque les menus/actions ; une navigation directe confirme le 403. La révocation de PNR force le repli sur BZV, la sélection révoquée retourne 403, puis la réactivation rétablit l’affectation. Les permissions collectives utilisent `AGENCY`; aucun scope `OWN` collectif ni séparation demandeur/approbateur n’a été introduit.
+
+Les combinaisons non applicables sont celles où le profil ne possède aucune permission du module : UI masquée et API 403, ce qui constitue le résultat attendu.

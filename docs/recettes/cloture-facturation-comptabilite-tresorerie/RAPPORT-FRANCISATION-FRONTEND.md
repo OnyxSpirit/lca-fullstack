@@ -1,5 +1,12 @@
 # Rapport de francisation frontend
 
-Inspection statique, build et navigation Chromium ciblée exécutés. Les libellés visibles « Treasury », « Reporting & BI » et « Posted » ont été remplacés dans le périmètre financier traité. La recette a détecté l’ancien mot « Treasury » dans le bundle Docker, puis a confirmé qu’il était déjà corrigé dans la source ; le bundle de recette a été reconstruit avec `VITE_API_URL=/api` et rejoué sans terme anglais ciblé.
+Bundle Docker final reconstruit et contrôlé au navigateur sur Facturation, Trésorerie, Opérations, Rapprochement, Paramétrage et Comptabilité.
 
-Pages vérifiées : Facturation bureau/mobile, opérations de trésorerie, centre de pilotage tablette, Comptabilité (Grand livre, Intégrations) et détail SAV clôturé. Le build Vite réussit. Le 17 novembre, les statuts bruts `completed`, `invoiced`, `quality_control`, etc. ont été remplacés par des libellés français avec repli explicite « Statut inconnu (…) ». Le navigateur confirme `Terminée`, `Facturé → Clôturé` et l’absence des statuts bruts ciblés.
+- `FACTURE_MANUELLE` n’est plus visible ; la ligne affiche « Facture manuelle » et « Manuelle ».
+- Aucun enum technique à underscores ni statut anglais ciblé n’a été détecté sur les pages contrôlées.
+- Les codes de comptes tels que `FIN_BZV_CAISSE` restent des références métier configurées, pas des libellés d’interface non traduits.
+- Modales, erreurs, états vides, filtres, documents et exports portent des libellés français.
+- Le bundle final utilise `/api` et la facture `FAC-LCAPNR-2026-000001` est affichée avec ses montants et son statut « Payée ».
+- Responsive contrôlé en 375×812, 768×1024 et 1440×900 : navigation et actions restent accessibles.
+
+Verdict : francisation complète sur le périmètre financier contrôlé.

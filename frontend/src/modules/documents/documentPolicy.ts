@@ -10,12 +10,13 @@ const options:DocumentEntityOption[]=[
   {value:'budget',label:'Budget'}, {value:'employee',label:'Employé'}, {value:'employee_contract',label:'Contrat employé'}, {value:'employee_leave',label:'Congé ou absence'}, {value:'employee_bonus',label:'Prime employé'}, {value:'provider_contract',label:'Contrat prestataire'},
   {value:'treasury_manual_operation',label:'Opération manuelle de trésorerie'},
   {value:'budget_expense_disbursement',label:'Décaissement budgétaire'},
+  {value:'fiscal_obligation',label:'Obligation fiscale'},
 ];
 
 const policies:Record<DocumentEntityType,string[]>={
   customer:['customers.view'],vehicle:['vehicles.view'],sale:['sales.view'],invoice:['billing.view'],
   repair_order:['service.order.view','workshop.view'],delivery:['delivery.view'],supplier:['parts.suppliers.view'],
-  expense:['hr.expense.view','hr.expense.create'],budget:['hr.budget.view'],employee:['hr.employees.view'],employee_contract:['hr.contract.view'],employee_leave:['hr.leave.view'],employee_bonus:['hr.bonus.view'],provider_contract:['hr.provider.contract.view'],treasury_manual_operation:['treasury.view'],budget_expense_disbursement:['hr.expense.view'],
+  expense:['hr.expense.view','hr.expense.create'],budget:['hr.budget.view'],employee:['hr.employees.view'],employee_contract:['hr.contract.view'],employee_leave:['hr.leave.view'],employee_bonus:['hr.bonus.view'],provider_contract:['hr.provider.contract.view'],treasury_manual_operation:['treasury.view'],budget_expense_disbursement:['hr.expense.view'],fiscal_obligation:['fiscal.obligation.view'],
 };
 
 const has=(permissions:Record<string,unknown>|undefined,code:string)=>Boolean(permissions&&(Object.hasOwn(permissions,'*')||Object.hasOwn(permissions,code)));

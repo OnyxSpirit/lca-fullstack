@@ -10,8 +10,9 @@ test('SET-TEST-01..03 affiche les paramètres en lecture et réserve les actions
   assert.match(page,/<CardTitle>Barèmes horaires atelier/);
   assert.match(page,/input disabled={!admin}/);
   assert.match(rates,/canEditConcession/);
-  assert.match(rates,/permissionScope==='CONCESSION'\|\|permissionScope==='GLOBAL'/);
-  assert.match(rates,/permissionScope!==['"]OWN['"]/);
+  assert.match(rates,/canUpdate=can\('settings\.workshop_rates\.manage'\)&&permissionScope==='AGENCY'/);
+  assert.match(rates,/canEditConcession=canUpdate/);
+  assert.match(rates,/mayChooseAgency=false/);
   assert.match(page,/can\('parts\.suppliers\.view'\)/);
   assert.doesNotMatch(page,/PARTS_MANAGER|hasPermission\(roles/);
 });

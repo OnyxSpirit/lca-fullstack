@@ -5,10 +5,8 @@ import { clearVehicleFinancialValues, implicitVehicleAgencyFilter, vehiclePayloa
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
-test('liste: AGENCY conserve A1, CONCESSION et GLOBAL laissent le backend appliquer le scope',()=>{
+test('liste: AGENCY impose toujours l’agence active',()=>{
   assert.equal(implicitVehicleAgencyFilter('AGENCY','11'),'11');
-  assert.equal(implicitVehicleAgencyFilter('CONCESSION','11'),undefined);
-  assert.equal(implicitVehicleAgencyFilter('GLOBAL','11'),undefined);
 });
 
 test('création: un payload non financier ne contient aucun champ financier caché',()=>{

@@ -62,12 +62,8 @@ function accountScope(
   s: PermissionScope | null,
   a = "ta",
 ): { sql: string; params: any[] } {
-  if (s === "GLOBAL") return { sql: "TRUE", params: [] };
-  if (s === "CONCESSION")
-    return {
-      sql: `${a}.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`,
-      params: [r.user!.agencyId],
-    };
+
+
   if (s === "AGENCY")
     return { sql: `${a}.agency_id=?`, params: [r.user!.agencyId] };
   throw new HttpError(
@@ -79,12 +75,8 @@ function budgetScope(
   r: Request,
   s: PermissionScope | null,
 ): { sql: string; params: any[] } {
-  if (s === "GLOBAL") return { sql: "TRUE", params: [] };
-  if (s === "CONCESSION")
-    return {
-      sql: "COALESCE(b.concession_id,ba.concession_id)=(SELECT concession_id FROM agencies WHERE id=?)",
-      params: [r.user!.agencyId],
-    };
+
+
   if (s === "AGENCY")
     return {
       sql: "b.scope_type='agency' AND b.agency_id=?",

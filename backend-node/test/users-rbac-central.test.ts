@@ -17,12 +17,12 @@ test('RBAC-02 SUPER_ADMIN est validé depuis le rôle système persistant',()=>{
   assert.match(rbac,/role\.code\)==='SUPER_ADMIN'&&Boolean\(role\.is_system\)/);
 });
 
-test('RBAC-03 les utilisateurs respectent OWN, AGENCY, CONCESSION et GLOBAL',()=>{
+test('RBAC-03 les utilisateurs respectent exclusivement OWN et AGENCY',()=>{
   const access=source('src/modules/users/user-access.ts'),users=source('src/modules/users/user.service.ts');
-  for(const scope of ['GLOBAL','CONCESSION','AGENCY','OWN'])assert.match(access,new RegExp(`scope==='${scope}'`));
+  for(const scope of ['AGENCY','OWN'])assert.match(access,new RegExp(`scope==='${scope}'`));
   assert.match(users,/scope==='OWN'.*u\.id=/s);
   assert.match(users,/scope==='AGENCY'.*u\.agency_id=/s);
-  assert.match(users,/scope==='CONCESSION'.*a\.concession_id=/s);
+  assert.doesNotMatch(access,/scope==='CONCESSION'|scope==='GLOBAL'/);
 });
 
 test('RBAC-04 les opérations sensibles utilisent leur permission propre',()=>{

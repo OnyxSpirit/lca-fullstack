@@ -8,7 +8,7 @@ export const notificationCategories=[
 ]as const;
 
 export type{NotificationScope};
-const scopeRank={OWN:1,AGENCY:2,CONCESSION:3,GLOBAL:4}as const;
+const scopeRank={OWN:1,AGENCY:2}as const;
 export const notificationScopesFor=(permissionScope:string|null|undefined):NotificationScope[]=>{
   const rank=scopeRank[permissionScope as keyof typeof scopeRank]??0,result:NotificationScope[]=[];
   if(rank>0)result.push('mine');if(rank>=2)result.push('agency');return result;

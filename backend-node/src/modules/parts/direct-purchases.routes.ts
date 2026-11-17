@@ -13,7 +13,7 @@ const id=(v:unknown)=>{const x=String(v??'');if(!/^[1-9]\d*$/.test(x))throw new 
 const key=(v:unknown)=>{const x=String(v??'');if(!/^[A-Za-z0-9_-]{8,64}$/.test(x))throw new HttpError(400,'Clé de requête invalide');return x};
 const text=(v:unknown,n=500)=>String(v??'').trim().slice(0,n);
 const qty=(v:unknown)=>{const x=Number(v);if(!Number.isInteger(x)||x<=0)throw new HttpError(400,'Quantité entière positive requise');return x};
-async function scope(r:Request,permission:string,agencyId:string){const s=r.rbac?.permissions.get(permission);if(s==='GLOBAL'||s==='AGENCY'&&String(r.user!.agencyId)===agencyId)return;if(s==='CONCESSION'){const[x]=await query<RowDataPacket[]>('SELECT 1 ok FROM agencies actor JOIN agencies target ON target.concession_id=actor.concession_id WHERE actor.id=? AND target.id=?',[r.user!.agencyId,agencyId]);if(x)return}throw new HttpError(403,'Achat hors périmètre')}
+async function scope(r:Request,permission:string,agencyId:string){const s=r.rbac?.permissions.get(permission);if(s==='AGENCY'&&String(r.user!.agencyId)===agencyId)return;throw new HttpError(403,'Achat hors périmètre')}
 
 directPartsPurchaseRouter.get('/part-direct-purchases',requirePermission('parts.direct_purchase.view'),asyncHandler(async(r,res)=>{
  const agencyId=String(r.query.agencyId??r.user!.agencyId);await scope(r,'parts.direct_purchase.view',agencyId);

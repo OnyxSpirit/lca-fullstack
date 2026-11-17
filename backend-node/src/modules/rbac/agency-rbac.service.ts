@@ -14,7 +14,7 @@ export interface AgencyRbacContext{
 
 export type AgencyRbacRunner={execute:PoolConnection['execute']};
 const databaseRunner={execute:async(sql:string,params?:any[])=>[await query<RowDataPacket[]>(sql,params??[]),[]] as any} as AgencyRbacRunner;
-const scopeRank:Record<PermissionScope,number>={OWN:1,AGENCY:2,CONCESSION:3,GLOBAL:4};
+const scopeRank:Record<PermissionScope,number>={OWN:1,AGENCY:2};
 const rows=async(runner:AgencyRbacRunner,sql:string,params:unknown[]=[])=>(await runner.execute<RowDataPacket[]>(sql,params as any[]))[0];
 const isSystemSuperAdmin=async(runner:AgencyRbacRunner,userId:string)=>Boolean((await rows(runner,`SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.is_active=TRUE AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE LIMIT 1`,[userId]))[0]);
 

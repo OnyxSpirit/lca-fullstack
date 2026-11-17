@@ -10,19 +10,15 @@ const candidate=(userId:string,scope:CrmLeadVisibilityCandidate['scope'],agencyI
 
 test('PARITY-01..10 et SEC-01..11 sélectionnent réellement les destinataires selon crm.prospect.view',()=>{
   const candidates=[
-    candidate('NO_PERMISSION','GLOBAL','AGENCY_A','CONCESSION_A',null),
+    candidate('NO_PERMISSION','AGENCY','AGENCY_A','CONCESSION_A',null),
     candidate('USER_B','OWN','AGENCY_B','CONCESSION_B'),
     candidate('USER_A','OWN','AGENCY_A','CONCESSION_A'),
     candidate('AGENCY_A_READER','AGENCY','AGENCY_A','CONCESSION_A'),
     candidate('AGENCY_B_READER','AGENCY','AGENCY_B','CONCESSION_B'),
-    candidate('CONCESSION_A_READER','CONCESSION','AGENCY_C','CONCESSION_A'),
-    candidate('CONCESSION_B_READER','CONCESSION','AGENCY_B','CONCESSION_B'),
-    candidate('GLOBAL_CRM','GLOBAL',null,null),
-    candidate('GLOBAL_SALES','GLOBAL',null,null,'sales.view'),
     candidate('FAKE_SUPER','OWN','AGENCY_B','CONCESSION_B',null),
     candidate('SYSTEM_SUPER','OWN',null,null,null),
   ];
-  assert.deepEqual(selectCrmLeadRealtimeRecipients(resource,candidates),['USER_A','AGENCY_A_READER','CONCESSION_A_READER','GLOBAL_CRM']);
+  assert.deepEqual(selectCrmLeadRealtimeRecipients(resource,candidates),['USER_A','AGENCY_A_READER']);
 });
 
 test('REALTIME VISIBILITY ⊆ HTTP READ VISIBILITY avec Lead A et Opportunity B divergent',()=>{

@@ -5,10 +5,8 @@ import { HttpError } from '../../shared/http-error.js';
 import { delegableGrant,isCompatiblePermissionScope } from './permission-scope-policy.js';
 import type{AgencyRbacContext}from'./agency-rbac.service.js';
 
-/** Lecture transitoire de données historiques. Aucune API ni migration ne peut
- * attribuer CONCESSION/GLOBAL ; PermissionBusinessScope est l'autorité active. */
-export type PermissionScope = 'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
-export type PermissionBusinessScope = 'OWN'|'AGENCY';
+export type PermissionScope = 'OWN'|'AGENCY';
+export type PermissionBusinessScope = PermissionScope;
 export interface GrantedPermission { code:string; scope:PermissionScope|null }
 export interface RbacContext { roleId:string|null; roleCode:string|null; isSuperAdmin:boolean; permissions:Map<string,PermissionScope|null> }
 
@@ -55,7 +53,7 @@ export async function assertAnyPermission(request:Request,permissions:string[]){
 
 export function can(context:RbacContext,permission:string){return context.permissions.has(permission)}
 
-const scopeRank:Record<PermissionScope,number>={OWN:1,AGENCY:2,CONCESSION:3,GLOBAL:4};
+const scopeRank:Record<PermissionScope,number>={OWN:1,AGENCY:2};
 export function assertDelegablePermissions(context:RbacContext,assignments:{code:string;scope:PermissionScope|null}[]){
   for(const assignment of assignments){
     const own=delegableGrant(context,assignment.code);

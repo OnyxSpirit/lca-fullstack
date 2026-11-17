@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {execFileSync} from 'node:child_process';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
 import {invoiceDocumentLines} from '../src/modules/documents/invoice-document-lines.js';
 import {renderCommercialDocument,renderRepairOrderDocument} from '../src/modules/documents/commercial-document.js';
 
@@ -12,8 +14,12 @@ test('ERP17 PDF : TTC Atelier, lignes véhicule intactes et plafond lisible',asy
  assert.equal(invoiceDocumentLines([{line_total:46371000,tax_amount:7371000}])[0].line_total,46371000);
  const invoice=await renderCommercialDocument('FACTURE',{number:'ERP17-SIM',document_date:'2026-10-11',customer_name:'Client simulé',subtotal:55000,discount_total:0,tax_total:10395,total:65395,tax_rate_snapshot:18.9,currency_code:'XAF'} as any,lines as any,identity);
  const order=await renderRepairOrderDocument({order_number:'ERP17-OR-SIM',created_at:'2026-10-11',status:'ready',customer_name:'Client simulé',vehicle_label:'Véhicule simulé',mileage_in:50,diagnostics:[],interventions:[],items:[],qualityControls:[],financialSummary:{subtotal:0,discount:0,tax:0,total:0,currencyCode:'XAF'},warrantyDocumentContext:{contractDecision:'APPLICABLE',contractStatus:'ACTIVE',eligibility:'ACTIVE',providerName:'Constructeur simulé',mileageLimit:100000,startDate:'2026-10-11',expiryDate:'2029-10-11',initialMileage:45,claim:null}},identity);
- const text=(pdf:Buffer)=>execFileSync('pdftotext',['-','-'],{input:pdf}).toString();
- assert.match(text(invoice),/23\.780 XAF/);assert.match(text(invoice),/41\.615 XAF/);assert.match(text(invoice),/65\.395 XAF/);
- assert.match(text(order),/100 000 km/);assert.doesNotMatch(text(order),/100 \/000/);
+ const temporaryDirectory=await mkdtemp(path.join(tmpdir(),'erp17-pdf-'));
+ const text=async(name:string,pdf:Buffer)=>{const pdfPath=path.join(temporaryDirectory,`${name}.pdf`),textPath=path.join(temporaryDirectory,`${name}.txt`);await writeFile(pdfPath,pdf);execFileSync('pdftotext',[pdfPath,textPath],{timeout:10_000});return readFile(textPath,'utf8')};
+ try{
+  const invoiceText=await text('invoice',invoice),orderText=await text('repair-order',order);
+  assert.match(invoiceText,/23\.780 XAF/);assert.match(invoiceText,/41\.615 XAF/);assert.match(invoiceText,/65\.395 XAF/);
+  assert.match(orderText,/100 000 km/);assert.doesNotMatch(orderText,/100 \/000/);
+ }finally{await rm(temporaryDirectory,{recursive:true,force:true})}
  if(process.env.ERP17_PDF_DIR){await mkdir(process.env.ERP17_PDF_DIR,{recursive:true});await writeFile(process.env.ERP17_PDF_DIR+'/facture-simulee.pdf',invoice);await writeFile(process.env.ERP17_PDF_DIR+'/or-simule.pdf',order);}
 });

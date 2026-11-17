@@ -3,7 +3,7 @@ const source=(p:string)=>readFileSync(new URL(`../${p}`,import.meta.url),'utf8')
 test('DASH-01 endpoint exige dashboard.view',()=>assert.match(runtime,/dashboard\/overview',requirePermission\('dashboard\.view'\)/));
 test('DASH-02 sections utilisent leurs permissions métier',()=>{for(const p of ['billing.view','sales.view','crm.prospect.view','vehicles.view','showroom.view','delivery.view','service.order.view'])assert.match(runtime,new RegExp(p.replace('.','\\.')))});
 test('DASH-03 aucun rôle historique ne gouverne le runtime',()=>assert.doesNotMatch(runtime,/DIRECTOR|DIRECTION|ACCOUNTANT|MANAGER|RECEPTIONIST|roles\.includes|authorize\(/));
-test('DASH-04 scopes AGENCY CONCESSION GLOBAL sont distincts',()=>{assert.match(runtime,/s==='GLOBAL'/);assert.match(runtime,/s==='CONCESSION'/);assert.match(runtime,/s==='AGENCY'/)});
+test('DASH-04 les prédicats restent limités à OWN et AGENCY',()=>{assert.match(runtime,/s==='AGENCY'/);assert.doesNotMatch(runtime,/s==='CONCESSION'|s==='GLOBAL'/)});
 test('DASH-05 OWN exige une vraie colonne owner',()=>{assert.match(runtime,/s==='OWN'&&owner/);assert.match(runtime,/salesperson_id/);assert.match(runtime,/assigned_user_id/);assert.match(runtime,/advisor_id/)});
 test('DASH-06 delta zéro reste neutre',()=>{assert.equal(dashboardComparison(10,0).deltaPercent,null);assert.equal(dashboardComparison(0,0).deltaPercent,null);assert.equal(dashboardComparison(15,10).deltaPercent,50)});
 test('DASH-07 montants ne sont pas multipliés par les avoirs',()=>{assert.match(runtime,/UNION ALL SELECT DATE\(cn\.issue_date\) day,-cn\.amount/);assert.doesNotMatch(runtime,/JOIN credit_notes cn[\s\S]{0,200}SUM\(i\.total-cn\.amount\)/)});

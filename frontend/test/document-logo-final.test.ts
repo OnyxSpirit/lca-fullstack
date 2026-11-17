@@ -5,11 +5,9 @@ import {canManageDocumentLogo} from '../src/modules/settings/documentLogoAccess.
 
 const page=readFileSync(new URL('../src/modules/settings/SettingsPage.tsx',import.meta.url),'utf8');
 
-test('DOCUMENT-LOGO-RBAC seuls CONCESSION et GLOBAL peuvent modifier',()=>{
+test('DOCUMENT-LOGO-RBAC le scope AGENCY permet la modification collective',()=>{
   assert.equal(canManageDocumentLogo('OWN'),false);
-  assert.equal(canManageDocumentLogo('AGENCY'),false);
-  assert.equal(canManageDocumentLogo('CONCESSION'),true);
-  assert.equal(canManageDocumentLogo('GLOBAL'),true);
+  assert.equal(canManageDocumentLogo('AGENCY'),true);
   assert.equal(canManageDocumentLogo(null),false);
   assert.equal(canManageDocumentLogo(undefined),false);
 });

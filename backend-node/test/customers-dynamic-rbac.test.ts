@@ -5,7 +5,7 @@ import type { Request } from 'express';
 import { customerScope } from '../src/modules/customers/customer.routes.js';
 import { assertPermission } from '../src/modules/rbac/rbac.service.js';
 
-const request=(scope:'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL',query:Record<string,string>={})=>({
+const request=(scope:'OWN'|'AGENCY',query:Record<string,string>={})=>({
   user:{sub:'7',email:'support@test.local',roles:['CUSTOMER_SUPPORT_TEST'],agencyId:'2'},
   query,
   rbac:{roleId:'44',roleCode:'CUSTOMER_SUPPORT_TEST',isSuperAdmin:false,permissions:new Map([['customers.view',scope],['customers.update',scope]])},
@@ -16,8 +16,7 @@ test('CLIENT-02 OWN repose sur customers.assigned_user_id',()=>{
   assert.equal(value.sql,'c.agency_id=? AND c.assigned_user_id=?');assert.deepEqual(value.params,['2','7']);
 });
 test('CLIENT-03 AGENCY filtre réellement agency_id',()=>assert.match(customerScope(request('AGENCY'),'customers.view').sql,/c\.agency_id=\?/));
-test('CLIENT-04 CONCESSION utilise la concession de l’agence courante',()=>assert.match(customerScope(request('CONCESSION'),'customers.view').sql,/concession_id/));
-test('CLIENT-05 GLOBAL ne restreint pas la ressource',()=>assert.equal(customerScope(request('GLOBAL'),'customers.view').sql,'1=1'));
+test('CLIENT-04/05 les anciens scopes sont refusés',()=>{for(const invalid of['CONCESSION','GLOBAL'])assert.throws(()=>customerScope(request(invalid as 'AGENCY'),'customers.view'),/Scope (?:métier invalide|manquant)/)});
 test('CLIENT-08 update OWN utilise l’agence et le propriétaire métier',()=>assert.equal(customerScope(request('OWN'),'customers.update').sql,'c.agency_id=? AND c.assigned_user_id=?'));
 test('CLIENT-09 une recherche commerciale hors OWN est refusée',()=>assert.throws(()=>customerScope(request('OWN',{commercialId:'8'}),'customers.view','c',true),/portefeuille/));
 test('CLIENT-01 sans customers.view l’accès est refusé',async()=>{

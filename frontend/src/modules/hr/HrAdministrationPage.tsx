@@ -259,7 +259,7 @@ export const HrAdministrationPage: React.FC = () => {
     ),
     stockManagementScope = permissionScope("hr.stock.manage"),
     canManageCategories = canAdministerStockCategories(stockManagementScope),
-    globalCategoryManagement = stockManagementScope === "GLOBAL",
+    globalCategoryManagement = false,
     stockConcessions = useStockConcessionsQuery(
       modal === "categories" && canManageCategories,
     );
@@ -328,8 +328,7 @@ export const HrAdministrationPage: React.FC = () => {
       "hr.budget.category.manage",
     ),
     canManageBudgetCategories =
-      budgetCategoryManagementScope === "CONCESSION" ||
-      budgetCategoryManagementScope === "GLOBAL";
+      budgetCategoryManagementScope === "AGENCY";
   return (
     <div className="space-y-6">
       <PageHeader
@@ -1568,7 +1567,7 @@ export const HrAdministrationPage: React.FC = () => {
       >
         <BudgetCategoryAdministration
           enabled={modal === "budget-categories"}
-          global={budgetCategoryManagementScope === "GLOBAL"}
+          global={false}
           notify={notify}
           actions={actions}
         />

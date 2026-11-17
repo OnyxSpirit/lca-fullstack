@@ -16,8 +16,8 @@ export function crmLeadScope(request:Request,permission:string,alias=crmLeadAgen
     return{sql:`${alias}=? AND ${CRM_LEAD_OWNER_SQL}=?`,params:[agencyId,request.user?.sub]};
   }
   if(permissionScope==='AGENCY')return applyFilters?{sql:`${alias}=? AND (? IS NULL OR l.assigned_user_id=?)`,params:[agencyId,requestedCommercial,requestedCommercial]}:{sql:`${alias}=?`,params:[agencyId]};
-  if(!migrated&&permissionScope==='CONCESSION')return applyFilters?{sql:`${alias} IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?)) AND (? IS NULL OR l.assigned_user_id=?)`,params:[agencyId,requestedCommercial,requestedCommercial]}:{sql:`${alias} IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[agencyId]};
-  if(!migrated&&permissionScope==='GLOBAL'){const requestedAgency=typeof request.query.agencyId==='string'?request.query.agencyId:null;return applyFilters?{sql:`(? IS NULL OR ${alias}=?) AND (? IS NULL OR l.assigned_user_id=?)`,params:[requestedAgency,requestedAgency,requestedCommercial,requestedCommercial]}:{sql:'1=1',params:[]}}
+
+
   throw new HttpError(403,`Scope métier invalide pour ${permission}`);
 }
 
@@ -26,10 +26,9 @@ export interface CrmLeadVisibilityCandidate{userId:string;agencyId:string|null;c
 
 export function canReadCrmLead(resource:CrmLeadVisibilityResource,candidate:CrmLeadVisibilityCandidate){
   if(candidate.permissionCode!==CRM_LEAD_VIEW_PERMISSION)return false;
-  if(candidate.scope==='GLOBAL')return true;
+
   if(candidate.scope==='OWN')return resource.assignedUserId!==null&&candidate.userId===resource.assignedUserId;
   if(candidate.scope==='AGENCY')return resource.agencyId!==null&&candidate.agencyId===resource.agencyId;
-  if(candidate.scope==='CONCESSION')return resource.concessionId!==null&&candidate.concessionId===resource.concessionId;
   return false;
 }
 

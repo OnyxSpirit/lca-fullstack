@@ -45,7 +45,7 @@ export async function provisionAdmin(pool:Pool,config:AdminProvisioningConfig):P
     const[roles]=await connection.execute<RowDataPacket[]>(`SELECT id FROM roles WHERE code='SUPER_ADMIN' AND is_system=TRUE AND is_active=TRUE LIMIT 1 FOR UPDATE`),role=roles[0];
     if(!role)throw new Error('Rôle système SUPER_ADMIN actif absent');
     await connection.execute(`INSERT IGNORE INTO role_permissions(role_id,permission_id,scope)
-      SELECT ?,p.id,'GLOBAL' FROM permissions p WHERE p.is_active=TRUE`,[role.id]);
+      SELECT ?,p.id,'AGENCY' FROM permissions p WHERE p.is_active=TRUE`,[role.id]);
     const[existingAdmins]=await connection.execute<RowDataPacket[]>(`SELECT u.id,u.email FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.code='SUPER_ADMIN' AND r.is_system=TRUE FOR UPDATE`);
     const[targetRows]=await connection.execute<RowDataPacket[]>('SELECT id,password_hash,is_active FROM users WHERE email=? LIMIT 1 FOR UPDATE',[config.email]),target=targetRows[0];
     let result:AdminProvisioningResult;

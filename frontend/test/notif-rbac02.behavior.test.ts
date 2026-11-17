@@ -9,8 +9,8 @@ test('NOTIF-RBAC-02 dérive les boutons de la portée dynamique accordée',()=>{
   assert.deepEqual(notificationScopesFor(undefined),[]);
   assert.deepEqual(notificationScopesFor('OWN'),['mine']);
   assert.deepEqual(notificationScopesFor('AGENCY'),['mine','agency']);
-  assert.deepEqual(notificationScopesFor('CONCESSION'),['mine','agency']);
-  assert.deepEqual(notificationScopesFor('GLOBAL'),['mine','agency']);
+  assert.deepEqual(notificationScopesFor('CONCESSION'),[]);
+  assert.deepEqual(notificationScopesFor('GLOBAL'),[]);
 });
 
 test('NOTIF-RBAC-02 transmet la portée et l inclut dans la clé de cache',()=>{
@@ -22,7 +22,7 @@ test('NOTIF-RBAC-02 transmet la portée et l inclut dans la clé de cache',()=>{
 });
 
 test('NOTIF-RBAC-02 sépare chaque combinaison portée, catégorie, statut et page dans le cache',()=>{
-  const scopes=notificationScopesFor('GLOBAL'),categories=['',...notificationCategories.map(([value])=>value)],keys=new Set<string>();
+  const scopes=notificationScopesFor('AGENCY'),categories=['',...notificationCategories.map(([value])=>value)],keys=new Set<string>();
   for(const scope of scopes)for(const referenceType of categories)for(const unreadOnly of[false,true])for(const page of[1,2])keys.add(JSON.stringify(notificationListKey('user-10',{page,pageSize:25,scope,referenceType,unreadOnly})));
   assert.equal(keys.size,scopes.length*categories.length*2*2);
 });

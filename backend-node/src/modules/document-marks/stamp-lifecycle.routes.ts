@@ -19,8 +19,8 @@ const id = (value: unknown) => {
 };
 
 function predicate(request: Request, scope: PermissionScope | null, alias = 'st') {
-  if (scope === 'GLOBAL') return { sql: '1=1', params: [] as any[] };
-  if (scope === 'CONCESSION') return { sql: `${alias}.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`, params: [request.user!.agencyId] };
+
+
   if (scope === 'AGENCY') return { sql: `${alias}.agency_id=?`, params: [request.user!.agencyId] };
   throw new HttpError(403, 'Le scope OWN ne gouverne pas les cachets');
 }

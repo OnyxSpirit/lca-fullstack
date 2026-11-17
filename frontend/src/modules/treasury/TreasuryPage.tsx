@@ -236,20 +236,19 @@ export const TreasuryPage: React.FC<{initialTab?:TreasuryLegacyTab;hideTabs?:boo
     actions = useTreasuryActions();
   const canAccounts = can("treasury.account.manage"),
     manageScope = permissionScope("treasury.account.manage"),
-    canManageAccounts =
-      canAccounts && manageScope !== null && manageScope !== "OWN",
+    canManageAccounts = canAccounts && manageScope === "AGENCY",
     canCategories = can("treasury.category.manage"),
     categoryScope = permissionScope("treasury.category.manage"),
     canManageCategories =
       canCategories &&
-      (categoryScope === "CONCESSION" || categoryScope === "GLOBAL"),
+      categoryScope === "AGENCY",
     canTransfer = can("treasury.transfer.create"),
     canReverse = can("treasury.reverse"),
     canReceipt = can("treasury.receipt.create"),
     canDisbursement = can("treasury.disbursement.create"),
     options = useTreasuryManualOptions(Boolean(manual)),
     flows = useTreasuryFlowConfiguration(canManageAccounts),
-    canActivateFlows = manageScope === "CONCESSION" || manageScope === "GLOBAL";
+    canActivateFlows = manageScope === "AGENCY";
   const overviewAccountsPage=useClientPagination(accounts.data??[],undefined,"compte(s)"),accountsPage=useClientPagination(accounts.data??[],undefined,"compte(s)"),coverageBudgetsPage=useClientPagination(budgetIndicators.data??[],undefined,"budget(s)"),coverageReservationsPage=useClientPagination(reservations.data??[],undefined,"réservation(s)"),categoriesPage=useClientPagination(categories.data??[],undefined,"catégorie(s)");
   const selectedReservationAccount = accounts.data?.find((account) => account.id === reservationForm.accountId);
   const compatibleReservableExpenses = (reservableExpenses.data ?? []).filter((expense) =>

@@ -145,7 +145,7 @@ CREATE TABLE permissions (
 CREATE TABLE role_permissions (
     role_id BIGINT UNSIGNED NOT NULL,
     permission_id BIGINT UNSIGNED NOT NULL,
-    scope ENUM('OWN','AGENCY','CONCESSION','GLOBAL') NULL,
+    scope ENUM('OWN','AGENCY') NULL,
     PRIMARY KEY (role_id, permission_id),
     CONSTRAINT fk_role_perm_role
         FOREIGN KEY (role_id) REFERENCES roles(id)

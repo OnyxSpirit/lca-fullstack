@@ -43,7 +43,7 @@ test('CAT-UX-04 erreurs, chargements, succès et rafraîchissement sont gérés'
 
 test('CAT-UX-05 actions exigent permission et scope collectif',()=>{
  assert.match(page,/can\('treasury\.category\.manage'\)/);
- assert.match(page,/categoryScope==='CONCESSION'\|\|categoryScope==='GLOBAL'/);
+ assert.match(page,/categoryScope === "AGENCY"/);
  assert.match(page,/canManageCategories&&\(/);
 });
 

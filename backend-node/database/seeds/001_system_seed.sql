@@ -326,6 +326,6 @@ ON DUPLICATE KEY UPDATE name=VALUES(name),group_name=VALUES(group_name),descript
 
 -- Après le catalogue complet : chaque permission active est globale pour le rôle système.
 INSERT INTO role_permissions(role_id,permission_id,scope)
-SELECT r.id,p.id,'GLOBAL' FROM roles r CROSS JOIN permissions p
+SELECT r.id,p.id,'AGENCY' FROM roles r CROSS JOIN permissions p
 WHERE r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE AND p.is_active=TRUE
 ON DUPLICATE KEY UPDATE scope=VALUES(scope);

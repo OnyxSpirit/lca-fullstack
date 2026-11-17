@@ -344,13 +344,12 @@ deliveryRouter.post(
       location = text(request.body.deliveryLocation, "Lieu", 255),
       notes = text(request.body.customerNotes, "Notes", 5000),
       specialist = idOf(String(request.body.deliverySpecialistId));
-    const concessionScope=permissionScope(request,'delivery.schedule')==='CONCESSION'?scope(request,'delivery.schedule','s'):null;
     const [sale] = await query<RowDataPacket[]>(
-      `SELECT s.customer_id,s.agency_id,s.status,s.balance_due,si.vehicle_id FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL WHERE s.id=?${concessionScope?` AND ${concessionScope.sql}`:''}`,
-      [saleId,...(concessionScope?.params??[])],
+      "SELECT s.customer_id,s.agency_id,s.status,s.balance_due,si.vehicle_id FROM sales s JOIN sale_items si ON si.sale_id=s.id AND si.vehicle_id IS NOT NULL WHERE s.id=?",
+      [saleId],
     );
     if (!sale) throw new HttpError(404, "Vente ou véhicule introuvable");
-    const agencyId = concessionScope?String(sale.agency_id):agency(request,'delivery.schedule', sale.agency_id);
+    const agencyId = agency(request,'delivery.schedule', sale.agency_id);
     if (String(sale.agency_id) !== agencyId)
       throw new HttpError(403, "Vente rattachée à une autre agence");
     if (sale.status !== "ready_for_delivery")
@@ -679,7 +678,7 @@ deliveryRouter.post(
       if(delivery.sale_status!=='ready_for_delivery')throw new HttpError(409,`Le statut de la vente (${delivery.sale_status}) est incompatible avec la remise`);
       let userSignatureVersionId:string|null=null,serviceStampVersionId:string|null=null;
       if(request.rbac?.permissions.has('document.signature.apply')){const[signature]=await connection.execute<RowDataPacket[]>('SELECT sv.id FROM user_signature_versions sv JOIN users u ON u.id=sv.user_id AND u.is_active=TRUE WHERE sv.user_id=? AND sv.is_active=TRUE FOR UPDATE',[request.user!.sub]);userSignatureVersionId=signature[0]?String(signature[0].id):null}
-      if(requestedStampId){const stampScope=request.rbac?.permissions.get('stamp.use');if(!request.rbac?.permissions.has('stamp.use')||stampScope==='OWN')throw new HttpError(403,'Utilisation du cachet non autorisée');const[stamp]=await connection.execute<RowDataPacket[]>(`SELECT sv.id FROM service_stamps st JOIN service_stamp_document_types dt ON dt.stamp_id=st.id AND dt.document_type='DELIVERY_REPORT' JOIN service_stamp_versions sv ON sv.stamp_id=st.id AND sv.is_active=TRUE JOIN agencies da ON da.id=? LEFT JOIN users actor ON actor.id=? WHERE st.id=? AND st.is_active=TRUE AND st.concession_id=da.concession_id AND (st.agency_id IS NULL OR st.agency_id=da.id) AND (st.department_id IS NULL OR st.department_id=actor.department_id) AND (?='GLOBAL' OR ?='CONCESSION' OR (?='AGENCY' AND st.agency_id=da.id)) FOR UPDATE`,[delivery.agency_id,request.user!.sub,requestedStampId,stampScope,stampScope,stampScope]);if(!stamp[0])throw new HttpError(409,'Cachet inactif ou incompatible avec cette livraison');serviceStampVersionId=String(stamp[0].id)}
+      if(requestedStampId){const stampScope=request.rbac?.permissions.get('stamp.use');if(stampScope!=='AGENCY')throw new HttpError(403,'Utilisation du cachet non autorisée');const[stamp]=await connection.execute<RowDataPacket[]>(`SELECT sv.id FROM service_stamps st JOIN service_stamp_document_types dt ON dt.stamp_id=st.id AND dt.document_type='DELIVERY_REPORT' JOIN service_stamp_versions sv ON sv.stamp_id=st.id AND sv.is_active=TRUE JOIN agencies da ON da.id=? LEFT JOIN users actor ON actor.id=? WHERE st.id=? AND st.is_active=TRUE AND st.concession_id=da.concession_id AND st.agency_id=da.id AND (st.department_id IS NULL OR st.department_id=actor.department_id) FOR UPDATE`,[delivery.agency_id,request.user!.sub,requestedStampId]);if(!stamp[0])throw new HttpError(409,'Cachet inactif ou incompatible avec cette livraison');serviceStampVersionId=String(stamp[0].id)}
       if(process.env.NODE_ENV==='test')await deliverySignTestHooks.afterMarksLocked?.();
       const financialEligibility=await useDeliveryFinancialAuthorization(connection,String(delivery.sale_id),id,request.user!.sub);
       await lockAndAssertDeliveryChecklistComplete(connection,id);

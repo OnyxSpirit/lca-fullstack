@@ -27,6 +27,6 @@ test('SORT-AGENCY-01 missing settings.view is rejected before any undefined SQL 
 
 test('SORT-AGENCY-02 agency listing validates collective read before building SQL params',()=>{
   const service=source('src/modules/settings/setting.service.ts');
-  assert.match(service,/export async function agencies[\s\S]*?const scope = assertCollectiveRead\(r,permission\)/);
+  assert.match(service,/export async function agencies[\s\S]*?assertCollectiveRead\(r,permission\);[\s\S]*?query<RowDataPacket\[\]>/);
   assert.doesNotMatch(service,/export async function agencies[\s\S]*?permissions\.get\("settings\.view"\),/);
 });

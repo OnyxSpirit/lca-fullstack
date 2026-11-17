@@ -29,7 +29,7 @@ export type PermissionAction =
   | 'assign';
 
 export type PermissionScope = 'groupe' | 'agence' | 'departement' | 'equipe' | 'utilisateur';
-export type EffectivePermissionScope = 'OWN' | 'AGENCY' | 'CONCESSION' | 'GLOBAL';
+export type EffectivePermissionScope = 'OWN' | 'AGENCY';
 
 export interface User {
   id: string;

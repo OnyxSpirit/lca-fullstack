@@ -43,7 +43,7 @@ const workshopAuthorize=(permission:WorkshopPermission)=>{const middleware=requi
 const workshopAnyAccess=(permissions:WorkshopPermission[])=>asyncHandler(async(request,_response,next)=>{await assertAnyPermission(request,permissions);const selected=permissions.find(permission=>request.rbac?.permissions.has(permission))!;workshopActionPermission.set(request,selected);next();});
 const workshopAssignmentAccess=asyncHandler(async(r,_res,next)=>{await assertPermission(r,'workshop.plan');await assertPermission(r,'workshop.assign_technician');if(r.body.bayId)await assertPermission(r,'workshop.assign_bay');if(/^\/repair-orders\/[1-9]\d*\/assign$/.test(r.path)){const[repairOrder]=await query<RowDataPacket[]>('SELECT status FROM repair_orders WHERE id=?',[idOf(r.params.id)]);if(!repairOrder)throw new HttpError(404,'Ordre de réparation introuvable');if(repairOrder.status!=='in_progress')throw new HttpError(409,"L’affectation atelier n’est disponible que pendant les travaux")}if(/^\/workshop\/schedules\/[1-9]\d*$/.test(r.path)){const[schedule]=await query<RowDataPacket[]>('SELECT status FROM schedules WHERE id=?',[idOf(r.params.id)]);if(schedule&&['completed','cancelled'].includes(schedule.status))throw new HttpError(409,'Affectation terminée ou annulée : consultation uniquement')}workshopActionPermission.set(r,'workshop.plan');next();});
 const serviceAccess=(permission:ServicePermission)=>{const middleware=requirePermission(permission);return(request:Request,response:any,next:(error?:unknown)=>void)=>{actionPermission.set(request,permission);middleware(request,response,next)}};
-const unrestricted=(request:Request)=>request.rbac?.permissions.get(workshopActionPermission.get(request)??'workshop.view')==='GLOBAL';
+const unrestricted=(request:Request)=>false;
 const flow = [
   "planned",
   "received",
@@ -151,25 +151,25 @@ async function assertCustomerDidNotReject(connection:PoolConnection,repairOrderI
   const[decisions]=await connection.execute<RowDataPacket[]>('SELECT approved FROM repair_approvals WHERE repair_order_id=? ORDER BY recorded_at DESC LIMIT 1 FOR UPDATE',[repairOrderId]);
   if(decisions[0]&&!Boolean(decisions[0].approved))throw new HttpError(409,"Les travaux ne peuvent pas être démarrés car le client a refusé l'intervention.");
 }
-const workshopScope=(r:Request,a='s')=>{const permission=r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.view');if(permission==='GLOBAL')return{sql:'1=1',p:[]};if(permission==='CONCESSION')return{sql:`${a}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,p:[r.user!.agencyId]};if(permission==='AGENCY')return{sql:`${a}.agency_id=?`,p:[r.user!.agencyId]};if(permission==='OWN')return{sql:`EXISTS(SELECT 1 FROM technicians own_t WHERE own_t.id=${a}.technician_id AND own_t.user_id=?)`,p:[r.user!.sub]};throw new HttpError(403,'Périmètre atelier insuffisant.');};
-const workshopInterventionScope=(r:Request)=>{const permission=r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.intervention.view');if(permission==='GLOBAL')return{sql:'1=1',p:[]};if(permission==='CONCESSION')return{sql:'ro.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))',p:[r.user!.agencyId]};if(permission==='AGENCY')return{sql:'ro.agency_id=?',p:[r.user!.agencyId]};if(permission==='OWN')return{sql:'EXISTS(SELECT 1 FROM technicians own_t WHERE own_t.id=i.technician_id AND own_t.user_id=?)',p:[r.user!.sub]};throw new HttpError(403,'Périmètre interventions insuffisant.');};
-const workshopAgencyScope=(r:Request,a:string)=>{const permission=r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.view');if(permission==='GLOBAL')return{sql:'1=1',p:[]};if(permission==='CONCESSION')return{sql:`${a}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,p:[r.user!.agencyId]};if(permission==='AGENCY')return{sql:`${a}.agency_id=?`,p:[r.user!.agencyId]};if(permission==='OWN')throw new HttpError(403,'Le périmètre OWN ne couvre pas les ressources collectives Atelier');throw new HttpError(403,'Périmètre Atelier insuffisant');};
+const workshopScope=(r:Request,a='s')=>{const permission=r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.view');if(permission==='AGENCY')return{sql:`${a}.agency_id=?`,p:[r.user!.agencyId]};if(permission==='OWN')return{sql:`EXISTS(SELECT 1 FROM technicians own_t WHERE own_t.id=${a}.technician_id AND own_t.user_id=?)`,p:[r.user!.sub]};throw new HttpError(403,'Périmètre atelier insuffisant.');};
+const workshopInterventionScope=(r:Request)=>{const permission=r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.intervention.view');if(permission==='AGENCY')return{sql:'ro.agency_id=?',p:[r.user!.agencyId]};if(permission==='OWN')return{sql:'EXISTS(SELECT 1 FROM technicians own_t WHERE own_t.id=i.technician_id AND own_t.user_id=?)',p:[r.user!.sub]};throw new HttpError(403,'Périmètre interventions insuffisant.');};
+const workshopAgencyScope=(r:Request,a:string)=>{const permission=r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.view');if(permission==='AGENCY')return{sql:`${a}.agency_id=?`,p:[r.user!.agencyId]};if(permission==='OWN')throw new HttpError(403,'Le périmètre OWN ne couvre pas les ressources collectives Atelier');throw new HttpError(403,'Périmètre Atelier insuffisant');};
 const agencyFromQuery=(r:Request)=>unrestricted(r)&&r.query.agencyId?idOf(r.query.agencyId):r.user!.agencyId!;
-const workshopAgencyFromQuery=(r:Request)=>r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.view')==='GLOBAL'&&r.query.agencyId?idOf(r.query.agencyId):r.user!.agencyId!;
+const workshopAgencyFromQuery=(r:Request)=>r.user!.agencyId!;
 const workshopOwnTechnician=(r:Request,userId:string)=>r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.session.track')==='OWN'&&userId!==r.user!.sub;
 const workshopSupervisionOwnForbidden=(r:Request)=>r.rbac?.permissions.get(workshopActionPermission.get(r)??'workshop.view')==='OWN';
-async function assertWorkshopAgencyScope(r:Request,agencyId:string){const permission=workshopActionPermission.get(r)??'workshop.view';const granted=r.rbac?.permissions.get(permission);if(granted==='GLOBAL')return;if(granted==='AGENCY'&&String(r.user!.agencyId)===agencyId)return;if(granted==='CONCESSION'){const [match]=await query<RowDataPacket[]>('SELECT target.id FROM agencies target JOIN agencies actor ON actor.concession_id=target.concession_id WHERE actor.id=? AND target.id=?',[r.user!.agencyId,agencyId]);if(match)return;}throw new HttpError(403,'Périmètre Atelier insuffisant');}
+async function assertWorkshopAgencyScope(r:Request,agencyId:string){const permission=workshopActionPermission.get(r)??'workshop.view';const granted=r.rbac?.permissions.get(permission);if(granted==='AGENCY'&&String(r.user!.agencyId)===agencyId)return;throw new HttpError(403,'Périmètre Atelier insuffisant');}
 const permissionScope=(r:Request,permission:WorkshopPermission)=>r.rbac?.permissions.get(permission);
 const productivityFilters=(r:Request)=>{
   const granted=permissionScope(r,'workshop.productivity.view');
-  if(granted==='GLOBAL')return{technician:{sql:'1=1',p:[]},schedule:{sql:'1=1',p:[]},bay:{sql:'1=1',p:[]},personal:false};
-  if(granted==='CONCESSION'){const clause=(alias:string)=>`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`;return{technician:{sql:clause('t'),p:[r.user!.agencyId]},schedule:{sql:clause('s'),p:[r.user!.agencyId]},bay:{sql:clause('b'),p:[r.user!.agencyId]},personal:false};}
+
+
   if(granted==='AGENCY')return{technician:{sql:'t.agency_id=?',p:[r.user!.agencyId]},schedule:{sql:'s.agency_id=?',p:[r.user!.agencyId]},bay:{sql:'b.agency_id=?',p:[r.user!.agencyId]},personal:false};
   if(granted==='OWN')return{technician:{sql:'t.user_id=?',p:[r.user!.sub]},schedule:{sql:'EXISTS(SELECT 1 FROM technicians own_t WHERE own_t.id=s.technician_id AND own_t.user_id=?)',p:[r.user!.sub]},bay:{sql:'1=0',p:[]},personal:true};
   throw new HttpError(403,'Périmètre productivité insuffisant');
 };
 workshopRouter.get('/workshop/config',workshopAuthorize('workshop.view'),asyncHandler(async(r,res)=>{const agencyId=workshopAgencyFromQuery(r),config=await getEffectiveBusinessSettings(agencyId);res.json({vatRate:config.vatRate,allowFlatLabor:config.allowFlatLabor,rates:await effectiveLaborRates(agencyId),currencyCode:config.currencyCode})}));
-const scope=(r:Request,a='ro')=>{const permissionCode=actionPermission.get(r)??'service.order.view',permission=r.rbac?.permissions.get(permissionCode);if(permission==='GLOBAL')return{sql:'1=1',p:[]};if(permission==='CONCESSION')return{sql:`${a}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,p:[r.user!.agencyId]};if(permission==='AGENCY')return{sql:`${a}.agency_id=?`,p:[r.user!.agencyId]};if(permission==='OWN'){if(permissionCode==='service.order.advance')return{sql:`(${a}.advisor_id=? OR EXISTS(SELECT 1 FROM interventions own_i JOIN technicians own_t ON own_t.id=own_i.technician_id WHERE own_i.repair_order_id=${a}.id AND own_t.user_id=?))`,p:[r.user!.sub,r.user!.sub]};return{sql:`${a}.advisor_id=?`,p:[r.user!.sub]};}throw new HttpError(403,'Périmètre SAV insuffisant.');};
+const scope=(r:Request,a='ro')=>{const permissionCode=actionPermission.get(r)??'service.order.view',permission=r.rbac?.permissions.get(permissionCode);if(permission==='AGENCY')return{sql:`${a}.agency_id=?`,p:[r.user!.agencyId]};if(permission==='OWN'){if(permissionCode==='service.order.advance')return{sql:`(${a}.advisor_id=? OR EXISTS(SELECT 1 FROM interventions own_i JOIN technicians own_t ON own_t.id=own_i.technician_id WHERE own_i.repair_order_id=${a}.id AND own_t.user_id=?))`,p:[r.user!.sub,r.user!.sub]};return{sql:`${a}.advisor_id=?`,p:[r.user!.sub]};}throw new HttpError(403,'Périmètre SAV insuffisant.');};
 const externalCustomerAccess=[serviceAccess('service.order.view'),requirePermission('customers.view')] as const;
 const externalCustomerSearch=(value:unknown)=>String(value??'').trim().slice(0,200);
 const requireTransitionPermission=asyncHandler(async(r,_res,next)=>{
@@ -182,13 +182,10 @@ const requireTransitionPermission=asyncHandler(async(r,_res,next)=>{
 });
 async function permissionCoversAgency(r:Request,permission:string,agencyId:string){
   const permissionScope=r.rbac?.permissions.get(permission);
-  if(permissionScope==='GLOBAL')return true;
+
   if(permissionScope==='OWN')return permission.startsWith('parts.')?false:String(r.user!.agencyId)===agencyId;
   if(permissionScope==='AGENCY')return String(r.user!.agencyId)===agencyId;
-  if(permissionScope==='CONCESSION'){
-    const [match]=await query<RowDataPacket[]>('SELECT target.id FROM agencies target JOIN agencies actor ON actor.concession_id=target.concession_id WHERE actor.id=? AND target.id=?',[r.user!.agencyId,agencyId]);
-    return Boolean(match);
-  }
+
   return false;
 }
 const partsOrderAccess=(resolvePermission:PartsReservationPermission|((request:Request)=>PartsReservationPermission))=>asyncHandler(async(r,_res,next)=>{
@@ -212,11 +209,11 @@ const partsOrderAnyAccess=(permissions:PartsReservationPermission[])=>asyncHandl
 });
 const scopedPartsOrder=(r:Request)=>{const context=partsOrderContext.get(r);if(!context)throw new HttpError(403,'Contexte de réservation Pièces absent');return{id:context.id,agency_id:context.agencyId,status:context.status};};
 const reservationMutationPermission=(r:Request):PartsReservationPermission=>{const status=r.body?.status;if(!['consumed','released'].includes(status))throw new HttpError(400,'Action de réservation invalide');return status==='consumed'?'parts.reservation.consume':'parts.reservation.release';};
-const partsQueueScope=(r:Request,alias='ro')=>{const granted=r.rbac?.permissions.get('parts.reservation.view');if(granted==='GLOBAL')return{sql:'1=1',params:[] as string[]};if(granted==='CONCESSION')return{sql:`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[String(r.user!.agencyId)]};if(granted==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[String(r.user!.agencyId)]};throw new HttpError(403,'Le périmètre OWN ne couvre pas la file collective Pièces');};
+const partsQueueScope=(r:Request,alias='ro')=>{const granted=r.rbac?.permissions.get('parts.reservation.view');if(granted==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[String(r.user!.agencyId)]};throw new HttpError(403,'Le périmètre OWN ne couvre pas la file collective Pièces');};
 const serviceCustomerScope=(r:Request,alias='c')=>{
   const granted=r.rbac?.permissions.get('service.order.create');
-  if(granted==='GLOBAL')return{sql:'1=1',params:[] as string[]};
-  if(granted==='CONCESSION')return{sql:`${alias}.agency_id IN (SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[String(r.user!.agencyId)]};
+
+
   if(granted==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[String(r.user!.agencyId)]};
   if(granted==='OWN')return{sql:`${alias}.agency_id=? AND ${alias}.assigned_user_id=?`,params:[String(r.user!.agencyId),r.user!.sub]};
   throw new HttpError(403,'Périmètre SAV insuffisant');

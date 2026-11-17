@@ -114,12 +114,8 @@ function agencyPredicate(
   agencyAlias = "a",
   userAlias?: string,
 ) {
-  if (scope === "GLOBAL") return { sql: "1=1", params: [] as any[] };
-  if (scope === "CONCESSION")
-    return {
-      sql: `${agencyAlias}.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`,
-      params: [r.user!.agencyId],
-    };
+
+
   if (scope === "AGENCY")
     return { sql: `${agencyAlias}.id=?`, params: [r.user!.agencyId] };
   if (scope === "OWN" && userAlias)
@@ -134,12 +130,8 @@ function employeePredicate(
   scope: PermissionScope | null,
   alias = "ep",
 ) {
-  if (scope === "GLOBAL") return { sql: "1=1", params: [] as any[] };
-  if (scope === "CONCESSION")
-    return {
-      sql: `${alias}.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`,
-      params: [r.user!.agencyId],
-    };
+
+
   if (scope === "AGENCY")
     return { sql: `${alias}.agency_id=?`, params: [r.user!.agencyId] };
   if (scope === "OWN")
@@ -147,12 +139,8 @@ function employeePredicate(
   throw new HttpError(403, "Périmètre employé invalide.");
 }
 function budgetPredicate(r: Request, scope: PermissionScope | null) {
-  if (scope === "GLOBAL") return { sql: "1=1", params: [] as any[] };
-  if (scope === "CONCESSION")
-    return {
-      sql: "COALESCE(b.concession_id,ba.concession_id)=(SELECT concession_id FROM agencies WHERE id=?)",
-      params: [r.user!.agencyId],
-    };
+
+
   if (scope === "AGENCY")
     return {
       sql: "b.scope_type='agency' AND b.agency_id=?",
@@ -252,18 +240,12 @@ async function actorConcession(r: Request) {
 }
 async function categoryManagementConcession(r: Request, requested?: unknown) {
   const scope = await scopeFor(r, "hr.stock.manage");
-  if (scope === "OWN" || scope === "AGENCY")
-    throw new HttpError(
-      403,
-      "La gestion des catégories exige un scope CONCESSION ou GLOBAL.",
-    );
-  if (scope === "CONCESSION") {
-    const concessionId = await actorConcession(r);
-    if (requested != null && requested !== "" && id(requested) !== concessionId)
-      throw new HttpError(403, "Concession hors périmètre.");
-    return concessionId;
-  }
-  return id(requested);
+  if (scope !== "AGENCY")
+    throw new HttpError(403, "Le scope AGENCY est requis pour gérer ce référentiel collectif.");
+  const concessionId = await actorConcession(r);
+  if (requested != null && requested !== "" && id(requested) !== concessionId)
+    throw new HttpError(403, "Concession hors périmètre de l’agence active.");
+  return concessionId;
 }
 async function budgetCategoryConcession(
   r: Request,
@@ -272,15 +254,14 @@ async function budgetCategoryConcession(
   administration = false,
 ) {
   const scope = await scopeFor(r, permission);
-  if (scope === "OWN" || (administration && scope === "AGENCY"))
+  if (scope === "OWN")
     throw new HttpError(
       403,
       administration
-        ? "L’administration des catégories exige un scope CONCESSION ou GLOBAL."
+        ? "Le scope AGENCY est requis pour administrer les catégories."
         : "Le scope OWN ne s’applique pas aux catégories budgétaires.",
     );
-  if (scope === "GLOBAL")
-    return requested == null || requested === "" ? null : id(requested);
+
   const actor = await activeActorAgency(r),
     concessionId = String(actor.concession_id);
   if (requested != null && requested !== "" && id(requested) !== concessionId)
@@ -482,14 +463,9 @@ hrRouter.post(
       );
       if (!rows[0]) throw new HttpError(400, "Agence introuvable.");
       concessionId = String(rows[0].concession_id);
-    } else if (scope === "GLOBAL") {
-      concessionId = id(body.concessionId);
-    } else if (scope === "CONCESSION") {
-      concessionId = await actorConcession(r);
-    } else
-      throw new HttpError(
+    } else throw new HttpError(
         403,
-        "Un employé sans agence exige un scope CONCESSION ou GLOBAL.",
+        "Un employé doit être rattaché à une agence.",
       );
     const employeeId = await hrTransaction(r,async (c) => {
       const [duplicate] = await c.execute<RowDataPacket[]>(
@@ -536,13 +512,7 @@ hrRouter.get(
   asyncHandler(async (r, res) => {
     const scope = await scopeFor(r, "hr.employee.account.manage");
     let p: { sql: string; params: any[] };
-    if (scope === "GLOBAL") p = { sql: "1=1", params: [] };
-    else if (scope === "CONCESSION")
-      p = {
-        sql: "a.concession_id=(SELECT concession_id FROM agencies WHERE id=?)",
-        params: [r.user!.agencyId],
-      };
-    else if (scope === "AGENCY")
+    if (scope === "AGENCY")
       p = { sql: "u.agency_id=?", params: [r.user!.agencyId] };
     else p = { sql: "u.id=?", params: [r.user!.sub] };
     const rows = await query<RowDataPacket[]>(
@@ -903,14 +873,11 @@ hrRouter.get(
   requirePermission("hr.stock.manage"),
   asyncHandler(async (r, res) => {
     const scope = await scopeFor(r, "hr.stock.manage");
-    if (scope === "OWN" || scope === "AGENCY")
-      throw new HttpError(
-        403,
-        "La gestion des catégories exige un scope CONCESSION ou GLOBAL.",
-      );
+    if (scope !== "AGENCY")
+      throw new HttpError(403, "Le scope AGENCY est requis pour gérer ce référentiel collectif.");
     const rows = await query<RowDataPacket[]>(
-      `SELECT c.id,c.name FROM concessions c WHERE c.is_active=TRUE${scope === "CONCESSION" ? " AND c.id=(SELECT concession_id FROM agencies WHERE id=?)" : ""} ORDER BY c.name,c.id`,
-      scope === "CONCESSION" ? [r.user!.agencyId] : [],
+      "SELECT c.id,c.name FROM concessions c WHERE c.is_active=TRUE AND c.id=(SELECT concession_id FROM agencies WHERE id=?) ORDER BY c.name,c.id",
+      [r.user!.agencyId],
     );
     res.json(rows.map((x) => ({ id: String(x.id), name: String(x.name) })));
   }),
@@ -930,7 +897,7 @@ hrRouter.get(
       );
     const params: unknown[] = [];
     let where = "1=1";
-    if (scope !== "GLOBAL") {
+    {
       where = "c.concession_id=(SELECT concession_id FROM agencies WHERE id=?)";
       params.push(r.user!.agencyId);
     }
@@ -993,13 +960,9 @@ hrRouter.patch(
   asyncHandler(async (r, res) => {
     const categoryId = id(r.params.id),
       scope = await scopeFor(r, "hr.stock.manage");
-    if (scope === "OWN" || scope === "AGENCY")
-      throw new HttpError(
-        403,
-        "La gestion des catégories exige un scope CONCESSION ou GLOBAL.",
-      );
-    const concessionId =
-        scope === "CONCESSION" ? await actorConcession(r) : null,
+    if (scope !== "AGENCY")
+      throw new HttpError(403, "Le scope AGENCY est requis pour gérer ce référentiel collectif.");
+    const concessionId = await actorConcession(r),
       b = r.body as Input,
       name = text(b.name, "Nom catégorie", true, 100)!,
       code = categoryCode(b.code);
@@ -1321,14 +1284,10 @@ hrRouter.get(
   requirePermission("hr.budget.category.manage"),
   asyncHandler(async (r, res) => {
     const scope = await scopeFor(r, "hr.budget.category.manage");
-    if (scope === "OWN" || scope === "AGENCY")
-      throw new HttpError(
-        403,
-        "L’administration des catégories exige un scope CONCESSION ou GLOBAL.",
-      );
+    if (scope !== "AGENCY") throw new HttpError(403,"Le scope AGENCY est requis pour administrer les catégories.");
     const rows = await query<RowDataPacket[]>(
-      `SELECT c.id,c.name FROM concessions c WHERE c.is_active=TRUE${scope === "CONCESSION" ? " AND c.id=(SELECT concession_id FROM agencies WHERE id=?)" : ""} ORDER BY c.name,c.id`,
-      scope === "CONCESSION" ? [r.user!.agencyId] : [],
+      "SELECT c.id,c.name FROM concessions c WHERE c.is_active=TRUE AND c.id=(SELECT concession_id FROM agencies WHERE id=?) ORDER BY c.name,c.id",
+      [r.user!.agencyId],
     );
     res.json(rows.map((x) => ({ id: String(x.id), name: String(x.name) })));
   }),
@@ -1383,17 +1342,14 @@ hrRouter.patch(
     const categoryId = id(r.params.id),
       b = r.body as Input,
       scope = await scopeFor(r, "hr.budget.category.manage");
-    if (scope === "OWN" || scope === "AGENCY")
-      throw new HttpError(
-        403,
-        "L’administration des catégories exige un scope CONCESSION ou GLOBAL.",
-      );
+    if (scope !== "AGENCY") throw new HttpError(403,"Le scope AGENCY est requis pour administrer les catégories.");
+    const actorCategoryConcession=await actorConcession(r);
     const code = categoryCode(b.code),
       name = text(b.name, "Nom catégorie", true, 100)!;
     await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
-          `SELECT bc.id,bc.concession_id,bc.code,bc.name,bc.is_active,EXISTS(SELECT 1 FROM budgets b WHERE b.category_id=bc.id) OR EXISTS(SELECT 1 FROM budget_expenses e WHERE e.category_id=bc.id) is_used FROM budget_categories bc WHERE bc.id=?${scope === "CONCESSION" ? " AND bc.concession_id=(SELECT concession_id FROM agencies WHERE id=?)" : ""} FOR UPDATE`,
-          [categoryId, ...(scope === "CONCESSION" ? [r.user!.agencyId] : [])],
+          "SELECT bc.id,bc.concession_id,bc.code,bc.name,bc.is_active,EXISTS(SELECT 1 FROM budgets b WHERE b.category_id=bc.id) OR EXISTS(SELECT 1 FROM budget_expenses e WHERE e.category_id=bc.id) is_used FROM budget_categories bc WHERE bc.id=? AND bc.concession_id=? FOR UPDATE",
+          [categoryId,actorCategoryConcession],
         ),
         current = rows[0];
       if (!current)
@@ -1442,17 +1398,14 @@ hrRouter.patch(
     const categoryId = id(r.params.id),
       value = r.body.isActive,
       scope = await scopeFor(r, "hr.budget.category.manage");
-    if (scope === "OWN" || scope === "AGENCY")
-      throw new HttpError(
-        403,
-        "L’administration des catégories exige un scope CONCESSION ou GLOBAL.",
-      );
+    if (scope !== "AGENCY") throw new HttpError(403,"Le scope AGENCY est requis pour administrer les catégories.");
+    const actorCategoryConcession=await actorConcession(r);
     if (typeof value !== "boolean")
       throw new HttpError(400, "Statut catégorie invalide.");
     await hrTransaction(r,async (c) => {
       const [rows] = await c.execute<RowDataPacket[]>(
-          `SELECT bc.id,bc.concession_id,bc.is_active FROM budget_categories bc WHERE bc.id=?${scope === "CONCESSION" ? " AND bc.concession_id=(SELECT concession_id FROM agencies WHERE id=?)" : ""} FOR UPDATE`,
-          [categoryId, ...(scope === "CONCESSION" ? [r.user!.agencyId] : [])],
+          "SELECT bc.id,bc.concession_id,bc.is_active FROM budget_categories bc WHERE bc.id=? AND bc.concession_id=? FOR UPDATE",
+          [categoryId,actorCategoryConcession],
         ),
         current = rows[0];
       if (!current)
@@ -1491,19 +1444,15 @@ hrRouter.get(
       createScope = context.permissions.get("hr.expense.create"),
       manageScope = context.permissions.get("hr.budget.manage"),
       scopeSql = (value: PermissionScope | null | undefined) =>
-        value === "GLOBAL"
-          ? "TRUE"
-          : value === "CONCESSION"
-            ? "COALESCE(b.concession_id,ba.concession_id)=(SELECT concession_id FROM agencies WHERE id=?)"
-            : value === "AGENCY"
+        value === "AGENCY"
               ? "b.scope_type='agency' AND b.agency_id=?"
               : "FALSE",
       createParams =
-        createScope === "CONCESSION" || createScope === "AGENCY"
+        createScope === "AGENCY"
           ? [r.user!.agencyId]
           : [],
       manageParams =
-        manageScope === "CONCESSION" || manageScope === "AGENCY"
+        manageScope === "AGENCY"
           ? [r.user!.agencyId]
           : [],
       rows = await query<RowDataPacket[]>(
@@ -1540,30 +1489,16 @@ hrRouter.get(
     const scope = await scopeFor(r, "hr.budget.manage");
     if (scope === "OWN")
       throw new HttpError(403, "Le scope OWN ne s’applique pas aux budgets.");
-    const actor = scope === "GLOBAL" ? null : await activeActorAgency(r),
+    const actor = await activeActorAgency(r),
       agencyWhere =
-        scope === "GLOBAL"
-          ? "1=1"
-          : scope === "CONCESSION"
-            ? "a.concession_id=?"
-            : "a.id=?",
+        "a.id=?",
       agencyParams =
-        scope === "GLOBAL"
-          ? []
-          : scope === "CONCESSION"
-            ? [actor!.concession_id]
-            : [actor!.id],
+        [actor!.id],
       agencies = await query<RowDataPacket[]>(
         `SELECT a.id,a.name,a.concession_id FROM agencies a WHERE a.is_active=TRUE AND ${agencyWhere} ORDER BY a.name`,
         agencyParams,
       ),
-      concessions =
-        scope === "AGENCY"
-          ? []
-          : await query<RowDataPacket[]>(
-              `SELECT c.id,c.name FROM concessions c WHERE c.is_active=TRUE${scope === "CONCESSION" ? " AND c.id=?" : ""} ORDER BY c.name`,
-              scope === "CONCESSION" ? [actor!.concession_id] : [],
-            );
+      concessions: RowDataPacket[] = [];
     res.json({
       scope,
       agencies: agencies.map((x) => ({
@@ -1582,13 +1517,8 @@ hrRouter.get(
   "/hr/concessions",
   requirePermission("hr.budget.manage"),
   asyncHandler(async (r, res) => {
-    const scope = await scopeFor(r, "hr.budget.manage");
-    if (scope === "OWN" || scope === "AGENCY") return res.json([]);
-    const rows = await query<RowDataPacket[]>(
-      `SELECT c.id,c.name FROM concessions c WHERE c.is_active=TRUE${scope === "CONCESSION" ? " AND c.id=(SELECT concession_id FROM agencies WHERE id=?)" : ""} ORDER BY c.name`,
-      scope === "CONCESSION" ? [r.user!.agencyId] : [],
-    );
-    res.json(rows.map((x) => ({ id: String(x.id), name: String(x.name) })));
+    await scopeFor(r, "hr.budget.manage");
+    res.json([]);
   }),
 );
 hrRouter.post(
@@ -1597,10 +1527,10 @@ hrRouter.post(
   asyncHandler(async (r, res) => {
     const b = r.body as Input,
       scopeType = String(b.scopeType ?? "");
-    if (!["agency", "concession"].includes(scopeType))
+    if (scopeType !== "agency")
       throw new HttpError(400, "Portée budget invalide.");
     const scope = await scopeFor(r, "hr.budget.manage");
-    if (scope !== "GLOBAL") await activeActorAgency(r);
+    await activeActorAgency(r);
     let agencyId: string | null = null,
       concessionId: string | null = null,
       targetConcessionId: string;
@@ -1614,20 +1544,7 @@ hrRouter.post(
       if (!target)
         throw new HttpError(403, "Agence cible inactive ou introuvable.");
       targetConcessionId = String(target.concession_id);
-    } else {
-      concessionId = id(b.concessionId);
-      if (scope === "OWN" || scope === "AGENCY")
-        throw new HttpError(
-          403,
-          "Ce scope ne permet pas de créer un budget de concession.",
-        );
-      const [allowed] = await query<RowDataPacket[]>(
-        `SELECT c.id FROM concessions c WHERE c.id=? AND c.is_active=TRUE${scope === "CONCESSION" ? " AND c.id=(SELECT concession_id FROM agencies WHERE id=?)" : ""}`,
-        [concessionId, ...(scope === "CONCESSION" ? [r.user!.agencyId] : [])],
-      );
-      if (!allowed) throw new HttpError(403, "Concession hors périmètre.");
-      targetConcessionId = concessionId;
-    }
+    } else throw new HttpError(400, "Portée budget invalide.");
     const categoryId = optionalId(b.categoryId),
       start = date(b.startDate, "Date de début"),
       end = date(b.endDate, "Date de fin");
@@ -1991,12 +1908,12 @@ hrRouter.get("/hr/expenses",requirePermission("hr.expense.view"),asyncHandler(as
   if(r.query.from){where.push("e.expense_date>=?");values.push(date(r.query.from,"Date de début"))}
   if(r.query.to){where.push("e.expense_date<=?");values.push(date(r.query.to,"Date de fin"))}
   if(r.query.search){const term=`%${String(r.query.search).trim().slice(0,120)}%`;where.push("(e.label LIKE ? OR e.reference LIKE ? OR b.label LIKE ?)");values.push(term,term,term)}
-  const clause=where.join(" AND "),context=await rbac(r),disburseScope=context.permissions.get("hr.expense.disburse"),actorConcessionId=disburseScope==="CONCESSION"?await actorConcession(r):null;
+  const clause=where.join(" AND "),context=await rbac(r),disburseScope=context.permissions.get("hr.expense.disburse"),actorConcessionId=null;
   const [counts,rows]=await Promise.all([
     query<RowDataPacket[]>(`SELECT COUNT(*) total FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id WHERE ${clause}`,values),
     query<RowDataPacket[]>(`SELECT e.*,b.label budget_label,b.scope_type,b.agency_id,COALESCE(b.concession_id,ba.concession_id) target_concession_id,bc.name category_current_name,bc.is_active category_is_active,(SELECT COALESCE(SUM(CASE WHEN reversal.id IS NULL THEN d.amount ELSE 0 END),0) FROM budget_expense_disbursements d JOIN treasury_movements original ON original.source_type='BUDGET_EXPENSE_DISBURSEMENT' AND CAST(original.source_id AS UNSIGNED)=d.id AND original.event_type='POSTED' LEFT JOIN treasury_movements reversal ON reversal.reversal_of_id=original.id WHERE d.budget_expense_id=e.id) disbursed_amount FROM budget_expenses e JOIN budgets b ON b.id=e.budget_id LEFT JOIN agencies ba ON ba.id=b.agency_id LEFT JOIN budget_categories bc ON bc.id=e.category_id WHERE ${clause} ORDER BY e.expense_date DESC,e.id DESC LIMIT ? OFFSET ?`,[...values,pageSize,offset])
   ]);
-  res.json({items:rows.map(x=>{const amount=Number(x.amount),paid=Number(x.disbursed_amount),remaining=Math.max(0,amount-paid),canDisburse=disburseScope==="GLOBAL"||(disburseScope==="CONCESSION"&&String(x.target_concession_id)===actorConcessionId)||(disburseScope==="AGENCY"&&x.scope_type==="agency"&&String(x.agency_id)===String(r.user!.agencyId));return{...x,id:String(x.id),budget_id:String(x.budget_id),amount,disbursed_amount:paid,remaining_to_disburse:remaining,financial_status:paid===0?"NOT_DISBURSED":remaining===0?"DISBURSED":"PARTIALLY_DISBURSED",can_disburse:canDisburse}}),total:Number(counts[0]?.total??0),page,pageSize});
+  res.json({items:rows.map(x=>{const amount=Number(x.amount),paid=Number(x.disbursed_amount),remaining=Math.max(0,amount-paid),canDisburse=(false)||(disburseScope==="AGENCY"&&x.scope_type==="agency"&&String(x.agency_id)===String(r.user!.agencyId));return{...x,id:String(x.id),budget_id:String(x.budget_id),amount,disbursed_amount:paid,remaining_to_disburse:remaining,financial_status:paid===0?"NOT_DISBURSED":remaining===0?"DISBURSED":"PARTIALLY_DISBURSED",can_disburse:canDisburse}}),total:Number(counts[0]?.total??0),page,pageSize});
 }));
 hrRouter.get(
   "/hr/budgets/:id/expenses",
@@ -2007,11 +1924,9 @@ hrRouter.get(
       context = await rbac(r),
       disburseScope = context.permissions.get("hr.expense.disburse"),
       actorConcessionId =
-        disburseScope === "CONCESSION" ? await actorConcession(r) : null,
+        null,
       canDisburse =
-        disburseScope === "GLOBAL" ||
-        (disburseScope === "CONCESSION" &&
-          String(current.target_concession_id) === actorConcessionId) ||
+        (false) ||
         (disburseScope === "AGENCY" &&
           current.scope_type === "agency" &&
           String(current.agency_id) === String(r.user!.agencyId));

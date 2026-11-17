@@ -1,8 +1,6 @@
-export type PartsScope='OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
+export type PartsScope='OWN'|'AGENCY';
 
 export function partsScopeAllows(scope:PartsScope,actorAgencyId:string,targetAgencyId:string,sameConcession=false){
-  if(scope==='GLOBAL')return true;
-  if(scope==='CONCESSION')return sameConcession;
   if(scope==='AGENCY')return actorAgencyId===targetAgencyId;
   return false;
 }

@@ -41,9 +41,9 @@ test('ACC-UX-04 modification conserve code/devise, verrouille le rattachement ut
  assert.match(hooks,/method:'PATCH'/);
 });
 
-test('ACC-UX-05 permission et scopes autorisent AGENCY CONCESSION GLOBAL mais refusent OWN',()=>{
+test('ACC-UX-05 permission et scope autorisent AGENCY mais refusent OWN',()=>{
  assert.match(page,/can\('treasury\.account\.manage'\)/);
- assert.match(page,/manageScope!==null&&manageScope!=='OWN'/);
+ assert.match(page,/manageScope === "AGENCY"/);
  assert.match(page,/canManageAccounts&&\(/);
 });
 

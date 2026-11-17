@@ -3,7 +3,7 @@ import test from 'node:test';
 import { assertDelegablePermissions, can, type RbacContext } from '../src/modules/rbac/rbac.service.js';
 import { HttpError } from '../src/shared/http-error.js';
 
-const context=(permissions:Record<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'|null>,overrides:Partial<RbacContext>={}):RbacContext=>({
+const context=(permissions:Record<string,'OWN'|'AGENCY'|null>,overrides:Partial<RbacContext>={}):RbacContext=>({
   roleId:'99',roleCode:'COMMERCIAL_JUNIOR',isSuperAdmin:false,permissions:new Map(Object.entries(permissions)),...overrides,
 });
 
@@ -13,11 +13,11 @@ test('un rôle dynamique inconnu est autorisé uniquement par ses permissions',(
   assert.equal(can(actor,'billing.payment.refund'),false);
 });
 
-test('la délégation respecte OWN < AGENCY < CONCESSION < GLOBAL',()=>{
+test('la délégation respecte OWN < AGENCY et refuse les valeurs hors contrat',()=>{
   const actor=context({'crm.prospect.view':'AGENCY'});
   assert.doesNotThrow(()=>assertDelegablePermissions(actor,[{code:'crm.prospect.view',scope:'OWN'}]));
   assert.doesNotThrow(()=>assertDelegablePermissions(actor,[{code:'crm.prospect.view',scope:'AGENCY'}]));
-  for(const scope of ['CONCESSION','GLOBAL'] as const)assert.throws(()=>assertDelegablePermissions(actor,[{code:'crm.prospect.view',scope}]),(error:unknown)=>error instanceof HttpError&&error.status===403);
+  assert.throws(()=>assertDelegablePermissions(actor,[{code:'crm.prospect.view',scope:null}]),(error:unknown)=>error instanceof HttpError&&[400,403].includes(error.status));
 });
 
 test('une permission absente ne peut pas être déléguée',()=>{
@@ -27,7 +27,7 @@ test('une permission absente ne peut pas être déléguée',()=>{
 test('SUPER_ADMIN système ne contourne ni le catalogue ni la délégation',()=>{
   const superAdmin=context({}, {roleCode:'SUPER_ADMIN',isSuperAdmin:true});
   const director=context({}, {roleCode:'DIRECTOR'});
-  assert.throws(()=>assertDelegablePermissions(superAdmin,[{code:'billing.payment.refund',scope:'GLOBAL'}]),(error:unknown)=>error instanceof HttpError&&error.status===403);
+  assert.throws(()=>assertDelegablePermissions(superAdmin,[{code:'billing.payment.refund',scope:'AGENCY'}]),(error:unknown)=>error instanceof HttpError&&error.status===403);
   assert.equal(can(superAdmin,'permission.inconnue'),false);
   assert.equal(can(director,'permission.inconnue'),false);
 });

@@ -103,12 +103,8 @@ function predicate(
   alias = "a",
 ): { sql: string; params: any[] } {
   const s = scope(r, p);
-  if (s === "GLOBAL") return { sql: "TRUE", params: [] };
-  if (s === "CONCESSION")
-    return {
-      sql: `${alias}.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`,
-      params: [r.user!.agencyId],
-    };
+
+
   if (s === "AGENCY")
     return { sql: `${alias}.agency_id=?`, params: [r.user!.agencyId] };
   throw new HttpError(
@@ -122,8 +118,8 @@ function categoryPredicate(
   alias = "tc",
 ): { sql: string; params: any[] } {
   const s = scope(r, p);
-  if (s === "GLOBAL") return { sql: "TRUE", params: [] };
-  if (s === "CONCESSION" || s === "AGENCY")
+
+  if (s === "AGENCY")
     return {
       sql: `${alias}.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`,
       params: [r.user!.agencyId],
@@ -190,11 +186,10 @@ async function target(
     concessionId =
       concessionValue == null ? String(a.concession_id) : id(concessionValue);
   if (s === "AGENCY") {
-    agencyId = String(a.agency_id);
+    agencyId = agencyValue == null ? null : String(a.agency_id);
     concessionId = String(a.concession_id);
   }
-  if (s === "CONCESSION" && concessionId !== String(a.concession_id))
-    throw new HttpError(403, "Concession hors périmètre");
+
   if (agencyId) {
     const sql =
         "SELECT id,concession_id FROM agencies WHERE id=? AND is_active=TRUE",
@@ -222,9 +217,7 @@ export async function listAccounts(r: Request) {
 export async function accountTerritories(r: Request) {
   const granted = scope(r, "treasury.account.manage"), current = await actor(r);
   if (!granted || granted === "OWN") throw new HttpError(403, "Scope collectif requis");
-  const concessions = granted === "GLOBAL"
-    ? await query<RowDataPacket[]>("SELECT id,name FROM concessions WHERE is_active=TRUE ORDER BY name")
-    : await query<RowDataPacket[]>("SELECT id,name FROM concessions WHERE id=? AND is_active=TRUE", [current.concession_id]);
+  const concessions = await query<RowDataPacket[]>("SELECT id,name FROM concessions WHERE id=? AND is_active=TRUE", [current.concession_id]);
   if (!concessions.length) return { concessions: [], agencies: [] };
   const ids = concessions.map((x) => String(x.id));
   const placeholders = ids.map(() => "?").join(",");
@@ -255,8 +248,8 @@ export async function createAccount(r: Request, b: any) {
     throw new HttpError(400, "Agence obligatoire pour un compte d’agence");
   if (attachmentType === 'CONCESSION' && b?.agencyId != null && b.agencyId !== '')
     throw new HttpError(400, "Une agence ne doit pas être renseignée pour un compte de concession");
-  if (attachmentType === 'CONCESSION' && !['CONCESSION','GLOBAL'].includes(String(scope(r,'treasury.account.manage'))))
-    throw new HttpError(403, "Un compte de concession exige un scope CONCESSION ou GLOBAL");
+  if (scope(r,'treasury.account.manage') !== 'AGENCY')
+    throw new HttpError(403, "Le scope AGENCY est requis pour gérer un compte");
   const t = await target(
       r,
       "treasury.account.manage",
@@ -339,7 +332,7 @@ export async function updateAccount(r: Request, value: unknown, b: any) {
       if (!['AGENCY','CONCESSION'].includes(requestedAttachment)) throw new HttpError(400,'Rattachement invalide');
       if (requestedAttachment === 'AGENCY' && (b?.agencyId == null || b.agencyId === '')) throw new HttpError(400,'Agence obligatoire pour un compte d’agence');
       if (requestedAttachment === 'CONCESSION' && b?.agencyId != null && b.agencyId !== '') throw new HttpError(400,'Une agence ne doit pas être renseignée pour un compte de concession');
-      if (requestedAttachment === 'CONCESSION' && !['CONCESSION','GLOBAL'].includes(String(scope(r,'treasury.account.manage')))) throw new HttpError(403,'Un compte de concession exige un scope CONCESSION ou GLOBAL');
+      if (scope(r,'treasury.account.manage') !== 'AGENCY') throw new HttpError(403,'Le scope AGENCY est requis pour gérer un compte');
       const [history] = await c.execute<RowDataPacket[]>(`SELECT
         EXISTS(SELECT 1 FROM treasury_movements WHERE account_id=?) movements,
         EXISTS(SELECT 1 FROM treasury_reservations WHERE account_id=?) reservations,
@@ -412,14 +405,11 @@ export async function listCategories(r: Request) {
 async function categoryConcession(r: Request, requested: unknown) {
   const a = await actor(r),
     s = scope(r, "treasury.category.manage");
-  if (s !== "CONCESSION" && s !== "GLOBAL")
-    throw new HttpError(
-      403,
-      "Les catégories exigent un scope CONCESSION ou GLOBAL",
-    );
-  return s === "GLOBAL" && requested != null
-    ? id(requested)
-    : String(a.concession_id);
+  if (s !== "AGENCY")
+    throw new HttpError(403,"Le scope AGENCY est requis pour gérer les catégories");
+  if (requested != null && requested !== "" && id(requested) !== String(a.concession_id))
+    throw new HttpError(403,"Concession hors périmètre de l’agence active");
+  return String(a.concession_id);
 }
 export async function createCategory(r: Request, b: any) {
   const concessionId = await categoryConcession(r, b?.concessionId),
@@ -460,9 +450,7 @@ export async function updateCategory(r: Request, value: unknown, b: any) {
     throw new HttpError(400, "Sens de catégorie invalide");
   return treasuryTransaction(r,async (c) => {
     const p =
-        scope(r, "treasury.category.manage") === "GLOBAL"
-          ? { sql: "TRUE", params: [] as any[] }
-          : { sql: "concession_id=?", params: [concessionId] },
+        { sql: "concession_id=?", params: [concessionId] },
       [rows] = await c.execute<RowDataPacket[]>(
         `SELECT * FROM treasury_categories WHERE id=? AND ${p.sql} FOR UPDATE`,
         [id(value), ...p.params],
@@ -496,9 +484,7 @@ export async function categoryStatus(
   const concessionId = await categoryConcession(r, null);
   return treasuryTransaction(r,async (c) => {
     const p =
-        scope(r, "treasury.category.manage") === "GLOBAL"
-          ? { sql: "TRUE", params: [] as any[] }
-          : { sql: "concession_id=?", params: [concessionId] },
+        { sql: "concession_id=?", params: [concessionId] },
       [rows] = await c.execute<RowDataPacket[]>(
         `SELECT * FROM treasury_categories WHERE id=? AND ${p.sql} FOR UPDATE`,
         [id(value), ...p.params],
@@ -815,12 +801,8 @@ const budgetExpenseScope = (
   s: PermissionScope | null,
   alias = "b",
 ) => {
-  if (s === "GLOBAL") return { sql: "TRUE", params: [] as any[] };
-  if (s === "CONCESSION")
-    return {
-      sql: `COALESCE(${alias}.concession_id,ba.concession_id)=(SELECT concession_id FROM agencies WHERE id=?)`,
-      params: [r.user!.agencyId],
-    };
+
+
   if (s === "AGENCY")
     return {
       sql: `${alias}.scope_type='agency' AND ${alias}.agency_id=?`,
@@ -1233,9 +1215,7 @@ export async function journalExport(r: Request, q: any) {
         rowCount: rows.length,
       },
       context:
-        scope === "GLOBAL"
-          ? { mode: "GLOBAL" }
-          : {
+        {
               mode: "EXPLICIT",
               agencyId: scope === "AGENCY" ? String(r.user!.agencyId) : null,
               concessionId: actor ? String(actor.concession_id) : null,

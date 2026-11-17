@@ -30,5 +30,5 @@ test('GAR-27 concurrence allocation',()=>{assert.match(warranty,/expectedVersion
 test('GAR-28 concurrence paiement',()=>{assert.match(migration,/uk_wcp_request/);assert.match(warranty,/warranty_claims[^`]*FOR UPDATE/);assert.match(warranty,/dépasse le solde constructeur/)});
 test('GAR-29 toute modification ou annulation du réel invalide la ventilation',()=>assert.ok((route.match(/invalidateWarrantyAllocation\(c,id,r\.user!\.sub\)/g)??[]).length>=3));
 test('REP-WAR KPI et détail proviennent des données transactionnelles',()=>{assert.match(report,/reports\/warranties/);assert.match(report,/repair_order_warranty_allocations/);assert.match(report,/warranty_claims/)});
-test('RBAC garantie reste dynamique et scope-aware',()=>{assert.match(warranty,/service\.warranty\.manage/);assert.match(warranty,/service\.warranty\.approve/);assert.doesNotMatch(service,/SUPER_ADMIN|roleCode/);assert.match(service,/CONCESSION/)});
+test('RBAC garantie reste dynamique et limitée à OWN/AGENCY',()=>{assert.match(warranty,/service\.warranty\.manage/);assert.match(warranty,/service\.warranty\.approve/);assert.doesNotMatch(service,/SUPER_ADMIN|roleCode|CONCESSION|GLOBAL/);assert.match(service,/AGENCY/)});
 test('RBAC règlement constructeur charge explicitement agence et conseiller de l’OR',()=>assert.match(warranty,/SELECT c\.\*,ro\.agency_id,ro\.advisor_id FROM warranty_claims/));

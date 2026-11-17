@@ -10,12 +10,10 @@ export const money=(value:number)=>Math.round((value+Number.EPSILON)*100)/100;
 export async function assertWarrantyScope(request:Request,permission:string,order:{agency_id:unknown;advisor_id?:unknown}){
  const granted=await assertPermission(request,permission)as PermissionScope;
  const agency=String(order.agency_id),actorAgency=String(request.user?.agencyId??'');
- if(granted==='GLOBAL')return;
+
  if(granted==='OWN'){if(String(order.advisor_id)!==String(request.user!.sub))throw new HttpError(403,'Garantie hors périmètre OWN');return}
  if(granted==='AGENCY'){if(agency!==actorAgency)throw new HttpError(403,'Garantie hors agence');return}
- if(granted!=='CONCESSION')throw new HttpError(403,'Scope garantie invalide');
- const[allowed]=await query<RowDataPacket[]>('SELECT target.id FROM agencies target JOIN agencies actor ON actor.concession_id=target.concession_id WHERE actor.id=? AND target.id=?',[actorAgency,agency]);
- if(!allowed)throw new HttpError(403,'Garantie hors concession');
+ throw new HttpError(403,'Scope garantie invalide');
 }
 
 export async function warrantyDetail(repairOrderId:string){

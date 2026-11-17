@@ -87,8 +87,8 @@ documentMarkRouter.get('/document-marks/signature/me/:id/image',requirePermissio
 if(!x)throw new HttpError(404,'Signature introuvable');
 await send(res,x)}));
 
-function scope(r:Request,s:PermissionScope|null){if(s==='GLOBAL')return{sql:'1=1',p:[]as any[]};
-if(s==='CONCESSION')return{sql:'st.concession_id=(SELECT concession_id FROM agencies WHERE id=?)',p:[r.user!.agencyId]};
+function scope(r:Request,s:PermissionScope|null){
+
 if(s==='AGENCY')return{sql:'st.agency_id=?',p:[r.user!.agencyId]};
 throw new HttpError(403,'Le scope OWN ne gouverne pas les cachets')}
 documentMarkRouter.get('/document-marks/stamps',requirePermission('stamp.view'),asyncHandler(async(r,res)=>{
@@ -103,7 +103,7 @@ documentMarkRouter.get('/document-marks/stamps',requirePermission('stamp.view'),
 async function target(r:Request,s:PermissionScope|null,agencyId:string|null,departmentId:string|null){if(s==='OWN')throw new HttpError(403,'Scope insuffisant');
 const[actor]=await query<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=?',[r.user!.agencyId]),[agency]=agencyId?await query<RowDataPacket[]>('SELECT id,concession_id FROM agencies WHERE id=? AND is_active=TRUE',[agencyId]):[];
 if(agencyId&&!agency)throw new HttpError(400,'Agence invalide');
-if(s==='AGENCY'&&agencyId!==String(r.user!.agencyId)||s==='CONCESSION'&&agency&&String(agency.concession_id)!==String(actor?.concession_id))throw new HttpError(403,'Portée cachet invalide');
+if(s==='AGENCY'&&agencyId!==String(r.user!.agencyId))throw new HttpError(403,'Portée cachet invalide');
 if(departmentId){const[d]=await query<RowDataPacket[]>('SELECT agency_id FROM departments WHERE id=? AND is_active=TRUE',[departmentId]);
 if(!d||String(d.agency_id)!==agencyId)throw new HttpError(400,'Département incompatible')}return agency?String(agency.concession_id):String(actor!.concession_id)}
 documentMarkRouter.post('/document-marks/stamps',requirePermission('stamp.manage'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const s=await assertPermission(r,'stamp.manage'),f=image(r.documentFile),name=txt(r.body.name),agencyId=txt(r.body.agencyId)||null,departmentId=txt(r.body.departmentId)||null,categoryId=txt(r.body.categoryId)?num(r.body.categoryId):null,documentTypes=stampDocumentTypes(r.body.documentContexts,r.body.documentContext??'DELIVERY_REPORT'),context=documentTypes[0]!;
@@ -164,7 +164,7 @@ documentMarkRouter.get('/document-marks/categories',requirePermission('stamp.vie
 if(s==='OWN')throw new HttpError(403,'Le scope OWN ne gouverne pas les catégories de cachets');
 const[actor]=await query<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=?',[r.user!.agencyId]);
 if(!actor)throw new HttpError(403,'Agence utilisateur introuvable');
-const rows=await query<RowDataPacket[]>(`SELECT c.*,EXISTS(SELECT 1 FROM service_stamps st WHERE st.category_id=c.id) is_used FROM service_stamp_categories c WHERE ${s==='GLOBAL'?'1=1':'c.concession_id=?'} ORDER BY c.name`,s==='GLOBAL'?[]:[actor.concession_id]);
+const rows=await query<RowDataPacket[]>(`SELECT c.*,EXISTS(SELECT 1 FROM service_stamps st WHERE st.category_id=c.id) is_used FROM service_stamp_categories c WHERE ${'c.concession_id=?'} ORDER BY c.name`,[actor.concession_id]);
 res.json(rows.map(x=>({...x,id:String(x.id),concession_id:String(x.concession_id),is_active:Boolean(x.is_active),is_used:Boolean(x.is_used)})))}));
 
 documentMarkRouter.post('/document-marks/categories',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const s=await assertPermission(r,'stamp.manage'),concession=await target(r,s,null,null),name=txt(r.body.name,120);

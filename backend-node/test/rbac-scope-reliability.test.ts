@@ -46,17 +46,12 @@ test("RBAC-04..08 : les scopes exposés suivent la politique métier", () => {
   assert.deepEqual(allowedScopesForPermission("workshop.vehicles.view"), [
     "OWN",
     "AGENCY",
-    "CONCESSION",
-    "GLOBAL",
   ]);
   assert.deepEqual(allowedScopesForPermission("treasury.reservation.approve"), [
     "AGENCY",
-    "CONCESSION",
-    "GLOBAL",
   ]);
   assert.deepEqual(allowedScopesForPermission("delivery.checklist.manage"), [
-    "CONCESSION",
-    "GLOBAL",
+    "AGENCY",
   ]);
   assert.equal(isCompatiblePermissionScope("treasury.view", "OWN"), false);
   assert.equal(isCompatiblePermissionScope("treasury.view", "AGENCY"), true);
@@ -67,7 +62,7 @@ test("RBAC-09..10 : délégation bornée et refus d'un acteur non autorisé", ()
     roleId: "1",
     roleCode: "ADMIN_RBAC",
     isSuperAdmin: false,
-    permissions: new Map([["workshop.vehicles.view", "CONCESSION" as const]]),
+    permissions: new Map([["workshop.vehicles.view", "AGENCY" as const]]),
   };
   assert.doesNotThrow(() =>
     assertDelegablePermissions(context, [
@@ -76,7 +71,7 @@ test("RBAC-09..10 : délégation bornée et refus d'un acteur non autorisé", ()
   );
   assert.throws(() =>
     assertDelegablePermissions(context, [
-      { code: "workshop.vehicles.view", scope: "GLOBAL" },
+      { code: "workshop.vehicles.view", scope: null },
     ]),
   );
   assert.throws(() =>
@@ -91,12 +86,12 @@ test("RBAC-15..17 : catalogue dynamique et permissions effectives", () => {
     roleId: "1",
     roleCode: "SUPER_ADMIN",
     isSuperAdmin: true,
-    permissions: new Map([["treasury.reservation.approve", "GLOBAL" as const]]),
+    permissions: new Map([["treasury.reservation.approve", "AGENCY" as const]]),
   };
   assert.deepEqual(delegationMetadata(context, "treasury.reservation.approve"), {
-    allowedScopes: ["AGENCY", "CONCESSION", "GLOBAL"],
+    allowedScopes: ["AGENCY"],
     delegable: true,
-    maxDelegableScope: "GLOBAL",
+    maxDelegableScope: "AGENCY",
   });
   assert.match(service, /allowedScopes|delegationMetadata/);
   assert.match(rbacService, /Cette permission n'est pas compatible/);

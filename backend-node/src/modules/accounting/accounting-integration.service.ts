@@ -5,7 +5,7 @@ import {HttpError} from '../../shared/http-error.js';
 import {cents} from './accounting-entry.service.js';
 
 const eventLabels:Record<string,string>={INVOICE_ISSUED:'Facture client émise',PAYMENT_CONFIRMED:'Encaissement client confirmé',PAYMENT_CANCELLED:'Règlement client annulé',CREDIT_NOTE_ISSUED:'Avoir client émis',PAYMENT_REFUNDED:'Remboursement client',SUPPLIER_INVOICE_VALIDATED:'Facture fournisseur validée',SUPPLIER_CREDIT_VALIDATED:'Avoir fournisseur validé',BUDGET_DISBURSEMENT_POSTED:'Décaissement budgétaire',TREASURY_MANUAL_POSTED:'Mouvement de trésorerie'};
-const scope=(r:Request,alias='e')=>{const p=r.rbac?.permissions.get('accounting.integration.view'),a=String(r.agencyRbac?.activeAgencyId??r.user?.agencyId??'');if(p==='GLOBAL')return{sql:'TRUE',params:[]};if(p==='CONCESSION')return{sql:`${alias}.agency_id IN(SELECT id FROM agencies WHERE concession_id=(SELECT concession_id FROM agencies WHERE id=?))`,params:[a]};return{sql:`${alias}.agency_id=?`,params:[a]}};
+const scope=(r:Request,alias='e')=>{const p=r.rbac?.permissions.get('accounting.integration.view'),a=String(r.agencyRbac?.activeAgencyId??r.user?.agencyId??'');return{sql:`${alias}.agency_id=?`,params:[a]}};
 const message=(e:unknown)=>e instanceof Error?e.message.slice(0,1000):'Erreur comptable non reconnue';
 const amount=(value:unknown)=>{const n=cents(value);return`${n/100n}.${String(n%100n).padStart(2,'0')}`};
 

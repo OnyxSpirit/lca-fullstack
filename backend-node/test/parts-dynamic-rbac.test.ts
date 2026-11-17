@@ -7,9 +7,8 @@ const route=source('src/modules/parts/part.routes.ts'),stock=source('src/modules
 
 test('PARTS-01 AGENCY accepte son agence',()=>assert.equal(partsScopeAllows('AGENCY','1','1'),true));
 test('PARTS-02 AGENCY refuse une autre agence',()=>assert.equal(partsScopeAllows('AGENCY','1','2'),false));
-test('PARTS-03 CONCESSION accepte une agence sœur validée',()=>assert.equal(partsScopeAllows('CONCESSION','1','2',true),true));
-test('PARTS-04 CONCESSION refuse une autre concession',()=>assert.equal(partsScopeAllows('CONCESSION','1','3',false),false));
-test('PARTS-05 GLOBAL accepte toute agence',()=>assert.equal(partsScopeAllows('GLOBAL','1','99'),true));
+test('PARTS-03/04 CONCESSION est toujours refusé',()=>{assert.equal(partsScopeAllows('CONCESSION' as 'AGENCY','1','2',true),false);assert.equal(partsScopeAllows('CONCESSION' as 'AGENCY','1','3',false),false)});
+test('PARTS-05 GLOBAL est toujours refusé',()=>assert.equal(partsScopeAllows('GLOBAL' as 'AGENCY','1','99'),false));
 test('PARTS-06 OWN refuse le stock collectif',()=>assert.equal(partsScopeAllows('OWN','1','1'),false));
 test('PARTS-07 agencyId passe par le garde backend',()=>assert.match(route,/assertAgencyScope\(request,permission,agencyId\)/));
 test('PARTS-08 destination de transfert est aussi contrôlée',()=>assert.match(route,/assertAgencyScope\(r,permission,da\)/));

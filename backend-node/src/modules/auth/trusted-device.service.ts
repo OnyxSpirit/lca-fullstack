@@ -39,7 +39,7 @@ export async function revokeAllTrustedDevices(connection:PoolConnection,userId:s
 
 type DevicePermission='auth.2fa.devices.view'|'auth.2fa.devices.revoke'|'auth.2fa.devices.delete';
 function scopePredicate(request:Request,permission:DevicePermission,alias='u'){
- const scope=request.rbac?.permissions.get(permission);if(scope==='GLOBAL')return{sql:'1=1',params:[]as string[]};if(scope==='CONCESSION')return{sql:`a.concession_id=(SELECT concession_id FROM agencies WHERE id=?)`,params:[request.user!.agencyId]};if(scope==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[request.user!.agencyId]};if(scope==='OWN'&&permission!=='auth.2fa.devices.delete')return{sql:`${alias}.id=?`,params:[request.user!.sub]};throw new HttpError(403,'Permission appareils insuffisante.');
+ const scope=request.rbac?.permissions.get(permission);if(scope==='AGENCY')return{sql:`${alias}.agency_id=?`,params:[request.user!.agencyId]};if(scope==='OWN'&&permission!=='auth.2fa.devices.delete')return{sql:`${alias}.id=?`,params:[request.user!.sub]};throw new HttpError(403,'Permission appareils insuffisante.');
 }
 const stateSql="CASE WHEN td.revoked_at IS NOT NULL THEN 'REVOKED' WHEN td.expires_at<=UTC_TIMESTAMP() THEN 'EXPIRED' ELSE 'ACTIVE' END";
 const mapDevice=(row:RowDataPacket)=>({id:String(row.id),user:{id:String(row.user_id),name:String(row.user_name),email:String(row.email),agencyId:String(row.agency_id),agencyName:String(row.agency_name),concessionId:String(row.concession_id),concessionName:String(row.concession_name)},deviceName:row.device_name,browserSummary:row.browser_summary,createdAt:row.created_at,lastUsedAt:row.last_used_at,expiresAt:row.expires_at,revokedAt:row.revoked_at,status:row.status,current:Boolean(row.is_current)});

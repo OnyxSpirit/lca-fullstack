@@ -6,7 +6,7 @@ test('GED-10 historique avec type ancien reste lisible',()=>{assert.match(routes
 test('GED-11 à 16 validations obligatoires et rattachement facultatif',()=>{for(const value of['Fichier obligatoire','Titre obligatoire','categoryId=id','typeId=id','Un rattachement choisi exige un dossier sélectionné'])assert.match(routes,new RegExp(value))});
 test('GED-17/18 sécurité fichier historique réutilisée',()=>{assert.match(storage,/signatureMatches/);assert.match(storage,/MAX_DOCUMENT_SIZE=15\*1024\*1024/);assert.match(routes,/validateDocumentFile/)});
 test('GED-19 téléchargement authentifié et vérifié',()=>{assert.match(routes,/get\('\/documents\/:id\/download'/);assert.match(routes,/readDocumentFile\(doc\.file_url,doc\.file_hash\)/)});
-test('GED-20 isolation par scopes sans rôle codé',()=>{assert.match(access,/OWN.*AGENCY.*CONCESSION.*GLOBAL/);assert.doesNotMatch(access,/DIRECTOR|ACCOUNTANT/)});
+test('GED-20 isolation limitée à OWN/AGENCY sans rôle codé',()=>{assert.match(access,/OWN.*AGENCY/);assert.doesNotMatch(access,/CONCESSION|GLOBAL|DIRECTOR|ACCOUNTANT/)});
 test('GED-21/22/23 filtres',()=>{assert.match(routes,/r\.query\.categoryId/);assert.match(routes,/r\.query\.documentTypeId/);assert.match(routes,/r\.query\.attachment==='standalone'/)});
 test('GED-24/25 expiration NULL et expirée',()=>{assert.match(routes,/value==null\?'none'/);assert.match(routes,/\?'expired'/)});
 test('référentiels administrables sans suppression',()=>{for(const x of['createCategory','updateCategory','createType','updateType'])assert.match(refs,new RegExp(x));assert.doesNotMatch(refs,/DELETE FROM document_/)});

@@ -9,12 +9,12 @@ test('REPORTING-01 tous les endpoints exigent reporting.view',()=>assert.equal((
 test('REPORTING-02 export exige aussi reporting.export',()=>assert.match(source,/use\('\/reports\/export',requirePermission\('reporting\.export'\)\)/));
 test('REPORTING-03 les sections sensibles exigent leur permission source',()=>{for(const code of ['billing.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view'])assert.ok(source.includes(code),code)});
 test('REPORTING-04 OWN collectif est explicitement refusé',()=>assert.match(source,/scope OWN ne s’applique pas aux agrégats Reporting collectifs/));
-test('REPORTING-05 AGENCY refuse une agence client différente',()=>assert.match(source,/level==='AGENCY'.*agencyId!==actorAgencyId/));
-test('REPORTING-06 CONCESSION résout les agences depuis MySQL',()=>assert.match(source,/actor\.concession_id=target\.concession_id/));
-test('REPORTING-07 la consolidation CONCESSION utilise une sous-requête bornée',()=>assert.match(source,/report_agency\.concession_id=\(SELECT actor_agency\.concession_id/));
+test('REPORTING-05 AGENCY refuse une agence client différente',()=>assert.match(source,/raw&&raw!==actorAgencyId/));
+test('REPORTING-06 le reporting reste borné à agence active',()=>assert.match(source,/const agencyId=actorAgencyId/));
+test('REPORTING-07 aucune consolidation inter-agences n’est proposée',()=>assert.doesNotMatch(source,/report_agency\.concession_id=\(SELECT actor_agency\.concession_id/));
 test('REPORTING-07b avoirs et paiements réutilisent aussi le scope consolidé',()=>{assert.match(source,/cs=scope\('ci',f\),ps=scope\('pi',f\)/);assert.match(source,/\$\{cs\.sql\}/);assert.match(source,/\$\{ps\.sql\}/)});
-test('REPORTING-08 GLOBAL reste le scope de Reporting',()=>assert.match(source,/f\.scope==='GLOBAL'/));
-test('REPORTING-09 comparaison agences refuse AGENCY mais accepte la policy CONCESSION',()=>{assert.match(source,/f\.scope==='AGENCY'/);assert.match(source,/agencyScope=scope\('a',f,'id'\)/)});
+test('REPORTING-08 les anciens scopes sont absents du contrat actif',()=>assert.doesNotMatch(source,/f\.scope==='GLOBAL'|f\.scope==='CONCESSION'/));
+test('REPORTING-09 comparaison agences reste bornée par AGENCY',()=>{assert.match(source,/f\.scope==='AGENCY'/);assert.match(source,/agencyScope=scope\('a',f,'id'\)/)});
 test('REPORTING-10 export réutilise la matrice de section et le même filtre',()=>{assert.match(source,/await requireSection\(r,section as keyof typeof sectionPermissions\)/);assert.match(source,/const f=await filters\(r,section as keyof typeof sectionPermissions,true\)/)});
 test('REPORTING-17 le périmètre d’une section est borné par ses permissions source',()=>{assert.match(source,/for\(const code of \[\.\.\.sectionPermissions\[section\]/);assert.match(source,/rank\[sourceScope\]<rank\[level\]/)});
 test('REPORTING-18 stock VN et VO compte les véhicules présents',()=>{assert.match(source,/SUM\(v.vehicle_type='new'\) vn_stock/);assert.match(source,/SUM\(v.vehicle_type='used'\) vo_stock/)});

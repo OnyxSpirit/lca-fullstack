@@ -15,12 +15,7 @@ export async function assertEmployeeAgencyScope(request:Request,agencyId:string)
   const scope=await assertPermission(request,'hr.employees.manage') as PermissionScope|null;
   const[agency]=await query<RowDataPacket[]>('SELECT id,concession_id,is_active FROM agencies WHERE id=?',[agencyId]);
   if(!agency||!agency.is_active)throw new HttpError(400,'Agence RH invalide ou inactive.');
-  if(scope==='GLOBAL')return;
   if(scope==='AGENCY'&&String(agency.id)===String(request.user!.agencyId))return;
-  if(scope==='CONCESSION'){
-    const[actor]=await query<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=?',[request.user!.agencyId]);
-    if(actor&&String(actor.concession_id)===String(agency.concession_id))return;
-  }
   throw new HttpError(403,'Hors portée de la permission hr.employees.manage');
 }
 

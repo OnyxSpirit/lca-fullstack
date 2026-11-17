@@ -24,7 +24,7 @@ test('DEL-CAND-UI vente agence 2 : le responsable apparaît et la planification 
   const{render,screen,fireEvent,waitFor,cleanup}=await import('@testing-library/react');
   const{useAuthStore}=await import('../src/stores/authStore.js');
   const{NewDeliveryModal}=await import('../src/modules/deliveries/NewDeliveryModal.js');
-  useAuthStore.setState({currentUser:{id:'100',name:'Planificateur',email:'planner@test.local',role:'PLANIFICATEUR',roles:['PLANIFICATEUR'],primaryRole:'PLANIFICATEUR',roleTitle:'Planificateur',avatar:'',agencyId:'1',agencyName:'Agence 1',department:'',phone:'',status:'active',permissions:{'delivery.schedule':'GLOBAL'}},currentAgency:{id:'1',name:'Agence 1',code:'A1',city:'',address:'',phone:'',email:'',isMain:true,isActive:true},isAuthenticated:true});
+  useAuthStore.setState({currentUser:{id:'100',name:'Planificateur',email:'planner@test.local',role:'PLANIFICATEUR',roles:['PLANIFICATEUR'],primaryRole:'PLANIFICATEUR',roleTitle:'Planificateur',avatar:'',agencyId:'1',agencyName:'Agence 1',department:'',phone:'',status:'active',permissions:{'delivery.schedule':'AGENCY'}},currentAgency:{id:'1',name:'Agence 1',code:'A1',city:'',address:'',phone:'',email:'',isMain:true,isActive:true},isAuthenticated:true});
   const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});
   let closed=false;
   render(React.createElement(QueryClientProvider,{client},React.createElement(NewDeliveryModal,{isOpen:true,onClose:()=>{closed=true},initialSaleId:'10'})));

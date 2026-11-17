@@ -77,10 +77,10 @@ function assertCollectiveRead(r: Request,permission='settings.general.view') {
   return scope;
 }
 function assertConcessionWrite(r: Request,permission='settings.general.manage') {
-  if (!r.agencyRbac?.isSuperAdmin || !r.agencyRbac.permissions.has(permission))
+  if (settingsScope(r,permission) !== 'AGENCY')
     throw new HttpError(
       403,
-      "La modification des paramètres concession exige un scope CONCESSION ou GLOBAL",
+      "Le scope AGENCY est requis pour modifier les paramètres collectifs",
     );
   return true;
 }
@@ -101,7 +101,7 @@ async function manageableAgency(agencyId: string, r: Request) {
     [agencyId],
   );
   if (!row) throw new HttpError(404, "Agence introuvable");
-  if (r.agencyRbac?.isSuperAdmin && r.agencyRbac.permissions.has("settings.agencies.manage")) return row;
+  if (settingsScope(r,"settings.agencies.manage") === 'AGENCY' && String(row.id)===String(r.user!.agencyId)) return row;
   throw new HttpError(403, "Agence hors du scope settings.agencies.manage");
 }
 export async function get(r: Request, enforceRead = true) {
@@ -288,11 +288,11 @@ export async function updateDocumentLogo(body:unknown,r:Request){
 }
 export async function deleteDocumentLogo(r:Request){assertConcessionWrite(r);const concessionId=await currentConcessionId(r);await centralTransaction(r,'settings.general.manage',async c=>{await c.execute('UPDATE concessions SET document_logo=NULL,document_logo_mime=NULL WHERE id=?',[concessionId]);await audit(c,r,'concession',concessionId,'document_logo.deleted',null,{})});return currentConcession(r,false)}
 export async function agencies(r: Request,permission='settings.agencies.view') {
-  const scope = assertCollectiveRead(r,permission),
-    concessionId = await currentConcessionId(r),
+  assertCollectiveRead(r,permission);
+  const
     rows = await query<RowDataPacket[]>(
-      `SELECT a.id,a.concession_id,a.name,a.code,a.address,a.city,a.phone,a.email,a.is_active FROM agencies a WHERE (?='GLOBAL' OR (?='CONCESSION' AND a.concession_id=?) OR a.id=?) ORDER BY a.name`,
-      [scope, scope, concessionId, r.user!.agencyId],
+      `SELECT a.id,a.concession_id,a.name,a.code,a.address,a.city,a.phone,a.email,a.is_active FROM agencies a WHERE a.id=? ORDER BY a.name`,
+      [r.user!.agencyId],
     );
   return rows.map((x) => ({
     id: String(x.id),
@@ -324,12 +324,13 @@ export function validateAgency(body: unknown, creating = false): AgencyPayload {
 export async function createAgency(body: unknown, r: Request) {
   const v = validateAgency(body, true),
     ownConcessionId = await currentConcessionId(r);
-  if (!r.agencyRbac?.isSuperAdmin || !r.agencyRbac.permissions.has("settings.agencies.manage"))
+  if (settingsScope(r,"settings.agencies.manage") !== 'AGENCY')
     throw new HttpError(
       403,
-      "La création d’agence exige un scope CONCESSION ou GLOBAL",
+      "Le scope AGENCY est requis pour créer une agence",
     );
-  const concessionId = v.concessionId ?? ownConcessionId;
+  if(v.concessionId&&v.concessionId!==ownConcessionId)throw new HttpError(403,"Concession hors périmètre de l’agence active");
+  const concessionId = ownConcessionId;
   const agencyId = await centralTransaction(r,"settings.agencies.manage",async (c) => {
     const [result] = await c.execute<ResultSetHeader>(
       "INSERT INTO agencies(concession_id,name,code,address,city,phone,email,is_active) VALUES(?,?,?,?,?,?,?,TRUE)",

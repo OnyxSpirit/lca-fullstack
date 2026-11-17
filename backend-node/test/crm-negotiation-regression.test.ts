@@ -8,7 +8,7 @@ const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'ut
 const crm=read('src/modules/crm/crm.routes.ts');
 const sales=read('src/modules/sales/sale.service.ts');
 const auth=read('src/modules/rbac/rbac.service.ts');
-const request=(scope:'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL',user='10',agency='1')=>({
+const request=(scope:'OWN'|'AGENCY',user='10',agency='1')=>({
   user:{sub:user,agencyId:agency},query:{},rbac:{permissions:new Map([['crm.pipeline.advance',scope]])},
 }) as unknown as Request;
 
@@ -31,11 +31,10 @@ test('CRM-NEG-03 permission absente refusée sans exception de rôle',()=>{
   assert.doesNotMatch(crm,/SUPER_ADMIN|isSuperAdmin/);
 });
 
-test('CRM-NEG-04 les quatre scopes restent bornés',()=>{
+test('CRM-NEG-04 OWN et AGENCY restent bornés et les anciens scopes sont refusés',()=>{
   assert.match(crmLeadScope(request('OWN'),'crm.pipeline.advance').sql,/assigned_user_id=\?/);
   assert.match(crmLeadScope(request('AGENCY'),'crm.pipeline.advance').sql,/=\?/);
-  assert.match(crmLeadScope(request('CONCESSION'),'crm.pipeline.advance').sql,/concession_id/);
-  assert.equal(crmLeadScope(request('GLOBAL'),'crm.pipeline.advance').sql,'1=1');
+  for(const invalid of['CONCESSION','GLOBAL'])assert.throws(()=>crmLeadScope(request(invalid as 'AGENCY'),'crm.pipeline.advance'),/Scope métier invalide/);
 });
 
 test('CRM-NEG-05/06 SUPER_ADMIN et rôle dynamique utilisent les mêmes permissions persistées',()=>{

@@ -238,7 +238,7 @@ export interface BudgetFundMovement {
 export interface BudgetFundRequest{id:string;budget_id:string;budget_label:string;amount:number;reason:string;reference:string|null;status:"SUBMITTED"|"APPROVED"|"REJECTED"|"CANCELLED";requester_name:string|null;decider_name:string|null;decision_reason:string|null;requested_at:string;fund_movement_id:string|null}
 export interface ApprovalHistoryEntry {id:string;entity_type:"budget"|"expense";entity_id:string;action:string;old_status:string|null;new_status:string|null;reason:string|null;actor_name:string|null;created_at:string}
 export interface BudgetTargets {
-  scope: "AGENCY" | "CONCESSION" | "GLOBAL";
+  scope: "AGENCY";
   agencies: { id: string; name: string; concessionId: string }[];
   concessions: { id: string; name: string }[];
 }

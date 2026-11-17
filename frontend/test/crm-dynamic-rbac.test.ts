@@ -9,7 +9,7 @@ test('CRM affiche les actions avec les permissions dynamiques',()=>{
   for(const permission of ['crm.prospect.create','crm.prospect.update','crm.prospect.assign','crm.pipeline.advance','crm.prospect.lose','crm.activity.view','crm.activity.create','crm.appointment.create','crm.test_drive.create','quotations.create'])assert.match(page,new RegExp(`can\\('${permission.replaceAll('.','\\.')}'\\)`));
   assert.doesNotMatch(page,/roles\.includes|roles\.some|isSalesManager|isReceptionist|SALES_AGENT|SALES_MANAGER|RECEPTIONIST|DIRECTION|DIRECTOR/);
   assert.match(page,/\{canCreateLead&&<Button/);
-  assert.match(page,/\(canUpdateLead\|\|canAssignLead\)&&<Button/);
+  assert.match(page,/\(canUpdateLead\|\|canAssignLead\)&&!selectedLead\.isArchived&&<Button/);
 });
 
 test('le formulaire de création ne déduit plus l’affectation depuis un rôle',()=>{

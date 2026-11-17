@@ -25,9 +25,9 @@ test('VIN-LCA-02 les deux formulaires normalisent avant état et payload',()=>{
   assert.match(workshop,/setExternalForm\(emptyExternal\(\)\)/);
 });
 
-test('DEL-LCA-01 le fac-similé PNG client est facultatif sans supprimer le consentement',()=>{
+test('DEL-LCA-01 la remise conserve le consentement textuel sans exiger de fac-similé PNG',()=>{
   const page=read('../src/modules/deliveries/DeliveryDetailPage.tsx');
-  assert.doesNotMatch(page,/documentsComplete\|\|!accepted\|\|!signature\|\|!signer/);
-  assert.match(page,/\.\.\.\(signature\?\{signatureData:signature\}:\{\}\)/);
-  assert.match(page,/consentText:'Le client confirme/);
+  assert.doesNotMatch(page,/signatureData|!signature/);
+  assert.match(page,/signDisabled=.*!accepted\|\|!signer\|\|!mileage/);
+  assert.match(page,/consentText:'Remise opérationnelle confirmée/);
 });

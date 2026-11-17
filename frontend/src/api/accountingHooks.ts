@@ -14,6 +14,7 @@ export const useAccountingAccountHistory=(id:string)=>useQuery({queryKey:['accou
 export const useImportAccountingAccounts=()=>useWrite('/accounting/accounts/import');
 export const useFiscalYears=()=>useQuery({queryKey:['accounting','fiscal-years'],queryFn:()=>apiRequest<FiscalRow[]>('/accounting/fiscal-years')});
 export const useCreateFiscalYear=()=>useWrite('/accounting/fiscal-years');
+export const useFiscalYearStatus=(id:string)=>useWrite(`/accounting/fiscal-years/${id}/status`,'PATCH');
 export const usePeriodStatus=(id:string)=>useWrite(`/accounting/periods/${id}/status`,'PATCH');
 export const useJournals=()=>useQuery({queryKey:['accounting','journals'],queryFn:()=>apiRequest<{items:Journal[];total:number}>('/accounting/journals?pageSize=100')});
 export const useCreateJournal=()=>useWrite('/accounting/journals');

@@ -8,7 +8,7 @@ const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'
 
 test('SORT-SQL-01 quotations sort only narrow identifiers before loading wide rows',()=>{
   const service=source('src/modules/quotations/quotation.service.ts');
-  assert.match(service,/SELECT \$\{distinct\}q\.id,q\.created_at/);
+  assert.match(service,/SELECT \$\{distinct\}q\.id,\$\{sortColumn\} sort_value/);
   assert.match(service,/quotationRows\(ids\.map/);
   assert.doesNotMatch(service,/\$\{SELECT\} WHERE \$\{where\.join[^\n]+ORDER BY q\.created_at/);
 });

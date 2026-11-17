@@ -26,7 +26,7 @@ test('TEST-DRIVE-04/05 un retour completed daté reste exposé sans coupler la d
   const showroom=read('../src/modules/showroom/showroom.routes.ts'),crm=read('../src/modules/crm/crm.routes.ts');
   assert.match(showroom,/status='completed',mileage_in=\?,returned_at=NOW\(\)/);
   assert.match(showroom,/Retour essai routier confirmé/);
-  assert.match(crm,/canCreateQuotation:!\['won','lost'\]\.includes\(row\.stage\)/);
+  assert.match(crm,/canCreateQuotation:!row\.archived_at&&!\['won','lost'\]\.includes\(row\.stage\)/);
 });
 
 test('TEST-DRIVE-06 aucun essai terminé ne permet de créer un devis',()=>{

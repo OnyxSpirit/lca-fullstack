@@ -1,0 +1,99 @@
+name: lca-financial-e2e
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lca_financial_e2e}
+      MYSQL_USER: ${MYSQL_USER:-lca_financial}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requis}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requis}
+    ports: ["127.0.0.1:${MYSQL_PORT:-33322}:3306"]
+    volumes:
+      - financial_e2e_mysql:/var/lib/mysql
+      - ./deploy/mysql.cnf:/etc/mysql/conf.d/lca.cnf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [private, host]
+
+  backend:
+    build: {context: ./backend-node, dockerfile: Dockerfile}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      FRONTEND_URL: http://127.0.0.1:${FRONTEND_PORT:-4177}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-lca_financial}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requis}
+      DB_NAME: ${MYSQL_DATABASE:-lca_financial_e2e}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET requis}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis}
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?TWO_FACTOR_ENCRYPTION_KEY requis}
+      TWO_FACTOR_KEY_VERSION: v1
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL requis}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD requis}
+      UPLOAD_DIR: /app/uploads
+      GED_STORAGE_DIR: /app/ged-storage
+      DATABASE_ROOT: /app/database
+    ports: ["127.0.0.1:${BACKEND_PORT:-3005}:3001"]
+    volumes:
+      - financial_e2e_uploads:/app/uploads
+      - financial_e2e_ged:/app/ged-storage
+      - ./backend-node/database:/app/database:ro
+    command: ["sh", "-c", "node dist/scripts/database-bootstrap.js && node dist/server.js"]
+    depends_on:
+      mysql: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [private, host]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args: {VITE_API_URL: /api}
+    restart: unless-stopped
+    ports: ["127.0.0.1:${FRONTEND_PORT:-4177}:80"]
+    depends_on:
+      backend: {condition: service_healthy}
+    networks: [private, host]
+
+  seed-admin:
+    profiles: [tools]
+    build: {context: ./backend-node, dockerfile: Dockerfile}
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-lca_financial}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requis}
+      DB_NAME: ${MYSQL_DATABASE:-lca_financial_e2e}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET requis}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis}
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?TWO_FACTOR_ENCRYPTION_KEY requis}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL requis}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD requis}
+      DATABASE_ROOT: /app/database
+    command: ["node", "dist/scripts/seed-admin.js"]
+    volumes: ["./backend-node/database:/app/database:ro"]
+    depends_on:
+      mysql: {condition: service_healthy}
+    networks: [private]
+
+networks:
+  private: {internal: true}
+  host: {}
+
+volumes:
+  financial_e2e_mysql: {name: lca_financial_e2e_mysql}
+  financial_e2e_uploads: {name: lca_financial_e2e_uploads}
+  financial_e2e_ged: {name: lca_financial_e2e_ged}

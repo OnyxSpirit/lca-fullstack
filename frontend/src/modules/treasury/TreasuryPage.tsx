@@ -631,7 +631,7 @@ export const TreasuryPage: React.FC<{initialTab?:TreasuryLegacyTab;hideTabs?:boo
           </div>
         }
       />
-      {!hideTabs&&<div className="flex gap-2 overflow-x-auto border-b" role="tablist" aria-label="Sections Treasury historiques">
+      {!hideTabs&&<div className="flex gap-2 overflow-x-auto border-b" role="tablist" aria-label="Sections historiques de trésorerie">
         {(
           [
             "overview",

@@ -27,13 +27,14 @@ test('B343-FILTRE — filtre courant et compte GARAGE restent dans le scope véh
 });
 
 test('B343-TRANSFERT — workflow unique, verrou, historique et synchronisation conservés',()=>{
-  assert.match(routes,/post\('\/vehicles\/:id\/transfer',requireAgencyBusinessPermission\('vehicles\.assign_agency'\)/);
-  assert.match(routes,/SELECT agency_id,vehicle_location_id,status FROM vehicles WHERE id=\? FOR UPDATE/);
-  assert.match(routes,/vehicleLocation\(connection,toAgencyId,request\.body\.toLocationId\)/);
-  assert.match(routes,/INSERT INTO vehicle_movements\(vehicle_id,from_vehicle_location_id,to_vehicle_location_id,from_agency_id,to_agency_id,movement_type,reason,performed_by\)/);
-  assert.match(routes,/emitToAgency\(String\(row\.agency_id\),'vehicles:transferred'/);
-  const transfer=routes.slice(routes.indexOf("vehicleRouter.post('/vehicles/:id/transfer'"),routes.indexOf('async function insertVehicleImages'));
-  assert.doesNotMatch(transfer,/sale_price|purchase_price|minimum_price|status=|reservation/);
+  assert.match(routes,/post\('\/vehicles\/:id\/interagency-transfers',requireAgencyBusinessPermission\('vehicles\.assign_agency'\)/);
+  assert.match(routes,/post\('\/vehicle-interagency-transfers\/:id\/dispatch',requireAgencyBusinessPermission\('vehicles\.assign_agency'\)/);
+  assert.match(routes,/post\('\/vehicle-interagency-transfers\/:id\/receive',requireAgencyBusinessPermission\('vehicles\.assign_agency'\)/);
+  assert.match(routes,/SELECT id,vin,agency_id,vehicle_location_id,status FROM vehicles WHERE id=\? FOR UPDATE/);
+  assert.match(routes,/vehicleLocation\(connection,context\.activeAgencyId!,locationId\)/);
+  assert.match(routes,/INSERT INTO vehicle_movements\(vehicle_id,to_vehicle_location_id,from_agency_id,to_agency_id,movement_type,reference_type,reference_id,reason,performed_by\)/);
+  const transfer=routes.slice(routes.indexOf("vehicleRouter.post('/vehicles/:id/interagency-transfers'"),routes.indexOf('async function insertVehicleImages'));
+  assert.doesNotMatch(transfer,/sale_price|purchase_price|minimum_price/);
 });
 
 test('B343-STATUT — GARAGE est un emplacement physique valide sans modifier les règles commerciales',()=>{

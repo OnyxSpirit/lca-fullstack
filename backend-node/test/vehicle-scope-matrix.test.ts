@@ -214,13 +214,13 @@ describe('RBAC-PERMISSION-RECETTE-03 — matrice runtime Stock véhicules',()=>{
 
   for(const scope of ['AGENCY','CONCESSION','GLOBAL'] as const)for(const [source,target] of [[A1,A2],[A1,B1],[A2,A1],[B1,A1]] as const)test(`vehicles.assign_agency ${scope}: ${source} -> ${target}`,async()=>{
     const response=await request(app).post(`/api/vehicles/${ids[source]}/transfer`).set('Authorization',bearer([{code:'vehicles.assign_agency',scope}])).send({toAgencyId:target,reason:'Recette'});
-    const expected=source!==A1?404:403;
+    const expected=404;
     expectStatus(response.status,expected,`transfert ${scope} ${source}->${target}`);
   });
   test('vehicles.assign_agency rollback si le mouvement échoue après UPDATE',async()=>{
     failMovementInsert=true;
     const response=await request(app).post('/api/vehicles/201/transfer').set('Authorization',bearer([{code:'vehicles.assign_agency',scope:'AGENCY'}])).send({toAgencyId:A2,reason:'Échec forcé'});
-    expectStatus(response.status,403,'transfert inter-agences fermé avant écriture');
+    expectStatus(response.status,404,'ancien transfert direct supprimé avant écriture');
     assert.equal(vehicles.find(vehicle=>vehicle.id==='201')?.agency_id,A1,'le véhicule ne doit pas rester déplacé sans mouvement');
   });
 });

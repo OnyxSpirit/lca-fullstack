@@ -69,7 +69,7 @@ test('FIN08-32..36 responsive, tableaux larges et exports', () => {
 test('FIN08-37..40 confidentialité, invalidation et non-régression', () => {
   assert.match(remunerations, /can\('hr\.remuneration\.pay'\)/);
   assert.match(reconciliation, /can\('treasury\.reconciliation\.export'\)/);
-  assert.match(reconciliation, /sans création silencieuse de mouvement Treasury/);
+  assert.match(reconciliation, /sans création silencieuse de mouvement de trésorerie/);
   assert.doesNotMatch(reconciliation, /window\.(prompt|confirm|alert)/);
   assert.doesNotMatch(reporting, /window\.(prompt|confirm|alert)/);
 });

@@ -6,7 +6,7 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 test('QUOTE-FE-01/02 : lecture Devis et requêtes sont conditionnées par quotations.view',()=>{
   const crm=read('../src/modules/crm/CrmPage.tsx'),quotations=read('../src/modules/sales/QuotationsSection.tsx'),hooks=read('../src/api/erpHooks.ts');
   assert.match(crm,/can\('quotations\.view'\)/);assert.match(crm,/useLeadQuotationsQuery\(selectedLead\?\.opportunityId,canViewQuotations\)/);
-  assert.match(quotations,/useQuotationsPageQuery\(\{ page, pageSize: 7 \}, canView\)/);assert.match(hooks,/requestEnabled&&Boolean\(opportunityId\)/);
+  assert.match(quotations,/useQuotationsPageQuery\(\{ page, pageSize: 7, sortBy, sortOrder \}, canView\)/);assert.match(hooks,/requestEnabled&&Boolean\(opportunityId\)/);
 });
 
 test('QUOTE-FE-03/04/05/06 : créer, valider, annuler et convertir utilisent des permissions indépendantes',()=>{

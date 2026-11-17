@@ -26,7 +26,7 @@ test('PARK-01..22 référentiel dédié, scopes, inactivité et mouvements sont 
 test('LIST-01..24 pagination et filtres sont exécutés côté serveur sur un tri stable',()=>{
   for(const token of ['locationType','assignment','unassigned','brandId','modelId','dormant','pageSize','totalPages'])assert.match(routes,new RegExp(token));
   assert.match(routes,/SELECT v\.id \$\{filterFrom\}[^;]+ORDER BY \$\{order\} LIMIT \? OFFSET \?/s);
-  assert.match(routes,/v\.created_at DESC,v\.id DESC/);
+  assert.match(routes,/v\.entry_date DESC,v\.id DESC/);
   assert.match(routes,/SELECT COUNT\(\*\) total/);
   assert.match(routes,/SUM\(vl\.type='PARC'\) park/);
   assert.match(routes,/SUM\(v\.vehicle_location_id IS NULL\) unassigned/);

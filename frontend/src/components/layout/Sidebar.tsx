@@ -164,7 +164,7 @@ export const Sidebar: React.FC = () => {
         },
         {
           to: ROUTES.reports,
-          label: 'Reporting & BI',
+          label: 'Rapports et indicateurs',
           icon: <BarChart3 className="w-4 h-4" />,
           module: 'reports',
         },

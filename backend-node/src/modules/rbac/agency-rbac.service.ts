@@ -43,7 +43,7 @@ async function resolveWith(runner:AgencyRbacRunner,userId:string,sessionId:strin
  if(activeAgencyId&&superAdmin){
   const grants=await rows(runner,`SELECT p.code,rp.scope FROM user_roles ur JOIN roles r ON r.id=ur.role_id AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id AND p.is_active=TRUE WHERE ur.user_id=?`,[userId]);
   const systemRoles=await rows(runner,`SELECT r.id,r.code,r.name FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=? AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE`,[userId]);
-  roles=systemRoles.map(role=>({id:String(role.id),code:String(role.code),name:String(role.name)}));permissions=mergeAgencyPermissions(grants.map(row=>({code:String(row.code),scope:row.scope==null?null:String(row.scope) as PermissionScope})));
+  roles=systemRoles.map(role=>({id:String(role.id),code:String(role.code),name:String(role.name)}));permissions=mergeAgencyPermissions(grants.map(row=>({code:String(row.code),scope:row.scope==null?null:String(row.scope)==='OWN'?'OWN':'AGENCY'})));
  }else if(activeAgencyId){
   const roleRows=await rows(runner,`SELECT r.id,r.code,r.name FROM user_agencies ua JOIN user_agency_roles uar ON uar.user_agency_id=ua.id JOIN roles r ON r.id=uar.role_id AND r.is_active=TRUE AND r.is_system=FALSE WHERE ua.user_id=? AND ua.agency_id=? AND ua.status='ACTIVE' ORDER BY r.code,r.id`,[userId,activeAgencyId]);
   roles=roleRows.map(role=>({id:String(role.id),code:String(role.code),name:String(role.name)}));

@@ -5,7 +5,10 @@ import { HttpError } from '../../shared/http-error.js';
 import { delegableGrant,isCompatiblePermissionScope } from './permission-scope-policy.js';
 import type{AgencyRbacContext}from'./agency-rbac.service.js';
 
+/** Lecture transitoire de données historiques. Aucune API ni migration ne peut
+ * attribuer CONCESSION/GLOBAL ; PermissionBusinessScope est l'autorité active. */
 export type PermissionScope = 'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL';
+export type PermissionBusinessScope = 'OWN'|'AGENCY';
 export interface GrantedPermission { code:string; scope:PermissionScope|null }
 export interface RbacContext { roleId:string|null; roleCode:string|null; isSuperAdmin:boolean; permissions:Map<string,PermissionScope|null> }
 
@@ -17,7 +20,7 @@ export interface RbacContext { roleId:string|null; roleCode:string|null; isSuper
  */
 export function legacyRbacContextFromAgency(context:AgencyRbacContext):RbacContext{
   const first=context.roles[0]??null,permissions=new Map<string,PermissionScope|null>();
-  for(const[code,scope]of context.permissions)permissions.set(code,context.isSuperAdmin?scope:scope==='OWN'?'OWN':scope==null?null:'AGENCY');
+  for(const[code,scope]of context.permissions)permissions.set(code,scope);
   return{roleId:first?.id??null,roleCode:first?.code??(context.isSuperAdmin?'SUPER_ADMIN':null),isSuperAdmin:context.isSuperAdmin,permissions};
 }
 

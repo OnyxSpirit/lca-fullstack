@@ -24,7 +24,6 @@ import {
   Landmark,
   X,
   History,
-  Building2,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationsQuery } from '../../api/notificationHooks';
@@ -213,14 +212,6 @@ export const Sidebar: React.FC = () => {
           icon: <Settings className="w-4 h-4" />,
           module: 'settings',
           visible: canAccessSettings(currentUser.permissions),
-        },
-        {
-          to: `${ROUTES.settings}?tab=agencies`,
-          label: 'Agences',
-          icon: <Building2 className="w-4 h-4" />,
-          module: 'settings',
-          visible: can('settings.agencies.view'),
-          active: location.pathname===ROUTES.settings&&new URLSearchParams(location.search).get('tab')==='agencies',
         },
       ],
     },

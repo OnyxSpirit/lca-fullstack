@@ -1,14 +1,11 @@
-import type { PermissionScope, RbacContext } from "./rbac.service.js";
+import type { PermissionBusinessScope, PermissionScope, RbacContext } from "./rbac.service.js";
 
 export const permissionScopes = [
   "OWN",
   "AGENCY",
-  "CONCESSION",
-  "GLOBAL",
-] as const satisfies readonly PermissionScope[];
+] as const satisfies readonly PermissionBusinessScope[];
 
-const collectiveScopes = ["AGENCY", "CONCESSION", "GLOBAL"] as const;
-const concessionScopes = ["CONCESSION", "GLOBAL"] as const;
+const collectiveScopes = ["AGENCY"] as const;
 
 const concessionOnlyPrefixes = [
   "delivery.checklist.",
@@ -47,7 +44,7 @@ const collectiveCodes = new Set([
 ]);
 
 const ownOnlyCodes = new Set(["auth.2fa.view", "auth.2fa.manage"]);
-const globalOnlyCodes = new Set([
+const agencyOnlyCodes = new Set([
   "auth.2fa.policy.manage",
   "auth.2fa.settings.view",
   "auth.2fa.settings.manage",
@@ -69,20 +66,20 @@ export function delegableGrant(context:RbacContext,code:string):PermissionScope|
  * l'intersection avec la ressource; cette politique empêche seulement les
  * scopes que leur implémentation rejette explicitement.
  *
- * GLOBAL reste compatible avec toute permission : c'est l'autorité utilisée
- * pour amorcer le rôle système authentique, jamais un bypass d'autorisation.
+ * Le privilège du Super Administrateur est porté par le rôle système, pas par
+ * un scope de données. Toute permission persistée reste OWN ou AGENCY.
  */
 export function allowedScopesForPermission(
   code: string,
-): readonly PermissionScope[] {
+): readonly PermissionBusinessScope[] {
   if (ownOnlyCodes.has(code)) return ["OWN"];
-  if (globalOnlyCodes.has(code)) return ["GLOBAL"];
+  if (agencyOnlyCodes.has(code)) return ["AGENCY"];
   if (code === "auth.2fa.devices.delete") return collectiveScopes;
   if (code === "auth.2fa.devices.view" || code === "auth.2fa.devices.revoke")
     return permissionScopes;
   if (code.startsWith("auth.2fa.users.")) return collectiveScopes;
   if (concessionOnlyPrefixes.some((prefix) => code.startsWith(prefix)))
-    return concessionScopes;
+    return collectiveScopes;
   if (
     collectiveCodes.has(code) ||
     collectivePrefixes.some((prefix) => code.startsWith(prefix))
@@ -95,7 +92,7 @@ export function assertCompatiblePermissionScope(
   code: string,
   scope: PermissionScope | null,
 ) {
-  if (scope === null || !allowedScopesForPermission(code).includes(scope)) {
+  if (scope === null || (scope!=='OWN'&&scope!=='AGENCY') || !allowedScopesForPermission(code).includes(scope)) {
     throw new Error(`INCOMPATIBLE_PERMISSION_SCOPE:${code}:${scope ?? "NULL"}`);
   }
 }
@@ -103,7 +100,7 @@ export function assertCompatiblePermissionScope(
 export const isCompatiblePermissionScope = (
   code: string,
   scope: PermissionScope | null,
-) => scope !== null && allowedScopesForPermission(code).includes(scope);
+) => scope !== null && (scope==='OWN'||scope==='AGENCY') && allowedScopesForPermission(code).includes(scope);
 
 export type HistoricalScopeDecision="AGENCY"|"OWN_OR_REMOVE"|"POLICY_REVIEW"|"SYSTEM_PROTECTED";
 export function historicalScopeDecision(code:string,isSystemRole=false):HistoricalScopeDecision{
@@ -114,17 +111,15 @@ export function historicalScopeDecision(code:string,isSystemRole=false):Historic
   return"POLICY_REVIEW";
 }
 
-const scopeRank: Record<PermissionScope, number> = {
+const scopeRank: Record<PermissionBusinessScope, number> = {
   OWN: 1,
   AGENCY: 2,
-  CONCESSION: 3,
-  GLOBAL: 4,
 };
 
 export function delegationMetadata(context: RbacContext, code: string) {
   const granted = delegableGrant(context,code);
   const allowedScopes = [...allowedScopesForPermission(code)];
-  const delegableScopes = granted
+  const delegableScopes = granted==='OWN'||granted==='AGENCY'
     ? allowedScopes.filter((scope) => scopeRank[scope] <= scopeRank[granted])
     : [];
   return {

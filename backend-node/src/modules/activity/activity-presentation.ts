@@ -28,5 +28,6 @@ export function activityPresentation(input:{module:string;entityType:string;enti
  const keys=[...new Set([...Object.keys(before),...Object.keys(after)])].filter(key=>!/(Id|_id)$/.test(key));
  const fields=Object.entries(after).filter(([key,value])=>value!=null&&!/(Id|_id)$/.test(key)).map(([key,value])=>({label:fieldLabels[key]??human(key),value:show(key,value)}));
  const changes=keys.filter(key=>key in before&&key in after&&JSON.stringify(before[key])!==JSON.stringify(after[key])).map(key=>({label:fieldLabels[key]??human(key),before:show(key,before[key]),after:show(key,after[key])}));
- return{title,operationLabel,moduleLabel,sections:[{title:'Informations métier',fields}].filter(section=>section.fields.length),changes};
+ const technical=[{label:'Action technique',value:input.action},{label:'Entité',value:human(input.entityType)},{label:'Identifiant',value:input.entityId??'Non renseigné'}];
+ return{title,operationLabel,moduleLabel,sections:[{title:'Informations métier',fields},{title:'Référence de l’événement',fields:technical}].filter(section=>section.fields.length),changes};
 }

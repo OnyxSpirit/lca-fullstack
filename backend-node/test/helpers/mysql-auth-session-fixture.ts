@@ -93,6 +93,9 @@ export async function issueMysqlAccessToken(options:MysqlSessionOptions){
       [options.userId,options.agencyId],
     );
   }
+  if(options.twoFactorVerified!==false)await pool.execute(`INSERT INTO user_two_factor_auth(user_id,encrypted_secret,secret_iv,secret_tag,secret_key_version,enabled_at)
+    VALUES(?,'fixture-encrypted-secret','000000000000000000000000','00000000000000000000000000000000','fixture',NOW())
+    ON DUPLICATE KEY UPDATE encrypted_secret=COALESCE(encrypted_secret,VALUES(encrypted_secret)),secret_iv=COALESCE(secret_iv,VALUES(secret_iv)),secret_tag=COALESCE(secret_tag,VALUES(secret_tag)),secret_key_version=COALESCE(secret_key_version,VALUES(secret_key_version)),enabled_at=COALESCE(enabled_at,NOW()),reset_required=FALSE`,[options.userId]);
   const sid=randomUUID();
   const expiresAt=options.sessionExpiresAt??new Date(Date.now()+60*60*1000);
   const tokenHash=createHash('sha256').update(`fixture:${sid}`).digest('hex');
@@ -163,6 +166,12 @@ export async function ensureMysqlHttpAdministrator(permissionCodes:ReadonlyArray
 export async function ensureMysqlSystemAdministrator(){
   let[row]=await query<RowDataPacket[]>(`SELECT u.id,u.email,u.agency_id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.is_active=TRUE AND r.code='SUPER_ADMIN' AND r.is_system=TRUE AND r.is_active=TRUE LIMIT 1`);
   if(!row){const base=await ensureMysqlHttpAdministrator([]),[role]=await query<RowDataPacket[]>("SELECT id FROM roles WHERE code='SUPER_ADMIN' AND is_system=TRUE AND is_active=TRUE");if(!role)throw new Error('Rôle SUPER_ADMIN système absent');const email=`b31-system-${randomUUID()}@test.local`,created=await execute("INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,'B31','System',?,'fixture-not-used',TRUE)",[base.agencyId,email]);await execute('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)',[created.insertId,role.id]);row={id:created.insertId,email,agency_id:base.agencyId} as RowDataPacket}
+  // Le compte système de test reste soumis à la politique 2FA. Le facteur
+  // opaque n'est jamais vérifié ici : la session émise représente une
+  // authentification TOTP déjà réussie et ne contourne pas le middleware.
+  await pool.execute(`INSERT INTO user_two_factor_auth(user_id,encrypted_secret,secret_iv,secret_tag,secret_key_version,enabled_at)
+    VALUES(?,'fixture-encrypted-secret','000000000000000000000000','00000000000000000000000000000000','fixture',NOW())
+    ON DUPLICATE KEY UPDATE encrypted_secret=VALUES(encrypted_secret),secret_iv=VALUES(secret_iv),secret_tag=VALUES(secret_tag),secret_key_version=VALUES(secret_key_version),enabled_at=NOW(),reset_required=FALSE`,[row.id]);
   const session=await issueMysqlAccessToken({userId:String(row.id),email:String(row.email),agencyId:String(row.agency_id),twoFactorVerified:true});
   return{userId:String(row.id),email:String(row.email),agencyId:String(row.agency_id),...session};
 }

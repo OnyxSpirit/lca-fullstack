@@ -31,7 +31,7 @@ export async function ensureSystemPermissionAdministration(connection:Awaited<Re
     const[roles]=await connection.execute<RowDataPacket[]>("SELECT id FROM roles WHERE code='SUPER_ADMIN' AND is_system=TRUE AND is_active=TRUE FOR UPDATE");
     if(roles.length!==1)throw new Error(`RBAC_SYSTEM_ROLE_INVALID: ${roles.length} rôle(s) SUPER_ADMIN système actif(s)`);
     await connection.execute(
-      "INSERT IGNORE INTO role_permissions(role_id,permission_id,scope) SELECT ?,p.id,'GLOBAL' FROM permissions p WHERE p.is_active=TRUE",
+      "INSERT IGNORE INTO role_permissions(role_id,permission_id,scope) SELECT ?,p.id,'AGENCY' FROM permissions p WHERE p.is_active=TRUE",
       [roles[0]!.id],
     );
     await connection.commit();

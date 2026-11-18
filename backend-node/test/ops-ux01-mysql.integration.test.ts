@@ -10,9 +10,8 @@ if(enabled)after(async()=>pool.end());
 
 test('OPS-UX-01 refuse les quantités physiques décimales par API réelle',{skip:!enabled},async()=>{
   const api=supertest(createApp());
-  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
-  assert.equal(login.status,200,JSON.stringify(login.body));
-  const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${login.body.accessToken}`);
+  const administrator=await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);
+  const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${administrator.accessToken}`);
   const cases=[
     auth(api.post('/api/parts')).send({reference:'OPS-DEC',name:'Invalide',initialQuantity:1.5}),
     auth(api.post('/api/purchase-orders')).send({supplierId:'1',items:[{partId:'1',quantity:2.5,unitPrice:12500.5,taxRate:18.9}]}),

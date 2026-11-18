@@ -14,9 +14,8 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('SAV-OR-20 chiffre côté serveur avant décision sans toucher au stock',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
-  await ensureMysqlHttpAdministrator(workshopPartsHttpPermissions);
-  const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200,JSON.stringify(login.body));
-  const token=login.body.accessToken as string,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
+  const administrator=await ensureMysqlHttpAdministrator(workshopPartsHttpPermissions);
+  const token=administrator.accessToken,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
   const[admin]=await rows('SELECT u.id,u.agency_id,u.password_hash,a.concession_id FROM users u JOIN agencies a ON a.id=u.agency_id WHERE u.email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
   const rateCode=`T1_${suffix.toUpperCase()}`;
   await pool.execute("INSERT INTO workshop_labor_rates(concession_id,code,label,hourly_rate,is_active,is_configured,created_by) VALUES(?,?,?,25000,TRUE,TRUE,?)",[admin.concession_id,rateCode,'Main-d’œuvre T1',admin.id]);
@@ -43,6 +42,6 @@ test('SAV-OR-20 chiffre côté serveur avant décision sans toucher au stock',{s
   const[snapshot]=await rows('SELECT approved_amount FROM repair_approvals WHERE repair_order_id=?',[order]);assert.equal(Number(snapshot.approved_amount),195000);
   const refusedOrder=await insert("INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,status,created_by,estimated_total) VALUES(?,?,?,?,?,'waiting_approval',?,195000)",[ `OR-S20-REF-${suffix}`,customer,vehicle,agency,admin.id,admin.id]);await pool.execute("INSERT INTO repair_order_estimate_items(repair_order_id,item_type,description,quantity,unit_price,tax_rate,line_total,created_by) VALUES(?,'labor','Travail refusé',3,25000,0,75000,?),(?,'part','Pièce refusée',1,120000,0,120000,?)",[refusedOrder,admin.id,refusedOrder,admin.id]);const refusal=await auth(api.post(`/api/repair-orders/${refusedOrder}/approval`)).send({approved:false,approvedAmount:2,customerName:'Client Refus'});assert.equal(refusal.status,201,JSON.stringify(refusal.body));const[refusedSnapshot]=await rows('SELECT approved,approved_amount FROM repair_approvals WHERE repair_order_id=?',[refusedOrder]);assert.equal(Boolean(refusedSnapshot.approved),false);assert.equal(Number(refusedSnapshot.approved_amount),195000);
   const deniedEmail=`sans-${suffix}@test.local`,denied=await createMysqlActor({label:`S20 DENY ${suffix}`,agencyId:agency,email:deniedEmail,passwordHash:admin.password_hash,permissions:[]});
-  const deniedLogin=await api.post('/api/auth/login').send({email:deniedEmail,password:process.env.ADMIN_PASSWORD});assert.equal(deniedLogin.status,200);assert.equal((await api.post(route('/estimate-items')).set('Authorization',`Bearer ${deniedLogin.body.accessToken}`).send({itemType:'labor',description:'Interdit',quantity:1,rateCode})).status,403);assert.ok(denied.userId);
+  assert.equal((await api.post(route('/estimate-items')).set('Authorization',`Bearer ${denied.accessToken}`).send({itemType:'labor',description:'Interdit',quantity:1,rateCode})).status,403);assert.ok(denied.userId);
   console.log('SAV_OR20_EVIDENCE',JSON.stringify({labor:75000,parts:120000,total:195000,submittedSnapshot:Number(snapshot.approved_amount),refusedSnapshot:Number(refusedSnapshot.approved_amount),stock:Number(stockAfterEstimate.current_stock),reserved:Number(stockAfterEstimate.reserved_stock),movements:Number(movementsAfterEstimate.total),actualBillableHours:2,prematureSessionHttp:409}));
 });

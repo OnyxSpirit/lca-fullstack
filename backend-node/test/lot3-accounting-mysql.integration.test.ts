@@ -23,7 +23,7 @@ test('LOT3 sérialise numérotation et contrepassation sur MySQL 8', {skip:!enab
     await c.commit();
   }catch(error){await c.rollback();throw error}finally{c.release()}
 
-  const permissions=new Map(['view','create','update','validate','post','reverse','export'].map(x=>[`accounting.entry.${x}`,'GLOBAL']));
+  const permissions=new Map(['view','create','update','validate','post','reverse','export'].map(x=>[`accounting.entry.${x}`,'AGENCY']));
   const request={user:{sub:userId},rbac:{permissions},agencyRbac:{activeAgencyId:agencyId},query:{},ip:'127.0.0.1',get:()=>undefined} as unknown as Request;
   const body=(reference:string)=>({journalId,periodId,agencyId,accountingDate:'2026-11-12',reference,label:`Écriture ${reference}`,currencyCode:'XAF',lines:[{accountId:debitId,label:'Débit',debit:'100.00',credit:'0'},{accountId:creditId,label:'Crédit',debit:'0',credit:'100.00'}]});
 

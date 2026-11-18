@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,issueMysqlAccessToken,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PR06_DB_TEST==='1';
 if(enabled)after(async()=>pool.end());
@@ -13,8 +13,7 @@ const rows=(sql:string,params:unknown[]=[])=>query<RowDataPacket[]>(sql,params);
 const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
 
 test('PR-06 annule sûrement commandes et reliquats sans inverser le stock',{skip:!enabled},async()=>{
-  const api=supertest(createApp()),suffix=randomUUID().slice(0,8);await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const password=process.env.ADMIN_PASSWORD!;
-  const adminLogin=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password});assert.equal(adminLogin.status,200,JSON.stringify(adminLogin.body));const adminToken=adminLogin.body.accessToken as string;
+  const api=supertest(createApp()),suffix=randomUUID().slice(0,8),administrator=await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions),adminToken=administrator.accessToken;
   const [admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agencyA=String(admin.agency_id),[home]=await rows('SELECT concession_id FROM agencies WHERE id=?',[agencyA]);
   const agencyB=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[home.concession_id,`Agence B ${suffix}`,`PR06_B_${suffix}`]),concessionC=await insert('INSERT INTO concessions(name,code) VALUES(?,?)',[`Concession C ${suffix}`,`PR06_C_${suffix}`]),agencyC=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concessionC,`Agence C ${suffix}`,`PR06_AC_${suffix}`]);
   const supplier=await insert('INSERT INTO suppliers(name,code,is_active) VALUES(?,?,TRUE)',[`Fournisseur ${suffix}`,`F06_${suffix}`]),part=await insert('INSERT INTO parts(reference,name,is_active) VALUES(?,?,TRUE)',[`PR06-${suffix}`,'Filtre PR06']),location=await insert("INSERT INTO locations(agency_id,name,type,is_active) VALUES(?,'Magasin PR06','warehouse',TRUE)",[agencyA]);
@@ -34,7 +33,7 @@ test('PR-06 annule sûrement commandes et reliquats sans inverser le stock',{ski
   assert.equal((await cancel(adminToken,'999999999',agencyA)).status,404);
 
 	  const makeRole=async(label:string,scope:'AGENCY'|null)=>{const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`PR06_${label}_${suffix}`,`PR06 ${label} ${suffix}`]);if(scope){const[permission]=await rows("SELECT id FROM permissions WHERE code='parts.purchase_order.approve'");await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);}return role;};
-  const makeUser=async(label:string,agency:string,role:string)=>{const email=`pr06-${label}-${suffix}@test.local`,user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'PR06',label,email,admin.password_hash]);await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});const login=await api.post('/api/auth/login').send({email,password});assert.equal(login.status,200);return login.body.accessToken as string;};
+  const makeUser=async(label:string,agency:string,role:string)=>{const email=`pr06-${label}-${suffix}@test.local`,user=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'PR06',label,email,admin.password_hash]);await assignMysqlAgencyRole({userId:user,agencyId:agency,roleId:role});return(await issueMysqlAccessToken({userId:user,email,agencyId:agency,twoFactorVerified:true})).accessToken;};
 	  const agencyToken=await makeUser('agency',agencyA,await makeRole('AGENCY','AGENCY')),deniedToken=await makeUser('denied',agencyA,await makeRole('DENIED',null)),concessionToken=await makeUser('agency-b',agencyB,await makeRole('AGENCY_B','AGENCY')),globalToken=await makeUser('agency-c',agencyC,await makeRole('AGENCY_C','AGENCY'));
   const deniedOrder=await makeOrder('draft');assert.equal((await cancel(deniedToken,deniedOrder.id,agencyA)).status,403);const[deniedState]=await rows('SELECT status FROM purchase_orders WHERE id=?',[deniedOrder.id]);assert.equal(deniedState.status,'draft');
   const foreignOrder=await makeOrder('draft',agencyB);assert.equal((await cancel(agencyToken,foreignOrder.id,agencyB)).status,403);const concessionOrder=await makeOrder('draft',agencyB);assert.equal((await cancel(concessionToken,concessionOrder.id,agencyB)).status,200);const globalOrder=await makeOrder('draft',agencyC);assert.equal((await cancel(globalToken,globalOrder.id,agencyC)).status,200);

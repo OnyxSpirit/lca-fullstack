@@ -14,8 +14,8 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('SAV-OR-16 à 18 sur MySQL 8.4 : étapes, annulation et finance séparée',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
-  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200,JSON.stringify(login.body));
-  const token=login.body.accessToken as string,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
+  const administrator=await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);
+  const token=administrator.accessToken,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
   const[admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
   const brand=await insert('INSERT INTO brands(name,code) VALUES(?,?)',[`SAV1618 ${suffix}`,`S1618_${suffix}`]),model=await insert('INSERT INTO models(brand_id,name) VALUES(?,?)',[brand,'Modèle']),version=await insert('INSERT INTO versions(model_id,name) VALUES(?,?)',[model,'Version']);
   const customer=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name) VALUES(?,?,?,?)',[`C1618_${suffix}`,agency,'Client','SAV']),vehicle=await insert('INSERT INTO vehicles(version_id,agency_id,vin) VALUES(?,?,?)',[version,agency,`S1618${suffix}VIN`]);

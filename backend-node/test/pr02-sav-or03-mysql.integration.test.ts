@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import type {ResultSetHeader,RowDataPacket} from 'mysql2/promise';
 import {createApp} from '../src/app.js';
 import {pool,query} from '../src/config/database.js';
-import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
+import{assignMysqlAgencyRole,ensureMysqlHttpAdministrator,issueMysqlAccessToken,legacyHttpIntegrationPermissions}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.LCA_PR02_SAV03_DB_TEST==='1';
 if(enabled)after(async()=>{await pool.end()});
@@ -15,9 +15,7 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
   const api=supertest(createApp());
   const suffix=randomUUID().slice(0,8);
-  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const adminLogin=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
-  assert.equal(adminLogin.status,200,JSON.stringify(adminLogin.body));
-  const adminToken=adminLogin.body.accessToken as string;
+  const administrator=await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions),adminToken=administrator.accessToken;
   const auth=(request:supertest.Test,token=adminToken)=>request.set('Authorization',`Bearer ${token}`);
 	  const [admin]=await rows('SELECT password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);
 	  const [mainAgency]=await rows('SELECT id,concession_id FROM agencies WHERE id=?',[admin.agency_id]);
@@ -26,7 +24,7 @@ test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
   const [group]=await rows('SELECT id FROM groups_company LIMIT 1');
   const concessionC=await insert('INSERT INTO concessions(group_id,name,code) VALUES(?,?,?)',[group.id,`Concession C ${suffix}`,`PR02_C_${suffix}`]);
   const agencyC=await insert('INSERT INTO agencies(concession_id,name,code) VALUES(?,?,?)',[concessionC,`Agence C ${suffix}`,`PR02_AC_${suffix}`]);
-  const makeRole=async(name:string,permissions:string[],scope:'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL')=>{
+  const makeRole=async(name:string,permissions:string[],scope:'OWN'|'AGENCY')=>{
     const role=await insert('INSERT INTO roles(code,name,is_active,is_system) VALUES(?,?,TRUE,FALSE)',[`QA_${name}_${suffix}`,`${name} ${suffix}`]);
     for(const code of permissions){const [permission]=await rows('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,code);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);}
     return role;
@@ -35,9 +33,8 @@ test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
     const email=`${name.toLowerCase()}-${suffix}@example.test`;
     const id=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash,is_active) VALUES(?,?,?,?,?,TRUE)',[agency,'Recette',name,email,admin.password_hash]);
 	    await assignMysqlAgencyRole({userId:id,agencyId:agency,roleId:role});
-    const login=await api.post('/api/auth/login').send({email,password:process.env.ADMIN_PASSWORD});
-    assert.equal(login.status,200,JSON.stringify(login.body));
-    return{id,token:login.body.accessToken as string};
+    const{accessToken}=await issueMysqlAccessToken({userId:id,email,agencyId:agency,twoFactorVerified:true});
+    return{id,token:accessToken};
   };
 
   const category=await auth(api.post('/api/part-categories')).send({name:`Freinage ${suffix}`,code:`PR02_${suffix}`});
@@ -109,7 +106,8 @@ test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
   assert.equal(String(reloaded.body.customer_id),customerA);
   assert.equal(String(reloaded.body.vehicle_id),vehicleA);
   assert.equal(String(reloaded.body.advisor_id),agencyUser.id);
-  const concessionRole=await makeRole('PolyvalentConcession',servicePermissions,'CONCESSION');
+  const[legacyPermission]=await rows("SELECT id FROM permissions WHERE code='service.order.create'");for(const invalid of['CONCESSION','GLOBAL']as const)await assert.rejects(()=>pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[agencyRole,legacyPermission.id,invalid]),/Data truncated|scope/i);
+  const concessionRole=await makeRole('PolyvalentAgenceBis',servicePermissions,'AGENCY');
   const concessionUser=await makeUser(concessionRole,agencyA,'Concession');
   const concessionCustomers=await auth(api.get('/api/repair-orders/customer-candidates'),concessionUser.token);
 	  assert.ok(!concessionCustomers.body.some((item:{id:string})=>item.id===customerB));
@@ -118,7 +116,7 @@ test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
 	  assert.equal(concessionAdvisors.status,403);
   const concessionOrder=await auth(api.post('/api/repair-orders'),concessionUser.token).send({customerId:customerB,vehicleId:vehicleB,advisorId:concessionUser.id,complaint:'Agence sœur'});
 	  assert.equal(concessionOrder.status,403,JSON.stringify(concessionOrder.body));
-  const globalRole=await makeRole('PolyvalentGlobal',servicePermissions,'GLOBAL');
+  const globalRole=await makeRole('PolyvalentAgenceTer',servicePermissions,'AGENCY');
   const globalUser=await makeUser(globalRole,agencyA,'Global');
   const globalCustomers=await auth(api.get('/api/repair-orders/customer-candidates'),globalUser.token);
 	  assert.ok(!globalCustomers.body.some((item:{id:string})=>item.id===customerC));

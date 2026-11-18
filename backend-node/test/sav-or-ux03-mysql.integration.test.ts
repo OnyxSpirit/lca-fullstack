@@ -14,8 +14,8 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('SAV-OR-UX-03 persiste et isole les actions one-shot par OR',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
-  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(login.status,200,JSON.stringify(login.body));
-  const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${login.body.accessToken}`);
+  const administrator=await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);
+  const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${administrator.accessToken}`);
   const[admin]=await rows('SELECT id,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]),agency=String(admin.agency_id);
   const brand=await insert('INSERT INTO brands(name,code)VALUES(?,?)',[`UX03 ${suffix}`,`UX03_${suffix}`]);
   const model=await insert('INSERT INTO models(brand_id,name)VALUES(?,?)',[brand,'M']);

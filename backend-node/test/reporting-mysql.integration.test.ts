@@ -40,14 +40,14 @@ test('Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persist�
     await assignMysqlAgencyRole({userId:user,agencyId:agencyA,roleId:role});
     for(const code of ['reporting.view','reporting.export','billing.view','billing.invoice.view','billing.payment.view','sales.view','vehicles.financials.view','workshop.productivity.view','parts.reporting.view']){
       const [permission]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);assert.ok(permission,code);
-      await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,scope]);
+      await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[role,permission.id,'AGENCY']);
     }
     actors[scope]={id:user,token:await issueSessionToken(user,`rep-${scope.toLowerCase()}@example.test`,agencyA)};
   }
   const mixedRole=await insert('INSERT INTO roles(name,code) VALUES(?,?)',['Audit mixte','REP_MIXED']);
   const mixedUser=await insert('INSERT INTO users(agency_id,first_name,last_name,email,password_hash) VALUES(?,?,?,?,?)',[agencyA,'Audit','Mixte','rep-mixed@example.test','test']);
   await assignMysqlAgencyRole({userId:mixedUser,agencyId:agencyA,roleId:mixedRole});
-  for(const [code,scope] of [['reporting.view','GLOBAL'],['reporting.export','AGENCY'],['billing.view','AGENCY'],['sales.view','GLOBAL']] as const){const[p]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[mixedRole,p.id,scope])}
+  for(const code of ['reporting.view','reporting.export','billing.view','sales.view'] as const){const[p]=await query<RowDataPacket[]>('SELECT id FROM permissions WHERE code=?',[code]);await pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[mixedRole,p.id,'AGENCY'])}const[reportingPermission]=await query<RowDataPacket[]>("SELECT id FROM permissions WHERE code='reporting.view'");for(const invalid of['CONCESSION','GLOBAL']as const)await assert.rejects(()=>pool.execute('INSERT INTO role_permissions(role_id,permission_id,scope) VALUES(?,?,?)',[mixedRole,reportingPermission.id,invalid]),/Data truncated|scope/i);
   const mixedToken=await issueSessionToken(mixedUser,'rep-mixed@example.test',agencyA);
   const customers:Record<string,string>={};
   for(const [key,agency] of [['A',agencyA],['B',agencyB],['C',agencyC]] as const){customers[key]=await insert('INSERT INTO customers(customer_code,agency_id,first_name,last_name) VALUES(?,?,?,?)',[`REP-${key}`,agency,'Client',key])}

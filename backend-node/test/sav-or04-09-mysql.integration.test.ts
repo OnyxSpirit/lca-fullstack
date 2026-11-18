@@ -14,9 +14,8 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4',{skip:!enabled},async()=>{
   const api=supertest(createApp()),suffix=randomUUID().slice(0,8);
-  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
-  assert.equal(login.status,200,JSON.stringify(login.body));
-  const token=login.body.accessToken as string,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
+  const administrator=await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);
+  const token=administrator.accessToken,auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
   const [admin]=await rows('SELECT id,password_hash,agency_id FROM users WHERE email=?',[process.env.ADMIN_EMAIL]);
   const agencyA=String(admin.agency_id),[home]=await rows('SELECT concession_id FROM agencies WHERE id=?',[agencyA]);
   const rateCode=`B31_${suffix.toUpperCase()}`;

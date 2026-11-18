@@ -52,7 +52,7 @@ test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle
   const replacement=await auth(actor.post('/api/roles')).send({code:`QA_REPLACE_${suffix}`,name:`Remplaçant recette ${suffix}`,permissions:[]});
   assert.equal(replacement.status,201,JSON.stringify(replacement.body));
   const roleId=String(first.body.id),replacementId=String(replacement.body.id);
-  const user=await auth(actor.post('/api/users')).send({firstName:'Test',lastName:'Réaffectation',email:`qa-${suffix.toLowerCase()}@example.test`,password:'qa-user-password-123',agencyId:String(agency.id),roleCode:`QA_ROLE_${suffix}`});
+  const user=await auth(actor.post('/api/users')).send({firstName:'Test',lastName:'Réaffectation',email:`qa-${suffix.toLowerCase()}@example.test`,password:'qa-user-password-123',agencyAssignments:[{agencyId:String(agency.id),roles:[`QA_ROLE_${suffix}`],isPrimary:true}]});
   assert.equal(user.status,201,JSON.stringify(user.body));
   const requiresReplacement=await auth(actor.delete(`/api/roles/${roleId}`)).send({});
   assert.equal(requiresReplacement.status,409);
@@ -68,7 +68,7 @@ test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle
   assert.ok(salesPermission);
   const fakeRole=await auth(actor.post('/api/roles')).send({code:`SUPER_ADMIN_FAKE_${suffix}`,name:`Faux super admin ${suffix}`,permissions:[{permissionId:String(salesPermission.id),scope:'AGENCY'}]});
   assert.equal(fakeRole.status,201,JSON.stringify(fakeRole.body));
-  const fakeUser=await auth(actor.post('/api/users')).send({firstName:'Faux',lastName:'Administrateur',email:`fake-${suffix.toLowerCase()}@example.test`,password:'qa-fake-password-123',agencyId:String(agency.id),roleCode:`SUPER_ADMIN_FAKE_${suffix}`});
+  const fakeUser=await auth(actor.post('/api/users')).send({firstName:'Faux',lastName:'Administrateur',email:`fake-${suffix.toLowerCase()}@example.test`,password:'qa-fake-password-123',agencyAssignments:[{agencyId:String(agency.id),roles:[`SUPER_ADMIN_FAKE_${suffix}`],isPrimary:true}]});
   assert.equal(fakeUser.status,201,JSON.stringify(fakeUser.body));
   const fakeLogin=await actor.post('/api/auth/login').send({email:`fake-${suffix.toLowerCase()}@example.test`,password:'qa-fake-password-123'});
   assert.equal(fakeLogin.status,200,JSON.stringify(fakeLogin.body));
@@ -77,7 +77,7 @@ test('PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle
   assert.equal(fakeUsers.status,403);
   const fakeDelete=await actor.delete(`/api/roles/${replacementId}`).set('Authorization',`Bearer ${fakeLogin.body.accessToken}`).send({});
   assert.equal(fakeDelete.status,403);
-  const assignmentRequest={user:{sub:systemAdmin.userId,sid:systemAdmin.sid,agencyId:String(agency.id)},rbac:{isSuperAdmin:true,permissions:new Map([['crm.prospect.assign','GLOBAL']])}} as unknown as Request;
+  const assignmentRequest={user:{sub:systemAdmin.userId,sid:systemAdmin.sid,agencyId:String(agency.id)},rbac:{isSuperAdmin:true,permissions:new Map([['crm.prospect.assign','AGENCY']])}} as unknown as Request;
   await assert.rejects(()=>validateLeadAssignee(systemAdmin.userId,assignmentRequest),/introuvable/);
   const assignable=await validateLeadAssignee(String(fakeUser.body.id),assignmentRequest);
   assert.equal(assignable.assignedUserId,String(fakeUser.body.id));

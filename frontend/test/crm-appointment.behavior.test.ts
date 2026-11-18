@@ -45,7 +45,7 @@ test('RDV-01/02/05/06 utilise le vrai datetime-local, active le bouton puis exé
   assert.equal(screen.queryByText(/Renseignez la date et l’heure/),null);
   fireEvent.click(submit);
   await waitFor(()=>assert.ok(appointmentPayload));
-  assert.equal(appointmentPayload?.scheduledAt,new Date(2099,8,11,10,0).toISOString());
+  assert.equal(appointmentPayload?.scheduledAt,'2099-09-11T09:00:00.000Z');
   assert.equal(appointmentPayload?.durationMinutes,30);
   await waitFor(()=>assert.equal(screen.queryByText('Planifier un rendez-vous commercial'),null));
   assert.ok(leadReads>=2);

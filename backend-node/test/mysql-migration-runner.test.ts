@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import {readdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import test from 'node:test';
 import mysql,{type RowDataPacket} from 'mysql2/promise';
-import {bootstrapDatabase} from '../src/scripts/database-bootstrap.js';
+import {bootstrapDatabase,databasePath,futureMigrationNames} from '../src/scripts/database-bootstrap.js';
 import {ensureMigrationStepJournal,executeResilientMigration,historicalMigrationCompatibility,migrationLockName,SimulatedMigrationInterruption,splitSqlStatements} from '../src/scripts/mysql-migration-runner.js';
 
 test('MIG-UNIT découpe les fichiers sans confondre commentaires et points-virgules de chaînes',()=>{
@@ -29,8 +30,8 @@ test('Runner MySQL 8.4 : un DDL échoué sans effet est corrigeable et reprenabl
 });
 
 const enabled=process.env.MIGRATION_MYSQL_TEST==='1';
-const latestMigrationVersion=124;
 test('Runner MySQL 8.4 actuel : fresh, reprise, checksum, conservation et concurrence',{skip:!enabled,timeout:1_200_000},async()=>{
+ const latestMigrationVersion=Math.max(...futureMigrationNames(await readdir(databasePath('migrations'))).map(name=>Number(name.slice(0,3))));
  const prefix=`lca_migration_b31_${process.pid}_`,schemas={fresh:`${prefix}fresh`,before:`${prefix}before`,ddl:`${prefix}ddl`,journal:`${prefix}journal`,checksum:`${prefix}checksum`,concurrent:`${prefix}concurrent`};
  const admin=await mysql.createConnection({host:process.env.MIGRATION_DB_HOST??'127.0.0.1',port:Number(process.env.MIGRATION_DB_PORT??3306),user:process.env.MIGRATION_DB_USER??'root',password:process.env.MIGRATION_DB_PASSWORD??'',multipleStatements:true});
  const useEnvironment=(schema:string)=>Object.assign(process.env,{DB_HOST:process.env.MIGRATION_DB_HOST??'127.0.0.1',DB_PORT:process.env.MIGRATION_DB_PORT??'3306',DB_USER:process.env.MIGRATION_DB_USER??'root',DB_PASSWORD:process.env.MIGRATION_DB_PASSWORD??'',DB_NAME:schema,DATABASE_ROOT:resolve(import.meta.dirname,'../database')});

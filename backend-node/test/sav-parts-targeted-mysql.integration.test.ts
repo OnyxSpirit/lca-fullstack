@@ -14,9 +14,8 @@ const insert=async(sql:string,params:unknown[]=[])=>String((await pool.execute<R
 
 test('PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé', {skip:!enabled},async()=>{
   const api=supertest(createApp());
-  await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);const login=await api.post('/api/auth/login').send({email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
-  assert.equal(login.status,200,JSON.stringify(login.body));
-  const token=login.body.accessToken;
+  const administrator=await ensureMysqlHttpAdministrator(legacyHttpIntegrationPermissions);
+  const token=administrator.accessToken;
   const auth=(request:supertest.Test)=>request.set('Authorization',`Bearer ${token}`);
   const suffix=randomUUID().slice(0,8);
   const [agency]=await rows('SELECT id FROM agencies LIMIT 1');

@@ -14,6 +14,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
+import { useClientPagination } from "../../components/common/ClientPagination";
 const field = "rounded-md border border-slate-300 px-3 py-2 text-sm",
   emptySupplier: SupplierInput = {
     name: "",
@@ -38,6 +39,7 @@ export const SuppliersSettings = () => {
     q = useSuppliersSettingsQuery(debounced),
     actions = useSupplierSettingsActions(),
     toast = useUiStore((s) => s.addToast);
+  const supplierPage = useClientPagination(q.data ?? [], undefined, "fournisseur(s)");
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
     return () => clearTimeout(t);
@@ -157,7 +159,7 @@ export const SuppliersSettings = () => {
         </p>
       )}
       <div className="grid gap-3 md:grid-cols-2">
-        {q.data?.map((s) => (
+        {supplierPage.visible.map((s) => (
           <Card key={s.id}>
             <div className="flex justify-between">
               <div>
@@ -189,6 +191,8 @@ export const SuppliersSettings = () => {
           </Card>
         ))}
       </div>
+      {q.isSuccess && !q.data.length && <Card className="text-center text-sm text-slate-500">Aucun fournisseur ne correspond à la recherche.</Card>}
+      {supplierPage.controls}
     </div>
   );
 };

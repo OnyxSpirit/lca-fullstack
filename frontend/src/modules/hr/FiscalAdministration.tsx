@@ -8,6 +8,7 @@ import {Button} from '../../components/ui/Button';
 import {Card} from '../../components/ui/Card';
 import {Modal} from '../../components/ui/Modal';
 import {promptAction} from '../../components/ui/BusinessDialog';
+import {useClientPagination} from '../../components/common/ClientPagination';
 
 type TaxType={id:string;code:string;label:string;is_active:boolean};
 type Obligation={id:string;reference:string;tax_label:string;period_start:string;period_end:string;due_date:string;declared_amount:number|null;paid_amount:number;currency_code:string;status:string};
@@ -22,6 +23,7 @@ export default function FiscalAdministration(){
  const[form,setForm]=useState({taxTypeId:'',reference:'',periodStart:`${new Date().getFullYear()}-01-01`,periodEnd:today(),dueDate:today(),taxableBase:'',declaredAmount:'',currencyCode:'XAF'});
  const types=useQuery({queryKey:['fiscal','types'],queryFn:()=>apiRequest<TaxType[]>('/fiscal/tax-types'),enabled:can('fiscal.obligation.view')});
  const obligations=useQuery({queryKey:['fiscal','obligations'],queryFn:()=>apiRequest<Obligation[]>('/fiscal/obligations'),enabled:can('fiscal.obligation.view')});
+ const obligationPage=useClientPagination(obligations.data??[],undefined,'obligation(s) fiscale(s)');
  const mutation=useMutation({mutationFn:({path,body}:{path:string;body?:unknown})=>apiRequest(path,{method:'POST',body:JSON.stringify(body??{})}),onSuccess:async()=>qc.invalidateQueries({queryKey:['fiscal']})});
  const run=async(path:string,body:unknown,title:string)=>{try{await mutation.mutateAsync({path,body});toast({type:'success',title});return true}catch(error){toast({type:'error',title:'Action impossible',description:error instanceof Error?error.message:'Erreur API'});return false}};
  const createType=async()=>{if(await run('/fiscal/tax-types',typeForm,'Nature fiscale créée'))setTypeOpen(false)};
@@ -30,13 +32,13 @@ export default function FiscalAdministration(){
  return <div className="space-y-4">
   <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">Fiscalité d’entreprise</h3><p className="text-xs text-slate-500">Échéances, déclarations et règlements avec règles historisées. Les taux doivent être documentés et vérifiés avant application.</p></div><div className="flex gap-2">{can('fiscal.catalog.manage')&&<Button variant="outline" disabled={mutation.isPending} onClick={()=>setTypeOpen(true)}>Configurer une nature</Button>}{can('fiscal.obligation.manage')&&<Button disabled={mutation.isPending} onClick={()=>setOpen(true)}>Nouvelle obligation</Button>}</div></div>
   <Card><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-xs"><thead><tr className="text-left"><th>Référence</th><th>Nature</th><th>Période</th><th>Échéance</th><th>Déclaré</th><th>Réglé</th><th>Statut</th><th>Actions</th></tr></thead><tbody>
-   {obligations.data?.map(item=><tr key={item.id} className="border-t"><td className="py-3 font-bold">{item.reference}</td><td>{item.tax_label}</td><td>{item.period_start.slice(0,10)} – {item.period_end.slice(0,10)}</td><td>{item.due_date.slice(0,10)}</td><td>{money(item.declared_amount,item.currency_code)}</td><td>{money(item.paid_amount,item.currency_code)}</td><td><Badge>{item.status}</Badge></td><td><div className="flex gap-1">
+   {obligationPage.visible.map(item=><tr key={item.id} className="border-t"><td className="py-3 font-bold">{item.reference}</td><td>{item.tax_label}</td><td>{item.period_start.slice(0,10)} – {item.period_end.slice(0,10)}</td><td>{item.due_date.slice(0,10)}</td><td>{money(item.declared_amount,item.currency_code)}</td><td>{money(item.paid_amount,item.currency_code)}</td><td><Badge>{item.status}</Badge></td><td><div className="flex gap-1">
     {['DRAFT','REJECTED'].includes(item.status)&&can('fiscal.obligation.submit')&&<Button size="xs" loading={mutation.isPending} disabled={mutation.isPending} onClick={()=>void run(`/fiscal/obligations/${item.id}/submit`,{},'Obligation soumise')}>Soumettre</Button>}
     {item.status==='SUBMITTED'&&can('fiscal.obligation.approve')&&<><Button size="xs" loading={mutation.isPending} disabled={mutation.isPending} onClick={()=>void run(`/fiscal/obligations/${item.id}/approve`,{},'Obligation validée')}>Valider</Button><Button size="xs" variant="outline" disabled={mutation.isPending} onClick={async()=>{const reason=await promptAction('Motif du rejet');if(reason?.trim())await run(`/fiscal/obligations/${item.id}/reject`,{reason:reason.trim()},'Obligation rejetée')}}>Rejeter</Button></>}
     {['VALIDATED','PARTIALLY_PAID'].includes(item.status)&&can('fiscal.obligation.pay')&&<Button size="xs" variant="outline" loading={mutation.isPending} disabled={mutation.isPending} onClick={()=>void pay(item.id)}>Régler</Button>}
    </div></td></tr>)}
    {obligations.isSuccess&&!obligations.data?.length&&<tr><td colSpan={8} className="py-8 text-center text-slate-500">Aucune obligation fiscale enregistrée.</td></tr>}
-  </tbody></table></div></Card>
+  </tbody></table></div>{obligationPage.controls}</Card>
   <Modal isOpen={typeOpen} onClose={()=>{if(!mutation.isPending)setTypeOpen(false)}} title="Configurer une nature fiscale"><div className="space-y-3">
    <input aria-label="Code de la nature fiscale" className={field} placeholder="Code unique" value={typeForm.code} onChange={e=>setTypeForm({...typeForm,code:e.target.value.toUpperCase()})}/>
    <input aria-label="Libellé de la nature fiscale" className={field} placeholder="Libellé" value={typeForm.label} onChange={e=>setTypeForm({...typeForm,label:e.target.value})}/>

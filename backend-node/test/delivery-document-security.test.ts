@@ -15,11 +15,10 @@ const [{createApp},{env},{pool},{decodeDeliveryDocument,MAX_DELIVERY_DOCUMENT_SI
   import('../src/modules/deliveries/delivery-document.js'),import('../src/modules/documents/document-storage.js'),
 ]);
 
-type Actor={permissions:Record<string,'OWN'|'AGENCY'|'CONCESSION'|'GLOBAL'>;allow:boolean;code?:string;system?:boolean};
+type Actor={permissions:Record<string,'OWN'|'AGENCY'>;allow:boolean;code?:string;system?:boolean};
 const actors:Record<string,Actor>={
   none:{permissions:{},allow:false},agency:{permissions:{'delivery.documents.view':'AGENCY'},allow:true},
-  denied:{permissions:{'delivery.documents.view':'AGENCY'},allow:false},concession:{permissions:{'delivery.documents.view':'CONCESSION'},allow:true},
-  global:{permissions:{'delivery.documents.view':'GLOBAL'},allow:true},fake:{permissions:{},allow:false,code:'SUPER_ADMIN',system:false},
+  denied:{permissions:{'delivery.documents.view':'AGENCY'},allow:false},fake:{permissions:{},allow:false,code:'SUPER_ADMIN',system:false},
   system:{permissions:{'delivery.documents.view':'AGENCY'},allow:true,code:'SUPER_ADMIN',system:true},manageDenied:{permissions:{'delivery.checklist.manage':'AGENCY'},allow:false},
 };
 let activeActor='none';
@@ -51,7 +50,7 @@ test('D3-D10 permissions, scopes, Super Admin système et anti-IDOR',async()=>{
   const get=(sub:string,url='/api/deliveries/10/documents/1/download')=>supertest(createApp()).get(url).set('Authorization',`Bearer ${token(sub)}`);
   assert.equal((await get('none')).status,403);
   assert.equal((await get('denied')).status,404);
-  for(const sub of ['agency','concession','global','system']){const response=await get(sub);assert.equal(response.status,200,sub);assert.equal(response.headers['content-type'],'application/pdf');assert.match(response.headers['content-disposition'],/^attachment;/);assert.equal(response.headers['x-content-type-options'],'nosniff');assert.equal(response.headers['cache-control'],'private, no-store')}
+  for(const sub of ['agency','system']){const response=await get(sub);assert.equal(response.status,200,sub);assert.equal(response.headers['content-type'],'application/pdf');assert.match(response.headers['content-disposition'],/^attachment;/);assert.equal(response.headers['x-content-type-options'],'nosniff');assert.equal(response.headers['cache-control'],'private, no-store')}
   assert.equal((await get('fake')).status,403);
   assert.equal((await get('agency','/api/deliveries/10/documents/2/download')).status,404);
   assert.equal((await get('agency','/api/deliveries/20/documents/1/download')).status,404);

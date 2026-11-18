@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import type {Request} from 'express';
-import {assertAnyPermission,assertDelegablePermissions,assertPermission,can,type PermissionScope,type RbacContext} from '../src/modules/rbac/rbac.service.js';
+import {assertAnyPermission,assertDelegablePermissions,assertPermission,can,persistedPermissionScope,type PermissionScope,type RbacContext} from '../src/modules/rbac/rbac.service.js';
 import {HttpError} from '../src/shared/http-error.js';
 
 const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
@@ -12,17 +12,19 @@ const request=(permissions:Record<string,PermissionScope|null>,isSuperAdmin=true
 }) as unknown as Request;
 
 test('RBAC-01..07 SUPER_ADMIN est autorisé uniquement par le catalogue et le scope persisté',async()=>{
-  const actor=request({'sales.view':'GLOBAL'});
-  assert.equal(await assertPermission(actor,'sales.view'),'GLOBAL');
+  const actor=request({'sales.view':'AGENCY'});
+  assert.equal(await assertPermission(actor,'sales.view'),'AGENCY');
   await assert.rejects(()=>assertPermission(actor,'billing.view'),(error:unknown)=>error instanceof HttpError&&error.status===403);
   actor.rbac!.permissions.set('billing.view','AGENCY');
   assert.equal(await assertPermission(actor,'billing.view'),'AGENCY');
   actor.rbac!.permissions.delete('billing.view');
   await assert.rejects(()=>assertPermission(actor,'billing.view'),/Permission insuffisante/);
-  for(const scope of ['OWN','AGENCY','CONCESSION','GLOBAL'] as const){
+  for(const scope of ['OWN','AGENCY'] as const){
     actor.rbac!.permissions.set('scope.test',scope);
     assert.equal(await assertPermission(actor,'scope.test'),scope);
   }
+  for(const obsolete of ['CONCESSION','GLOBAL',null] as const)
+    assert.throws(()=>persistedPermissionScope(obsolete),/Scope RBAC persisté invalide/);
 });
 
 test('RBAC-04/05 nom de rôle et is_system ne fabriquent aucune permission',async()=>{
@@ -37,7 +39,7 @@ test('RBAC-08/09/15 rôles dynamiques et délégation utilisent le catalogue ré
   assert.equal(can(dynamic,'crm.prospect.view'),true);
   assert.equal(can(dynamic,'crm.prospect.update'),false);
   assert.doesNotThrow(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.view',scope:'OWN'}]));
-  assert.throws(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.view',scope:'GLOBAL'}]),/pas compatible avec le périmètre sélectionné/);
+  assert.throws(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.view',scope:'GLOBAL' as unknown as PermissionScope}]),/pas compatible avec le périmètre sélectionné/);
   assert.throws(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.update',scope:'OWN'}]),/Permission non délégable/);
 });
 

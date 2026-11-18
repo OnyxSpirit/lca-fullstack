@@ -10,6 +10,11 @@ export type PermissionBusinessScope = PermissionScope;
 export interface GrantedPermission { code:string; scope:PermissionScope|null }
 export interface RbacContext { roleId:string|null; roleCode:string|null; isSuperAdmin:boolean; permissions:Map<string,PermissionScope|null> }
 
+export function persistedPermissionScope(value:unknown):PermissionScope{
+  if(value==='OWN'||value==='AGENCY')return value;
+  throw new HttpError(403,'Scope RBAC persisté invalide');
+}
+
 /**
  * Adaptateur de transition pour les modules qui utilisent encore les helpers
  * historiques. L'identité et les permissions viennent exclusivement de
@@ -29,7 +34,7 @@ export async function resolveRbacContext(userId:string):Promise<RbacContext>{
   if(!role)return{roleId:null,roleCode:null,isSuperAdmin:false,permissions:new Map()};
   const isSuperAdmin=String(role.code)==='SUPER_ADMIN'&&Boolean(role.is_system);
   const rows=await query<RowDataPacket[]>(`SELECT p.code,rp.scope FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id WHERE rp.role_id=? AND p.is_active=TRUE`,[role.id]);
-  return{roleId:String(role.id),roleCode:String(role.code),isSuperAdmin,permissions:new Map(rows.map(row=>[String(row.code),row.scope==null?null:String(row.scope) as PermissionScope]))};
+  return{roleId:String(role.id),roleCode:String(role.code),isSuperAdmin,permissions:new Map(rows.map(row=>[String(row.code),persistedPermissionScope(row.scope)]))};
 }
 
 export async function rbac(request:Request){

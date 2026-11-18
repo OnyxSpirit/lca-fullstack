@@ -1,5 +1,6 @@
 .env
 .env.*
+!.env.codex-qualification.example
 !.env.example
 backups/
 *.log

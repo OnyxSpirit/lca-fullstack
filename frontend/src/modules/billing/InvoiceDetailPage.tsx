@@ -33,6 +33,7 @@ import {
 import type { CreditNote, InvoicePayment } from "../../types";
 import { businessArchiveStatusLabel } from "../../services/businessArchiveStatus";
 import { openOfficialPdf } from "../../services/businessPdf";
+import { useClientPagination } from "../../components/common/ClientPagination";
 
 export const InvoiceDetailPage: React.FC = () => {
   const { id } = useParams(),
@@ -64,6 +65,16 @@ export const InvoiceDetailPage: React.FC = () => {
     });
   const invoice = query.data,
     pending = action.isPending;
+  const refundPage = useClientPagination(
+    refundsQuery.data ?? [],
+    undefined,
+    "remboursement(s)",
+  );
+  const creditPage = useClientPagination(
+    invoice?.creditNotes ?? [],
+    undefined,
+    "avoir(s)",
+  );
   const Button = (props: React.ComponentProps<typeof BaseButton>) => (
     <BaseButton
       {...props}
@@ -513,15 +524,17 @@ export const InvoiceDetailPage: React.FC = () => {
         <Card>
           <h2 className="mb-3 font-bold">Remboursements</h2>
           <div className="space-y-2">
-            {refundsQuery.data?.map((refund) => (
+            {refundPage.visible.map((refund) => (
               <div
                 key={refund.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-sm"
               >
                 <div>
-                  <b>RMB-{refund.id}</b> · {refund.paymentNumber} · {refund.creditNoteNumber}
+                  <b>RMB-{refund.id}</b> · {refund.paymentNumber} ·{" "}
+                  {refund.creditNoteNumber}
                   <small className="block text-slate-500">
-                    {formatDateTime(refund.refundedAt)} · {refund.refundedByName || "—"} · {refund.reason}
+                    {formatDateTime(refund.refundedAt)} ·{" "}
+                    {refund.refundedByName || "—"} · {refund.reason}
                   </small>
                 </div>
                 <div className="flex items-center gap-2">
@@ -538,7 +551,9 @@ export const InvoiceDetailPage: React.FC = () => {
                           type: "error",
                           title: "Justificatif indisponible",
                           description:
-                            error instanceof Error ? error.message : "Erreur API",
+                            error instanceof Error
+                              ? error.message
+                              : "Erreur API",
                         }),
                       )
                     }
@@ -549,6 +564,7 @@ export const InvoiceDetailPage: React.FC = () => {
               </div>
             ))}
           </div>
+          {refundPage.controls}
         </Card>
       )}
       {(canViewPayments || canCancel || canRefund) && (
@@ -556,7 +572,7 @@ export const InvoiceDetailPage: React.FC = () => {
           <h2 className="mb-3 font-bold">Avoirs</h2>
           {invoice.creditNotes?.length ? (
             <div className="space-y-2">
-              {invoice.creditNotes.map((item) => {
+              {creditPage.visible.map((item) => {
                 const recoverable =
                   item.archiveStatus === "MISSING_RECORD" ||
                   item.archiveStatus === "HISTORICAL_ONLY";
@@ -617,6 +633,7 @@ export const InvoiceDetailPage: React.FC = () => {
           ) : (
             <p className="text-sm text-slate-500">Aucun avoir.</p>
           )}
+          {invoice.creditNotes?.length ? creditPage.controls : null}
         </Card>
       )}
       <Modal

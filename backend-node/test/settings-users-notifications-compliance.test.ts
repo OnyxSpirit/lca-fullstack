@@ -12,12 +12,14 @@ test('RBAC-TEST-01/02 le backend exige exactement un rôle métier',async()=>{
   await assert.rejects(assertAssignableRoles(request,['SALES_AGENT','SALES_AGENT']),/exactement un rôle/);
 });
 
-test('RBAC-TEST-03..09 routes utilisateurs cloisonnées par concession et hiérarchie',()=>{
+test('RBAC-TEST-03..09 routes utilisateurs cloisonnées par agence et hiérarchie',()=>{
   const routes=source('src/modules/users/user.routes.ts'),service=source('src/modules/users/user.service.ts'),access=source('src/modules/users/user-access.ts');
   assert.match(routes,/requirePermission\('users\.view'\)/);
   assert.match(routes,/service\.list\(req\.query,req\)/);
   assert.match(routes,/service\.one\(routeId\(req\.params\.id\),req\)/);
-  assert.match(service,/a\.concession_id=\(SELECT concession_id FROM agencies WHERE id=\?\)/);
+  assert.match(service,/scope==='OWN'.*u\.id=\?/s);
+  assert.match(service,/scope==='AGENCY'.*u\.agency_id=\?/s);
+  assert.doesNotMatch(service,/a\.concession_id=\(SELECT concession_id FROM agencies WHERE id=\?\)/);
   assert.match(service,/assertAgencyInActorScope/);
   assert.doesNotMatch(access,/autre DIRECTOR|attribuer le rôle DIRECTOR/);
   assert.doesNotMatch(access,/ADMIN_ROLES|request\.user\?\.roles\.includes/);

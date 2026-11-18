@@ -26,7 +26,8 @@ test('RH : le référentiel existant est administrable sans liste juridique cod�
   assert.match(contractManager, /editing\?\.is_used/);
   assert.match(contractManager, /actions\.contractType\.isPending/);
   assert.match(routes, /hr\.contract\.type\.manage/);
-  assert.match(routes, /scope==='OWN'\|\|scope==='AGENCY'/);
+  assert.match(routes, /scope==='AGENCY'.*agency_id=\?/s);
+  assert.match(routes, /scope==='OWN'.*user_id=\?/s);
   assert.match(routes, /writeAudit/);
 });
 

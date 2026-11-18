@@ -10,6 +10,7 @@ import {
 import { PageHeader } from "../../components/common/PageHeader";
 import { OperationTimeline } from "../../components/common/OperationTimeline";
 import { useClientPagination } from "../../components/common/ClientPagination";
+import { ServerPagination } from "../../components/common/ServerPagination";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Modal } from "../../components/ui/Modal";
@@ -153,6 +154,7 @@ export const TreasuryPage: React.FC<{initialTab?:TreasuryLegacyTab;hideTabs?:boo
     today = new Date().toISOString().slice(0, 10);
   const [tab, setTab] = useState<Tab>(initialTab),
     [page, setPage] = useState(1),
+    [pageSize, setPageSize] = useState(10),
     [filters, setFilters] = useState({
       accountId: "",
       direction: "",
@@ -232,7 +234,7 @@ export const TreasuryPage: React.FC<{initialTab?:TreasuryLegacyTab;hideTabs?:boo
     reservationHistory=useTreasuryReservationHistory(reservationHistoryId,canViewReservations),
     reservableExpenses=useTreasuryReservableExpenses(reservationForm.accountId,reservationModal&&can("treasury.reservation.create")),
     reservationActions = useTreasuryReservationActions(),
-    journal = useTreasuryJournal({ page, pageSize: 20, ...filters },tab==="journal"),
+    journal = useTreasuryJournal({ page, pageSize, ...filters },tab==="journal"),
     actions = useTreasuryActions();
   const canAccounts = can("treasury.account.manage"),
     manageScope = permissionScope("treasury.account.manage"),
@@ -1118,30 +1120,7 @@ export const TreasuryPage: React.FC<{initialTab?:TreasuryLegacyTab;hideTabs?:boo
               )}
             </div>
           ))}
-          <div className="mt-3 flex justify-between text-xs">
-            <span>{journal.data?.total ?? 0} mouvements</span>
-            <div>
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={page <= 1}
-                onClick={() => setPage((x) => x - 1)}
-              >
-                Précédent
-              </Button>
-              <span className="px-2">
-                {page}/{Math.max(1, journal.data?.totalPages ?? 1)}
-              </span>
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={page >= (journal.data?.totalPages ?? 1)}
-                onClick={() => setPage((x) => x + 1)}
-              >
-                Suivant
-              </Button>
-            </div>
-          </div>
+          <ServerPagination page={page} pageSize={pageSize} total={journal.data?.total??0} totalPages={journal.data?.totalPages} loading={journal.isFetching} label="mouvement(s)" onPageChange={setPage} onPageSizeChange={size=>{setPageSize(size);setPage(1)}} />
         </Card>
       )}
       {tab === "categories" && (

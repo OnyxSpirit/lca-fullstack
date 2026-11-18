@@ -146,7 +146,7 @@ export const Header: React.FC = () => {
         {/* Mobile Search button */}
         <button
           onClick={() => setGlobalSearchOpen(true)}
-          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg md:hidden cursor-pointer"
+          className="hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg min-[400px]:inline-flex md:hidden cursor-pointer"
           aria-label="Recherche"
         >
           <Search className="w-5 h-5" />
@@ -173,13 +173,13 @@ export const Header: React.FC = () => {
           variant="primary"
           icon={<Plus className="w-4 h-4" />}
           onClick={() => setActiveQuickActionModal('menu')}
-          className="hidden sm:inline-flex bg-[#8f1722] hover:bg-[#6f1019] text-white font-semibold text-xs rounded-md"
+          className="hidden lg:inline-flex bg-[#8f1722] hover:bg-[#6f1019] text-white font-semibold text-xs rounded-md"
         >
           Action Rapide
         </Button>
 
         {/* Notifications Dropdown */}
-        <div className="relative">
+        <div className="relative hidden min-[400px]:block">
           <button
             onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
             className="relative p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"

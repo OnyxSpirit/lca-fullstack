@@ -24,6 +24,7 @@ import { RepairOrderStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { NewRepairOrderModal } from './NewRepairOrderModal';
 import { TableEmptyState } from '../../components/common/TableEmptyState';
+import { ServerPagination } from '../../components/common/ServerPagination';
 import { useAuthStore } from '../../stores/authStore';
 import { ExternalCustomersPanel } from './ExternalCustomersPanel';
 import { SavBillingSection, SavJournalSection, SavReportingSection, SavTransitSection } from './SavBusinessSections';
@@ -31,8 +32,8 @@ import { SavBillingSection, SavJournalSection, SavReportingSection, SavTransitSe
 export const ServiceDashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-  const [page,setPage]=useState(1);
-  const repairQuery=useRepairOrdersPageQuery({page,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
+  const [page,setPage]=useState(1),[pageSize,setPageSize]=useState(10);
+  const repairQuery=useRepairOrdersPageQuery({page,pageSize,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus});
   const repairOrders = repairQuery.data?.items ?? [];
   const navigate = useNavigate();
   const [searchParams]=useSearchParams();
@@ -181,7 +182,7 @@ export const ServiceDashboardPage: React.FC = () => {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t p-4 text-xs"><span>{repairQuery.data?.total??0} ordre(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Précédent</Button><span>Page {page}/{Math.max(1,repairQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(repairQuery.data?.totalPages??1)} onClick={()=>setPage(p=>p+1)}>Suivant</Button></div></div>
+        <ServerPagination page={page} pageSize={pageSize} total={repairQuery.data?.total??0} totalPages={repairQuery.data?.totalPages} loading={repairQuery.isFetching} label="ordre(s)" onPageChange={setPage} onPageSizeChange={size=>{setPageSize(size);setPage(1)}}/>
       </Card>
       </>}
 

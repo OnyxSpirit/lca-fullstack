@@ -1,6 +1,9 @@
-import { confirmAction, promptAction } from '../../components/ui/BusinessDialog';
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import {
+  confirmAction,
+  promptAction,
+} from "../../components/ui/BusinessDialog";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Users,
   Plus,
@@ -19,119 +22,501 @@ import {
   ChevronRight,
   MessageSquare,
   Sparkles,
-} from 'lucide-react';
-import { useCancelCrmAppointment, useCancelQuotation, useCreateActivity, useCreateCrmAppointment, useCreateProforma, useCrmTeamMembersQuery, useKanbanColumnsQuery, useLeadActivitiesQuery, useLeadArchiveActions, useLeadQuotationsQuery, useLeadStageMutation, useLeadsPageQuery, useRetryQuotationArchive, useUpdateCrmAppointment, useUpdateLead, useUpdateQuotation, useValidateQuotation } from '../../api/erpHooks';
-import { opportunityStageToDb } from '../../services/mysqlStatusMap';
-import { openOfficialPdf } from '../../services/businessPdf';
-import { useUiStore } from '../../stores/uiStore';
-import { PageHeader } from '../../components/common/PageHeader';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Card } from '../../components/ui/Card';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { Lead, LeadStage } from '../../types';
-import { formatCurrency, formatDate, formatDateTime } from '../../lib/utils';
-import { NewLeadModal } from './NewLeadModal';
-import { Modal } from '../../components/ui/Modal';
-import { TableEmptyState } from '../../components/common/TableEmptyState';
-import { useAuthStore } from '../../stores/authStore';
-import { QuotationModal } from './QuotationModal';
-import { CrmTestDriveModal } from './CrmTestDriveModal';
-import { SaleWizardModal } from '../sales/SaleWizardModal';
-import type { Quotation } from '../../types';
-import { appointmentDateError, appointmentInputValue, appointmentIso, canManageCrmAppointment, canPlanCrmAppointment } from './crmAppointmentPolicy';
-import { openBusinessPdf } from '../../services/businessPdf';
-import { hasDynamicPermission } from '../../navigation/permissions';
-import { activityStatusLabel, activityTypeLabel, quotationStatusLabel } from '../../lib/userFacingLabels';
-import{businessArchiveStatusLabel}from'../../services/businessArchiveStatus';
+} from "lucide-react";
+import {
+  useCancelCrmAppointment,
+  useCancelQuotation,
+  useCreateActivity,
+  useCreateCrmAppointment,
+  useCreateProforma,
+  useCrmTeamMembersQuery,
+  useKanbanColumnsQuery,
+  useLeadActivitiesQuery,
+  useLeadArchiveActions,
+  useLeadQuotationsQuery,
+  useLeadStageMutation,
+  useLeadsPageQuery,
+  useRetryQuotationArchive,
+  useUpdateCrmAppointment,
+  useUpdateLead,
+  useUpdateQuotation,
+  useValidateQuotation,
+} from "../../api/erpHooks";
+import { opportunityStageToDb } from "../../services/mysqlStatusMap";
+import { openOfficialPdf } from "../../services/businessPdf";
+import { useUiStore } from "../../stores/uiStore";
+import { PageHeader } from "../../components/common/PageHeader";
+import { Button } from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
+import { Card } from "../../components/ui/Card";
+import { StatusBadge } from "../../components/common/StatusBadge";
+import { Lead, LeadStage } from "../../types";
+import { formatCurrency, formatDate, formatDateTime } from "../../lib/utils";
+import { NewLeadModal } from "./NewLeadModal";
+import { Modal } from "../../components/ui/Modal";
+import { TableEmptyState } from "../../components/common/TableEmptyState";
+import { useAuthStore } from "../../stores/authStore";
+import { QuotationModal } from "./QuotationModal";
+import { CrmTestDriveModal } from "./CrmTestDriveModal";
+import { SaleWizardModal } from "../sales/SaleWizardModal";
+import type { Quotation } from "../../types";
+import {
+  appointmentDateError,
+  appointmentInputValue,
+  appointmentIso,
+  canManageCrmAppointment,
+  canPlanCrmAppointment,
+} from "./crmAppointmentPolicy";
+import { openBusinessPdf } from "../../services/businessPdf";
+import { hasDynamicPermission } from "../../navigation/permissions";
+import {
+  activityStatusLabel,
+  activityTypeLabel,
+  quotationStatusLabel,
+} from "../../lib/userFacingLabels";
+import { businessArchiveStatusLabel } from "../../services/businessArchiveStatus";
+import { ServerPagination } from "../../components/common/ServerPagination";
+import { useClientPagination } from "../../components/common/ClientPagination";
 
-export const commercialProgressLabel=(lead:Pick<Lead,'commercialProgress'|'commercialProgressState'>)=>lead.commercialProgressState==='LOST'?'Vente perdue':lead.commercialProgress==null?'Indisponible':`${lead.commercialProgress} %`;
-const kanbanDbStages=['new','contacted','qualified','appointment','test_drive','offer','negotiation','won','lost'] as const;
+export const commercialProgressLabel = (
+  lead: Pick<Lead, "commercialProgress" | "commercialProgressState">,
+) =>
+  lead.commercialProgressState === "LOST"
+    ? "Vente perdue"
+    : lead.commercialProgress == null
+      ? "Indisponible"
+      : `${lead.commercialProgress} %`;
+const kanbanDbStages = [
+  "new",
+  "contacted",
+  "qualified",
+  "appointment",
+  "test_drive",
+  "offer",
+  "negotiation",
+  "won",
+  "lost",
+] as const;
 
 export const CrmPage: React.FC = () => {
-  const navigate=useNavigate();
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedPriority, setSelectedPriority] = useState<string>('ALL');
-  const [selectedStage,setSelectedStage]=useState('');
-  const [selectedCommercial,setSelectedCommercial]=useState('');
-  const [archiveFilter,setArchiveFilter]=useState<'active'|'archived'|'all'>('active');
-  const [page,setPage]=useState(1);
-  const [kanbanLimits,setKanbanLimits]=useState<Record<string,number>>(()=>Object.fromEntries(kanbanDbStages.map(stage=>[stage,10])));
+  const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState<string>("ALL");
+  const [selectedStage, setSelectedStage] = useState("");
+  const [selectedCommercial, setSelectedCommercial] = useState("");
+  const [archiveFilter, setArchiveFilter] = useState<
+    "active" | "archived" | "all"
+  >("active");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [kanbanLimits, setKanbanLimits] = useState<Record<string, number>>(() =>
+    Object.fromEntries(kanbanDbStages.map((stage) => [stage, 10])),
+  );
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [newInteractionNote, setNewInteractionNote] = useState('');
-  const [interactionType, setInteractionType] = useState<'Appel' | 'Email' | 'Visite' | 'Essai'>('Appel');
-  const [lostLead,setLostLead]=useState<Lead|null>(null),[lostReason,setLostReason]=useState(''),[editLead,setEditLead]=useState<Lead|null>(null),[appointmentLead,setAppointmentLead]=useState<Lead|null>(null),[editingAppointmentId,setEditingAppointmentId]=useState<string|null>(null),[scheduledAt,setScheduledAt]=useState(''),[appointmentDuration,setAppointmentDuration]=useState(30),[testDriveLead,setTestDriveLead]=useState<Lead|null>(null),[quotationLead,setQuotationLead]=useState<Lead|null>(null),[saleQuotation,setSaleQuotation]=useState<Quotation|null>(null);
-  const priorityToDb: Record<string,string> = { Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent' };
+  const [newInteractionNote, setNewInteractionNote] = useState("");
+  const [interactionType, setInteractionType] = useState<
+    "Appel" | "Email" | "Visite" | "Essai"
+  >("Appel");
+  const [lostLead, setLostLead] = useState<Lead | null>(null),
+    [lostReason, setLostReason] = useState(""),
+    [editLead, setEditLead] = useState<Lead | null>(null),
+    [appointmentLead, setAppointmentLead] = useState<Lead | null>(null),
+    [editingAppointmentId, setEditingAppointmentId] = useState<string | null>(
+      null,
+    ),
+    [scheduledAt, setScheduledAt] = useState(""),
+    [appointmentDuration, setAppointmentDuration] = useState(30),
+    [testDriveLead, setTestDriveLead] = useState<Lead | null>(null),
+    [quotationLead, setQuotationLead] = useState<Lead | null>(null),
+    [saleQuotation, setSaleQuotation] = useState<Quotation | null>(null);
+  const priorityToDb: Record<string, string> = {
+    Basse: "low",
+    Moyenne: "medium",
+    Haute: "high",
+    Urgente: "urgent",
+  };
   const permissions = useAuthStore((state) => state.currentUser?.permissions);
-  const can = (permissionCode:string) => hasDynamicPermission(permissions,permissionCode);
-  const canCreateLead=can('crm.prospect.create'),canUpdateLead=can('crm.prospect.update'),canAssignLead=can('crm.prospect.assign');
-  const canViewQuotations=can('quotations.view'),canCreateQuotation=can('quotations.create'),canUpdateQuotation=can('quotations.update'),canValidateQuotation=can('quotations.validate'),canCancelQuotation=can('quotations.cancel'),canConvertQuotation=can('quotations.convert')&&can('sales.create');
-  const salesUsers=useCrmTeamMembersQuery(canAssignLead).data??[];
-  const priority=selectedPriority === 'ALL' ? '' : priorityToDb[selectedPriority];
-  const leadsQuery=useLeadsPageQuery({search:debouncedSearch,priority,stage:selectedStage,commercialId:selectedCommercial,archive:archiveFilter,page,pageSize:7},viewMode==='list'),kanbanQueries=useKanbanColumnsQuery({search:debouncedSearch,priority,commercialId:selectedCommercial},kanbanLimits,viewMode==='kanban'&&archiveFilter==='active'),leads=leadsQuery.data?.items??[],leadTotal=leadsQuery.data?.total??0;
+  const can = (permissionCode: string) =>
+    hasDynamicPermission(permissions, permissionCode);
+  const canCreateLead = can("crm.prospect.create"),
+    canUpdateLead = can("crm.prospect.update"),
+    canAssignLead = can("crm.prospect.assign");
+  const canViewQuotations = can("quotations.view"),
+    canCreateQuotation = can("quotations.create"),
+    canUpdateQuotation = can("quotations.update"),
+    canValidateQuotation = can("quotations.validate"),
+    canCancelQuotation = can("quotations.cancel"),
+    canConvertQuotation = can("quotations.convert") && can("sales.create");
+  const salesUsers = useCrmTeamMembersQuery(canAssignLead).data ?? [];
+  const priority =
+    selectedPriority === "ALL" ? "" : priorityToDb[selectedPriority];
+  const leadsQuery = useLeadsPageQuery(
+      {
+        search: debouncedSearch,
+        priority,
+        stage: selectedStage,
+        commercialId: selectedCommercial,
+        archive: archiveFilter,
+        page,
+        pageSize,
+      },
+      viewMode === "list",
+    ),
+    kanbanQueries = useKanbanColumnsQuery(
+      { search: debouncedSearch, priority, commercialId: selectedCommercial },
+      kanbanLimits,
+      viewMode === "kanban" && archiveFilter === "active",
+    ),
+    leads = leadsQuery.data?.items ?? [],
+    leadTotal = leadsQuery.data?.total ?? 0;
   const stageMutation = useLeadStageMutation();
   const activityMutation = useCreateActivity();
-  const updateLead=useUpdateLead(),archiveActions=useLeadArchiveActions(),appointmentMutation=useCreateCrmAppointment(),updateAppointmentMutation=useUpdateCrmAppointment(),cancelAppointmentMutation=useCancelCrmAppointment(),updateQuotation=useUpdateQuotation(),validateQuotation=useValidateQuotation(),retryQuotationArchive=useRetryQuotationArchive(),cancelQuotation=useCancelQuotation(),createProforma=useCreateProforma();
-  const canViewActivities=can('crm.activity.view');
-  const activitiesQuery=useLeadActivitiesQuery(selectedLead?.id,canViewActivities),quotationsQuery=useLeadQuotationsQuery(selectedLead?.opportunityId,canViewQuotations),quotations=quotationsQuery.data??[];
+  const updateLead = useUpdateLead(),
+    archiveActions = useLeadArchiveActions(),
+    appointmentMutation = useCreateCrmAppointment(),
+    updateAppointmentMutation = useUpdateCrmAppointment(),
+    cancelAppointmentMutation = useCancelCrmAppointment(),
+    updateQuotation = useUpdateQuotation(),
+    validateQuotation = useValidateQuotation(),
+    retryQuotationArchive = useRetryQuotationArchive(),
+    cancelQuotation = useCancelQuotation(),
+    createProforma = useCreateProforma();
+  const canViewActivities = can("crm.activity.view");
+  const activitiesQuery = useLeadActivitiesQuery(
+      selectedLead?.id,
+      canViewActivities,
+    ),
+    quotationsQuery = useLeadQuotationsQuery(
+      selectedLead?.opportunityId,
+      canViewQuotations,
+    ),
+    quotations = quotationsQuery.data ?? [];
+  const activityPage = useClientPagination(
+    activitiesQuery.data ?? [],
+    undefined,
+    "activité(s)",
+  );
+  const quotationPage = useClientPagination(
+    quotations,
+    undefined,
+    "devis",
+  );
   const { addToast } = useUiStore();
-  const canUpdateStage = can('crm.pipeline.advance');
-  const canLoseLead=can('crm.prospect.lose'),canCreateActivity=can('crm.activity.create'),canCreateAppointment=can('crm.appointment.create'),canCreateTestDrive=can('crm.test_drive.create');
-  const quotationCanConvert=(quotation:Quotation)=>quotation.archiveAvailable&&['sent','negotiation'].includes(quotation.status)&&(!quotation.validUntil||quotation.validUntil.slice(0,10)>=new Date().toISOString().slice(0,10));
-  const convertibleQuotation=quotations.find(quotation=>quotationCanConvert(quotation));
-  const quotationArchiveLabel=(quotation:Quotation)=>retryQuotationArchive.variables===quotation.id&&retryQuotationArchive.isPending?'Archivage en cours':retryQuotationArchive.variables===quotation.id&&retryQuotationArchive.isError?'Archivage en échec':businessArchiveStatusLabel(quotation.archiveStatus);
+  const canUpdateStage = can("crm.pipeline.advance");
+  const canLoseLead = can("crm.prospect.lose"),
+    canCreateActivity = can("crm.activity.create"),
+    canCreateAppointment = can("crm.appointment.create"),
+    canCreateTestDrive = can("crm.test_drive.create");
+  const quotationCanConvert = (quotation: Quotation) =>
+    quotation.archiveAvailable &&
+    ["sent", "negotiation"].includes(quotation.status) &&
+    (!quotation.validUntil ||
+      quotation.validUntil.slice(0, 10) >=
+        new Date().toISOString().slice(0, 10));
+  const convertibleQuotation = quotations.find((quotation) =>
+    quotationCanConvert(quotation),
+  );
+  const quotationArchiveLabel = (quotation: Quotation) =>
+    retryQuotationArchive.variables === quotation.id &&
+    retryQuotationArchive.isPending
+      ? "Archivage en cours"
+      : retryQuotationArchive.variables === quotation.id &&
+          retryQuotationArchive.isError
+        ? "Archivage en échec"
+        : businessArchiveStatusLabel(quotation.archiveStatus);
 
   useEffect(() => {
-    const timer=window.setTimeout(()=>setDebouncedSearch(searchQuery.trim()),350);
-    return()=>window.clearTimeout(timer);
-  },[searchQuery]);
-  useEffect(()=>{setPage(1);setKanbanLimits(Object.fromEntries(kanbanDbStages.map(stage=>[stage,10])))},[debouncedSearch,selectedPriority,selectedStage,selectedCommercial,archiveFilter]);
-  useEffect(()=>{if(leadsQuery.data&&page>Math.max(1,leadsQuery.data.totalPages))setPage(Math.max(1,leadsQuery.data.totalPages))},[leadsQuery.data,page]);
-  useEffect(()=>setPage(1),[viewMode]);
+    const timer = window.setTimeout(
+      () => setDebouncedSearch(searchQuery.trim()),
+      350,
+    );
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+  useEffect(() => {
+    setPage(1);
+    setKanbanLimits(
+      Object.fromEntries(kanbanDbStages.map((stage) => [stage, 10])),
+    );
+  }, [
+    debouncedSearch,
+    selectedPriority,
+    selectedStage,
+    selectedCommercial,
+    archiveFilter,
+  ]);
+  useEffect(() => {
+    if (leadsQuery.data && page > Math.max(1, leadsQuery.data.totalPages))
+      setPage(Math.max(1, leadsQuery.data.totalPages));
+  }, [leadsQuery.data, page]);
+  useEffect(() => setPage(1), [viewMode]);
+  useEffect(() => {
+    activityPage.setPage(1);
+    quotationPage.setPage(1);
+  }, [selectedLead?.id]);
 
   const stages: { stage: LeadStage; label: string; color: string }[] = [
-    { stage: 'NOUVEAU', label: 'Nouveaux', color: 'border-blue-400 bg-blue-50/50' },
-    { stage: 'CONTACTE', label: 'Contactés', color: 'border-slate-300 bg-slate-50/50' },
-    { stage: 'QUALIFIE', label: 'Qualifiés', color: 'border-teal-400 bg-teal-50/50' },
-    { stage: 'RDV', label: 'RDV Fixé', color: 'border-indigo-400 bg-indigo-50/50' },
-    { stage: 'ESSAI', label: 'Essai Routier', color: 'border-purple-400 bg-purple-50/50' },
-    { stage: 'OFFRE', label: 'Offre / Devis', color: 'border-amber-400 bg-amber-50/50' },
-    { stage: 'NEGOCIATION', label: 'Négociation', color: 'border-rose-400 bg-rose-50/50' },
-    { stage: 'GAGNE', label: 'Gagné (Vente)', color: 'border-emerald-400 bg-emerald-50/50' },
-    { stage: 'PERDU', label: 'Perdu', color: 'border-slate-400 bg-slate-50/50' },
+    {
+      stage: "NOUVEAU",
+      label: "Nouveaux",
+      color: "border-blue-400 bg-blue-50/50",
+    },
+    {
+      stage: "CONTACTE",
+      label: "Contactés",
+      color: "border-slate-300 bg-slate-50/50",
+    },
+    {
+      stage: "QUALIFIE",
+      label: "Qualifiés",
+      color: "border-teal-400 bg-teal-50/50",
+    },
+    {
+      stage: "RDV",
+      label: "RDV Fixé",
+      color: "border-indigo-400 bg-indigo-50/50",
+    },
+    {
+      stage: "ESSAI",
+      label: "Essai Routier",
+      color: "border-purple-400 bg-purple-50/50",
+    },
+    {
+      stage: "OFFRE",
+      label: "Offre / Devis",
+      color: "border-amber-400 bg-amber-50/50",
+    },
+    {
+      stage: "NEGOCIATION",
+      label: "Négociation",
+      color: "border-rose-400 bg-rose-50/50",
+    },
+    {
+      stage: "GAGNE",
+      label: "Gagné (Vente)",
+      color: "border-emerald-400 bg-emerald-50/50",
+    },
+    {
+      stage: "PERDU",
+      label: "Perdu",
+      color: "border-slate-400 bg-slate-50/50",
+    },
   ];
 
-  const filteredLeads = viewMode==='kanban'?kanbanQueries.flatMap(result=>result.data?.items??[]):leads;
-  const hasActiveFilters = Boolean(debouncedSearch) || selectedPriority !== 'ALL'||Boolean(selectedStage)||Boolean(selectedCommercial);
+  const filteredLeads =
+    viewMode === "kanban"
+      ? kanbanQueries.flatMap((result) => result.data?.items ?? [])
+      : leads;
+  const hasActiveFilters =
+    Boolean(debouncedSearch) ||
+    selectedPriority !== "ALL" ||
+    Boolean(selectedStage) ||
+    Boolean(selectedCommercial);
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     const stage = opportunityStageToDb[newStage];
-    if(newStage==='PERDU'){const lead=filteredLeads.find(item=>item.id===leadId);if(lead){setLostReason('');setLostLead(lead)}return}
-    try { if (stage) await stageMutation.mutateAsync({ id: leadId, stage }); addToast({
-      type: 'info',
-      title: 'Étape mise à jour',
-      description: `Le prospect a été déplacé vers l'étape ${newStage}.`,
-    });
-    if (selectedLead && selectedLead.id === leadId) {
-      setSelectedLead({ ...selectedLead, stage: newStage });
-    }}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur API'});}
+    if (newStage === "PERDU") {
+      const lead = filteredLeads.find((item) => item.id === leadId);
+      if (lead) {
+        setLostReason("");
+        setLostLead(lead);
+      }
+      return;
+    }
+    try {
+      if (stage) await stageMutation.mutateAsync({ id: leadId, stage });
+      addToast({
+        type: "info",
+        title: "Étape mise à jour",
+        description: `Le prospect a été déplacé vers l'étape ${newStage}.`,
+      });
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead({ ...selectedLead, stage: newStage });
+      }
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Mise à jour impossible",
+        description: error instanceof Error ? error.message : "Erreur API",
+      });
+    }
   };
 
-  const confirmLost=async()=>{if(!lostLead||!lostReason.trim())return;try{await stageMutation.mutateAsync({id:lostLead.id,stage:'lost',lostReason:lostReason.trim()});addToast({type:'success',title:'Opportunité perdue',description:'Le motif a été ajouté à la timeline.'});setLostLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Clôture impossible',description:error instanceof Error?error.message:'Erreur API'})}};
-  const saveEdit=async()=>{if(!editLead)return;try{const payload={id:editLead.id,...(canUpdateLead?{firstName:editLead.firstName,lastName:editLead.lastName,companyName:editLead.company,email:editLead.email,phone:editLead.phone,title:editLead.targetVehicle,expectedValue:editLead.targetBudget,priority:{Basse:'low',Moyenne:'medium',Haute:'high',Urgente:'urgent'}[editLead.priority],notes:editLead.notes,expectedCloseDate:editLead.estimatedCloseDate}:{}),...(canAssignLead?{assignedUserId:editLead.assignedToId}:{})};await updateLead.mutateAsync(payload);addToast({type:'success',title:canUpdateLead?'Prospect mis à jour':'Prospect affecté'});setEditLead(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:'Mise à jour impossible',description:error instanceof Error?error.message:'Erreur API'})}};
-  const saveAppointment=async()=>{if(!appointmentLead)return;const validation=appointmentDateError(scheduledAt);if(validation||!Number.isInteger(appointmentDuration)||appointmentDuration<1){addToast({type:'error',title:'Rendez-vous impossible',description:validation??'La durée doit être un nombre entier positif.'});return}try{const result=editingAppointmentId?await updateAppointmentMutation.mutateAsync({leadId:appointmentLead.id,appointmentId:editingAppointmentId,scheduledAt:appointmentIso(scheduledAt),durationMinutes:appointmentDuration,subject:'Rendez-vous commercial'}):await appointmentMutation.mutateAsync({id:appointmentLead.id,scheduledAt:appointmentIso(scheduledAt),durationMinutes:appointmentDuration,subject:'Rendez-vous commercial'});addToast({type:result.warnings?.length?'warning':'success',title:editingAppointmentId?'Rendez-vous reporté':'Rendez-vous planifié',description:result.warnings?.join(' ')});setAppointmentLead(null);setEditingAppointmentId(null);setSelectedLead(null)}catch(error){addToast({type:'error',title:editingAppointmentId?'Report impossible':'Rendez-vous impossible',description:error instanceof Error?error.message:'Erreur API'})}};
-  const editAppointment=(lead:Lead)=>{if(!lead.activeAppointment)return;setEditingAppointmentId(lead.activeAppointment.id);setScheduledAt(appointmentInputValue(lead.activeAppointment.scheduledAt));setAppointmentDuration(lead.activeAppointment.durationMinutes);setAppointmentLead(lead)};
-  const cancelAppointment=async(lead:Lead)=>{if(!lead.activeAppointment)return;const reason=await promptAction("Motif d’annulation du rendez-vous");if(!reason?.trim())return;try{await cancelAppointmentMutation.mutateAsync({leadId:lead.id,appointmentId:lead.activeAppointment.id,reason:reason.trim()});addToast({type:'success',title:'Rendez-vous annulé'});setSelectedLead(null)}catch(error){addToast({type:'error',title:'Annulation impossible',description:error instanceof Error?error.message:'Erreur API'})}};
+  const confirmLost = async () => {
+    if (!lostLead || !lostReason.trim()) return;
+    try {
+      await stageMutation.mutateAsync({
+        id: lostLead.id,
+        stage: "lost",
+        lostReason: lostReason.trim(),
+      });
+      addToast({
+        type: "success",
+        title: "Opportunité perdue",
+        description: "Le motif a été ajouté à la timeline.",
+      });
+      setLostLead(null);
+      setSelectedLead(null);
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Clôture impossible",
+        description: error instanceof Error ? error.message : "Erreur API",
+      });
+    }
+  };
+  const saveEdit = async () => {
+    if (!editLead) return;
+    try {
+      const payload = {
+        id: editLead.id,
+        ...(canUpdateLead
+          ? {
+              firstName: editLead.firstName,
+              lastName: editLead.lastName,
+              companyName: editLead.company,
+              email: editLead.email,
+              phone: editLead.phone,
+              title: editLead.targetVehicle,
+              expectedValue: editLead.targetBudget,
+              priority: {
+                Basse: "low",
+                Moyenne: "medium",
+                Haute: "high",
+                Urgente: "urgent",
+              }[editLead.priority],
+              notes: editLead.notes,
+              expectedCloseDate: editLead.estimatedCloseDate,
+            }
+          : {}),
+        ...(canAssignLead ? { assignedUserId: editLead.assignedToId } : {}),
+      };
+      await updateLead.mutateAsync(payload);
+      addToast({
+        type: "success",
+        title: canUpdateLead ? "Prospect mis à jour" : "Prospect affecté",
+      });
+      setEditLead(null);
+      setSelectedLead(null);
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Mise à jour impossible",
+        description: error instanceof Error ? error.message : "Erreur API",
+      });
+    }
+  };
+  const saveAppointment = async () => {
+    if (!appointmentLead) return;
+    const validation = appointmentDateError(scheduledAt);
+    if (
+      validation ||
+      !Number.isInteger(appointmentDuration) ||
+      appointmentDuration < 1
+    ) {
+      addToast({
+        type: "error",
+        title: "Rendez-vous impossible",
+        description:
+          validation ?? "La durée doit être un nombre entier positif.",
+      });
+      return;
+    }
+    try {
+      const result = editingAppointmentId
+        ? await updateAppointmentMutation.mutateAsync({
+            leadId: appointmentLead.id,
+            appointmentId: editingAppointmentId,
+            scheduledAt: appointmentIso(scheduledAt),
+            durationMinutes: appointmentDuration,
+            subject: "Rendez-vous commercial",
+          })
+        : await appointmentMutation.mutateAsync({
+            id: appointmentLead.id,
+            scheduledAt: appointmentIso(scheduledAt),
+            durationMinutes: appointmentDuration,
+            subject: "Rendez-vous commercial",
+          });
+      addToast({
+        type: result.warnings?.length ? "warning" : "success",
+        title: editingAppointmentId
+          ? "Rendez-vous reporté"
+          : "Rendez-vous planifié",
+        description: result.warnings?.join(" "),
+      });
+      setAppointmentLead(null);
+      setEditingAppointmentId(null);
+      setSelectedLead(null);
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: editingAppointmentId
+          ? "Report impossible"
+          : "Rendez-vous impossible",
+        description: error instanceof Error ? error.message : "Erreur API",
+      });
+    }
+  };
+  const editAppointment = (lead: Lead) => {
+    if (!lead.activeAppointment) return;
+    setEditingAppointmentId(lead.activeAppointment.id);
+    setScheduledAt(appointmentInputValue(lead.activeAppointment.scheduledAt));
+    setAppointmentDuration(lead.activeAppointment.durationMinutes);
+    setAppointmentLead(lead);
+  };
+  const cancelAppointment = async (lead: Lead) => {
+    if (!lead.activeAppointment) return;
+    const reason = await promptAction("Motif d’annulation du rendez-vous");
+    if (!reason?.trim()) return;
+    try {
+      await cancelAppointmentMutation.mutateAsync({
+        leadId: lead.id,
+        appointmentId: lead.activeAppointment.id,
+        reason: reason.trim(),
+      });
+      addToast({ type: "success", title: "Rendez-vous annulé" });
+      setSelectedLead(null);
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Annulation impossible",
+        description: error instanceof Error ? error.message : "Erreur API",
+      });
+    }
+  };
 
   const handleAddInteraction = async () => {
     if (!selectedLead || !newInteractionNote.trim()) return;
 
-    const type={Appel:'call',Email:'email',Visite:'appointment',Essai:'test_drive'}[interactionType];
-    try { await activityMutation.mutateAsync({leadId:selectedLead.id,type,subject:interactionType,description:newInteractionNote,status:'completed'});setNewInteractionNote('');addToast({type:'success',title:'Échange consigné',description:'L’historique du prospect a été enregistré dans MySQL.'}); }
-    catch(error){addToast({type:'error',title:'Enregistrement impossible',description:error instanceof Error?error.message:'Erreur API'});}
+    const type = {
+      Appel: "call",
+      Email: "email",
+      Visite: "appointment",
+      Essai: "test_drive",
+    }[interactionType];
+    try {
+      await activityMutation.mutateAsync({
+        leadId: selectedLead.id,
+        type,
+        subject: interactionType,
+        description: newInteractionNote,
+        status: "completed",
+      });
+      setNewInteractionNote("");
+      addToast({
+        type: "success",
+        title: "Échange consigné",
+        description: "L’historique du prospect a été enregistré dans MySQL.",
+      });
+    } catch (error) {
+      addToast({
+        type: "error",
+        title: "Enregistrement impossible",
+        description: error instanceof Error ? error.message : "Erreur API",
+      });
+    }
   };
 
   return (
@@ -139,23 +524,31 @@ export const CrmPage: React.FC = () => {
       <PageHeader
         title="CRM & Pipeline Commercial"
         subtitle="Gestion des opportunités de vente VN/VO, relances et suivi des prospects."
-        breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Commercial' }, { label: 'CRM & Prospects' }]}
+        breadcrumbs={[
+          { label: "Accueil", href: "/dashboard" },
+          { label: "Commercial" },
+          { label: "CRM & Prospects" },
+        ]}
         actions={
           <div className="flex items-center gap-2">
             <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg">
               <button
-                onClick={() => setViewMode('kanban')}
+                onClick={() => setViewMode("kanban")}
                 className={`px-2.5 py-1.5 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewMode === 'kanban' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  viewMode === "kanban"
+                    ? "bg-white text-blue-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5" />
                 Kanban
               </button>
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => setViewMode("list")}
                 className={`px-2.5 py-1.5 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                  viewMode === 'list' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  viewMode === "list"
+                    ? "bg-white text-blue-700 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <List className="w-3.5 h-3.5" />
@@ -163,14 +556,16 @@ export const CrmPage: React.FC = () => {
               </button>
             </div>
 
-            {canCreateLead&&<Button
-              variant="primary"
-              size="sm"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={() => setIsNewLeadOpen(true)}
-            >
-              Nouveau Prospect
-            </Button>}
+            {canCreateLead && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus className="w-4 h-4" />}
+                onClick={() => setIsNewLeadOpen(true)}
+              >
+                Nouveau Prospect
+              </Button>
+            )}
           </div>
         }
       />
@@ -189,8 +584,53 @@ export const CrmPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <select aria-label="Filtrer les prospects archivés" value={archiveFilter} onChange={e=>{const value=e.target.value as 'active'|'archived'|'all';setArchiveFilter(value);if(value!=='active')setViewMode('list')}} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="active">Prospects actifs</option><option value="archived">Prospects archivés</option><option value="all">Tous les prospects</option></select>
-          {canAssignLead&&<><select aria-label="Filtrer par étape" value={selectedStage} onChange={e=>setSelectedStage(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="">Toutes les étapes</option>{stages.map(item=><option key={item.stage} value={opportunityStageToDb[item.stage]}>{item.label}</option>)}</select><select aria-label="Filtrer par commercial" value={selectedCommercial} onChange={e=>setSelectedCommercial(e.target.value)} className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"><option value="">Toute l’équipe</option>{salesUsers.map(user=><option key={user.id} value={user.id}>{user.name}</option>)}</select></>}
+          <select
+            aria-label="Filtrer les prospects archivés"
+            value={archiveFilter}
+            onChange={(e) => {
+              const value = e.target.value as "active" | "archived" | "all";
+              setArchiveFilter(value);
+              if (value !== "active") setViewMode("list");
+            }}
+            className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"
+          >
+            <option value="active">Prospects actifs</option>
+            <option value="archived">Prospects archivés</option>
+            <option value="all">Tous les prospects</option>
+          </select>
+          {canAssignLead && (
+            <>
+              <select
+                aria-label="Filtrer par étape"
+                value={selectedStage}
+                onChange={(e) => setSelectedStage(e.target.value)}
+                className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"
+              >
+                <option value="">Toutes les étapes</option>
+                {stages.map((item) => (
+                  <option
+                    key={item.stage}
+                    value={opportunityStageToDb[item.stage]}
+                  >
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Filtrer par commercial"
+                value={selectedCommercial}
+                onChange={(e) => setSelectedCommercial(e.target.value)}
+                className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium"
+              >
+                <option value="">Toute l’équipe</option>
+                {salesUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           <span className="text-xs text-slate-500 font-medium">Priorité :</span>
           <select
             value={selectedPriority}
@@ -206,125 +646,240 @@ export const CrmPage: React.FC = () => {
         </div>
       </div>
 
-      {(viewMode==='list'?leadsQuery.isError:kanbanQueries.some(query=>query.isError)) && (
+      {(viewMode === "list"
+        ? leadsQuery.isError
+        : kanbanQueries.some((query) => query.isError)) && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           Chargement des prospects impossible.
         </div>
       )}
 
-      {viewMode === 'kanban' && kanbanQueries.some(query=>query.isLoading) && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-          Chargement des prospects...
-        </div>
-      )}
+      {viewMode === "kanban" &&
+        kanbanQueries.some((query) => query.isLoading) && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+            Chargement des prospects...
+          </div>
+        )}
 
       {/* KANBAN PIPELINE VIEW */}
-      {viewMode === 'kanban' && (
+      {viewMode === "kanban" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-4">
-          {stages.filter(({stage})=>!selectedStage||opportunityStageToDb[stage]===selectedStage).map(({ stage, label, color }) => {
-            const stageLeads = filteredLeads.filter((l) => l.stage === stage);
-            const dbStage=opportunityStageToDb[stage],columnQuery=kanbanQueries[kanbanDbStages.indexOf(dbStage as typeof kanbanDbStages[number])],aggregate=columnQuery?.data?.stageSummary?.[dbStage],stageTotalBudget=aggregate?.budget??0,columnTotal=columnQuery?.data?.total??0;
+          {stages
+            .filter(
+              ({ stage }) =>
+                !selectedStage || opportunityStageToDb[stage] === selectedStage,
+            )
+            .map(({ stage, label, color }) => {
+              const stageLeads = filteredLeads.filter((l) => l.stage === stage);
+              const dbStage = opportunityStageToDb[stage],
+                columnQuery =
+                  kanbanQueries[
+                    kanbanDbStages.indexOf(
+                      dbStage as (typeof kanbanDbStages)[number],
+                    )
+                  ],
+                aggregate = columnQuery?.data?.stageSummary?.[dbStage],
+                stageTotalBudget = aggregate?.budget ?? 0,
+                columnTotal = columnQuery?.data?.total ?? 0;
 
-            return (
-              <div key={stage} onDragOver={event=>{if(canUpdateStage)event.preventDefault()}} onDrop={event=>{event.preventDefault();const leadId=event.dataTransfer.getData('text/crm-lead-id'),source=event.dataTransfer.getData('text/crm-source-stage') as LeadStage;if(leadId&&source!==stage)void handleStageChange(leadId,stage)}} className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]">
-                {/* Stage Header */}
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs text-slate-800">{label}</span>
-                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-200 text-slate-700">
-                      {aggregate?.count??0}
+              return (
+                <div
+                  key={stage}
+                  onDragOver={(event) => {
+                    if (canUpdateStage) event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const leadId =
+                        event.dataTransfer.getData("text/crm-lead-id"),
+                      source = event.dataTransfer.getData(
+                        "text/crm-source-stage",
+                      ) as LeadStage;
+                    if (leadId && source !== stage)
+                      void handleStageChange(leadId, stage);
+                  }}
+                  className="flex flex-col rounded-xl bg-slate-100/90 border border-slate-200/80 p-3 min-h-[500px]"
+                >
+                  {/* Stage Header */}
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-slate-800">
+                        {label}
+                      </span>
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-200 text-slate-700">
+                        {aggregate?.count ?? 0}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-500">
+                      {formatCurrency(stageTotalBudget)}
                     </span>
                   </div>
-                  <span className="text-[10px] font-semibold text-slate-500">
-                    {formatCurrency(stageTotalBudget)}
-                  </span>
-                </div>
 
-                {/* Lead Cards List */}
-                <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[70vh] pr-0.5">
-                  {stageLeads.map((lead) => (
-                    <div
-                      key={lead.id}
-                      draggable={canUpdateStage&&lead.saleAssociation.state==='NONE'}
-                      onDragStart={event=>{event.dataTransfer.setData('text/crm-lead-id',lead.id);event.dataTransfer.setData('text/crm-source-stage',lead.stage);event.dataTransfer.effectAllowed='move'}}
-                      onClick={() => setSelectedLead(lead)}
-                      onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setSelectedLead(lead)}}}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Ouvrir le prospect ${lead.firstName} ${lead.lastName}`}
-                      className="bg-white rounded-xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all cursor-pointer space-y-2.5 group"
-                    >
-                      <div className="flex items-start justify-between gap-1.5">
-                        <div>
-                          <div className="font-bold text-xs text-slate-900 group-hover:text-blue-700">
-                            {lead.civility} {lead.firstName} {lead.lastName}
-                          </div>
-                          {lead.company && (
-                            <div className="text-[10px] text-slate-400">{lead.company}</div>
-                          )}
-                        </div>
-                        <Badge
-                          variant={
-                            lead.priority === 'Urgente'
-                              ? 'danger'
-                              : lead.priority === 'Haute'
-                              ? 'warning'
-                              : 'default'
+                  {/* Lead Cards List */}
+                  <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[70vh] pr-0.5">
+                    {stageLeads.map((lead) => (
+                      <div
+                        key={lead.id}
+                        draggable={
+                          canUpdateStage &&
+                          lead.saleAssociation.state === "NONE"
+                        }
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData(
+                            "text/crm-lead-id",
+                            lead.id,
+                          );
+                          event.dataTransfer.setData(
+                            "text/crm-source-stage",
+                            lead.stage,
+                          );
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                        onClick={() => setSelectedLead(lead)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedLead(lead);
                           }
-                          size="sm"
-                        >
-                          {lead.priority}
-                        </Badge>
-                      </div>
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Ouvrir le prospect ${lead.firstName} ${lead.lastName}`}
+                        className="bg-white rounded-xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all cursor-pointer space-y-2.5 group"
+                      >
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div>
+                            <div className="font-bold text-xs text-slate-900 group-hover:text-blue-700">
+                              {lead.civility} {lead.firstName} {lead.lastName}
+                            </div>
+                            {lead.company && (
+                              <div className="text-[10px] text-slate-400">
+                                {lead.company}
+                              </div>
+                            )}
+                          </div>
+                          <Badge
+                            variant={
+                              lead.priority === "Urgente"
+                                ? "danger"
+                                : lead.priority === "Haute"
+                                  ? "warning"
+                                  : "default"
+                            }
+                            size="sm"
+                          >
+                            {lead.priority}
+                          </Badge>
+                        </div>
 
-                      {/* Vehicle & Budget Target */}
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] space-y-1">
-                        <div className="flex items-center gap-1.5 text-slate-700 font-semibold truncate">
-                          <Car className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                          <span className="truncate">{lead.targetVehicle}</span>
+                        {/* Vehicle & Budget Target */}
+                        <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] space-y-1">
+                          <div className="flex items-center gap-1.5 text-slate-700 font-semibold truncate">
+                            <Car className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span className="truncate">
+                              {lead.targetVehicle}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500">
+                            <span>Budget :</span>
+                            <span className="font-bold text-slate-800">
+                              {formatCurrency(lead.targetBudget)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-[10px] text-slate-500">
-                          <span>Budget :</span>
-                          <span className="font-bold text-slate-800">{formatCurrency(lead.targetBudget)}</span>
+
+                        {/* Next action and commercial progression */}
+                        <div className="flex items-start justify-between gap-2 text-[10px] pt-1 text-slate-500 border-t border-slate-100">
+                          <div className="flex items-center gap-1 truncate max-w-[140px]">
+                            <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                            <span className="truncate">
+                              {lead.nextActionDate || "À relancer"}
+                            </span>
+                          </div>
+                          <div className="shrink-0 text-right text-[9px]">
+                            <div className="font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">
+                              Progression : {commercialProgressLabel(lead)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Quick Move Button */}
+                        <div className="flex items-center justify-between pt-1 text-[10px]">
+                          <span className="text-slate-400 truncate">
+                            {lead.assignedToName.split(" ")[0]}
+                          </span>
+                          <div
+                            className="flex gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {canUpdateStage &&
+                              lead.saleAssociation.state === "NONE" && (
+                                <select
+                                  aria-label={`Déplacer ${lead.firstName} ${lead.lastName}`}
+                                  value={stage}
+                                  onChange={(event) =>
+                                    void handleStageChange(
+                                      lead.id,
+                                      event.target.value as LeadStage,
+                                    )
+                                  }
+                                  className="max-w-28 rounded border bg-white px-1 py-0.5 text-[10px] font-semibold"
+                                >
+                                  <option value={stage}>
+                                    {
+                                      stages.find(
+                                        (item) => item.stage === stage,
+                                      )?.label
+                                    }
+                                  </option>
+                                  {stages
+                                    .filter((item) => item.stage !== stage)
+                                    .map((item) => (
+                                      <option
+                                        key={item.stage}
+                                        value={item.stage}
+                                      >
+                                        {item.label}
+                                      </option>
+                                    ))}
+                                </select>
+                              )}
+                          </div>
                         </div>
                       </div>
+                    ))}
 
-                      {/* Next action and commercial progression */}
-                      <div className="flex items-start justify-between gap-2 text-[10px] pt-1 text-slate-500 border-t border-slate-100">
-                        <div className="flex items-center gap-1 truncate max-w-[140px]">
-                          <Clock className="w-3 h-3 text-amber-500 shrink-0" />
-                          <span className="truncate">{lead.nextActionDate || 'À relancer'}</span>
+                    {!columnQuery?.isLoading &&
+                      !columnQuery?.isError &&
+                      stageLeads.length === 0 && (
+                        <div className="py-8 text-center text-slate-400 text-[11px]">
+                          Aucun prospect à ce stade
                         </div>
-                        <div className="shrink-0 text-right text-[9px]">
-                          <div className="font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">Progression : {commercialProgressLabel(lead)}</div>
-                        </div>
-                      </div>
-
-                      {/* Quick Move Button */}
-                      <div className="flex items-center justify-between pt-1 text-[10px]">
-                        <span className="text-slate-400 truncate">{lead.assignedToName.split(' ')[0]}</span>
-                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          {canUpdateStage&&lead.saleAssociation.state==='NONE'&&<select aria-label={`Déplacer ${lead.firstName} ${lead.lastName}`} value={stage} onChange={event=>void handleStageChange(lead.id,event.target.value as LeadStage)} className="max-w-28 rounded border bg-white px-1 py-0.5 text-[10px] font-semibold"><option value={stage}>{stages.find(item=>item.stage===stage)?.label}</option>{stages.filter(item=>item.stage!==stage).map(item=><option key={item.stage} value={item.stage}>{item.label}</option>)}</select>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {!columnQuery?.isLoading && !columnQuery?.isError && stageLeads.length === 0 && (
-                    <div className="py-8 text-center text-slate-400 text-[11px]">
-                      Aucun prospect à ce stade
-                    </div>
-                  )}
-                  {stageLeads.length<columnTotal&&<Button size="xs" variant="outline" loading={columnQuery?.isFetching} onClick={()=>setKanbanLimits(current=>({...current,[dbStage]:(current[dbStage]??10)+10}))}>Afficher 10 de plus</Button>}
+                      )}
+                    {stageLeads.length < columnTotal && (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        loading={columnQuery?.isFetching}
+                        onClick={() =>
+                          setKanbanLimits((current) => ({
+                            ...current,
+                            [dbStage]: (current[dbStage] ?? 10) + 10,
+                          }))
+                        }
+                      >
+                        Afficher 10 de plus
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       )}
 
       {/* TABLE / LIST VIEW */}
-      {viewMode === 'list' && (
+      {viewMode === "list" && (
         <Card padding="none">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -343,52 +898,86 @@ export const CrmPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {leadsQuery.isLoading && (
-                  <TableEmptyState colSpan={9} message="Chargement des prospects..." isLoading />
-                )}
-                {!leadsQuery.isLoading && !leadsQuery.isError && filteredLeads.length === 0 && (
                   <TableEmptyState
                     colSpan={9}
-                    message={hasActiveFilters ? 'Aucun prospect ne correspond à vos critères' : 'Aucun prospect'}
+                    message="Chargement des prospects..."
+                    isLoading
                   />
                 )}
+                {!leadsQuery.isLoading &&
+                  !leadsQuery.isError &&
+                  filteredLeads.length === 0 && (
+                    <TableEmptyState
+                      colSpan={9}
+                      message={
+                        hasActiveFilters
+                          ? "Aucun prospect ne correspond à vos critères"
+                          : "Aucun prospect"
+                      }
+                    />
+                  )}
                 {filteredLeads.map((lead) => (
                   <tr
                     key={lead.id}
                     onClick={() => setSelectedLead(lead)}
-                    onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setSelectedLead(lead)}}}
-                    role="link" tabIndex={0} aria-label={`Ouvrir le prospect ${lead.firstName} ${lead.lastName}`}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedLead(lead);
+                      }
+                    }}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Ouvrir le prospect ${lead.firstName} ${lead.lastName}`}
                     className="hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 cursor-pointer transition-colors"
                   >
                     <td className="py-3 px-4 font-bold text-slate-900">
                       {lead.civility} {lead.firstName} {lead.lastName}
-                      {lead.company && <div className="text-[10px] font-normal text-slate-400">{lead.company}</div>}
+                      {lead.company && (
+                        <div className="text-[10px] font-normal text-slate-400">
+                          {lead.company}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-slate-600">
                       <div>{lead.phone}</div>
-                      <div className="text-[11px] text-slate-400">{lead.email}</div>
+                      <div className="text-[11px] text-slate-400">
+                        {lead.email}
+                      </div>
                     </td>
-                    <td className="py-3 px-4 font-semibold text-slate-800">{lead.targetVehicle}</td>
-                    <td className="py-3 px-4 font-bold text-blue-700">{formatCurrency(lead.targetBudget)}</td>
+                    <td className="py-3 px-4 font-semibold text-slate-800">
+                      {lead.targetVehicle}
+                    </td>
+                    <td className="py-3 px-4 font-bold text-blue-700">
+                      {formatCurrency(lead.targetBudget)}
+                    </td>
                     <td className="py-3 px-4">
                       <StatusBadge status={lead.stage} type="lead" />
                     </td>
-                    <td className="py-3 px-4 font-semibold text-violet-700">{commercialProgressLabel(lead)}</td>
-                    <td className="py-3 px-4 text-slate-600">{lead.assignedToName}</td>
+                    <td className="py-3 px-4 font-semibold text-violet-700">
+                      {commercialProgressLabel(lead)}
+                    </td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {lead.assignedToName}
+                    </td>
                     <td className="py-3 px-4">
                       <Badge
                         variant={
-                          lead.priority === 'Urgente'
-                            ? 'danger'
-                            : lead.priority === 'Haute'
-                            ? 'warning'
-                            : 'default'
+                          lead.priority === "Urgente"
+                            ? "danger"
+                            : lead.priority === "Haute"
+                              ? "warning"
+                              : "default"
                         }
                         size="sm"
                       >
                         {lead.priority}
                       </Badge>
                     </td>
-                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className="py-3 px-4 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button
                         size="xs"
                         variant="outline"
@@ -402,7 +991,19 @@ export const CrmPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <div className="flex items-center justify-between border-t p-3 text-xs"><span>{leadsQuery.data?.total??0} prospect(s)</span><div className="flex items-center gap-2"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button><span>Page {page} / {Math.max(1,leadsQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={page>=(leadsQuery.data?.totalPages??1)} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>
+          <ServerPagination
+            page={page}
+            pageSize={pageSize}
+            total={leadsQuery.data?.total ?? 0}
+            totalPages={leadsQuery.data?.totalPages}
+            loading={leadsQuery.isFetching}
+            label="prospect(s)"
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
         </Card>
       )}
 
@@ -422,24 +1023,101 @@ export const CrmPage: React.FC = () => {
                 <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
                   Étape Actuelle du Pipeline
                 </span>
-                {canUpdateStage&&!selectedLead.isArchived&&selectedLead.saleAssociation.state==='NONE' ? <select
-                  value={selectedLead.stage}
-                  onChange={(e) => handleStageChange(selectedLead.id, e.target.value as LeadStage)}
-                  className="text-xs font-bold p-1.5 rounded-lg border border-blue-400 bg-white text-blue-800 focus:outline-none"
-                >
-                  {stages.map((s) => (
-                    <option key={s.stage} value={s.stage}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select> : <StatusBadge status={selectedLead.stage} type="lead" />}
+                {canUpdateStage &&
+                !selectedLead.isArchived &&
+                selectedLead.saleAssociation.state === "NONE" ? (
+                  <select
+                    value={selectedLead.stage}
+                    onChange={(e) =>
+                      handleStageChange(
+                        selectedLead.id,
+                        e.target.value as LeadStage,
+                      )
+                    }
+                    className="text-xs font-bold p-1.5 rounded-lg border border-blue-400 bg-white text-blue-800 focus:outline-none"
+                  >
+                    {stages.map((s) => (
+                      <option key={s.stage} value={s.stage}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <StatusBadge status={selectedLead.stage} type="lead" />
+                )}
               </div>
 
               <div className="flex gap-2">
-                {selectedLead.isArchived&&<Badge variant="warning">Archivé</Badge>}
-                <Button size="xs" variant="outline" onClick={()=>void openOfficialPdf(`/leads/${selectedLead.id}/official-pdf`,`fiche-prospect-${selectedLead.id}.pdf`)}>Imprimer la fiche</Button>
-                {(canUpdateLead||canAssignLead)&&!selectedLead.isArchived&&<Button size="xs" variant="outline" onClick={async()=>{setEditLead(selectedLead);setSelectedLead(null)}}>{canUpdateLead?'Modifier':'Affecter'}</Button>}
-                {canUpdateLead&&(selectedLead.isArchived?<Button size="xs" onClick={()=>void archiveActions.reactivate.mutateAsync(selectedLead.id).then(()=>{addToast({type:'success',title:'Prospect réactivé'});setSelectedLead(null)})}>Réactiver</Button>:<Button size="xs" variant="outline" onClick={async()=>{const reason=await promptAction("Motif d’archivage");if(reason?.trim())void archiveActions.archive.mutateAsync({id:selectedLead.id,reason:reason.trim()}).then(()=>{addToast({type:'success',title:'Prospect archivé'});setSelectedLead(null)})}}>Archiver</Button>)}
+                {selectedLead.isArchived && (
+                  <Badge variant="warning">Archivé</Badge>
+                )}
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    void openOfficialPdf(
+                      `/leads/${selectedLead.id}/official-pdf`,
+                      `fiche-prospect-${selectedLead.id}.pdf`,
+                    )
+                  }
+                >
+                  Imprimer la fiche
+                </Button>
+                {(canUpdateLead || canAssignLead) &&
+                  !selectedLead.isArchived && (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={async () => {
+                        setEditLead(selectedLead);
+                        setSelectedLead(null);
+                      }}
+                    >
+                      {canUpdateLead ? "Modifier" : "Affecter"}
+                    </Button>
+                  )}
+                {canUpdateLead &&
+                  (selectedLead.isArchived ? (
+                    <Button
+                      size="xs"
+                      onClick={() =>
+                        void archiveActions.reactivate
+                          .mutateAsync(selectedLead.id)
+                          .then(() => {
+                            addToast({
+                              type: "success",
+                              title: "Prospect réactivé",
+                            });
+                            setSelectedLead(null);
+                          })
+                      }
+                    >
+                      Réactiver
+                    </Button>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={async () => {
+                        const reason = await promptAction("Motif d’archivage");
+                        if (reason?.trim())
+                          void archiveActions.archive
+                            .mutateAsync({
+                              id: selectedLead.id,
+                              reason: reason.trim(),
+                            })
+                            .then(() => {
+                              addToast({
+                                type: "success",
+                                title: "Prospect archivé",
+                              });
+                              setSelectedLead(null);
+                            });
+                      }}
+                    >
+                      Archiver
+                    </Button>
+                  ))}
                 <a
                   href={`tel:${selectedLead.phone}`}
                   className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:bg-emerald-700"
@@ -458,24 +1136,69 @@ export const CrmPage: React.FC = () => {
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Transformation en vente</span>
-              {selectedLead.saleAssociation.state==='NONE'&&<p className="mt-1 text-slate-600">Aucune vente associée à cette opportunité.</p>}
-              {selectedLead.saleAssociation.state==='INACCESSIBLE'&&<p className="mt-1 text-amber-700">Une vente est associée, mais vous n’êtes pas autorisé à la consulter.</p>}
-              {selectedLead.saleAssociation.state==='ACCESSIBLE'&&<div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p><b>{selectedLead.saleAssociation.number}</b> · {selectedLead.saleAssociation.status}</p><Button size="xs" variant="outline" onClick={()=>navigate(`/sales/${selectedLead.saleAssociation.state==='ACCESSIBLE'?selectedLead.saleAssociation.id:''}`)}>Consulter la vente</Button></div>}
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Transformation en vente
+              </span>
+              {selectedLead.saleAssociation.state === "NONE" && (
+                <p className="mt-1 text-slate-600">
+                  Aucune vente associée à cette opportunité.
+                </p>
+              )}
+              {selectedLead.saleAssociation.state === "INACCESSIBLE" && (
+                <p className="mt-1 text-amber-700">
+                  Une vente est associée, mais vous n’êtes pas autorisé à la
+                  consulter.
+                </p>
+              )}
+              {selectedLead.saleAssociation.state === "ACCESSIBLE" && (
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <p>
+                    <b>{selectedLead.saleAssociation.number}</b> ·{" "}
+                    {selectedLead.saleAssociation.status}
+                  </p>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() =>
+                      navigate(
+                        `/sales/${selectedLead.saleAssociation.state === "ACCESSIBLE" ? selectedLead.saleAssociation.id : ""}`,
+                      )
+                    }
+                  >
+                    Consulter la vente
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Vehicle requirement & budget */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="p-3 bg-white rounded-xl border border-slate-200">
-                <span className="text-slate-400 block mb-1">Véhicule recherché</span>
-                <div className="font-bold text-slate-900 text-sm">{selectedLead.targetVehicle}</div>
-                <div className="text-slate-500 mt-1">Source : {selectedLead.source}</div>
+                <span className="text-slate-400 block mb-1">
+                  Véhicule recherché
+                </span>
+                <div className="font-bold text-slate-900 text-sm">
+                  {selectedLead.targetVehicle}
+                </div>
+                <div className="text-slate-500 mt-1">
+                  Source : {selectedLead.source}
+                </div>
               </div>
               <div className="p-3 bg-white rounded-xl border border-slate-200">
-                <span className="text-slate-400 block mb-1">Budget prévisionnel</span>
-                <div className="font-bold text-blue-700 text-sm">{formatCurrency(selectedLead.targetBudget)}</div>
-                <div className="text-violet-700 mt-1">Progression commerciale : <b>{commercialProgressLabel(selectedLead)}</b></div>
-                <div className="text-slate-500 mt-1">Enregistré par : {selectedLead.createdByName || 'Non renseigné'}</div>
+                <span className="text-slate-400 block mb-1">
+                  Budget prévisionnel
+                </span>
+                <div className="font-bold text-blue-700 text-sm">
+                  {formatCurrency(selectedLead.targetBudget)}
+                </div>
+                <div className="text-violet-700 mt-1">
+                  Progression commerciale :{" "}
+                  <b>{commercialProgressLabel(selectedLead)}</b>
+                </div>
+                <div className="text-slate-500 mt-1">
+                  Enregistré par :{" "}
+                  {selectedLead.createdByName || "Non renseigné"}
+                </div>
               </div>
             </div>
 
@@ -487,59 +1210,447 @@ export const CrmPage: React.FC = () => {
               </h4>
 
               {/* Log new interaction */}
-              {canCreateActivity && <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <select
-                    value={interactionType}
-                    onChange={(e) => setInteractionType(e.target.value as any)}
-                    className="text-xs p-1.5 rounded-lg border border-slate-300 bg-white"
-                  >
-                    <option value="Appel">Appel téléphonique</option>
-                    <option value="Email">Email envoyé</option>
-                    <option value="Visite">Visite Concession</option>
-                    <option value="Essai">Essai Véhicule</option>
-                  </select>
-                  <input
-                    type="text"
-                    value={newInteractionNote}
-                    onChange={(e) => setNewInteractionNote(e.target.value)}
-                    placeholder="Résumer l'échange ou planifier la prochaine relance..."
-                    className="flex-1 text-xs p-1.5 rounded-lg border border-slate-300 bg-white focus:outline-none"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddInteraction()}
-                  />
-                  <Button size="xs" variant="primary" loading={activityMutation.isPending} disabled={!newInteractionNote.trim()} onClick={handleAddInteraction}>
-                    {activityMutation.isPending?'Enregistrement…':'Ajouter'}
-                  </Button>
+              {canCreateActivity && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={interactionType}
+                      onChange={(e) =>
+                        setInteractionType(e.target.value as any)
+                      }
+                      className="text-xs p-1.5 rounded-lg border border-slate-300 bg-white"
+                    >
+                      <option value="Appel">Appel téléphonique</option>
+                      <option value="Email">Email envoyé</option>
+                      <option value="Visite">Visite Concession</option>
+                      <option value="Essai">Essai Véhicule</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={newInteractionNote}
+                      onChange={(e) => setNewInteractionNote(e.target.value)}
+                      placeholder="Résumer l'échange ou planifier la prochaine relance..."
+                      className="flex-1 text-xs p-1.5 rounded-lg border border-slate-300 bg-white focus:outline-none"
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleAddInteraction()
+                      }
+                    />
+                    <Button
+                      size="xs"
+                      variant="primary"
+                      loading={activityMutation.isPending}
+                      disabled={!newInteractionNote.trim()}
+                      onClick={handleAddInteraction}
+                    >
+                      {activityMutation.isPending
+                        ? "Enregistrement…"
+                        : "Ajouter"}
+                    </Button>
+                  </div>
                 </div>
-              </div>}
+              )}
 
               {/* Timeline feed */}
               <div className="space-y-2 max-h-48 overflow-y-auto divide-y divide-slate-100 pr-1">
-                {activitiesQuery.isLoading&&<div className="py-3 text-xs text-slate-500">Chargement de l’historique…</div>}
-                {activitiesQuery.data?.map(activity=><div key={activity.id} className="pt-2 text-xs"><div className="flex justify-between gap-2"><b>{activity.subject}</b><span className="text-[10px] text-slate-400">{formatDate(activity.createdAt)}</span></div><div className="text-[10px] text-slate-500">{activityTypeLabel(activity.type)} · Auteur : {activity.createdByName||'Auteur non renseigné'} · Responsable : {activity.assignedUserName||'Non affecté'} · {activityStatusLabel(activity.status)}</div>{activity.description&&<p className="mt-1 whitespace-pre-wrap text-[11px] text-slate-600">{activity.description}</p>}</div>)}
+                {activitiesQuery.isLoading && (
+                  <div className="py-3 text-xs text-slate-500">
+                    Chargement de l’historique…
+                  </div>
+                )}
+                {activityPage.visible.map((activity) => (
+                  <div key={activity.id} className="pt-2 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <b>{activity.subject}</b>
+                      <span className="text-[10px] text-slate-400">
+                        {formatDate(activity.createdAt)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {activityTypeLabel(activity.type)} · Auteur :{" "}
+                      {activity.createdByName || "Auteur non renseigné"} ·
+                      Responsable : {activity.assignedUserName || "Non affecté"}{" "}
+                      · {activityStatusLabel(activity.status)}
+                    </div>
+                    {activity.description && (
+                      <p className="mt-1 whitespace-pre-wrap text-[11px] text-slate-600">
+                        {activity.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
                 <div className="pt-2 text-xs">
-                  <div className="text-slate-500 mb-0.5 font-semibold">Notes initiales :</div>
-                  <pre className="text-slate-600 text-[11px] font-sans whitespace-pre-wrap leading-relaxed">{selectedLead.notes || 'Aucune note.'}</pre>
+                  <div className="text-slate-500 mb-0.5 font-semibold">
+                    Notes initiales :
+                  </div>
+                  <pre className="text-slate-600 text-[11px] font-sans whitespace-pre-wrap leading-relaxed">
+                    {selectedLead.notes || "Aucune note."}
+                  </pre>
                 </div>
               </div>
+              {activityPage.controls}
             </div>
 
-            {canViewQuotations&&quotations.length>0&&<div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Devis liés à l’opportunité</div>
-              <div className="space-y-2">{quotations.map(quotation=><div key={quotation.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs"><div><b>{quotation.quotationNumber}</b><div className="text-slate-500">{quotation.items?.length??1} véhicule(s) · {quotationStatusLabel(quotation.status)}</div>{quotation.identitySnapshot&&<div className={quotation.archiveAvailable?'text-[10px] text-emerald-700':'text-[10px] text-amber-700'}>{quotationArchiveLabel(quotation)}</div>}<div className="text-[10px] text-slate-400">Commercial : {quotation.salespersonName||'Non affecté'} · Créé par : {quotation.createdByName||'Système'}</div></div><div className="flex items-center gap-2"><b>{formatCurrency(quotation.total)}</b><Button size="xs" variant="outline" disabled={Boolean(quotation.identitySnapshot&&!quotation.archiveAvailable)} onClick={()=>openBusinessPdf('quotation',quotation.id).catch(error=>addToast({type:'error',title:'PDF indisponible',description:error.message}))}>PDF</Button>{can('proformas.create')&&<Button size="xs" variant="outline" loading={createProforma.isPending} onClick={()=>void createProforma.mutateAsync({sourceQuotationId:quotation.id,clientRequestId:crypto.randomUUID()}).then(()=>addToast({type:'success',title:'Brouillon pro forma créé'})).catch(error=>addToast({type:'error',title:'Transformation impossible',description:error instanceof Error?error.message:'Erreur API'}))}>Transformer en pro forma</Button>}{canUpdateQuotation&&quotation.status==='draft'&&<Button size="xs" variant="outline" loading={updateQuotation.isPending} onClick={async()=>{const notes=await promptAction('Notes du devis',quotation.notes);if(notes!==null)void updateQuotation.mutateAsync({id:quotation.id,notes}).then(()=>addToast({type:'success',title:'Devis modifié'})).catch(error=>addToast({type:'error',title:'Modification impossible',description:error.message}))}}>Modifier</Button>}{canValidateQuotation&&!quotation.identitySnapshot&&['draft','negotiation'].includes(quotation.status)&&<Button size="xs" loading={validateQuotation.isPending} onClick={()=>validateQuotation.mutateAsync(quotation.id).then(()=>addToast({type:'success',title:'Devis émis'})).catch(error=>addToast({type:'error',title:'Émission enregistrée, archivage à reprendre',description:error.message}))}>Émettre le devis</Button>}{canValidateQuotation&&Boolean(quotation.identitySnapshot)&&quotation.archiveStatus==='MISSING_RECORD'&&['sent','negotiation'].includes(quotation.status)&&<Button size="xs" loading={retryQuotationArchive.isPending&&retryQuotationArchive.variables===quotation.id} disabled={retryQuotationArchive.isPending} onClick={()=>retryQuotationArchive.mutateAsync(quotation.id).then(()=>addToast({type:'success',title:'Archive officielle finalisée'})).catch(error=>addToast({type:'error',title:'Archivage toujours indisponible',description:error instanceof Error?error.message:'Erreur API'}))}>Finaliser l’archivage</Button>}{canCancelQuotation&&['draft','sent','negotiation'].includes(quotation.status)&&<Button size="xs" variant="outline" loading={cancelQuotation.isPending} onClick={async()=>{const reason=await promptAction("Motif d’annulation du devis");if(reason?.trim())void cancelQuotation.mutateAsync({id:quotation.id,reason:reason.trim()}).then(()=>addToast({type:'success',title:'Devis annulé'})).catch(error=>addToast({type:'error',title:'Annulation impossible',description:error.message}))}}>Annuler</Button>}</div></div>)}</div>
-            </div>}
+            {canViewQuotations && quotations.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Devis liés à l’opportunité
+                </div>
+                <div className="space-y-2">
+                  {quotationPage.visible.map((quotation) => (
+                    <div
+                      key={quotation.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-xs"
+                    >
+                      <div>
+                        <b>{quotation.quotationNumber}</b>
+                        <div className="text-slate-500">
+                          {quotation.items?.length ?? 1} véhicule(s) ·{" "}
+                          {quotationStatusLabel(quotation.status)}
+                        </div>
+                        {quotation.identitySnapshot && (
+                          <div
+                            className={
+                              quotation.archiveAvailable
+                                ? "text-[10px] text-emerald-700"
+                                : "text-[10px] text-amber-700"
+                            }
+                          >
+                            {quotationArchiveLabel(quotation)}
+                          </div>
+                        )}
+                        <div className="text-[10px] text-slate-400">
+                          Commercial :{" "}
+                          {quotation.salespersonName || "Non affecté"} · Créé
+                          par : {quotation.createdByName || "Système"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <b>{formatCurrency(quotation.total)}</b>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          disabled={Boolean(
+                            quotation.identitySnapshot &&
+                              !quotation.archiveAvailable,
+                          )}
+                          onClick={() =>
+                            openBusinessPdf("quotation", quotation.id).catch(
+                              (error) =>
+                                addToast({
+                                  type: "error",
+                                  title: "PDF indisponible",
+                                  description: error.message,
+                                }),
+                            )
+                          }
+                        >
+                          PDF
+                        </Button>
+                        {can("proformas.create") && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            loading={createProforma.isPending}
+                            onClick={() =>
+                              void createProforma
+                                .mutateAsync({
+                                  sourceQuotationId: quotation.id,
+                                  clientRequestId: crypto.randomUUID(),
+                                })
+                                .then(() =>
+                                  addToast({
+                                    type: "success",
+                                    title: "Brouillon pro forma créé",
+                                  }),
+                                )
+                                .catch((error) =>
+                                  addToast({
+                                    type: "error",
+                                    title: "Transformation impossible",
+                                    description:
+                                      error instanceof Error
+                                        ? error.message
+                                        : "Erreur API",
+                                  }),
+                                )
+                            }
+                          >
+                            Transformer en pro forma
+                          </Button>
+                        )}
+                        {canUpdateQuotation && quotation.status === "draft" && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            loading={updateQuotation.isPending}
+                            onClick={async () => {
+                              const notes = await promptAction(
+                                "Notes du devis",
+                                quotation.notes,
+                              );
+                              if (notes !== null)
+                                void updateQuotation
+                                  .mutateAsync({ id: quotation.id, notes })
+                                  .then(() =>
+                                    addToast({
+                                      type: "success",
+                                      title: "Devis modifié",
+                                    }),
+                                  )
+                                  .catch((error) =>
+                                    addToast({
+                                      type: "error",
+                                      title: "Modification impossible",
+                                      description: error.message,
+                                    }),
+                                  );
+                            }}
+                          >
+                            Modifier
+                          </Button>
+                        )}
+                        {canValidateQuotation &&
+                          !quotation.identitySnapshot &&
+                          ["draft", "negotiation"].includes(
+                            quotation.status,
+                          ) && (
+                            <Button
+                              size="xs"
+                              loading={validateQuotation.isPending}
+                              onClick={() =>
+                                validateQuotation
+                                  .mutateAsync(quotation.id)
+                                  .then(() =>
+                                    addToast({
+                                      type: "success",
+                                      title: "Devis émis",
+                                    }),
+                                  )
+                                  .catch((error) =>
+                                    addToast({
+                                      type: "error",
+                                      title:
+                                        "Émission enregistrée, archivage à reprendre",
+                                      description: error.message,
+                                    }),
+                                  )
+                              }
+                            >
+                              Émettre le devis
+                            </Button>
+                          )}
+                        {canValidateQuotation &&
+                          Boolean(quotation.identitySnapshot) &&
+                          quotation.archiveStatus === "MISSING_RECORD" &&
+                          ["sent", "negotiation"].includes(
+                            quotation.status,
+                          ) && (
+                            <Button
+                              size="xs"
+                              loading={
+                                retryQuotationArchive.isPending &&
+                                retryQuotationArchive.variables === quotation.id
+                              }
+                              disabled={retryQuotationArchive.isPending}
+                              onClick={() =>
+                                retryQuotationArchive
+                                  .mutateAsync(quotation.id)
+                                  .then(() =>
+                                    addToast({
+                                      type: "success",
+                                      title: "Archive officielle finalisée",
+                                    }),
+                                  )
+                                  .catch((error) =>
+                                    addToast({
+                                      type: "error",
+                                      title: "Archivage toujours indisponible",
+                                      description:
+                                        error instanceof Error
+                                          ? error.message
+                                          : "Erreur API",
+                                    }),
+                                  )
+                              }
+                            >
+                              Finaliser l’archivage
+                            </Button>
+                          )}
+                        {canCancelQuotation &&
+                          ["draft", "sent", "negotiation"].includes(
+                            quotation.status,
+                          ) && (
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              loading={cancelQuotation.isPending}
+                              onClick={async () => {
+                                const reason = await promptAction(
+                                  "Motif d’annulation du devis",
+                                );
+                                if (reason?.trim())
+                                  void cancelQuotation
+                                    .mutateAsync({
+                                      id: quotation.id,
+                                      reason: reason.trim(),
+                                    })
+                                    .then(() =>
+                                      addToast({
+                                        type: "success",
+                                        title: "Devis annulé",
+                                      }),
+                                    )
+                                    .catch((error) =>
+                                      addToast({
+                                        type: "error",
+                                        title: "Annulation impossible",
+                                        description: error.message,
+                                      }),
+                                    );
+                              }}
+                            >
+                              Annuler
+                            </Button>
+                          )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {quotationPage.controls}
+              </div>
+            )}
 
-            {selectedLead.activeAppointment&&<div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-950"><b>Rendez-vous actif</b><span className="ml-2">{formatDateTime(selectedLead.activeAppointment.scheduledAt)} · {selectedLead.activeAppointment.durationMinutes} min</span></div>}
-            {(canCreateAppointment||canCreateTestDrive||canCreateQuotation||canUpdateStage||canLoseLead||canConvertQuotation) && <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              {canCreateAppointment&&canPlanCrmAppointment(selectedLead)&&<Button size="sm" variant="outline" onClick={()=>{setEditingAppointmentId(null);setScheduledAt('');setAppointmentDuration(30);setAppointmentLead(selectedLead)}}>Planifier un RDV</Button>}
-              {canUpdateLead&&canManageCrmAppointment(selectedLead)&&<><Button size="sm" variant="outline" onClick={()=>editAppointment(selectedLead)}>Reporter le RDV</Button><Button size="sm" variant="danger" loading={cancelAppointmentMutation.isPending} onClick={()=>void cancelAppointment(selectedLead)}>Annuler le RDV</Button></>}
-              {canCreateTestDrive&&selectedLead.stage!=='GAGNE'&&selectedLead.stage!=='PERDU'&&<Button size="sm" onClick={async()=>{setTestDriveLead(selectedLead);setSelectedLead(null)}}>Créer un essai</Button>}
-              {canCreateQuotation&&selectedLead.stage!=='GAGNE'&&selectedLead.stage!=='PERDU'&&<Button size="sm" onClick={()=>setQuotationLead(selectedLead)}>Créer un devis</Button>}
-              {canUpdateStage&&selectedLead.stage==='OFFRE'&&<Button size="sm" variant="outline" loading={stageMutation.isPending} onClick={()=>void handleStageChange(selectedLead.id,'NEGOCIATION')}>Entrer en négociation</Button>}
-              {canConvertQuotation&&selectedLead.saleAssociation.state==='NONE'&&['OFFRE','NEGOCIATION','GAGNE'].includes(selectedLead.stage)&&quotations.length>0&&<Button variant="primary" size="sm" disabled={!convertibleQuotation} title={!convertibleQuotation?'Un devis émis, archivé, non expiré et non déjà converti est requis.':undefined} onClick={()=>convertibleQuotation&&setSaleQuotation(convertibleQuotation)}>Créer une vente</Button>}
-              {canConvertQuotation&&selectedLead.saleAssociation.state==='NONE'&&selectedLead.stage==='GAGNE'&&!quotations.length&&<span className="text-xs text-amber-700">Création indisponible : un devis éligible est obligatoire.</span>}
-              {canUpdateStage&&canLoseLead&&!['GAGNE','PERDU'].includes(selectedLead.stage)&&<Button variant="outline" size="sm" onClick={()=>handleStageChange(selectedLead.id,'PERDU')}>Marquer comme perdu</Button>}
-            </div>}
+            {selectedLead.activeAppointment && (
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-950">
+                <b>Rendez-vous actif</b>
+                <span className="ml-2">
+                  {formatDateTime(selectedLead.activeAppointment.scheduledAt)} ·{" "}
+                  {selectedLead.activeAppointment.durationMinutes} min
+                </span>
+              </div>
+            )}
+            {(canCreateAppointment ||
+              canCreateTestDrive ||
+              canCreateQuotation ||
+              canUpdateStage ||
+              canLoseLead ||
+              canConvertQuotation) && (
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                {canCreateAppointment &&
+                  canPlanCrmAppointment(selectedLead) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingAppointmentId(null);
+                        setScheduledAt("");
+                        setAppointmentDuration(30);
+                        setAppointmentLead(selectedLead);
+                      }}
+                    >
+                      Planifier un RDV
+                    </Button>
+                  )}
+                {canUpdateLead && canManageCrmAppointment(selectedLead) && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => editAppointment(selectedLead)}
+                    >
+                      Reporter le RDV
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      loading={cancelAppointmentMutation.isPending}
+                      onClick={() => void cancelAppointment(selectedLead)}
+                    >
+                      Annuler le RDV
+                    </Button>
+                  </>
+                )}
+                {canCreateTestDrive &&
+                  selectedLead.stage !== "GAGNE" &&
+                  selectedLead.stage !== "PERDU" && (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        setTestDriveLead(selectedLead);
+                        setSelectedLead(null);
+                      }}
+                    >
+                      Créer un essai
+                    </Button>
+                  )}
+                {canCreateQuotation &&
+                  selectedLead.stage !== "GAGNE" &&
+                  selectedLead.stage !== "PERDU" && (
+                    <Button
+                      size="sm"
+                      onClick={() => setQuotationLead(selectedLead)}
+                    >
+                      Créer un devis
+                    </Button>
+                  )}
+                {canUpdateStage && selectedLead.stage === "OFFRE" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    loading={stageMutation.isPending}
+                    onClick={() =>
+                      void handleStageChange(selectedLead.id, "NEGOCIATION")
+                    }
+                  >
+                    Entrer en négociation
+                  </Button>
+                )}
+                {canConvertQuotation &&
+                  selectedLead.saleAssociation.state === "NONE" &&
+                  ["OFFRE", "NEGOCIATION", "GAGNE"].includes(
+                    selectedLead.stage,
+                  ) &&
+                  quotations.length > 0 && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={!convertibleQuotation}
+                      title={
+                        !convertibleQuotation
+                          ? "Un devis émis, archivé, non expiré et non déjà converti est requis."
+                          : undefined
+                      }
+                      onClick={() =>
+                        convertibleQuotation &&
+                        setSaleQuotation(convertibleQuotation)
+                      }
+                    >
+                      Créer une vente
+                    </Button>
+                  )}
+                {canConvertQuotation &&
+                  selectedLead.saleAssociation.state === "NONE" &&
+                  selectedLead.stage === "GAGNE" &&
+                  !quotations.length && (
+                    <span className="text-xs text-amber-700">
+                      Création indisponible : un devis éligible est obligatoire.
+                    </span>
+                  )}
+                {canUpdateStage &&
+                  canLoseLead &&
+                  !["GAGNE", "PERDU"].includes(selectedLead.stage) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleStageChange(selectedLead.id, "PERDU")
+                      }
+                    >
+                      Marquer comme perdu
+                    </Button>
+                  )}
+              </div>
+            )}
           </div>
         </Modal>
       )}
@@ -549,17 +1660,299 @@ export const CrmPage: React.FC = () => {
         isOpen={isNewLeadOpen}
         onClose={() => setIsNewLeadOpen(false)}
       />
-      <QuotationModal lead={quotationLead} onClose={()=>setQuotationLead(null)} onCreated={()=>setSelectedLead(null)}/>
-      <CrmTestDriveModal lead={testDriveLead} onClose={()=>setTestDriveLead(null)} onStarted={()=>setSelectedLead(null)}/>
-      <Modal isOpen={Boolean(lostLead)} onClose={()=>setLostLead(null)} title="Marquer l’opportunité comme perdue" maxWidth="sm"><div className="space-y-3"><label className="block text-xs font-semibold">Motif de perte *<textarea value={lostReason} onChange={e=>setLostReason(e.target.value)} className="mt-1 min-h-24 w-full rounded border p-2.5"/></label>{!lostReason.trim()&&<p className="text-xs text-red-700">Le motif de perte est obligatoire.</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setLostLead(null)}>Annuler</Button><Button loading={stageMutation.isPending} disabled={!lostReason.trim()} onClick={()=>void confirmLost()}>Confirmer la perte</Button></div></div></Modal>
-      <Modal isOpen={Boolean(appointmentLead)} onClose={()=>{setAppointmentLead(null);setEditingAppointmentId(null)}} title={editingAppointmentId?'Reporter le rendez-vous commercial':'Planifier un rendez-vous commercial'} maxWidth="sm"><div className="space-y-3"><label className="block text-xs font-semibold">Date et heure *<input type="datetime-local" value={scheduledAt} onChange={e=>setScheduledAt(e.target.value)} className="mt-1 w-full rounded border p-2.5"/></label><label className="block text-xs font-semibold">Durée (minutes) *<input type="number" min="1" max="1440" step="1" value={appointmentDuration} onChange={e=>setAppointmentDuration(Number(e.target.value))} className="mt-1 w-full rounded border p-2.5"/></label>{appointmentDateError(scheduledAt)&&<p className="text-xs text-amber-700" role="status">{appointmentDateError(scheduledAt)}</p>}<div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>{setAppointmentLead(null);setEditingAppointmentId(null)}}>Annuler</Button><Button loading={appointmentMutation.isPending||updateAppointmentMutation.isPending} disabled={Boolean(appointmentDateError(scheduledAt))||appointmentDuration<1} title={appointmentDateError(scheduledAt)??undefined} onClick={()=>void saveAppointment()}>{editingAppointmentId?'Enregistrer le report':'Enregistrer le rendez-vous'}</Button></div></div></Modal>
-      <Modal isOpen={Boolean(editLead)} onClose={()=>setEditLead(null)} title={canUpdateLead?'Modifier le prospect':'Affecter le prospect'} maxWidth="lg">{editLead&&<div className="grid gap-3 sm:grid-cols-2">
-        {canUpdateLead&&<><label className="text-xs font-semibold">Prénom<input value={editLead.firstName} onChange={e=>setEditLead({...editLead,firstName:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Nom<input value={editLead.lastName} onChange={e=>setEditLead({...editLead,lastName:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Téléphone<input value={editLead.phone} onChange={e=>setEditLead({...editLead,phone:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">E-mail<input value={editLead.email} onChange={e=>setEditLead({...editLead,email:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Besoin / véhicule recherché<input value={editLead.targetVehicle} onChange={e=>setEditLead({...editLead,targetVehicle:e.target.value})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Budget XAF<input type="number" min="0" value={editLead.targetBudget} onChange={e=>setEditLead({...editLead,targetBudget:Number(e.target.value)})} className="mt-1 w-full rounded border p-2"/></label><label className="text-xs font-semibold">Priorité<select value={editLead.priority} onChange={e=>setEditLead({...editLead,priority:e.target.value as Lead['priority']})} className="mt-1 w-full rounded border p-2"><option>Basse</option><option>Moyenne</option><option>Haute</option><option>Urgente</option></select></label><label className="text-xs font-semibold">Clôture prévue<input type="date" value={editLead.estimatedCloseDate??''} onChange={e=>setEditLead({...editLead,estimatedCloseDate:e.target.value})} className="mt-1 w-full rounded border p-2"/></label></>}
-        {canAssignLead&&<label className="text-xs font-semibold sm:col-span-2">Commercial affecté<select aria-label="Commercial affecté" value={editLead.assignedToId||''} onChange={e=>setEditLead({...editLead,assignedToId:e.target.value})} className="mt-1 w-full rounded border p-2"><option value="" disabled>Sélectionner un commercial</option>{salesUsers.map(user=><option key={user.id} value={user.id}>{user.name}</option>)}</select>{!salesUsers.length&&<span className="mt-1 block text-[11px] text-amber-700">Aucun commercial actif dans cette agence.</span>}</label>}
-        {canUpdateLead&&<label className="text-xs font-semibold sm:col-span-2">Notes<textarea value={editLead.notes} onChange={e=>setEditLead({...editLead,notes:e.target.value})} className="mt-1 min-h-20 w-full rounded border p-2"/></label>}
-        <div className="flex justify-end gap-2 sm:col-span-2"><Button variant="outline" onClick={()=>setEditLead(null)}>Annuler</Button><Button loading={updateLead.isPending} disabled={!canUpdateLead&&canAssignLead&&!editLead.assignedToId} onClick={()=>void saveEdit()}>{canUpdateLead?'Mettre à jour':'Affecter'}</Button></div>
-      </div>}</Modal>
-      <SaleWizardModal isOpen={Boolean(saleQuotation)} onClose={()=>{setSaleQuotation(null);setSelectedLead(null)}} initialCustomerId={saleQuotation?.customerId} initialVehicleId={saleQuotation?.vehicleId} initialOpportunityId={saleQuotation?.opportunityId} initialQuotationId={saleQuotation?.id} initialDiscount={saleQuotation?.discountTotal}/>
+      <QuotationModal
+        lead={quotationLead}
+        onClose={() => setQuotationLead(null)}
+        onCreated={() => setSelectedLead(null)}
+      />
+      <CrmTestDriveModal
+        lead={testDriveLead}
+        onClose={() => setTestDriveLead(null)}
+        onStarted={() => setSelectedLead(null)}
+      />
+      <Modal
+        isOpen={Boolean(lostLead)}
+        onClose={() => setLostLead(null)}
+        title="Marquer l’opportunité comme perdue"
+        maxWidth="sm"
+      >
+        <div className="space-y-3">
+          <label className="block text-xs font-semibold">
+            Motif de perte *
+            <textarea
+              value={lostReason}
+              onChange={(e) => setLostReason(e.target.value)}
+              className="mt-1 min-h-24 w-full rounded border p-2.5"
+            />
+          </label>
+          {!lostReason.trim() && (
+            <p className="text-xs text-red-700">
+              Le motif de perte est obligatoire.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setLostLead(null)}>
+              Annuler
+            </Button>
+            <Button
+              loading={stageMutation.isPending}
+              disabled={!lostReason.trim()}
+              onClick={() => void confirmLost()}
+            >
+              Confirmer la perte
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={Boolean(appointmentLead)}
+        onClose={() => {
+          setAppointmentLead(null);
+          setEditingAppointmentId(null);
+        }}
+        title={
+          editingAppointmentId
+            ? "Reporter le rendez-vous commercial"
+            : "Planifier un rendez-vous commercial"
+        }
+        maxWidth="sm"
+      >
+        <div className="space-y-3">
+          <label className="block text-xs font-semibold">
+            Date et heure *
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="mt-1 w-full rounded border p-2.5"
+            />
+          </label>
+          <label className="block text-xs font-semibold">
+            Durée (minutes) *
+            <input
+              type="number"
+              min="1"
+              max="1440"
+              step="1"
+              value={appointmentDuration}
+              onChange={(e) => setAppointmentDuration(Number(e.target.value))}
+              className="mt-1 w-full rounded border p-2.5"
+            />
+          </label>
+          {appointmentDateError(scheduledAt) && (
+            <p className="text-xs text-amber-700" role="status">
+              {appointmentDateError(scheduledAt)}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAppointmentLead(null);
+                setEditingAppointmentId(null);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              loading={
+                appointmentMutation.isPending ||
+                updateAppointmentMutation.isPending
+              }
+              disabled={
+                Boolean(appointmentDateError(scheduledAt)) ||
+                appointmentDuration < 1
+              }
+              title={appointmentDateError(scheduledAt) ?? undefined}
+              onClick={() => void saveAppointment()}
+            >
+              {editingAppointmentId
+                ? "Enregistrer le report"
+                : "Enregistrer le rendez-vous"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={Boolean(editLead)}
+        onClose={() => setEditLead(null)}
+        title={canUpdateLead ? "Modifier le prospect" : "Affecter le prospect"}
+        maxWidth="lg"
+      >
+        {editLead && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {canUpdateLead && (
+              <>
+                <label className="text-xs font-semibold">
+                  Prénom
+                  <input
+                    value={editLead.firstName}
+                    onChange={(e) =>
+                      setEditLead({ ...editLead, firstName: e.target.value })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  />
+                </label>
+                <label className="text-xs font-semibold">
+                  Nom
+                  <input
+                    value={editLead.lastName}
+                    onChange={(e) =>
+                      setEditLead({ ...editLead, lastName: e.target.value })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  />
+                </label>
+                <label className="text-xs font-semibold">
+                  Téléphone
+                  <input
+                    value={editLead.phone}
+                    onChange={(e) =>
+                      setEditLead({ ...editLead, phone: e.target.value })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  />
+                </label>
+                <label className="text-xs font-semibold">
+                  E-mail
+                  <input
+                    value={editLead.email}
+                    onChange={(e) =>
+                      setEditLead({ ...editLead, email: e.target.value })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  />
+                </label>
+                <label className="text-xs font-semibold">
+                  Besoin / véhicule recherché
+                  <input
+                    value={editLead.targetVehicle}
+                    onChange={(e) =>
+                      setEditLead({
+                        ...editLead,
+                        targetVehicle: e.target.value,
+                      })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  />
+                </label>
+                <label className="text-xs font-semibold">
+                  Budget XAF
+                  <input
+                    type="number"
+                    min="0"
+                    value={editLead.targetBudget}
+                    onChange={(e) =>
+                      setEditLead({
+                        ...editLead,
+                        targetBudget: Number(e.target.value),
+                      })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  />
+                </label>
+                <label className="text-xs font-semibold">
+                  Priorité
+                  <select
+                    value={editLead.priority}
+                    onChange={(e) =>
+                      setEditLead({
+                        ...editLead,
+                        priority: e.target.value as Lead["priority"],
+                      })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  >
+                    <option>Basse</option>
+                    <option>Moyenne</option>
+                    <option>Haute</option>
+                    <option>Urgente</option>
+                  </select>
+                </label>
+                <label className="text-xs font-semibold">
+                  Clôture prévue
+                  <input
+                    type="date"
+                    value={editLead.estimatedCloseDate ?? ""}
+                    onChange={(e) =>
+                      setEditLead({
+                        ...editLead,
+                        estimatedCloseDate: e.target.value,
+                      })
+                    }
+                    className="mt-1 w-full rounded border p-2"
+                  />
+                </label>
+              </>
+            )}
+            {canAssignLead && (
+              <label className="text-xs font-semibold sm:col-span-2">
+                Commercial affecté
+                <select
+                  aria-label="Commercial affecté"
+                  value={editLead.assignedToId || ""}
+                  onChange={(e) =>
+                    setEditLead({ ...editLead, assignedToId: e.target.value })
+                  }
+                  className="mt-1 w-full rounded border p-2"
+                >
+                  <option value="" disabled>
+                    Sélectionner un commercial
+                  </option>
+                  {salesUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+                {!salesUsers.length && (
+                  <span className="mt-1 block text-[11px] text-amber-700">
+                    Aucun commercial actif dans cette agence.
+                  </span>
+                )}
+              </label>
+            )}
+            {canUpdateLead && (
+              <label className="text-xs font-semibold sm:col-span-2">
+                Notes
+                <textarea
+                  value={editLead.notes}
+                  onChange={(e) =>
+                    setEditLead({ ...editLead, notes: e.target.value })
+                  }
+                  className="mt-1 min-h-20 w-full rounded border p-2"
+                />
+              </label>
+            )}
+            <div className="flex justify-end gap-2 sm:col-span-2">
+              <Button variant="outline" onClick={() => setEditLead(null)}>
+                Annuler
+              </Button>
+              <Button
+                loading={updateLead.isPending}
+                disabled={
+                  !canUpdateLead && canAssignLead && !editLead.assignedToId
+                }
+                onClick={() => void saveEdit()}
+              >
+                {canUpdateLead ? "Mettre à jour" : "Affecter"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+      <SaleWizardModal
+        isOpen={Boolean(saleQuotation)}
+        onClose={() => {
+          setSaleQuotation(null);
+          setSelectedLead(null);
+        }}
+        initialCustomerId={saleQuotation?.customerId}
+        initialVehicleId={saleQuotation?.vehicleId}
+        initialOpportunityId={saleQuotation?.opportunityId}
+        initialQuotationId={saleQuotation?.id}
+        initialDiscount={saleQuotation?.discountTotal}
+      />
     </div>
   );
 };

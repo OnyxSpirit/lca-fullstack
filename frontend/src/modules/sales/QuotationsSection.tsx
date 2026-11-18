@@ -8,14 +8,16 @@ import { businessArchiveStatusLabel } from '../../services/businessArchiveStatus
 import { openBusinessPdf } from '../../services/businessPdf';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
+import { ServerPagination } from '../../components/common/ServerPagination';
 
 export function QuotationsSection() {
   const [page, setPage] = useState(1);
+  const [pageSize,setPageSize]=useState(10);
   const [sortBy,setSortBy]=useState('date');
   const [sortOrder,setSortOrder]=useState<'asc'|'desc'>('desc');
   const canView = useAuthStore((state) => state.can('quotations.view'));
   const canValidate = useAuthStore((state) => state.can('quotations.validate'));
-  const query = useQuotationsPageQuery({ page, pageSize: 7, sortBy, sortOrder }, canView);
+  const query = useQuotationsPageQuery({ page, pageSize, sortBy, sortOrder }, canView);
   const retryArchive = useRetryQuotationArchive();
   const addToast = useUiStore((state) => state.addToast);
   const quotations = query.data?.items ?? [];
@@ -93,14 +95,7 @@ export function QuotationsSection() {
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between gap-3 border-t p-3 text-xs">
-        <span>{query.data?.total ?? 0} devis</span>
-        <div className="flex items-center gap-2">
-          <Button size="xs" variant="outline" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Précédent</Button>
-          <span>Page {page}/{Math.max(1, query.data?.totalPages ?? 1)}</span>
-          <Button size="xs" variant="outline" disabled={page >= (query.data?.totalPages ?? 1)} onClick={() => setPage((value) => value + 1)}>Suivant</Button>
-        </div>
-      </div>
+      <ServerPagination page={page} pageSize={pageSize} total={query.data?.total??0} totalPages={query.data?.totalPages} loading={query.isFetching} label="devis" onPageChange={setPage} onPageSizeChange={size=>{setPageSize(size);setPage(1)}}/>
     </Card>
   );
 }

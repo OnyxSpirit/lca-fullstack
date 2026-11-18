@@ -24,7 +24,9 @@ test('BASELINE-01 est unique, versionné 068 et non destructif',()=>{
 
 test('BASELINE-02 représente les structures finales critiques',()=>{
   for(const token of ['refresh_tokens','customer_contacts','showroom_test_drives','delivery_status_history','workshop_session_history','part_stocks','purchase_order_receipts','document_sequences','uq_sales_quotation_id','uk_delivery_signature_final','uk_documents_source_key','event_key','parent_document_id','accumulated_pause_seconds'])assert.match(baseline,new RegExp(token));
-  assert.match(baseline,/scope ENUM\('OWN','AGENCY'\)/);assert.match(baseline,/currency_code CHAR\(3\) NOT NULL DEFAULT 'XAF'/);
+  assert.match(baseline,/scope ENUM\('OWN','AGENCY','CONCESSION','GLOBAL'\)/);
+  assert.match(read('backend-node/database/migrations/131_rbac_two_scopes.sql'),/MODIFY scope ENUM\('OWN','AGENCY'\) NOT NULL/);
+  assert.match(baseline,/currency_code CHAR\(3\) NOT NULL DEFAULT 'XAF'/);
   for(const token of ['uk_intervention_request','uk_reservation_request','uk_repair_item_request','repair_order_estimate_items','uk_intervention_estimate_item','uk_reservation_estimate_item','uk_repair_item_estimate','consumed_quantity','payment_refunds','abandonment_reason_code','handover_type','workshop_labor_rates','rate_code_snapshot','rate_label_snapshot'])assert.match(baseline,new RegExp(token));
   for(const token of ['idx_notifications_user_visible','fk_notification_archived_by','fk_notification_deleted_by','internal_stock_categories','fk_internal_stock_item_category','budget_categories','fk_budget_category','fk_budget_expense_category','budget_fund_movements','chk_budget_fund_movement_positive','normalized_email','normalized_phone','uq_customer_agency_normalized_email','uq_customer_agency_normalized_phone'])assert.match(baseline,new RegExp(token));
 });

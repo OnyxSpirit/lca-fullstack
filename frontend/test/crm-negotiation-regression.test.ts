@@ -15,7 +15,8 @@ test('CRM-NEG-09 Pipeline reflète Gagné et Perdu',()=>{
 
 test('CRM-NEG-10 la fiche et la vue Liste utilisent la même source autoritaire',()=>{
   assert.match(page,/const leadsQuery=useLeadsPageQuery\(/);
-  assert.match(page,/pageSize:7/);
+  assert.match(page,/pageSize\}/);
+  assert.match(page,/useState\(10\)/);
   assert.match(page,/const filteredLeads = viewMode==='kanban'\?kanbanQueries\.flatMap/);
   assert.match(page,/setSelectedLead\(lead\)/);
   assert.match(page,/Créer une vente/);

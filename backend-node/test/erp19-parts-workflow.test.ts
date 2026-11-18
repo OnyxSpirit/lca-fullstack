@@ -31,8 +31,8 @@ test('ERP19-BE-04 OWN ne couvre jamais le stock collectif',()=>{
   assert.equal(partsScopeAllows('OWN','1','1'),false);
   assert.equal(partsScopeAllows('AGENCY','1','1'),true);
   assert.equal(partsScopeAllows('AGENCY','1','2'),false);
-  assert.equal(partsScopeAllows('CONCESSION','1','2',true),true);
-  assert.equal(partsScopeAllows('GLOBAL','1','99'),true);
+  assert.equal(partsScopeAllows('CONCESSION' as never,'1','2',true),false);
+  assert.equal(partsScopeAllows('GLOBAL' as never,'1','99'),false);
 });
 
 test('ERP19-BE-05 les chemins historiques restent doublement protégés',()=>{

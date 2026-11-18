@@ -41,6 +41,6 @@ test('LOT3 impose les invariants SQL et une séquence verrouillée',()=>{
 
 test('LOT3 protège chaque transition par une permission distincte',()=>{
   for(const permission of ['accounting.entry.view','accounting.entry.create','accounting.entry.update','accounting.entry.validate','accounting.entry.post','accounting.entry.reverse','accounting.entry.export']) assert.match(routes,new RegExp(permission.replaceAll('.','\\.')));
-  assert.match(service,/status==='POSTED'\|\|e\.status==='REVERSED'/);
-  assert.match(service,/periods\[0\]\?\.status!=='OPEN'/);
+  assert.match(service,/status\s*===\s*["']POSTED["']\s*\|\|\s*e\.status\s*===\s*["']REVERSED["']/);
+  assert.match(service,/periods\[0\]\?\.status\s*!==\s*["']OPEN["']/);
 });

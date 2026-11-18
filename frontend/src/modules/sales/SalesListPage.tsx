@@ -25,6 +25,7 @@ import { TableEmptyState } from '../../components/common/TableEmptyState';
 import { useAuthStore } from '../../stores/authStore';
 import { salePaymentLabel } from './salePaymentLabel';
 import { SalesSectionTabs } from './SalesSectionTabs';
+import { ServerPagination } from '../../components/common/ServerPagination';
 
 export const SalesListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,7 +33,8 @@ export const SalesListPage: React.FC = () => {
   const [sortBy,setSortBy]=useState('date');
   const [sortOrder,setSortOrder]=useState<'asc'|'desc'>('desc');
   const [salesPage,setSalesPage]=useState(1);
-  const salesQuery = useSalesPageQuery({page:salesPage,pageSize:7,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus,sortBy,sortOrder});
+  const [pageSize,setPageSize]=useState(10);
+  const salesQuery = useSalesPageQuery({page:salesPage,pageSize,search:searchQuery,status:selectedStatus==='ALL'?undefined:selectedStatus,sortBy,sortOrder});
   const sales = salesQuery.data?.items ?? [];
   const navigate = useNavigate();
   const canCreate=useAuthStore(state=>state.can('sales.create'));
@@ -202,7 +204,7 @@ export const SalesListPage: React.FC = () => {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t p-4 text-xs"><span>{totalSales} vente(s)</span><div className="flex gap-2"><Button size="xs" variant="outline" disabled={salesPage<=1} onClick={()=>setSalesPage(p=>p-1)}>Précédent</Button><span>Page {salesPage}/{Math.max(1,salesQuery.data?.totalPages??1)}</span><Button size="xs" variant="outline" disabled={salesPage>=(salesQuery.data?.totalPages??1)} onClick={()=>setSalesPage(p=>p+1)}>Suivant</Button></div></div>
+        <ServerPagination page={salesPage} pageSize={pageSize} total={totalSales} totalPages={salesQuery.data?.totalPages} loading={salesQuery.isFetching} label="vente(s)" onPageChange={setSalesPage} onPageSizeChange={size=>{setPageSize(size);setSalesPage(1)}}/>
       </Card>
 
       {/* Sale Wizard Modal */}

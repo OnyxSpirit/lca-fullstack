@@ -13,7 +13,7 @@ test('CRM-03 le Kanban utilise une pagination serveur indépendante par colonne'
   assert.match(crm,/useKanbanColumnsQuery/);
   assert.match(crm,/kanbanLimits/);
   assert.match(crm,/stageSummary/);
-  assert.match(crm,/Page \{page\}/);
+  assert.match(crm,/<ServerPagination/);
   assert.match(hooks,/stageSummary:LeadStageSummary/);
 });
 

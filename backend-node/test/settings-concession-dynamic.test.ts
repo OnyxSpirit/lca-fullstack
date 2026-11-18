@@ -20,13 +20,15 @@ test('SETTINGS-02 OWN est refusé pour les paramètres collectifs',()=>{
 });
 
 test('SETTINGS-03 une écriture concession exige une autorisation centrale explicite',()=>{
-  assert.match(service,/!r\.agencyRbac\?\.isSuperAdmin \|\| !r\.agencyRbac\.permissions\.has\(permission\)/);
+  assert.match(service,/settingsScope\(r,permission\) !== 'AGENCY'/);
+  assert.doesNotMatch(service,/agencyRbac\?\.isSuperAdmin/);
   assert.match(service,/export async function update[\s\S]*?assertConcessionWrite\(r\)/);
   assert.match(service,/export async function updateConcession[\s\S]*?assertConcessionWrite\(r\)/);
 });
 
 test('SETTINGS-04 la gestion des agences est réservée au contexte central autorisé',()=>{
-  assert.match(service,/r\.agencyRbac\?\.isSuperAdmin && r\.agencyRbac\.permissions\.has\("settings\.agencies\.manage"\)/);
+  assert.match(service,/settingsScope\(r,"settings\.agencies\.manage"\) === 'AGENCY'/);
+  assert.doesNotMatch(service,/isSuperAdmin && r\.agencyRbac\.permissions\.has\("settings\.agencies\.manage"\)/);
   assert.match(service,/Agence hors du scope settings\.agencies\.manage/);
 });
 

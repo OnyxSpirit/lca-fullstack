@@ -37,7 +37,7 @@ test('RBAC-08/09/15 rôles dynamiques et délégation utilisent le catalogue ré
   assert.equal(can(dynamic,'crm.prospect.view'),true);
   assert.equal(can(dynamic,'crm.prospect.update'),false);
   assert.doesNotThrow(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.view',scope:'OWN'}]));
-  assert.throws(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.view',scope:'GLOBAL'}]),/Scope non délégable/);
+  assert.throws(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.view',scope:'GLOBAL'}]),/pas compatible avec le périmètre sélectionné/);
   assert.throws(()=>assertDelegablePermissions(dynamic,[{code:'crm.prospect.update',scope:'OWN'}]),/Permission non délégable/);
 });
 

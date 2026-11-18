@@ -4,12 +4,13 @@ import test from "node:test";
 
 const read = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
-test("la pagination cliente propose 10, 25 et 50 et borne la page courante", () => {
+test("la pagination cliente partage les tailles 10, 20, 50 et 100 et borne la page courante", () => {
   const source = read("components/common/ClientPagination.tsx");
-  for (const size of [10, 25, 50]) assert.match(source, new RegExp(String(size)));
+  const controls = read("components/common/ServerPagination.tsx");
+  for (const size of [10, 20, 50, 100]) assert.match(controls, new RegExp(String(size)));
   assert.match(source, /page>totalPages/);
-  assert.match(source, /Précédent/);
-  assert.match(source, /Suivant/);
+  assert.match(controls, /Première page/);
+  assert.match(controls, /Dernière page/);
 });
 
 test("les cartes budgets RH sont limitées à quatre et indépendantes des dépenses", () => {

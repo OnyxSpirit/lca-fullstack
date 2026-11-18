@@ -28,6 +28,7 @@ import { implicitVehicleAgencyFilter } from './vehicleScopePolicy';
 import { openOfficialPdf } from '../../services/businessPdf';
 import {CommercialCatalogPage} from './CommercialCatalogPage';
 import {VehicleTransfersPanel} from './VehicleTransfersPanel';
+import {ServerPagination} from '../../components/common/ServerPagination';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -49,7 +50,7 @@ export const VehiclesListPage: React.FC = () => {
   const [maxPrice,setMaxPrice]=useState('');
   const [sort,setSort]=useState('date_desc');
   const [page,setPage]=useState(1);
-  const pageSize=20;
+  const [pageSize,setPageSize]=useState(10);
   const [isNewVehicleOpen, setIsNewVehicleOpen] = useState(false);
   const [transfersOpen,setTransfersOpen]=useState(false);
   const deferredSearch=useDeferredValue(searchQuery);
@@ -62,7 +63,7 @@ export const VehiclesListPage: React.FC = () => {
   const locationCounts=useVehicleLocationCountsQuery(implicitAgencyId,inventoryView).data;
   const vehicles = vehiclesQuery.data?.items ?? [];
   const filteredTotal=vehiclesQuery.data?.total??0;
-  const totalPages=Math.max(1,vehiclesQuery.data?.totalPages??1),pageNumbers=Array.from(new Set([1,totalPages,page-1,page,page+1].filter(value=>value>=1&&value<=totalPages))).sort((a,b)=>a-b);
+  const totalPages=Math.max(1,vehiclesQuery.data?.totalPages??1);
   const brands=filterOptionsQuery.data?.brands??[],models=filterOptionsQuery.data?.models??[],locations=filterOptionsQuery.data?.locations??[];
   useEffect(()=>setPage(1),[deferredSearch,selectedStatus,inventoryView,selectedFuel,selectedType,selectedBrand,selectedModel,onlyDormant,locationType,assignment,minPrice,maxPrice,sort,implicitAgencyId]);
   useEffect(()=>{if(vehiclesQuery.data&&page>Math.max(1,vehiclesQuery.data.totalPages))setPage(Math.max(1,vehiclesQuery.data.totalPages))},[vehiclesQuery.data,page]);
@@ -399,7 +400,7 @@ export const VehiclesListPage: React.FC = () => {
         </Card>
       )}
 
-      {!vehiclesQuery.isLoading&&!vehiclesQuery.isError&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3 text-xs"><span>{filteredTotal===0?'Affichage 0 sur 0':`Affichage ${(page-1)*pageSize+1}–${Math.min(page*pageSize,filteredTotal)} sur ${filteredTotal}`}</span><div className="flex items-center gap-1"><Button size="xs" variant="outline" disabled={page<=1} onClick={()=>setPage(value=>value-1)}>Précédent</Button>{pageNumbers.map((value,index)=><React.Fragment key={value}>{index>0&&value-pageNumbers[index-1]!>1&&<span>…</span>}<Button size="xs" variant={value===page?'primary':'outline'} onClick={()=>setPage(value)}>{value}</Button></React.Fragment>)}<Button size="xs" variant="outline" disabled={page>=totalPages} onClick={()=>setPage(value=>value+1)}>Suivant</Button></div></div>}
+      {!vehiclesQuery.isLoading&&!vehiclesQuery.isError&&<ServerPagination page={page} pageSize={pageSize} total={filteredTotal} totalPages={totalPages} loading={vehiclesQuery.isFetching} label="véhicule(s)" onPageChange={setPage} onPageSizeChange={size=>{setPageSize(size);setPage(1)}}/>}
 
       {/* New Vehicle Modal */}
       <NewVehicleModal

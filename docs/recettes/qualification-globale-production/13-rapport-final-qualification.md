@@ -1,5 +1,7 @@
 # Rapport final de qualification
 
-Verdict courant : **NON QUALIFIÉ POUR LA PRODUCTION — TRAVAUX EN COURS**.
+Verdict de la mission de conformité des workflows : **CORRECTIONS IMPLÉMENTÉES ET RECETTES CIBLÉES VALIDÉES**.
 
-L'environnement isolé et une correction RBAC critique sont effectifs, mais les recettes E2E transversales, la qualification exhaustive module par module, les performances et la modernisation de tous les tests anciens ne sont pas terminées. Ce verdict ne pourra devenir favorable qu'avec les preuves exigées dans les documents 08 à 12.
+Trois restrictions incompatibles ont été retirées : rallonges budgétaires, rémunérations salariés et rémunérations prestataires. Le RBAC dynamique, `OWN|AGENCY`, les sessions fortes, statuts, transactions, verrous, idempotence et audits sont préservés. Les recettes MySQL impactées et les contrats transversaux sont verts. Aucun commit, push ou déploiement n'a été effectué.
+
+Preuves finales : backend 2 171 tests, 0 échec ; frontend 1 060 tests, 0 échec ; trois recettes MySQL impactées réussies sans ignore ; lints TypeScript et build Vite réussis ; `git diff --check` réussi. Les 104 intégrations gardées par la commande standard conservent leur couverture explicite MySQL/WSS.

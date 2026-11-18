@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readContractFileSync as readFileSync } from './helpers/source-contract';
 import { test } from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
@@ -38,7 +38,8 @@ test('le frontend résout les URL /uploads sur l’origine backend',()=>{
 
 test('les statuts réservée, vendue et livrée ne sont jamais proposés manuellement',()=>{
   const detail=read('../src/modules/vehicles/VehicleDetailPage.tsx');
-  assert.match(detail,/administrableStatuses:VehicleStatus\[\]=\['COMMANDE','EN_TRANSIT','RECEPTIONNE','PREPARATION','DISPONIBLE'\]/);
+  assert.match(detail,/administrableStatuses:VehicleStatus\[\]=\['COMMANDE','EN_TRANSIT','RECEPTIONNE','PREPARATION','DISPONIBLE',?\]/);
   assert.match(detail,/administrableStatuses\.includes\(vehicle\.status\)/);
-  assert.doesNotMatch(detail,/administrableStatuses[^\n]+(?:RESERVE|VENDU|LIVRE)/);
+  const declaration=detail.slice(detail.indexOf('const administrableStatuses'),detail.indexOf('const manualStatusOptions'));
+  assert.doesNotMatch(declaration,/(?:RESERVE|VENDU|LIVRE)/);
 });

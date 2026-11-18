@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../services/apiClient";
+type PagedResult<T>={items:T[];total:number;page:number;pageSize:number;totalPages:number};
 export type TreasuryAccount = {
   id: string;
   name: string;
@@ -509,9 +510,9 @@ export function useBankStatement(id: string) {
 }
 export function useBankStatementHistory(id:string){return useQuery({queryKey:["treasury","bank-statements",id,"history"],queryFn:()=>apiRequest<Array<{id:string;action:string;reason:string|null;actor_name:string|null;created_at:string}>>(`/treasury/bank-statements/${id}/history`),enabled:Boolean(id)})}
 export function useBankReconciliationDashboard(enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','dashboard'],queryFn:()=>apiRequest<any>('/treasury/bank-reconciliation/dashboard'),enabled})}
-export function useBankReconciliationGroups(enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','groups'],queryFn:()=>apiRequest<any[]>('/treasury/bank-reconciliation/groups'),enabled})}
-export function useBankDiscrepancies(enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','discrepancies'],queryFn:()=>apiRequest<any[]>('/treasury/bank-reconciliation/discrepancies'),enabled})}
-export function useBankUnmatched(enabled=true){return useQuery({queryKey:['treasury','bank-unmatched'],queryFn:()=>apiRequest<any[]>('/treasury/bank-unmatched'),enabled})}
+export function useBankReconciliationGroups(page=1,pageSize=10,enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','groups',page,pageSize],queryFn:()=>apiRequest<PagedResult<any>>(`/treasury/bank-reconciliation/groups?page=${page}&pageSize=${pageSize}`),enabled})}
+export function useBankDiscrepancies(page=1,pageSize=10,enabled=true){return useQuery({queryKey:['treasury','bank-reconciliation','discrepancies',page,pageSize],queryFn:()=>apiRequest<PagedResult<any>>(`/treasury/bank-reconciliation/discrepancies?page=${page}&pageSize=${pageSize}`),enabled})}
+export function useBankUnmatched(page=1,pageSize=10,enabled=true){return useQuery({queryKey:['treasury','bank-unmatched',page,pageSize],queryFn:()=>apiRequest<PagedResult<any>>(`/treasury/bank-unmatched?page=${page}&pageSize=${pageSize}`),enabled})}
 export function useBankImportProfiles(enabled=true){return useQuery({queryKey:['treasury','bank-import-profiles'],queryFn:()=>apiRequest<any[]>('/treasury/bank-import-profiles'),enabled})}
 export function useBankExtractionDiagnostics(enabled=true){return useQuery({queryKey:['treasury','bank-extraction','diagnostics'],queryFn:()=>apiRequest<any>('/treasury/bank-extraction/diagnostics'),enabled})}
 export function useBankProposals(lineId: string) {

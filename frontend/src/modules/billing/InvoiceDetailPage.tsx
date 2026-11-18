@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Printer } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useBillingAction,
+  useInvoiceCreditsQuery,
   useInvoicePaymentsQuery,
   useInvoiceRefundsQuery,
   useInvoiceQuery,
@@ -33,7 +34,7 @@ import {
 import type { CreditNote, InvoicePayment } from "../../types";
 import { businessArchiveStatusLabel } from "../../services/businessArchiveStatus";
 import { openOfficialPdf } from "../../services/businessPdf";
-import { useClientPagination } from "../../components/common/ClientPagination";
+import { ServerPagination } from "../../components/common/ServerPagination";
 
 export const InvoiceDetailPage: React.FC = () => {
   const { id } = useParams(),
@@ -48,9 +49,11 @@ export const InvoiceDetailPage: React.FC = () => {
     canCancel = can("billing.invoice.cancel"),
     canCancelPayment = can("billing.payment.cancel"),
     canRefund = can("billing.payment.refund");
+  const [paymentPage,setPaymentPage]=useState(1),[paymentPageSize,setPaymentPageSize]=useState(10),[refundPage,setRefundPage]=useState(1),[refundPageSize,setRefundPageSize]=useState(10),[creditPage,setCreditPage]=useState(1),[creditPageSize,setCreditPageSize]=useState(10);
   const query = useInvoiceQuery(id, agencyId, canView),
-    paymentsQuery = useInvoicePaymentsQuery(id, canViewPayments),
-    refundsQuery = useInvoiceRefundsQuery(id, canViewPayments),
+    paymentsQuery = useInvoicePaymentsQuery(id,paymentPage,paymentPageSize,canViewPayments),
+    refundsQuery = useInvoiceRefundsQuery(id,refundPage,refundPageSize,canViewPayments),
+    creditsQuery = useInvoiceCreditsQuery(id,creditPage,creditPageSize,canViewPayments),
     action = useBillingAction(),
     toast = useUiStore((s) => s.addToast);
   const [modal, setModal] = useState<"credit" | "cancel" | "">(""),
@@ -65,16 +68,6 @@ export const InvoiceDetailPage: React.FC = () => {
     });
   const invoice = query.data,
     pending = action.isPending;
-  const refundPage = useClientPagination(
-    refundsQuery.data ?? [],
-    undefined,
-    "remboursement(s)",
-  );
-  const creditPage = useClientPagination(
-    invoice?.creditNotes ?? [],
-    undefined,
-    "avoir(s)",
-  );
   const Button = (props: React.ComponentProps<typeof BaseButton>) => (
     <BaseButton
       {...props}
@@ -200,7 +193,7 @@ export const InvoiceDetailPage: React.FC = () => {
       },
     });
   };
-  const availableCredits = (invoice.creditNotes ?? []).filter(
+  const availableCredits = (creditsQuery.data?.items ?? []).filter(
     (item) =>
       ["issued", "applied"].includes(item.status) &&
       item.refundableRemaining > 0,
@@ -511,20 +504,21 @@ export const InvoiceDetailPage: React.FC = () => {
         <Card>
           <h2 className="mb-3 font-bold">Historique des règlements</h2>
           <InvoicePaymentHistory
-            payments={paymentsQuery.data ?? invoice.payments}
+            payments={paymentsQuery.data?.items ?? []}
             canRecoverReceipt={canPay}
             canRefund={canRefund && availableCredits.length > 0}
             canCancel={canCancelPayment}
             onRefund={openRefund}
             onCancel={cancelPayment}
+            pagination={<ServerPagination page={paymentPage} pageSize={paymentPageSize} total={paymentsQuery.data?.total??0} totalPages={paymentsQuery.data?.totalPages} loading={paymentsQuery.isFetching} label="règlement(s)" onPageChange={setPaymentPage} onPageSizeChange={size=>{setPaymentPageSize(size);setPaymentPage(1)}}/>}
           />
         </Card>
       )}
-      {canViewPayments && Boolean(refundsQuery.data?.length) && (
+      {canViewPayments && Boolean(refundsQuery.data?.total) && (
         <Card>
           <h2 className="mb-3 font-bold">Remboursements</h2>
           <div className="space-y-2">
-            {refundPage.visible.map((refund) => (
+            {refundsQuery.data?.items.map((refund) => (
               <div
                 key={refund.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-sm"
@@ -564,15 +558,15 @@ export const InvoiceDetailPage: React.FC = () => {
               </div>
             ))}
           </div>
-          {refundPage.controls}
+          <ServerPagination page={refundPage} pageSize={refundPageSize} total={refundsQuery.data?.total??0} totalPages={refundsQuery.data?.totalPages} loading={refundsQuery.isFetching} label="remboursement(s)" onPageChange={setRefundPage} onPageSizeChange={size=>{setRefundPageSize(size);setRefundPage(1)}}/>
         </Card>
       )}
       {(canViewPayments || canCancel || canRefund) && (
         <Card>
           <h2 className="mb-3 font-bold">Avoirs</h2>
-          {invoice.creditNotes?.length ? (
+          {creditsQuery.data?.items.length ? (
             <div className="space-y-2">
-              {creditPage.visible.map((item) => {
+              {creditsQuery.data.items.map((item) => {
                 const recoverable =
                   item.archiveStatus === "MISSING_RECORD" ||
                   item.archiveStatus === "HISTORICAL_ONLY";
@@ -633,7 +627,7 @@ export const InvoiceDetailPage: React.FC = () => {
           ) : (
             <p className="text-sm text-slate-500">Aucun avoir.</p>
           )}
-          {invoice.creditNotes?.length ? creditPage.controls : null}
+          {creditsQuery.data?.total ? <ServerPagination page={creditPage} pageSize={creditPageSize} total={creditsQuery.data.total} totalPages={creditsQuery.data.totalPages} loading={creditsQuery.isFetching} label="avoir(s)" onPageChange={setCreditPage} onPageSizeChange={size=>{setCreditPageSize(size);setCreditPage(1)}}/> : null}
         </Card>
       )}
       <Modal

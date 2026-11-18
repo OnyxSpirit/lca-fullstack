@@ -24,15 +24,15 @@ test('REC-CRM-01..05 le sélecteur Réceptionniste ne propose que les commerciau
 });
 
 test('REC-CRM-10/11 l’UI gouverne l’affectation avec crm.prospect.assign',()=>{
-  const page=read('../src/modules/crm/CrmPage.tsx');
-  assert.match(page,/canAssignLead=can\('crm\.prospect\.assign'\)/);
+  const page=read('../src/modules/crm/CrmPage.tsx').replace(/\s+/g,'');
+  assert.match(page,/canAssignLead=can\("crm\.prospect\.assign"\)/);
   assert.match(page,/canAssignLead\?\{assignedUserId:editLead\.assignedToId\}/);
   assert.match(page,/!canUpdateLead&&canAssignLead&&!editLead\.assignedToId/);
 });
 
 test('REC-CRM-12/13 les parcours commerciaux restent disponibles',()=>{
-  const page=read('../src/modules/crm/CrmPage.tsx');
-  assert.match(page,/canUpdateStage = can\('crm\.pipeline\.advance'\)/);
+  const page=read('../src/modules/crm/CrmPage.tsx').replace(/\s+/g,'');
+  assert.match(page,/canUpdateStage=can\("crm\.pipeline\.advance"\)/);
   assert.match(page,/canUpdateStage/);
   assert.doesNotMatch(page,/isReceptionist|isSalesManager/);
 });

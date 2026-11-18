@@ -8,5 +8,5 @@ const crm=readFileSync(new URL('../../frontend/src/modules/crm/CrmPage.tsx',impo
 test('un devis en négociation non émis reste émissible et conserve son statut',()=>{
   assert.match(service,/\['draft','negotiation'\]\.includes\(String\(quotation\.status\)\)/);
   assert.match(service,/nextStatus=quotation\.status==='draft'\?'sent':'negotiation'/);
-  assert.match(crm,/!quotation\.identitySnapshot&&\['draft','negotiation'\]\.includes\(quotation\.status\)/);
+  assert.match(crm,/!quotation\.identitySnapshot\s*&&\s*\[["']draft["'],\s*["']negotiation["']\]\.includes\(\s*quotation\.status,?\s*\)/);
 });

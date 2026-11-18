@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract';
 
 const read=(path:string)=>readFileSync(new URL(`../src/${path}`,import.meta.url),'utf8');
 
 test('Lot 2: les query keys des trois listes Pièces incluent page, pageSize et filtres',()=>{
   const hooks=read('api/erpHooks.ts');
   assert.match(hooks,/erpKeys\.parts,'page',agencyId,filters/);
-  assert.match(hooks,/\['purchase-orders',agencyId,'page',page,7\]/);
+  assert.match(hooks,/\['purchase-orders',agencyId,'page',page,pageSize\]/);
   assert.match(hooks,/\['parts',id,'movements',agencyId,filters\]/);
 });
 

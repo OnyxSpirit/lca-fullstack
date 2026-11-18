@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readContractFileSync as readFileSync } from './helpers/source-contract';
 
 const panel=readFileSync(new URL('../src/modules/treasury/AccountingEntriesPanel.tsx',import.meta.url),'utf8');
 const hooks=readFileSync(new URL('../src/api/accountingEntryHooks.ts',import.meta.url),'utf8');

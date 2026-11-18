@@ -28,10 +28,10 @@ test('GED-PAGE-01..11 utilise dix documents et conserve pagination et resets',()
  assert.match(ged,/setPage\(\(x\)=>x\+1\)/);
 });
 
-test('HR-PAGE-01..08 conserve vingt et remet à un pour les trois filtres Personnel',()=>{
- assert.match(hr,/useEmployeesQuery\(\{search,status,agencyId,page,pageSize:20\}/);
+test('HR-PAGE-01..08 conserve la taille réglable et remet à un pour les trois filtres Personnel',()=>{
+ assert.match(hr,/useEmployeesQuery\(\{search,status,agencyId,page,pageSize:employeePageSize\}/);
  assert.match(hr,/setSearch=\{\(value\)=>\{setPage\(1\);setSearch\(value\);?\}\}/);
  assert.match(hr,/setStatus=\{\(value\)=>\{setPage\(1\);setStatus\(value\);?\}\}/);
  assert.match(hr,/setAgencyId=\{\(value\)=>\{setPage\(1\);setAgencyId\(value\);?\}\}/);
- assert.match(hr,/page\*20>=\(employees\.data\?\.total\?\?0\)/);
+ assert.match(hr,/ServerPagination/);
 });

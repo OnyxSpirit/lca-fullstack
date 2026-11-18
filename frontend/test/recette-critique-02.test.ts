@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract';
 import {test} from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
@@ -9,8 +9,8 @@ test('GED-VEH-01..08 réutilise le dépôt central avec rattachement véhicule v
   assert.match(detail,/canUploadDocuments=can\('ged\.upload'\)/);
   assert.match(detail,/Ajouter un document/);
   assert.match(detail,/initialEntity=\{\{entityType:'vehicle',entityId:vehicle\.id/);
-  assert.match(detail,/onSuccess=\{\(\)=>void vehicleQuery\.refetch\(\)\}/);
-  assert.match(detail,/import \{ UploadModal \} from '\.\.\/documents\/DocumentsGedPage'/);
+  assert.match(detail,/onSuccess=\{\(\)=>voidvehicleQuery\.refetch\(\)\}/);
+  assert.match(detail,/import\{UploadModal\}from'\.\.\/documents\/DocumentsGedPage'/);
   assert.match(ged,/export function UploadModal/);
   assert.match(ged,/useUploadDocument\(\)/);
 });

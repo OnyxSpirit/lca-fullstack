@@ -4,6 +4,7 @@ import {test} from 'node:test';
 import {appointmentDateError,appointmentIso,parseLocalAppointment} from '../src/modules/crm/crmAppointmentPolicy.js';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
+const compact=(value:string)=>value.replace(/\s+/g,'');
 
 test('COM-RM-01 valide date et heure, explique le blocage et produit un instant ISO',()=>{
   const now=new Date('2099-09-09T10:00:00Z');
@@ -30,10 +31,10 @@ test('RDV-03/04/07 interprète datetime-local explicitement dans le fuseau Afric
 });
 
 test('COM-RM-04 expose commercial, étape et priorité avec la permission dynamique et les envoie au backend',()=>{
-  const page=read('../src/modules/crm/CrmPage.tsx'),hooks=read('../src/api/erpHooks.ts');
+  const page=compact(read('../src/modules/crm/CrmPage.tsx')),hooks=read('../src/api/erpHooks.ts');
   assert.match(page,/canAssignLead&&/);
-  assert.match(page,/Filtrer par étape/);
-  assert.match(page,/Filtrer par commercial/);
+  assert.match(page,/Filtrerparétape/);
+  assert.match(page,/Filtrerparcommercial/);
   assert.match(hooks,/params\.set\("stage", stage\)/);
   assert.match(hooks,/params\.set\("commercialId", commercialId\)/);
 });
@@ -46,10 +47,10 @@ test('COM-RM-05 conditionne la gestion d’équipe par crm.prospect.assign',()=>
 });
 
 test('le devis exige quotations.validate, expose le PDF et conserve le propriétaire',()=>{
-  const page=read('../src/modules/crm/CrmPage.tsx'),pdf=read('../src/services/businessPdf.ts');
-  assert.match(page,/canValidateQuotation&&!quotation\.identitySnapshot&&\['draft','negotiation'\]\.includes\(quotation\.status\)/);
-  assert.match(page,/Émettre le devis/);
+  const page=compact(read('../src/modules/crm/CrmPage.tsx')),pdf=read('../src/services/businessPdf.ts');
+  assert.match(page,/canValidateQuotation&&!quotation\.identitySnapshot&&\["draft","negotiation"\]\.includes\(quotation\.status,?\)/);
+  assert.match(page,/Émettreledevis/);
   assert.match(page,/useValidateQuotation/);
-  assert.match(page,/openBusinessPdf\('quotation'/);
+  assert.match(page,/openBusinessPdf\("quotation"/);
   assert.match(pdf,/\/quotations\/\$\{id\}\/pdf/);
 });

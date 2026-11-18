@@ -16,7 +16,6 @@ import { useUiStore } from "../../stores/uiStore";
 import type { InvoicePayment } from "../../types";
 import { canCollectInvoicePayment } from "./invoicePaymentPolicy";
 import { useAuthStore } from "../../stores/authStore";
-import { useClientPagination } from "../../components/common/ClientPagination";
 
 type PaymentTarget = { id: string; status: string; remainingAmountTTC: number };
 
@@ -323,6 +322,7 @@ export const InvoicePaymentHistory: React.FC<{
   canRecoverReceipt?: boolean;
   onRefund?: (payment: InvoicePayment) => void;
   onCancel?: (payment: InvoicePayment) => void;
+  pagination?: React.ReactNode;
 }> = ({
   payments = [],
   canRefund = false,
@@ -330,6 +330,7 @@ export const InvoicePaymentHistory: React.FC<{
   canRecoverReceipt = false,
   onRefund,
   onCancel,
+  pagination,
 }) => {
   const toast = useUiStore((s) => s.addToast),
     archive = useBillingAction(),
@@ -378,7 +379,6 @@ export const InvoicePaymentHistory: React.FC<{
         });
       }
     };
-  const paymentPage = useClientPagination(payments, undefined, "règlement(s)");
   return payments.length ? (
     <>
       <div className="overflow-x-auto">
@@ -399,7 +399,7 @@ export const InvoicePaymentHistory: React.FC<{
           </tr>
         </thead>
         <tbody>
-          {paymentPage.visible.map((item) => {
+          {payments.map((item) => {
             const recoverable =
               item.receiptArchiveStatus === "MISSING_RECORD" ||
               item.receiptArchiveStatus === "HISTORICAL_ONLY";
@@ -520,7 +520,7 @@ export const InvoicePaymentHistory: React.FC<{
         </tbody>
         </table>
       </div>
-      {paymentPage.controls}
+      {pagination}
     </>
   ) : (
     <p className="text-sm text-slate-500">Aucun règlement.</p>

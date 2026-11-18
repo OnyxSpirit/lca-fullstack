@@ -3,13 +3,14 @@ import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
+const compact=(value:string)=>value.replace(/\s+/g,'');
 
 test('CRM affiche les actions avec les permissions dynamiques',()=>{
-  const page=read('../src/modules/crm/CrmPage.tsx');
-  for(const permission of ['crm.prospect.create','crm.prospect.update','crm.prospect.assign','crm.pipeline.advance','crm.prospect.lose','crm.activity.view','crm.activity.create','crm.appointment.create','crm.test_drive.create','quotations.create'])assert.match(page,new RegExp(`can\\('${permission.replaceAll('.','\\.')}'\\)`));
+  const page=compact(read('../src/modules/crm/CrmPage.tsx'));
+  for(const permission of ['crm.prospect.create','crm.prospect.update','crm.prospect.assign','crm.pipeline.advance','crm.prospect.lose','crm.activity.view','crm.activity.create','crm.appointment.create','crm.test_drive.create','quotations.create'])assert.match(page,new RegExp(`can\\("${permission.replaceAll('.','\\.')}"\\)`));
   assert.doesNotMatch(page,/roles\.includes|roles\.some|isSalesManager|isReceptionist|SALES_AGENT|SALES_MANAGER|RECEPTIONIST|DIRECTION|DIRECTOR/);
-  assert.match(page,/\{canCreateLead&&<Button/);
-  assert.match(page,/\(canUpdateLead\|\|canAssignLead\)&&!selectedLead\.isArchived&&<Button/);
+  assert.match(page,/\{canCreateLead&&\(<Button/);
+  assert.match(page,/\(canUpdateLead\|\|canAssignLead\)&&!selectedLead\.isArchived&&\(<Button/);
 });
 
 test('le formulaire de création ne déduit plus l’affectation depuis un rôle',()=>{
@@ -19,8 +20,8 @@ test('le formulaire de création ne déduit plus l’affectation depuis un rôle
 });
 
 test('la chronologie CRM ne charge pas sans crm.activity.view',()=>{
-  const page=read('../src/modules/crm/CrmPage.tsx'),hooks=read('../src/api/erpHooks.ts');
-  assert.match(page,/useLeadActivitiesQuery\(selectedLead\?\.id,canViewActivities\)/);
+  const page=compact(read('../src/modules/crm/CrmPage.tsx')),hooks=compact(read('../src/api/erpHooks.ts'));
+  assert.match(page,/useLeadActivitiesQuery\(selectedLead\?\.id,canViewActivities,?\)/);
   assert.match(hooks,/useLeadActivitiesQuery=\(leadId\?:string,requestEnabled=true\)/);
 });
 

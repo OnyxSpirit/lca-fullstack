@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract';
 
 const crm=readFileSync(new URL('../src/modules/crm/CrmPage.tsx',import.meta.url),'utf8');
 const hooks=readFileSync(new URL('../src/api/erpHooks.ts',import.meta.url),'utf8');

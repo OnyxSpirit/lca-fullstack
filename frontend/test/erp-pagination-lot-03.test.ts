@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import{test}from'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
@@ -20,8 +20,8 @@ test('SHOWROOM-DATE-01..12 propose tous, aujourd’hui et période inclusive',()
 });
 
 test('DELIVERY-VIEW/PAG-01..14 partage source, actions et filtres entre cartes et liste',()=>{
- assert.match(delivery,/useDeliveriesPageQuery\(\{search:deferredSearch,status,sortBy,sortOrder,page,pageSize:7\}/);
+ assert.match(delivery,/useDeliveriesPageQuery\(\{search:deferredSearch,status,sortBy,sortOrder,page,pageSize\}/);
  assert.match(delivery,/view==='cards'/);assert.match(delivery,/>Cartes</);assert.match(delivery,/>Liste</);
  assert.equal((delivery.match(/const DeliveryActions=/g)??[]).length,1);assert.match(delivery,/useEffect\(\(\)=>setPage\(1\),\[deferredSearch,status\]\)/);
- assert.match(delivery,/Aucune livraison ne correspond aux filtres/);assert.match(delivery,/Page \{page\} \/ \{Math\.max\(1,totalPages\)\}/);
+ assert.match(delivery,/Aucune livraison ne correspond aux filtres/);assert.match(delivery,/ServerPagination/);
 });

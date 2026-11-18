@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract';
 import {test} from 'node:test';
 import {canNavigateToRoute,hasPermission,visibleNotificationTypes} from '../src/navigation/permissions.js';
 import {eligibleShowroomSalesUsers,showroomVisitorErrors} from '../src/modules/showroom/showroomPolicy.js';
@@ -12,11 +12,11 @@ test('REC-01 le réceptionniste lit le stock sans commandes de mutation',()=>{
   assert.equal(hasPermission([...receptionist],'vehicles.update'),false);
   const page=read('../src/modules/vehicles/VehicleDetailPage.tsx');
   assert.match(page,/canChangeStatus=can\('vehicles\.status\.update'\)/);
-  assert.match(page,/canChangeStatus&&!stockLocked&&manualStatusOptions\.length>0&&<select/);
-  assert.match(page,/canManageImages&&!stockLocked&&<div/);
-  assert.match(page,/canCreateSale&&vehicle\.status==='DISPONIBLE'&&<Button/);
-  assert.match(page,/canCreateRepairOrder&&<Button/);
-  assert.match(page,/tab\.key!=='documents'\|\|canViewDocuments/);
+  assert.match(page,/canChangeStatus&&!stockLocked&&manualStatusOptions\.length>0&&\(<select/);
+  assert.match(page,/canManageImages&&!stockLocked&&\(<div/);
+  assert.match(page,/canCreateSale&&vehicle\.status==='DISPONIBLE'&&\(<Button/);
+  assert.match(page,/canCreateRepairOrder\s*&&\s*\(\s*<Button/);
+  assert.match(page,/tab\.key\s*!==\s*["']documents["']\s*\|\|\s*canViewDocuments/);
   assert.match(page,/Prix de vente concession HT/);
 });
 

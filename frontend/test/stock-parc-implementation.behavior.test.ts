@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract';
 import test from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
@@ -15,8 +15,8 @@ const reports=read('../src/modules/reports/ReportsPage.tsx');
 const hooks=read('../src/api/erpHooks.ts');
 
 test('LIST UI compteurs, affectation précise, état vide et pagination serveur',()=>{
-  for(const token of ['Parc automobile','Showroom','Non affectés','Toutes les affectations','Non affecté','Affichage','Précédent','Suivant'])assert.match(list,new RegExp(token));
-  assert.match(list,/pageSize=20/);
+  for(const token of ['Parc automobile','Showroom','Non affectés','Toutes les affectations','Non affecté','ServerPagination'])assert.match(list,new RegExp(token));
+  assert.match(list,/useState\(10\)/);
   assert.match(list,/useEffect\(\(\)=>setPage\(1\)/);
   assert.match(list,/Aucun véhicule ne correspond à vos critères/);
 });

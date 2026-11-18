@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readContractFileSync as readFileSync} from './helpers/source-contract';
 import test from 'node:test';
 const source=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
 const list=source('src/modules/parts/SparePartsPage.tsx'),detail=source('src/modules/parts/SparePartDetailPage.tsx'),hooks=source('src/api/erpHooks.ts'),workshop=source('src/modules/service/RepairOrderDetailPage.tsx');
 test('PARTS-FE-01 catalogue ne charge pas sans permission',()=>assert.match(list,/usePartsPageQuery\([^;]+canViewCatalog\)/));
-test('PARTS-FE-02 commandes ne chargent pas sans permission',()=>assert.match(list,/usePurchaseOrdersQuery\(agency\?\.id,orderPage,canViewOrders\)/));
+test('PARTS-FE-02 commandes ne chargent pas sans permission',()=>assert.match(list,/usePurchaseOrdersQuery\(agency\?\.id,orderPage,orderPageSize,canViewOrders\)/));
 test('PARTS-FE-03 mouvements ne chargent pas sans stock.view',()=>assert.match(detail,/usePartMovementsQuery\([^;]+canViewStock\)/));
 test('PARTS-FE-04 inventaire utilise inventory.manage',()=>assert.match(detail,/canInventory=can\('parts\.inventory\.manage'\)/));
 test('PARTS-FE-05 ajustement utilise stock.adjust',()=>assert.match(detail,/canAdjust=can\('parts\.stock\.adjust'\)/));

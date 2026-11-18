@@ -11,8 +11,8 @@ const page=source('../frontend/src/modules/crm/CrmPage.tsx');
 test('VALID-ERP-02 activité CRM : auteur de session et responsable restent distincts',()=>{
   assert.match(crm,/assigned_user_id,created_by,type/);
   assert.match(crm,/locked\.assigned_user_id,request\.user!\.sub,type/);
-  assert.match(page,/Auteur : \{activity\.createdByName\|\|'Auteur non renseigné'\}/);
-  assert.match(page,/Responsable : \{activity\.assignedUserName\|\|'Non affecté'\}/);
+  assert.match(page,/Auteur :\s*\{["'] ["']\}\s*\{activity\.createdByName\s*\|\|\s*["']Auteur non renseigné["']\}/);
+  assert.match(page,/Responsable :\s*\{activity\.assignedUserName\s*\|\|\s*["']Non affecté["']\}/);
 });
 
 test('VALID-ERP-02 conversion : une entreprise reste un client entreprise',()=>{

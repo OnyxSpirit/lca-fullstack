@@ -4,21 +4,22 @@ import test from 'node:test';
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
 const page=read('src/modules/crm/CrmPage.tsx');
+const compactPage=page.replace(/\s+/g,'');
 const hooks=read('src/api/erpHooks.ts');
 const bootstrap=read('src/components/AppBootstrap.tsx');
 
 test('CRM-NEG-09 Pipeline reflète Gagné et Perdu',()=>{
-  assert.match(page,/stage: 'GAGNE', label: 'Gagné \(Vente\)'/);
-  assert.match(page,/stage: 'PERDU', label: 'Perdu'/);
-  assert.match(page,/kanbanQueries\[kanbanDbStages\.indexOf/);
+  assert.match(compactPage,/stage:"GAGNE",label:"Gagné\(Vente\)"/);
+  assert.match(compactPage,/stage:"PERDU",label:"Perdu"/);
+  assert.match(compactPage,/kanbanQueries\[kanbanDbStages\.indexOf/);
 });
 
 test('CRM-NEG-10 la fiche et la vue Liste utilisent la même source autoritaire',()=>{
-  assert.match(page,/const leadsQuery=useLeadsPageQuery\(/);
-  assert.match(page,/pageSize\}/);
-  assert.match(page,/useState\(10\)/);
-  assert.match(page,/const filteredLeads = viewMode==='kanban'\?kanbanQueries\.flatMap/);
-  assert.match(page,/setSelectedLead\(lead\)/);
+  assert.match(compactPage,/constleadsQuery=useLeadsPageQuery\(/);
+  assert.match(compactPage,/pageSize\}/);
+  assert.match(compactPage,/useState\(10\)/);
+  assert.match(compactPage,/constfilteredLeads=viewMode==="kanban"\?kanbanQueries\.flatMap/);
+  assert.match(compactPage,/setSelectedLead\(lead\)/);
   assert.match(page,/Créer une vente/);
   assert.match(page,/Marquer comme perdu/);
 });
@@ -37,7 +38,7 @@ test('CRM-NEG-12 realtime recharge sans réinjecter un ancien état',()=>{
 });
 
 test('CRM-NEG permissions et préconditions sont visibles dans le détail',()=>{
-  assert.match(page,/canConvertQuotation=can\('quotations\.convert'\)&&can\('sales\.create'\)/);
-  assert.match(page,/canUpdateStage&&canLoseLead/);
+  assert.match(compactPage,/canConvertQuotation=can\("quotations\.convert"\)&&can\("sales\.create"\)/);
+  assert.match(compactPage,/canUpdateStage&&canLoseLead/);
   assert.match(page,/Un devis émis, archivé, non expiré et non déjà converti est requis/);
 });

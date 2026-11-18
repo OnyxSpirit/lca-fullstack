@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from'node:test';
 const read=(file:string)=>readFileSync(new URL(`../${file}`,import.meta.url),'utf8');
 const field=read('src/modules/hr/EmployeePhotoField.tsx'),drop=read('src/modules/documents/DocumentFileDropField.tsx'),page=read('src/modules/hr/HrAdministrationPage.tsx'),record=read('src/modules/hr/EmployeeRecordModal.tsx'),hooks=read('src/api/hrHooks.ts');

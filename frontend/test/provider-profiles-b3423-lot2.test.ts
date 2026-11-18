@@ -1,5 +1,5 @@
 import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
 import test from'node:test';
 const read=(file:string)=>readFileSync(new URL(`../${file}`,import.meta.url),'utf8');
 const page=read('src/modules/hr/HrAdministrationPage.tsx'),table=read('src/modules/hr/UnifiedPersonnelTable.tsx'),modal=read('src/modules/hr/ProviderProfileModal.tsx');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readContractFileSync as readFileSync } from './helpers/source-contract';
 import { test } from 'node:test';
 
 const readSource = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
@@ -17,7 +17,7 @@ for (const [moduleName, path, colSpan, emptyMessage, filteredMessage] of cases) 
 
     assert.match(source, /<thead/);
     assert.match(source, /<tbody/);
-    assert.ok(source.includes(`TableEmptyState colSpan={${colSpan}}`));
+    assert.match(source,new RegExp(`TableEmptyState(?:\\s|<[^>]+>)*colSpan=\\{${colSpan}\\}`));
     assert.match(source, /isLoading/);
     assert.match(source, /isError/);
     assert.ok(source.includes(emptyMessage));

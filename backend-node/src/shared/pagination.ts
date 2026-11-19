@@ -10,6 +10,11 @@ export function pageRequest(query:Record<string,unknown>,defaultPageSize=7):Page
   return{page:positiveInteger(query.page,1),pageSize:Math.min(100,positiveInteger(query.pageSize,defaultPageSize))};
 }
 
+export function standardPageRequest(query:Record<string,unknown>):PageRequest{
+  const request=pageRequest(query,10);
+  return{...request,pageSize:[10,20,50,100].includes(request.pageSize)?request.pageSize:10};
+}
+
 export function pageMeta(totalValue:unknown,request:PageRequest):PageMeta{
   const total=Math.max(0,Number(totalValue)||0),totalPages=Math.ceil(total/request.pageSize);
   const page=totalPages===0?1:Math.min(request.page,totalPages);

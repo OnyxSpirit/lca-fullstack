@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import {
   useBaySettingsActions,
@@ -203,7 +203,9 @@ export const BaysSettings = () => {
     actions = useBaySettingsActions(),
     toast = useUiStore((s) => s.addToast),
     [form, setForm] = useState({ name: "", bayType: "", capacity: 1 }),
-    [editing, setEditing] = useState<Bay | null>(null);
+    [editing, setEditing] = useState<Bay | null>(null),
+    [search,setSearch]=useState(''),[status,setStatus]=useState(''),[view,setView]=useState<'grid'|'list'>('grid');
+  const filtered=useMemo(()=>(q.data??[]).filter(b=>(!search.trim()||`${b.name} ${b.bay_type??''}`.toLowerCase().includes(search.trim().toLowerCase()))&&(!status||b.status===status)),[q.data,search,status]),bayPage=useClientPagination(filtered,undefined,'pont(s) / poste(s)');
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -274,8 +276,9 @@ export const BaysSettings = () => {
           <Button type="submit">{editing ? "Enregistrer" : "Créer"}</Button>
         </form>
       </Card>}
-      <div className="grid gap-3 md:grid-cols-2">
-        {q.data?.map((b) => (
+      <div className="flex flex-wrap gap-2"><label className="relative min-w-64 flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"/><input className={`${field} w-full pl-9`} placeholder="Rechercher un pont ou poste" value={search} onChange={e=>setSearch(e.target.value)}/></label><select className={field} value={status} onChange={e=>setStatus(e.target.value)}><option value="">Tous les statuts</option><option value="available">Disponible</option><option value="occupied">Occupé</option><option value="inactive">Inactif</option></select><Button variant={view==='grid'?'primary':'outline'} onClick={()=>setView('grid')}>Grille</Button><Button variant={view==='list'?'primary':'outline'} onClick={()=>setView('list')}>Liste</Button></div>
+      <div className={view==='grid'?"grid gap-3 md:grid-cols-2":"space-y-2"}>
+        {bayPage.visible.map((b) => (
           <Card key={b.id}>
             <div className="flex justify-between">
               <div>
@@ -315,6 +318,8 @@ export const BaysSettings = () => {
           </Card>
         ))}
       </div>
+      {!q.isLoading&&!filtered.length&&<Card className="text-center text-sm text-slate-500">Aucun pont ou poste ne correspond aux filtres.</Card>}
+      {bayPage.controls}
     </div>
   );
 };

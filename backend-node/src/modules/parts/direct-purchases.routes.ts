@@ -6,6 +6,7 @@ import{asyncHandler}from'../../middleware/error-handler.js';
 import{requireAgencyPermission as requirePermission,withCurrentAgencyAuthorization}from'../rbac/agency-authorization.js';
 import{emitToAgency}from'../../realtime/socket.js';
 import{HttpError}from'../../shared/http-error.js';
+import{pageMeta,standardPageRequest,paged}from'../../shared/pagination.js';
 
 export const directPartsPurchaseRouter=Router();
 const directTransaction=<T>(request:Request,permission:string,work:(connection:PoolConnection)=>Promise<T>)=>withCurrentAgencyAuthorization(request,async(connection,context)=>{if(!context.permissions.has(permission))throw new HttpError(403,'Permission achat direct insuffisante');return work(connection)});
@@ -17,8 +18,12 @@ async function scope(r:Request,permission:string,agencyId:string){const s=r.rbac
 
 directPartsPurchaseRouter.get('/part-direct-purchases',requirePermission('parts.direct_purchase.view'),asyncHandler(async(r,res)=>{
  const agencyId=String(r.query.agencyId??r.user!.agencyId);await scope(r,'parts.direct_purchase.view',agencyId);
- const rows=await query<RowDataPacket[]>(`SELECT p.*,s.name supplier_name,CONCAT_WS(' ',u.first_name,u.last_name) agent_name,COALESCE((SELECT SUM(x.amount) FROM part_direct_purchase_settlements x JOIN treasury_movements tm ON tm.id=x.treasury_movement_id WHERE x.direct_purchase_id=p.id AND NOT EXISTS(SELECT 1 FROM treasury_movements rev WHERE rev.reversal_of_id=tm.id)),0) settled_amount FROM part_direct_purchases p LEFT JOIN suppliers s ON s.id=p.supplier_id LEFT JOIN users u ON u.id=p.agent_id WHERE p.agency_id=? ORDER BY p.id DESC`,[agencyId]);
- res.json(rows.map(x=>({...x,total:Number(x.total),settled_amount:Number(x.settled_amount),balance_due:Math.max(0,Number(x.total)-Number(x.settled_amount))})));
+ const requested=standardPageRequest(r.query as Record<string,unknown>),where=['p.agency_id=?'],params:any[]=[agencyId],search=text(r.query.search,120),status=text(r.query.status,40),kind=text(r.query.purchaseKind,40),funding=text(r.query.fundingSource,40);
+ if(search){where.push('(p.purchase_number LIKE ? OR p.seller_name LIKE ? OR s.name LIKE ? OR CONCAT_WS(\' \',u.first_name,u.last_name) LIKE ?)');const value=`%${search}%`;params.push(value,value,value,value)}
+ if(status){where.push('p.status=?');params.push(status)}if(kind){where.push('p.purchase_kind=?');params.push(kind)}if(funding){where.push('p.funding_source=?');params.push(funding)}
+ const orderColumns:Record<string,string>={date:'p.created_at',number:'p.purchase_number',seller:'p.seller_name',total:'p.total',status:'p.status'},sort=orderColumns[String(r.query.sortBy??'date')]??orderColumns.date,direction=String(r.query.sortOrder).toLowerCase()==='asc'?'ASC':'DESC',from=`FROM part_direct_purchases p LEFT JOIN suppliers s ON s.id=p.supplier_id LEFT JOIN users u ON u.id=p.agent_id WHERE ${where.join(' AND ')}`;
+ const[count]=await query<RowDataPacket[]>(`SELECT COUNT(*) total ${from}`,params),meta=pageMeta(count?.total,requested),rows=await query<RowDataPacket[]>(`SELECT p.*,s.name supplier_name,CONCAT_WS(' ',u.first_name,u.last_name) agent_name,COALESCE((SELECT SUM(x.amount) FROM part_direct_purchase_settlements x JOIN treasury_movements tm ON tm.id=x.treasury_movement_id WHERE x.direct_purchase_id=p.id AND NOT EXISTS(SELECT 1 FROM treasury_movements rev WHERE rev.reversal_of_id=tm.id)),0) settled_amount ${from} ORDER BY ${sort} ${direction},p.id ${direction} LIMIT ? OFFSET ?`,[...params,meta.pageSize,meta.offset]);
+ res.json(paged(rows.map(x=>({...x,total:Number(x.total),settled_amount:Number(x.settled_amount),balance_due:Math.max(0,Number(x.total)-Number(x.settled_amount))})),count?.total,meta));
 }));
 
 directPartsPurchaseRouter.get('/part-direct-purchases/:id',requirePermission('parts.direct_purchase.view'),asyncHandler(async(r,res)=>{

@@ -37,3 +37,14 @@ La validation frontend finale a aussi détecté puis corrigé la disparition de 
 L'audit exhaustif des formulations, comparaisons d'identité, routes, helpers, tests, migrations et interfaces a confirmé trois restrictions actives : rallonges budgétaires, rémunérations salariés et rémunérations prestataires. Elles ont été retirées sans modifier les permissions ni les scopes. Les contrats ciblés réussissent 9/9 et les trois recettes MySQL RH/FIN impactées réussissent 3/3, sans ignore. Les tests couvrent l'acteur cumulant les permissions, l'absence de permission, l'inter-agence, la double décision et la concurrence.
 
 Résultats globaux après correction : backend 2 171 tests déclarés, 2 067 réussis, 0 échec, 104 gardés ; frontend 1 060/1 060 réussis, 0 échec, 0 ignoré. Les 104 gardés restent couverts par la campagne MySQL/WSS explicite et les trois recettes modifiées ont été rejouées réellement.
+
+## Clôture des paginations — 19 novembre 2026
+
+- Backend complet : 2 174 tests déclarés, 2 070 réussis, 0 échec, 104 gardés (383,1 s).
+- Frontend complet : 1 062/1 062 réussis, 0 échec, 0 ignoré (179,1 s).
+- QGP ciblé : backend 3 assertions et frontend 2 assertions réussies ; TypeScript des deux applications réussi.
+- MySQL ciblé réel : Fiscalité, FIN-02, FIN-04 et RH-FIX-04 réussis sans ignore. Une attente fiscale historique en tableau a été mise à jour vers le contrat paginé puis rejouée verte.
+- Build Docker de production : backend TypeScript et Vite réussis ; trois services `lca-codex-qualification` sains.
+# Complément pagination globale
+
+Les contrats automatisés `qgp-server-pagination.test.ts` couvrent désormais les tailles standard, les frontières de total, les achats directs, la fiscalité, les ventes directes, le transit SAV et la consommation des pages serveur par les écrans concernés. La matrice détaillée est disponible dans `14-matrice-pagination-globale.md`.

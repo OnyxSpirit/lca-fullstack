@@ -8,6 +8,7 @@ import {permissionScopePredicate} from '../rbac/scope-intersection.js';
 import {writeAudit} from '../activity/audit-writer.js';
 import {randomUUID} from 'node:crypto';
 import {financialCsv,type CsvValue} from '../reports/report.csv.js';
+import {pageMeta,paged,standardPageRequest} from '../../shared/pagination.js';
 
 export const savOperationsRouter=Router();
 const savTransaction=<T>(request:Request,permissions:string[],work:(connection:PoolConnection)=>Promise<T>)=>withCurrentAgencyAuthorization(request,async(connection,context)=>{if(!permissions.some(permission=>context.permissions.has(permission)))throw new HttpError(403,'Permission SAV insuffisante');return work(connection)});
@@ -44,9 +45,10 @@ savOperationsRouter.get('/sav/transit/destinations',requirePermission('service.t
 }));
 
 savOperationsRouter.get('/sav/transit',requirePermission('service.transit.view'),asyncHandler(async(req,res)=>{
- const scoped=scope(req,'service.transit.view','st');
- const transfers=await query<RowDataPacket[]>(`SELECT st.*,a.name agency_name,pm.code payment_method_code,pm.name payment_method_name,ta.name destination_account_name,ta.code destination_account_code,CONCAT_WS(' ',ui.first_name,ui.last_name) initiated_by_name,CONCAT_WS(' ',ud.first_name,ud.last_name) decided_by_name FROM sav_transit_transfers st JOIN agencies a ON a.id=st.agency_id LEFT JOIN payment_methods pm ON pm.id=st.payment_method_id LEFT JOIN treasury_accounts ta ON ta.id=st.destination_account_id JOIN users ui ON ui.id=st.initiated_by LEFT JOIN users ud ON ud.id=st.decided_by WHERE ${scoped.sql} ORDER BY st.initiated_at DESC,st.id DESC LIMIT 250`,scoped.params);
- res.json({balances:await transitBalances(req),transfers:transfers.map(row=>({...row,id:String(row.id),agency_id:String(row.agency_id),amount:Number(row.amount)}))});
+ const scoped=scope(req,'service.transit.view','st'),requested=standardPageRequest(req.query as Record<string,unknown>),search=text(req.query.search,120),status=text(req.query.status,40),where=[scoped.sql],params:any[]=[...scoped.params];
+ if(search){where.push('(st.transfer_number LIKE ? OR st.reference LIKE ?)');params.push(`%${search}%`,`%${search}%`)}if(status){where.push('st.status=?');params.push(status)}
+ const from=`FROM sav_transit_transfers st JOIN agencies a ON a.id=st.agency_id LEFT JOIN payment_methods pm ON pm.id=st.payment_method_id LEFT JOIN treasury_accounts ta ON ta.id=st.destination_account_id JOIN users ui ON ui.id=st.initiated_by LEFT JOIN users ud ON ud.id=st.decided_by WHERE ${where.join(' AND ')}`,[count]=await query<RowDataPacket[]>(`SELECT COUNT(*) total ${from}`,params),meta=pageMeta(count?.total,requested),transfers=await query<RowDataPacket[]>(`SELECT st.*,a.name agency_name,pm.code payment_method_code,pm.name payment_method_name,ta.name destination_account_name,ta.code destination_account_code,CONCAT_WS(' ',ui.first_name,ui.last_name) initiated_by_name,CONCAT_WS(' ',ud.first_name,ud.last_name) decided_by_name ${from} ORDER BY st.initiated_at DESC,st.id DESC LIMIT ? OFFSET ?`,[...params,meta.pageSize,meta.offset]);
+ res.json({balances:await transitBalances(req),transfers:paged(transfers.map(row=>({...row,id:String(row.id),agency_id:String(row.agency_id),amount:Number(row.amount)})),count?.total,meta)});
 }));
 
 savOperationsRouter.post('/sav/transit',requirePermission('service.transit.initiate'),asyncHandler(async(req,res)=>{

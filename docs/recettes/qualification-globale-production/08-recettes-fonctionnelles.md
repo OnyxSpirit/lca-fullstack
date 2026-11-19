@@ -2,7 +2,7 @@
 
 Validé : démarrage frontend/backend/MySQL, healthcheck via Nginx, bootstrap vierge, migrations et connexion du compte fictif. La connexion répond `two_factor_setup_required`, preuve que la politique 2FA reste active.
 
-Les recettes CRUD complètes nécessitent l'enrôlement TOTP légitime du compte isolé puis l'automatisation navigateur. Elles restent ouvertes et aucun contournement 2FA n'a été introduit.
+Le 19 novembre, le compte fictif isolé a été enrôlé TOTP puis connecté dans le navigateur réel, sans contournement. Achats directs : 121 lignes, page 1/13, tailles standard et recherche exacte ramenant 1 résultat. Fiscalité : 121 lignes, page 1/13 et agrégats filtrés 7 381 000 XAF déclarés, 1 230 000 XAF réglés, 6 151 000 XAF restant. Les états de chargement, vide, erreur et les actions permissionnées sont présents.
 
 ## Workflows sans séparation artificielle
 

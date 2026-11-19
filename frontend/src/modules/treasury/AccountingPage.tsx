@@ -49,6 +49,7 @@ import {
   MappingManagement,
 } from "./AccountingReferenceManagement";
 import { ServerPagination } from "../../components/common/ServerPagination";
+import { useClientPagination } from "../../components/common/ClientPagination";
 
 const labels: Record<string, string> = {
   BALANCE_SHEET: "Compte de bilan",
@@ -281,7 +282,8 @@ function Fiscal() {
         if (r.periodId) m.get(r.id).periods.push(r);
       }
       return [...m.values()];
-    }, [data.data]);
+    }, [data.data]),
+    yearPage = useClientPagination(years, undefined, "exercice(s) comptable(s)");
   return (
     <div className="space-y-4">
       {can("accounting.fiscal.manage") && (
@@ -327,7 +329,7 @@ function Fiscal() {
           <ErrorText error={create.error} />
         </Card>
       )}
-      {years.map((y) => (
+      {yearPage.visible.map((y) => (
         <Card key={y.id}>
           <div className="mb-3 flex justify-between">
             <div>
@@ -355,6 +357,7 @@ function Fiscal() {
           </p>
         </Card>
       )}
+      {yearPage.controls}
     </div>
   );
 }

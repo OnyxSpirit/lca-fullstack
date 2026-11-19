@@ -1,5 +1,5 @@
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {apiRequest} from '../../services/apiClient';
 import {useAuthStore} from '../../stores/authStore';
 import {useUiStore} from '../../stores/uiStore';
@@ -8,10 +8,11 @@ import {Button} from '../../components/ui/Button';
 import {Card} from '../../components/ui/Card';
 import {Modal} from '../../components/ui/Modal';
 import {promptAction} from '../../components/ui/BusinessDialog';
-import {useClientPagination} from '../../components/common/ClientPagination';
+import {ServerPagination} from '../../components/common/ServerPagination';
 
 type TaxType={id:string;code:string;label:string;is_active:boolean};
 type Obligation={id:string;reference:string;tax_label:string;period_start:string;period_end:string;due_date:string;declared_amount:number|null;paid_amount:number;currency_code:string;status:string};
+type ObligationPage={items:Obligation[];total:number;page:number;pageSize:number;totalPages:number;summary:{taxableBase:number;declaredAmount:number;paidAmount:number;outstandingAmount:number}};
 const field='w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs';
 const today=()=>new Date().toISOString().slice(0,10);
 const money=(value:number|null,currency='XAF')=>value==null?'—':`${new Intl.NumberFormat('fr-FR',{maximumFractionDigits:2}).format(value)} ${currency}`;
@@ -19,11 +20,13 @@ const money=(value:number|null,currency='XAF')=>value==null?'—':`${new Intl.Nu
 export default function FiscalAdministration(){
  const can=useAuthStore(s=>s.can),toast=useUiStore(s=>s.addToast),qc=useQueryClient();
  const[open,setOpen]=useState(false),[typeOpen,setTypeOpen]=useState(false);
+ const[page,setPage]=useState(1),[pageSize,setPageSize]=useState(10),[search,setSearch]=useState(''),[status,setStatus]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[taxTypeId,setTaxTypeId]=useState(''),[sortBy,setSortBy]=useState('dueDate'),[sortOrder,setSortOrder]=useState<'asc'|'desc'>('asc');
  const[typeForm,setTypeForm]=useState({code:'',label:'',authorityName:'',filingFrequency:'OTHER'});
  const[form,setForm]=useState({taxTypeId:'',reference:'',periodStart:`${new Date().getFullYear()}-01-01`,periodEnd:today(),dueDate:today(),taxableBase:'',declaredAmount:'',currencyCode:'XAF'});
  const types=useQuery({queryKey:['fiscal','types'],queryFn:()=>apiRequest<TaxType[]>('/fiscal/tax-types'),enabled:can('fiscal.obligation.view')});
- const obligations=useQuery({queryKey:['fiscal','obligations'],queryFn:()=>apiRequest<Obligation[]>('/fiscal/obligations'),enabled:can('fiscal.obligation.view')});
- const obligationPage=useClientPagination(obligations.data??[],undefined,'obligation(s) fiscale(s)');
+ const params=new URLSearchParams({page:String(page),pageSize:String(pageSize),sortBy,sortOrder});if(search.trim())params.set('search',search.trim());if(status)params.set('status',status);if(from)params.set('from',from);if(to)params.set('to',to);if(taxTypeId)params.set('taxTypeId',taxTypeId);
+ const obligations=useQuery({queryKey:['fiscal','obligations',page,pageSize,search,status,from,to,taxTypeId,sortBy,sortOrder],queryFn:()=>apiRequest<ObligationPage>(`/fiscal/obligations?${params}`),enabled:can('fiscal.obligation.view')});
+ useEffect(()=>{if(obligations.data&&page!==obligations.data.page)setPage(obligations.data.page)},[obligations.data,page]);
  const mutation=useMutation({mutationFn:({path,body}:{path:string;body?:unknown})=>apiRequest(path,{method:'POST',body:JSON.stringify(body??{})}),onSuccess:async()=>qc.invalidateQueries({queryKey:['fiscal']})});
  const run=async(path:string,body:unknown,title:string)=>{try{await mutation.mutateAsync({path,body});toast({type:'success',title});return true}catch(error){toast({type:'error',title:'Action impossible',description:error instanceof Error?error.message:'Erreur API'});return false}};
  const createType=async()=>{if(await run('/fiscal/tax-types',typeForm,'Nature fiscale créée'))setTypeOpen(false)};
@@ -31,14 +34,16 @@ export default function FiscalAdministration(){
  const pay=async(id:string)=>{const raw=await promptAction('Montant du règlement',{inputType:'number'});if(raw===null)return;const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0){toast({type:'error',title:'Montant invalide',description:'Le montant du règlement doit être strictement positif.'});return}await run(`/fiscal/obligations/${id}/payments`,{amount,reference:`REG-${Date.now()}`},'Règlement enregistré')};
  return <div className="space-y-4">
   <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">Fiscalité d’entreprise</h3><p className="text-xs text-slate-500">Échéances, déclarations et règlements avec règles historisées. Les taux doivent être documentés et vérifiés avant application.</p></div><div className="flex gap-2">{can('fiscal.catalog.manage')&&<Button variant="outline" disabled={mutation.isPending} onClick={()=>setTypeOpen(true)}>Configurer une nature</Button>}{can('fiscal.obligation.manage')&&<Button disabled={mutation.isPending} onClick={()=>setOpen(true)}>Nouvelle obligation</Button>}</div></div>
+  <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-6"><input aria-label="Rechercher une obligation fiscale" className={field} placeholder="Référence ou nature" value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/><select aria-label="Statut fiscal" className={field} value={status} onChange={e=>{setStatus(e.target.value);setPage(1)}}><option value="">Tous les statuts</option>{['DRAFT','SUBMITTED','VALIDATED','REJECTED','PARTIALLY_PAID','PAID','CANCELLED'].map(x=><option key={x}>{x}</option>)}</select><select aria-label="Nature fiscale filtrée" className={field} value={taxTypeId} onChange={e=>{setTaxTypeId(e.target.value);setPage(1)}}><option value="">Toutes les natures</option>{types.data?.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select><input aria-label="Échéance fiscale du" type="date" className={field} value={from} onChange={e=>{setFrom(e.target.value);setPage(1)}}/><input aria-label="Échéance fiscale au" type="date" className={field} value={to} onChange={e=>{setTo(e.target.value);setPage(1)}}/><div className="flex gap-1"><select aria-label="Trier la fiscalité" className={field} value={sortBy} onChange={e=>{setSortBy(e.target.value);setPage(1)}}><option value="dueDate">Échéance</option><option value="reference">Référence</option><option value="tax">Nature</option><option value="amount">Déclaré</option><option value="paid">Réglé</option><option value="status">Statut</option></select><select aria-label="Ordre fiscal" className={field} value={sortOrder} onChange={e=>{setSortOrder(e.target.value as 'asc'|'desc');setPage(1)}}><option value="asc">Croissant</option><option value="desc">Décroissant</option></select></div></div>
+  {obligations.data&&<div className="grid gap-2 text-xs sm:grid-cols-3"><Card><b>Déclaré filtré</b><div>{money(obligations.data.summary.declaredAmount)}</div></Card><Card><b>Réglé filtré</b><div>{money(obligations.data.summary.paidAmount)}</div></Card><Card><b>Reste filtré</b><div>{money(obligations.data.summary.outstandingAmount)}</div></Card></div>}
   <Card><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-xs"><thead><tr className="text-left"><th>Référence</th><th>Nature</th><th>Période</th><th>Échéance</th><th>Déclaré</th><th>Réglé</th><th>Statut</th><th>Actions</th></tr></thead><tbody>
-   {obligationPage.visible.map(item=><tr key={item.id} className="border-t"><td className="py-3 font-bold">{item.reference}</td><td>{item.tax_label}</td><td>{item.period_start.slice(0,10)} – {item.period_end.slice(0,10)}</td><td>{item.due_date.slice(0,10)}</td><td>{money(item.declared_amount,item.currency_code)}</td><td>{money(item.paid_amount,item.currency_code)}</td><td><Badge>{item.status}</Badge></td><td><div className="flex gap-1">
+   {(obligations.data?.items??[]).map(item=><tr key={item.id} className="border-t"><td className="py-3 font-bold">{item.reference}</td><td>{item.tax_label}</td><td>{item.period_start.slice(0,10)} – {item.period_end.slice(0,10)}</td><td>{item.due_date.slice(0,10)}</td><td>{money(item.declared_amount,item.currency_code)}</td><td>{money(item.paid_amount,item.currency_code)}</td><td><Badge>{item.status}</Badge></td><td><div className="flex gap-1">
     {['DRAFT','REJECTED'].includes(item.status)&&can('fiscal.obligation.submit')&&<Button size="xs" loading={mutation.isPending} disabled={mutation.isPending} onClick={()=>void run(`/fiscal/obligations/${item.id}/submit`,{},'Obligation soumise')}>Soumettre</Button>}
     {item.status==='SUBMITTED'&&can('fiscal.obligation.approve')&&<><Button size="xs" loading={mutation.isPending} disabled={mutation.isPending} onClick={()=>void run(`/fiscal/obligations/${item.id}/approve`,{},'Obligation validée')}>Valider</Button><Button size="xs" variant="outline" disabled={mutation.isPending} onClick={async()=>{const reason=await promptAction('Motif du rejet');if(reason?.trim())await run(`/fiscal/obligations/${item.id}/reject`,{reason:reason.trim()},'Obligation rejetée')}}>Rejeter</Button></>}
     {['VALIDATED','PARTIALLY_PAID'].includes(item.status)&&can('fiscal.obligation.pay')&&<Button size="xs" variant="outline" loading={mutation.isPending} disabled={mutation.isPending} onClick={()=>void pay(item.id)}>Régler</Button>}
    </div></td></tr>)}
-   {obligations.isSuccess&&!obligations.data?.length&&<tr><td colSpan={8} className="py-8 text-center text-slate-500">Aucune obligation fiscale enregistrée.</td></tr>}
-  </tbody></table></div>{obligationPage.controls}</Card>
+   {obligations.isLoading&&<tr><td colSpan={8} className="py-8 text-center text-slate-500">Chargement des obligations fiscales…</td></tr>}{obligations.isError&&<tr><td colSpan={8} className="py-8 text-center text-red-700">Chargement des obligations fiscales impossible.</td></tr>}{obligations.isSuccess&&!obligations.data.items.length&&<tr><td colSpan={8} className="py-8 text-center text-slate-500">Aucune obligation fiscale enregistrée.</td></tr>}
+  </tbody></table></div><ServerPagination page={obligations.data?.page??page} pageSize={pageSize} total={obligations.data?.total??0} totalPages={obligations.data?.totalPages} loading={obligations.isFetching} label="obligation(s) fiscale(s)" onPageChange={setPage} onPageSizeChange={size=>{setPageSize(size);setPage(1)}}/></Card>
   <Modal isOpen={typeOpen} onClose={()=>{if(!mutation.isPending)setTypeOpen(false)}} title="Configurer une nature fiscale"><div className="space-y-3">
    <input aria-label="Code de la nature fiscale" className={field} placeholder="Code unique" value={typeForm.code} onChange={e=>setTypeForm({...typeForm,code:e.target.value.toUpperCase()})}/>
    <input aria-label="Libellé de la nature fiscale" className={field} placeholder="Libellé" value={typeForm.label} onChange={e=>setTypeForm({...typeForm,label:e.target.value})}/>

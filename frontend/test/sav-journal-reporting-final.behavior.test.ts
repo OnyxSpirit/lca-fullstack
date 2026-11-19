@@ -4,8 +4,8 @@ import{readFileSync}from'node:fs';
 
 const source=readFileSync(new URL('../src/modules/service/SavBusinessSections.tsx',import.meta.url),'utf8');
 
-test('SAV-FINAL-FE-01 journal expose filtres pagination tris et export permissionné',()=>{
- for(const token of['Journal du','Journal au',"Type d'opération",'pageSize','changeSort','Précédent','Suivant','/sav/journal/export',"auth.can('service.reporting.export')"])assert.ok(source.includes(token),token);
+test('SAV-FINAL-FE-01 journal expose filtres pagination standard tris et export permissionné',()=>{
+ for(const token of['Journal du','Journal au',"Type d'opération",'pageSize','changeSort','ServerPagination','/sav/journal/export',"auth.can('service.reporting.export')"])assert.ok(source.includes(token),token);
 });
 
 test('SAV-FINAL-FE-02 reporting change agence via le contexte RBAC et exporte',()=>{

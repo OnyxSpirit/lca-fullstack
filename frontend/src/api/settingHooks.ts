@@ -10,7 +10,7 @@ export interface WorkshopLaborRate {id:string;code:string;label:string;concessio
 export interface WorkshopLaborRatesResponse {agencyId:string;rates:WorkshopLaborRate[]}
 export interface WarrantyManufacturer {id:string;code:string;name:string;is_active:number|boolean;warranty_available:number|boolean;default_warranty_months:number|null;default_mileage_limit:number|null;brand_ids:string|null;brand_names:string|null}
 export interface ManufacturerBrand {id:string;name:string;code:string;warranty_provider_id:string|null}
-export interface WarrantyManufacturerInput {name:string;code:string;warrantyAvailable:boolean;defaultWarrantyMonths:number|null;defaultMileageLimit:number|null;brandIds:string[]}
+export interface WarrantyManufacturerInput {name:string;code?:string;warrantyAvailable:boolean;defaultWarrantyMonths:number|null;defaultMileageLimit:number|null;brandIds:string[]}
 export type AgencyInput = Pick<SettingsAgency, 'name' | 'code'> & Partial<Pick<SettingsAgency, 'address' | 'city' | 'phone' | 'email' | 'concessionId'>>;
 
 const enabled = () => Boolean(localStorage.getItem('lca-access-token'));

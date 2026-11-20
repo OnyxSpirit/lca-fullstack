@@ -22,6 +22,12 @@ test('SEC-05/06 catégories et éléments sont verrouillés dans la transaction 
   assert.match(configRoute,/SELECT concession_id FROM agencies WHERE id=\?/);
   assert.match(configRoute,/withCurrentCentralAuthorizationTransaction/);
 });
+test('SEC-06B la modification d’un type restaure son association de catégorie sans sortir de la concession',()=>{
+  assert.match(configRoute,/categoryId=request\.body\.categoryId/);
+  assert.match(configRoute,/La catégorie cible doit appartenir à la même concession/);
+  assert.match(configRoute,/UPDATE delivery_checklist_items SET category_id=\?,name=\?,description=\?,is_mandatory=\?,sort_order=\?/);
+  assert.match(configRoute,/COALESCE\(MAX\(sort_order\),0\)\+10 next_order/);
+});
 test('SEC-07/08 le contexte central peut cibler explicitement une concession',()=>{
   assert.match(configRoute,/requested!=null&&requested!==''\)return idOf\(requested\)/);
   assert.match(configRoute,/return String\(actor\.concession_id\)/);

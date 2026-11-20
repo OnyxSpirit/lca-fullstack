@@ -42,6 +42,7 @@ import { VehicleStatus } from "../../types";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import { apiDownload } from "../../services/apiClient";
 import { openBusinessPdf, openOfficialPdf } from "../../services/businessPdf";
+import { financialStatusLabel, partsCodeLabel } from "../../lib/userFacingLabels";
 import { UploadModal } from "../documents/DocumentsGedPage";
 import {
   DocumentPreview,
@@ -1113,7 +1114,7 @@ export const VehicleDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <div className="font-bold text-slate-900">
-                    Mouvement : {event.movement_type}
+                    Mouvement : {partsCodeLabel(event.movement_type)}
                   </div>
                   <p className="text-slate-500 text-[11px]">
                     {event.from_location_name ||
@@ -1251,7 +1252,7 @@ export const VehicleDetailPage: React.FC = () => {
             <div key={`r-${item.id}`} className="rounded border p-3 text-xs">
               <b>Réservation</b>
               <p>
-                {item.customer_name || "Client protégé"} · {item.status}
+                {item.customer_name || "Client protégé"} · {financialStatusLabel(item.status)}
               </p>
             </div>
           ))}
@@ -1259,7 +1260,7 @@ export const VehicleDetailPage: React.FC = () => {
             <div key={`s-${item.id}`} className="rounded border p-3 text-xs">
               <b>Vente {item.sale_number}</b>
               <p>
-                {item.customer_name || "Client protégé"} · {item.status}
+                {item.customer_name || "Client protégé"} · {financialStatusLabel(item.status)}
               </p>
               <Link
                 className="font-bold text-[#8f1722]"
@@ -1272,7 +1273,7 @@ export const VehicleDetailPage: React.FC = () => {
           {vehicleQuery.data?.deliveries?.map((item: any) => (
             <div key={`d-${item.id}`} className="rounded border p-3 text-xs">
               <b>Livraison {item.delivery_number}</b>
-              <p>{item.status}</p>
+              <p>{financialStatusLabel(item.status)}</p>
               <Link
                 className="font-bold text-[#8f1722]"
                 to={`/deliveries/${item.id}`}
@@ -1284,7 +1285,7 @@ export const VehicleDetailPage: React.FC = () => {
           {vehicleQuery.data?.repairOrders?.map((item: any) => (
             <div key={`o-${item.id}`} className="rounded border p-3 text-xs">
               <b>OR {item.order_number}</b>
-              <p>{item.status}</p>
+              <p>{financialStatusLabel(item.status)}</p>
               <Link
                 className="font-bold text-[#8f1722]"
                 to={`/service/repair-orders/${item.id}`}
@@ -1302,7 +1303,7 @@ export const VehicleDetailPage: React.FC = () => {
                   "Fournisseur non renseigné"}
               </p>
               <p>
-                {vehicleQuery.data.warranty.status} · échéance{" "}
+                {financialStatusLabel(vehicleQuery.data.warranty.status)} · échéance{" "}
                 {vehicleQuery.data.warranty.expiry_date
                   ? formatDate(vehicleQuery.data.warranty.expiry_date)
                   : "à déterminer"}

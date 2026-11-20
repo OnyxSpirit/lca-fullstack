@@ -34,11 +34,11 @@ import type { FiscalRow } from "../../api/accountingHooks";
 import { TreasuryWorkspace } from "./TreasuryWorkspace";
 import { AccountingEntriesPanel } from "./AccountingEntriesPanel";
 import {
-  AccountingAnalysisPanel,
   AccountingControlsPanel,
   AccountingStatementsPanel,
   CarryforwardPreparationPanel,
 } from "./AccountingAdvancedPanels";
+import { AccountingAnalysisPanel } from "./AccountingAnalysisPanel";
 import {
   AccountingIntegrationsPanel,
   AccountingSchemesPanel,
@@ -392,7 +392,9 @@ function FiscalYearStatus({ year }: { year: FiscalRow }) {
 }
 function Journals() {
   const can = useAuthStore((s) => s.can),
-    data = useJournals(),
+    [page, setPage] = useState(1),
+    [pageSize, setPageSize] = useState(10),
+    data = useJournals(page, pageSize),
     create = useCreateJournal(),
     [f, setF] = useState({ code: "", name: "", journalType: "SALES" });
   return (
@@ -472,6 +474,18 @@ function Journals() {
         {!data.data?.items.length && (
           <p className="text-sm text-slate-500">Aucun journal comptable.</p>
         )}
+        <ServerPagination
+          page={data.data?.page ?? page}
+          pageSize={data.data?.pageSize ?? pageSize}
+          total={data.data?.total ?? 0}
+          loading={data.isFetching}
+          label="journal(aux) comptable(s)"
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
       </Card>
     </div>
   );
@@ -490,7 +504,12 @@ function Mappings() {
       treasuryAccountId: "",
       accountingAccountId: "",
       effectiveFrom: new Date().toISOString().slice(0, 10),
-    });
+    }),
+    mappingPage = useClientPagination(
+      data.data ?? [],
+      undefined,
+      "liaison(s) comptable(s)",
+    );
   return (
     <div className="space-y-4">
       {can("accounting.mapping.manage") && (
@@ -548,7 +567,7 @@ function Mappings() {
         </Card>
       )}
       <Card>
-        {data.data?.map((x) => (
+        {mappingPage.visible.map((x) => (
           <div key={x.id} className="grid gap-2 border-b py-3 md:grid-cols-4">
             <b>
               {x.treasuryAccountName} ({x.currencyCode})
@@ -568,6 +587,7 @@ function Mappings() {
             modifié.
           </p>
         )}
+        {mappingPage.controls}
       </Card>
     </div>
   );

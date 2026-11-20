@@ -8,6 +8,7 @@ import {
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import { formatCurrency, formatDateTime } from "../../lib/utils";
+import { financialStatusLabel } from "../../lib/userFacingLabels";
 import { generateUuid } from "../../lib/uuid";
 import { apiDownload, apiRequest } from "../../services/apiClient";
 import { businessArchiveStatusLabel } from "../../services/businessArchiveStatus";
@@ -417,7 +418,7 @@ export const InvoicePaymentHistory: React.FC<{
                 <td>{item.receivedByName || "—"}</td>
                 <td>{formatCurrency(item.amount)}</td>
                 <td>{formatCurrency(item.refundedAmount)}</td>
-                <td>{item.status}</td>
+                <td>{financialStatusLabel(item.status)}</td>
                 <td>
                   {item.attachmentDocumentId ? (
                     <Button

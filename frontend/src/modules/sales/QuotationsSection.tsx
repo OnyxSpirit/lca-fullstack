@@ -9,6 +9,7 @@ import { openBusinessPdf } from '../../services/businessPdf';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 import { ServerPagination } from '../../components/common/ServerPagination';
+import { quotationStatusLabel } from '../../lib/userFacingLabels';
 
 export function QuotationsSection() {
   const [page, setPage] = useState(1);
@@ -54,7 +55,7 @@ export function QuotationsSection() {
                 <td>{quote.salespersonName}</td>
                 <td>{formatCurrency(quote.total)}</td>
                 <td>
-                  <div>{quote.status}</div>
+                  <div>{quotationStatusLabel(quote.status)}</div>
                   {quote.identitySnapshot && (
                     <div className={quote.archiveAvailable ? 'text-[10px] text-emerald-700' : 'text-[10px] text-amber-700'}>
                       {retryArchive.variables === quote.id && retryArchive.isPending

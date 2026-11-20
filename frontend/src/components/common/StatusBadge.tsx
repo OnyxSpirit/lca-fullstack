@@ -138,6 +138,6 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'genera
       return <Badge variant="purple" dot>Dormant</Badge>;
 
     default:
-      return <Badge variant="default">{status}</Badge>;
+      return <Badge variant="default">Statut non reconnu</Badge>;
   }
 };

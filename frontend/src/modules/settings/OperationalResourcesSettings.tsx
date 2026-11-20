@@ -15,10 +15,10 @@ import { Card } from "../../components/ui/Card";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useClientPagination } from "../../components/common/ClientPagination";
+import { resourceStatusLabel } from "../../lib/userFacingLabels";
 const field = "rounded-md border border-slate-300 px-3 py-2 text-sm",
   emptySupplier: SupplierInput = {
     name: "",
-    code: "",
     contactName: "",
     email: "",
     phone: "",
@@ -100,7 +100,6 @@ export const SuppliersSettings = () => {
           {(
             [
               ["name", "Nom"],
-              ["code", "Code"],
               ["contactName", "Contact"],
               ["phone", "Téléphone"],
               ["email", "E-mail"],
@@ -112,7 +111,7 @@ export const SuppliersSettings = () => {
           ).map(([k, l]) => (
             <input
               key={k}
-              required={k === "name" || k === "code"}
+              required={k === "name"}
               type={k === "email" ? "email" : "text"}
               className={field}
               placeholder={l}
@@ -288,7 +287,7 @@ export const BaysSettings = () => {
                 </p>
               </div>
               <Badge variant={b.status === "available" ? "success" : "default"}>
-                {b.status}
+                {resourceStatusLabel(b.status)}
               </Badge>
             </div>
             {canManage && <div className="mt-3 flex gap-2 border-t pt-3">

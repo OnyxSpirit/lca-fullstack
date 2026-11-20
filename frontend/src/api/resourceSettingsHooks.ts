@@ -1,7 +1,7 @@
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {apiRequest} from '../services/apiClient';
 export interface Supplier{id:string;name:string;code:string;contact_name:string|null;email:string|null;phone:string|null;address:string|null;city:string|null;country:string|null;tax_identifier:string|null;is_active:boolean;is_parts_supplier:boolean;is_vehicle_supplier:boolean}
-export interface SupplierInput{name:string;code:string;contactName?:string;email?:string;phone?:string;address?:string;city?:string;country?:string;taxIdentifier?:string;isActive?:boolean;isPartsSupplier:boolean;isVehicleSupplier:boolean}
+export interface SupplierInput{name:string;code?:string;contactName?:string;email?:string;phone?:string;address?:string;city?:string;country?:string;taxIdentifier?:string;isActive?:boolean;isPartsSupplier:boolean;isVehicleSupplier:boolean}
 export interface Bay{id:string;agency_id:string;name:string;bay_type:string|null;capacity:number;status:'available'|'occupied'|'maintenance'|'inactive';occupied_now:boolean}
 const enabled=()=>Boolean(localStorage.getItem('lca-access-token'));
 export const useSuppliersSettingsQuery=(search='')=>useQuery({queryKey:['suppliers',search],queryFn:()=>apiRequest<Supplier[]>(`/suppliers?search=${encodeURIComponent(search)}`),enabled:enabled()});

@@ -9,7 +9,7 @@ const app=source('src/App.tsx');
 
 test('B349-FE-01 les deux onglets existent dans le bon ordre avec leurs libellés français',()=>{
   assert.match(settings,/canViewDocuments\?\['documents' as const\].*canViewDocumentMarks\?\['marks' as const\]/s);
-  assert.ok(settings.indexOf("documents:'Documents et GED'")<settings.indexOf("marks:'Signatures et cachets'"));
+  assert.ok(settings.indexOf("documents:'Documents et GED'")<settings.indexOf("marks:'Signatures & Cachets'"));
 });
 
 test('B349-FE-02 chaque composant est monté une seule fois dans son onglet',()=>{
@@ -22,7 +22,7 @@ test('B349-FE-02 chaque composant est monté une seule fois dans son onglet',()=
 });
 
 test('B349-FE-03 le nouvel onglet exige une permission de consultation existante',()=>{
-  assert.match(settings,/canViewDocumentMarks=can\('stamp\.view'\)/);
+  assert.match(settings,/canViewDocumentMarks=can\('signature\.view\.self'\)\|\|can\('stamp\.view'\)/);
   assert.match(settings,/canViewDocumentMarks\?\['marks' as const\]/);
   assert.match(settings,/tab === 'marks' && canViewDocumentMarks/);
 });

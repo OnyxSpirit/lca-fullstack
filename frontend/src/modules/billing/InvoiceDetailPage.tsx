@@ -15,6 +15,7 @@ import { Card } from "../../components/ui/Card";
 import { Modal } from "../../components/ui/Modal";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { formatCurrency, formatDateTime } from "../../lib/utils";
+import { financialStatusLabel } from "../../lib/userFacingLabels";
 import { generateUuid } from "../../lib/uuid";
 import { apiDownload } from "../../services/apiClient";
 import {
@@ -574,7 +575,7 @@ export const InvoiceDetailPage: React.FC = () => {
                   <div key={item.id} className="rounded border p-3 text-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <b>{item.creditNoteNumber}</b>
-                      <span>{item.status}</span>
+                      <span>{financialStatusLabel(item.status)}</span>
                     </div>
                     <p>
                       {item.issueDate} · {item.reason}

@@ -44,3 +44,10 @@ test('QGP-UI-004 transit SAV: soldes globaux et transferts paginés après scope
  assert.match(route,/SELECT COUNT\(\*\) total \$\{from\}/);assert.match(route,/transfers:paged\(/);
  assert.match(route,/balances:await transitBalances\(req\)/);
 });
+
+test('QGP-UI-005 intégrations et schémas comptables paginent après scope',()=>{
+ const service=source('src/modules/accounting/accounting-integration.service.ts');
+ assert.match(service,/listEvents\(r:Request\).*standardPageRequest/s);assert.match(service,/const s=scope\(r\)/);
+ assert.match(service,/listSchemes\(r:Request\).*standardPageRequest/s);assert.match(service,/s\.agency_id IS NULL OR s\.agency_id=\?/);
+ assert.equal((service.match(/return paged\(items,count\?\.total,meta\)/g)??[]).length,2);
+});

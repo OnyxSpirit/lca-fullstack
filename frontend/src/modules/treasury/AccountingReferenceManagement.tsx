@@ -286,6 +286,7 @@ export function MappingManagement() {
       status: "active",
     }),
     [editing, setEditing] = useState<any>(null),
+    [search, setSearch] = useState(""),
     update = useUpdateMapping(editing?.id ?? "");
   const save = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -312,7 +313,8 @@ export function MappingManagement() {
       <h3 className="mb-3 font-bold">
         Gestion des liaisons Trésorerie ↔ Comptabilité
       </h3>
-      {mappings.data?.map((x) => (
+      <input className={`${field} mb-3`} placeholder="Rechercher un compte ou une agence" value={search} onChange={event => setSearch(event.target.value)}/>
+      <ClientPagination items={(mappings.data??[]).filter(x=>`${x.treasuryAccountName} ${x.accountingNumber} ${x.accountingLabel} ${x.agencyName??''}`.toLowerCase().includes(search.trim().toLowerCase()))} label="liaison(s) comptable(s)" render={items=>items.map((x) => (
         <div
           key={x.id}
           className="flex items-center justify-between border-t py-2 text-sm"
@@ -327,7 +329,7 @@ export function MappingManagement() {
             </Button>
           )}
         </div>
-      ))}
+      ))}/>
       <Modal
         isOpen={Boolean(editing)}
         onClose={() => setEditing(null)}

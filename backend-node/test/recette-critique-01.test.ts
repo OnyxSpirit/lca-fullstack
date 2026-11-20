@@ -24,5 +24,5 @@ test('CRM-TEAM-06 les candidats respectent les scopes métier OWN et AGENCY',()=
 test('VIN-09 le backend refuse au lieu de tronquer un VIN forgé',()=>{
   assert.match(vehicles,/const vin=String\(request\.body\.vin\?\?''\)/);
   assert.doesNotMatch(vehicles,/const vin=txt\(request\.body\.vin,17\)/);
-  assert.match(vehicles,/\^\[A-HJ-NPR-Z0-9\]\{17\}\$/);
+  assert.match(vehicles,/\^\[A-Z0-9\]\{17\}\$/);
 });

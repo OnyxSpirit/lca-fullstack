@@ -10,7 +10,7 @@ test('VIN-LCA-01 tronque toujours l’état à 17 caractères',()=>{
   assert.equal(normalizeVinInput('a'.repeat(40)),'A'.repeat(17));
   assert.equal(normalizeVinInput(' 1hg-cm82633-a004352 xyz '),'1HGCM82633A004352');
   assert.equal(VIN_PATTERN.test(normalizeVinInput('1HGCM82633A004352')),true);
-  assert.equal(VIN_PATTERN.test(normalizeVinInput('1HGCM82633I004352')),false);
+  assert.equal(VIN_PATTERN.test(normalizeVinInput('1HGCM82633I004352')),true);
   assert.equal(normalizeVinInput(''),'');
   assert.equal(normalizeVinInput('A'.repeat(17)).slice(0,-1)+'B','A'.repeat(16)+'B');
 });

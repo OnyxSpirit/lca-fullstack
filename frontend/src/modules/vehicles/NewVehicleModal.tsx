@@ -13,7 +13,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { Modal } from "../../components/ui/Modal";
 import { Button } from "../../components/ui/Button";
 import { numberOrUndefined } from "../../lib/numericInput";
-import { normalizeVin, normalizeVinInput, VIN_PATTERN } from "./vehicleVin";
+import { hasVinStandardExcludedLetters, normalizeVin, normalizeVinInput, VIN_CONFORMITY_WARNING, VIN_PATTERN } from "./vehicleVin";
 import {
   clearVehicleFinancialValues,
   vehiclePayloadForAgency,
@@ -138,7 +138,8 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const receptionPrice=receptionPricing(form);
   const vinRef = useRef<HTMLInputElement>(null),
     normalizedVin = normalizeVin(form.vin),
-    vinValid = VIN_PATTERN.test(normalizedVin);
+    vinValid = VIN_PATTERN.test(normalizedVin),
+    vinConformityWarning = hasVinStandardExcludedLetters(normalizedVin);
   useEffect(() => {
     if (isOpen && agencies.length)
       setForm((current) => ({
@@ -360,6 +361,11 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
             {vinError && (
               <span className="mt-1 block text-[11px] text-red-700">
                 {vinError}
+              </span>
+            )}
+            {vinConformityWarning && (
+              <span role="status" className="mt-1 block rounded border border-amber-300 bg-amber-50 p-2 text-[11px] font-normal text-amber-900">
+                {VIN_CONFORMITY_WARNING}
               </span>
             )}
           </label>

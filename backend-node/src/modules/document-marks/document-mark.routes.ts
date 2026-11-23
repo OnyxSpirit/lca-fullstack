@@ -1,7 +1,7 @@
 import{unlink}from'node:fs/promises';
 import{Router,type Request,type Response}from'express';
 import type{PoolConnection,ResultSetHeader,RowDataPacket}from'mysql2/promise';
-import{execute,query}from'../../config/database.js';
+import{query}from'../../config/database.js';
 import{asyncHandler}from'../../middleware/error-handler.js';
 import{requireAgencyPermission as requirePermission,withCurrentAgencyAuthorization}from'../rbac/agency-authorization.js';
 import{HttpError}from'../../shared/http-error.js';
@@ -87,16 +87,18 @@ documentMarkRouter.get('/document-marks/signature/me/:id/image',requirePermissio
 if(!x)throw new HttpError(404,'Signature introuvable');
 await send(res,x)}));
 
-function scope(r:Request,s:PermissionScope|null){
-
-if(s==='AGENCY')return{sql:'st.agency_id=?',p:[r.user!.agencyId]};
+function scope(r:Request,s:PermissionScope|null,mode:'usable'|'owner'='usable'){
+if(s==='AGENCY')return mode==='owner'?{sql:'st.agency_id=?',p:[r.user!.agencyId]}:{sql:'EXISTS(SELECT 1 FROM service_stamp_agencies sa_scope WHERE sa_scope.stamp_id=st.id AND sa_scope.agency_id=?)',p:[r.user!.agencyId]};
 throw new HttpError(403,'Le scope OWN ne gouverne pas les cachets')}
+const agencyIds=(value:unknown)=>{let values:unknown[]=[];if(Array.isArray(value))values=value;else if(typeof value==='string'&&value.trim()){try{const parsed=JSON.parse(value);values=Array.isArray(parsed)?parsed:[]}catch{throw new HttpError(400,'Affectations d’agences invalides')}}return[...new Set(values.map(num))]};
+async function actorConcession(r:Request,runner:{execute:PoolConnection['execute']}|null=null){const rows=runner?(await runner.execute<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=? AND is_active=TRUE',[r.user!.agencyId]))[0]:await query<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=? AND is_active=TRUE',[r.user!.agencyId]);if(!rows[0])throw new HttpError(403,'Agence active introuvable');return String(rows[0].concession_id)}
+async function validateAssignments(c:PoolConnection,r:Request,ownerAgencyId:string,requested:string[]){const ids=[...new Set([ownerAgencyId,...requested])];if(ids.some(id=>id!==ownerAgencyId))await assertPermission(r,'stamp.assign_agencies');const concession=await actorConcession(r,c),[valid]=await c.execute<RowDataPacket[]>(`SELECT id FROM agencies WHERE concession_id=? AND is_active=TRUE AND id IN (${ids.map(()=>'?').join(',')})`,[concession,...ids]);if(valid.length!==ids.length)throw new HttpError(400,'Une agence autorisée est inactive ou hors de la concession');return{concession,ids}}
 documentMarkRouter.get('/document-marks/stamps',requirePermission('stamp.view'),asyncHandler(async(r,res)=>{
  const w=scope(r,await assertPermission(r,'stamp.view'));
 
- const rows=await query<RowDataPacket[]>(`SELECT st.*,v.id version_id,v.version,v.mime_type,v.file_size,v.file_hash,(SELECT JSON_ARRAYAGG(dt.document_type) FROM service_stamp_document_types dt WHERE dt.stamp_id=st.id) document_contexts FROM service_stamps st LEFT JOIN service_stamp_versions v ON v.stamp_id=st.id AND v.is_active=TRUE WHERE ${w.sql} ORDER BY st.name`,w.p);
+ const rows=await query<RowDataPacket[]>(`SELECT st.*,a.name owner_agency_name,v.id version_id,v.version,v.mime_type,v.file_size,v.file_hash,(SELECT JSON_ARRAYAGG(dt.document_type) FROM service_stamp_document_types dt WHERE dt.stamp_id=st.id) document_contexts,(SELECT JSON_ARRAYAGG(sa.agency_id) FROM service_stamp_agencies sa WHERE sa.stamp_id=st.id) allowed_agency_ids FROM service_stamps st JOIN agencies a ON a.id=st.agency_id LEFT JOIN service_stamp_versions v ON v.stamp_id=st.id AND v.is_active=TRUE WHERE ${w.sql} ORDER BY st.name`,w.p);
 
- res.json(rows.map(x=>({id:String(x.id),name:x.name,concessionId:String(x.concession_id),agencyId:x.agency_id?String(x.agency_id):null,departmentId:x.department_id?String(x.department_id):null,categoryId:x.category_id?String(x.category_id):null,documentContext:x.document_context,documentContexts:contexts(x.document_contexts,String(x.document_context)),isActive:Boolean(x.is_active),revokedAt:x.revoked_at??null,revokedBy:x.revoked_by?String(x.revoked_by):null,revocationReason:x.revocation_reason??null,activeVersion:x.version_id?{id:String(x.version_id),version:Number(x.version),mimeType:x.mime_type,fileSize:Number(x.file_size),fileHash:x.file_hash,isActive:true}:null})));
+ res.json(rows.map(x=>({id:String(x.id),name:x.name,concessionId:String(x.concession_id),agencyId:String(x.agency_id),ownerAgencyName:x.owner_agency_name,allowedAgencyIds:contexts(x.allowed_agency_ids,String(x.agency_id)),departmentId:x.department_id?String(x.department_id):null,categoryId:x.category_id?String(x.category_id):null,documentContext:x.document_context,documentContexts:contexts(x.document_contexts,String(x.document_context)),isActive:Boolean(x.is_active),revokedAt:x.revoked_at??null,revokedBy:x.revoked_by?String(x.revoked_by):null,revocationReason:x.revocation_reason??null,activeVersion:x.version_id?{id:String(x.version_id),version:Number(x.version),mimeType:x.mime_type,fileSize:Number(x.file_size),fileHash:x.file_hash,isActive:true}:null})));
 
 }));
 
@@ -106,19 +108,25 @@ if(agencyId&&!agency)throw new HttpError(400,'Agence invalide');
 if(s==='AGENCY'&&agencyId!==String(r.user!.agencyId))throw new HttpError(403,'Portée cachet invalide');
 if(departmentId){const[d]=await query<RowDataPacket[]>('SELECT agency_id FROM departments WHERE id=? AND is_active=TRUE',[departmentId]);
 if(!d||String(d.agency_id)!==agencyId)throw new HttpError(400,'Département incompatible')}return agency?String(agency.concession_id):String(actor!.concession_id)}
-documentMarkRouter.post('/document-marks/stamps',requirePermission('stamp.manage'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const s=await assertPermission(r,'stamp.manage'),f=image(r.documentFile),name=txt(r.body.name),agencyId=txt(r.body.agencyId)||null,departmentId=txt(r.body.departmentId)||null,categoryId=txt(r.body.categoryId)?num(r.body.categoryId):null,documentTypes=stampDocumentTypes(r.body.documentContexts,r.body.documentContext??'DELIVERY_REPORT'),context=documentTypes[0]!;
+documentMarkRouter.get('/document-marks/agencies',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{if((await assertPermission(r,'stamp.manage'))!=='AGENCY')throw new HttpError(403,'Scope insuffisant');const concession=await actorConcession(r),rows=await query<RowDataPacket[]>('SELECT id,name,code FROM agencies WHERE concession_id=? AND is_active=TRUE ORDER BY name,id',[concession]);res.json(rows.map(x=>({id:String(x.id),name:String(x.name),code:String(x.code),isOwner:String(x.id)===String(r.user!.agencyId)})))}));
+
+documentMarkRouter.post('/document-marks/stamps',requirePermission('stamp.manage'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const s=await assertPermission(r,'stamp.manage'),f=image(r.documentFile),name=txt(r.body.name),ownerAgencyId=String(r.user!.agencyId),departmentId=txt(r.body.departmentId)||null,categoryId=txt(r.body.categoryId)?num(r.body.categoryId):null,requestedAgencies=agencyIds(r.body.allowedAgencyIds),documentTypes=stampDocumentTypes(r.body.documentContexts,r.body.documentContext??'DELIVERY_REPORT'),context=documentTypes[0]!;
 if(!name)throw new HttpError(400,'Nom requis');
-const concession=await target(r,s,agencyId,departmentId),stored=await storeDocument(f,agencyId??String(r.user!.agencyId)),hash=documentHash(f.buffer);
-try{const id=await markTransaction(r,async c=>{if(categoryId){const[categories]=await c.execute<RowDataPacket[]>('SELECT id FROM service_stamp_categories WHERE id=? AND concession_id=? AND is_active=TRUE FOR UPDATE',[categoryId,concession]);
-if(!categories[0])throw new HttpError(400,'Catégorie active incompatible')}const[x]=await c.execute<ResultSetHeader>('INSERT INTO service_stamps(concession_id,agency_id,department_id,category_id,name,document_context,created_by) VALUES(?,?,?,?,?,?,?)',[concession,agencyId,departmentId,categoryId,name,context,r.user!.sub]);
+if(s!=='AGENCY')throw new HttpError(403,'Scope insuffisant');
+const stored=await storeDocument(f,ownerAgencyId),hash=documentHash(f.buffer);
+try{const result=await markTransaction(r,async c=>{const{concession,ids}=await validateAssignments(c,r,ownerAgencyId,requestedAgencies);if(departmentId){const[d]=await c.execute<RowDataPacket[]>('SELECT id FROM departments WHERE id=? AND agency_id=? AND is_active=TRUE',[departmentId,ownerAgencyId]);if(!d[0])throw new HttpError(400,'Département incompatible')}if(categoryId){const[categories]=await c.execute<RowDataPacket[]>('SELECT id FROM service_stamp_categories WHERE id=? AND concession_id=? AND is_active=TRUE FOR UPDATE',[categoryId,concession]);
+if(!categories[0])throw new HttpError(400,'Catégorie active incompatible')}const[x]=await c.execute<ResultSetHeader>('INSERT INTO service_stamps(concession_id,agency_id,department_id,category_id,name,document_context,created_by) VALUES(?,?,?,?,?,?,?)',[concession,ownerAgencyId,departmentId,categoryId,name,context,r.user!.sub]);
+for(const agencyId of ids)await c.execute('INSERT INTO service_stamp_agencies(stamp_id,agency_id,created_by) VALUES(?,?,?)',[x.insertId,agencyId,r.user!.sub]);
 for(const type of documentTypes)await c.execute('INSERT INTO service_stamp_document_types(stamp_id,document_type,created_by) VALUES(?,?,?)',[x.insertId,type,r.user!.sub]);
 const[v]=await c.execute<ResultSetHeader>('INSERT INTO service_stamp_versions(stamp_id,version,file_url,mime_type,file_size,file_hash,created_by) VALUES(?,1,?,?,?,?,?)',[x.insertId,`ged:${stored.storageKey}`,f.mimeType,f.buffer.length,hash,r.user!.sub]);
-await writeAudit(c,r,{module:'documents',entityType:'service_stamp',entityId:String(x.insertId),action:'stamp.created',newValues:{versionId:String(v.insertId),fileHash:hash,categoryId,documentTypes}});
-return String(x.insertId)});
-res.status(201).json({id,documentContexts:documentTypes})}catch(e){await unlink(stored.absolute).catch(()=>undefined);
+await writeAudit(c,r,{module:'documents',entityType:'service_stamp',entityId:String(x.insertId),action:'stamp.created',newValues:{versionId:String(v.insertId),fileHash:hash,categoryId,documentTypes,ownerAgencyId,allowedAgencyIds:ids}});
+return{id:String(x.insertId),allowedAgencyIds:ids}});
+res.status(201).json({...result,documentContexts:documentTypes})}catch(e){await unlink(stored.absolute).catch(()=>undefined);
 throw e}}));
 
-documentMarkRouter.post('/document-marks/stamps/:id/version',requirePermission('stamp.manage'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const w=scope(r,await assertPermission(r,'stamp.manage')),f=image(r.documentFile),stored=await storeDocument(f,String(r.user!.agencyId)),hash=documentHash(f.buffer);
+documentMarkRouter.put('/document-marks/stamps/:id/agencies',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const stampId=num(r.params.id),requested=agencyIds(r.body.allowedAgencyIds);await assertPermission(r,'stamp.assign_agencies');const allowedAgencyIds=await markTransaction(r,async c=>{const[stamps]=await c.execute<RowDataPacket[]>('SELECT id,agency_id,concession_id FROM service_stamps WHERE id=? AND agency_id=? FOR UPDATE',[stampId,r.user!.agencyId]),stamp=stamps[0];if(!stamp)throw new HttpError(404,'Cachet propriétaire introuvable');const{ids}=await validateAssignments(c,r,String(stamp.agency_id),requested),[before]=await c.execute<RowDataPacket[]>('SELECT agency_id FROM service_stamp_agencies WHERE stamp_id=? ORDER BY agency_id FOR UPDATE',[stampId]);await c.execute('DELETE FROM service_stamp_agencies WHERE stamp_id=?',[stampId]);for(const agencyId of ids)await c.execute('INSERT INTO service_stamp_agencies(stamp_id,agency_id,created_by) VALUES(?,?,?)',[stampId,agencyId,r.user!.sub]);await writeAudit(c,r,{module:'documents',entityType:'service_stamp',entityId:stampId,action:'stamp.agencies.updated',oldValues:{allowedAgencyIds:before.map(x=>String(x.agency_id))},newValues:{ownerAgencyId:String(stamp.agency_id),allowedAgencyIds:ids}});return ids});res.json({id:stampId,allowedAgencyIds})}));
+
+documentMarkRouter.post('/document-marks/stamps/:id/version',requirePermission('stamp.manage'),documentMultipart,asyncHandler(async(r:MultipartRequest,res)=>{const w=scope(r,await assertPermission(r,'stamp.manage'),'owner'),f=image(r.documentFile),stored=await storeDocument(f,String(r.user!.agencyId)),hash=documentHash(f.buffer);
 try{const id=await markTransaction(r,async c=>{const[st]=await c.execute<RowDataPacket[]>(`SELECT st.id,st.revoked_at FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]);
 if(!st[0])throw new HttpError(404,'Cachet introuvable');
 if(st[0].revoked_at)throw new HttpError(409,'Un cachet révoqué ne peut pas recevoir de nouvelle version');
@@ -130,7 +138,7 @@ return String(x.insertId)});
 res.status(201).json({id})}catch(e){await unlink(stored.absolute).catch(()=>undefined);
 throw e}}));
 
-documentMarkRouter.patch('/document-marks/stamps/:id/document-types',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const w=scope(r,await assertPermission(r,'stamp.manage')),documentTypes=stampDocumentTypes(r.body.documentContexts,null);
+documentMarkRouter.patch('/document-marks/stamps/:id/document-types',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const w=scope(r,await assertPermission(r,'stamp.manage'),'owner'),documentTypes=stampDocumentTypes(r.body.documentContexts,null);
 await markTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>(`SELECT st.id,st.document_context FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]),stamp=rows[0];
 if(!stamp)throw new HttpError(404,'Cachet introuvable');
 const[before]=await c.execute<RowDataPacket[]>('SELECT document_type FROM service_stamp_document_types WHERE stamp_id=? ORDER BY document_type',[stamp.id]);
@@ -145,7 +153,7 @@ if(!rows.length)throw new HttpError(404,'Cachet introuvable');
 res.json(rows.map(sig))}));
 
 documentMarkRouter.patch('/document-marks/stamps/:id/status',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{if(typeof r.body?.isActive!=='boolean')throw new HttpError(400,'Statut invalide');
-const w=scope(r,await assertPermission(r,'stamp.manage'));
+const w=scope(r,await assertPermission(r,'stamp.manage'),'owner');
 await markTransaction(r,async c=>{const[x]=await c.execute<RowDataPacket[]>(`SELECT st.id,st.revoked_at FROM service_stamps st WHERE st.id=? AND ${w.sql} FOR UPDATE`,[num(r.params.id),...w.p]);
 if(!x[0])throw new HttpError(404,'Cachet introuvable');
 if(r.body.isActive&&x[0].revoked_at)throw new HttpError(409,'Un cachet révoqué ne peut pas être réactivé');
@@ -167,16 +175,17 @@ if(!actor)throw new HttpError(403,'Agence utilisateur introuvable');
 const rows=await query<RowDataPacket[]>(`SELECT c.*,EXISTS(SELECT 1 FROM service_stamps st WHERE st.category_id=c.id) is_used FROM service_stamp_categories c WHERE ${'c.concession_id=?'} ORDER BY c.name`,[actor.concession_id]);
 res.json(rows.map(x=>({...x,id:String(x.id),concession_id:String(x.concession_id),is_active:Boolean(x.is_active),is_used:Boolean(x.is_used)})))}));
 
-documentMarkRouter.post('/document-marks/categories',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const s=await assertPermission(r,'stamp.manage'),concession=await target(r,s,null,null),name=txt(r.body.name,120);
+documentMarkRouter.post('/document-marks/categories',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const s=await assertPermission(r,'stamp.manage'),name=txt(r.body.name,120);
+if(s!=='AGENCY')throw new HttpError(403,'Scope insuffisant');
 if(!name)throw new HttpError(400,'Nom requis');
-try{const result=await execute('INSERT INTO service_stamp_categories(concession_id,name,description,created_by) VALUES(?,?,?,?)',[concession,name,txt(r.body.description,500)||null,r.user!.sub]);
-res.status(201).json({id:String(result.insertId)})}catch(e:any){if(e?.code==='ER_DUP_ENTRY')throw new HttpError(409,'Cette catégorie existe déjà');
+try{const id=await markTransaction(r,async c=>{const concession=await actorConcession(r,c),[result]=await c.execute<ResultSetHeader>('INSERT INTO service_stamp_categories(concession_id,name,description,created_by) VALUES(?,?,?,?)',[concession,name,txt(r.body.description,500)||null,r.user!.sub]);await writeAudit(c,r,{module:'documents',entityType:'service_stamp_category',entityId:String(result.insertId),action:'stamp.category.created',newValues:{name,description:txt(r.body.description,500)||null,concessionId:concession}});return String(result.insertId)});
+res.status(201).json({id})}catch(e:any){if(e?.code==='ER_DUP_ENTRY')throw new HttpError(409,'Cette catégorie existe déjà');
 throw e}}));
 
-documentMarkRouter.patch('/document-marks/categories/:id',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const s=await assertPermission(r,'stamp.manage'),concession=await target(r,s,null,null),name=txt(r.body.name,120);
+documentMarkRouter.patch('/document-marks/categories/:id',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const s=await assertPermission(r,'stamp.manage'),categoryId=num(r.params.id),name=txt(r.body.name,120);
+if(s!=='AGENCY')throw new HttpError(403,'Scope insuffisant');
 if(!name||typeof r.body.isActive!=='boolean')throw new HttpError(400,'Catégorie invalide');
-try{const result=await execute('UPDATE service_stamp_categories SET name=?,description=?,is_active=?,updated_by=? WHERE id=? AND concession_id=?',[name,txt(r.body.description,500)||null,r.body.isActive,r.user!.sub,num(r.params.id),concession]);
-if(!result.affectedRows)throw new HttpError(404,'Catégorie introuvable');
+try{await markTransaction(r,async c=>{const concession=await actorConcession(r,c),[before]=await c.execute<RowDataPacket[]>('SELECT * FROM service_stamp_categories WHERE id=? AND concession_id=? FOR UPDATE',[categoryId,concession]);if(!before[0])throw new HttpError(404,'Catégorie introuvable');await c.execute('UPDATE service_stamp_categories SET name=?,description=?,is_active=?,updated_by=? WHERE id=?',[name,txt(r.body.description,500)||null,r.body.isActive,r.user!.sub,categoryId]);await writeAudit(c,r,{module:'documents',entityType:'service_stamp_category',entityId:categoryId,action:'stamp.category.updated',oldValues:before[0],newValues:{name,description:txt(r.body.description,500)||null,isActive:r.body.isActive}})});
 res.json({success:true})}catch(e:any){if(e?.code==='ER_DUP_ENTRY')throw new HttpError(409,'Cette catégorie existe déjà');
 throw e}}));
 
@@ -184,11 +193,11 @@ throw e}}));
 documentMarkRouter.get('/document-marks/policies',requirePermission('stamp.view'),asyncHandler(async(r,res)=>{const w=scope(r,await assertPermission(r,'stamp.view')),rows=await query<RowDataPacket[]>(`SELECT p.*,st.name default_stamp_name FROM document_mark_policies p LEFT JOIN service_stamps st ON st.id=p.default_stamp_id WHERE ${w.sql.replaceAll('st.','p.')} ORDER BY p.document_type,p.agency_id IS NULL,p.agency_id`,w.p);
 res.json(rows.map(x=>({...x,id:String(x.id),concession_id:String(x.concession_id),agency_id:x.agency_id?String(x.agency_id):null,default_stamp_id:x.default_stamp_id?String(x.default_stamp_id):null,signature_required:Boolean(x.signature_required),stamp_required:Boolean(x.stamp_required),is_active:Boolean(x.is_active)})))}));
 
-documentMarkRouter.put('/document-marks/policies/:documentType',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const s=await assertPermission(r,'stamp.manage'),type=documentType(r.params.documentType),agencyId=txt(r.body.agencyId)?num(r.body.agencyId):null,definition=documentMarkTypes.find(x=>x.code===type)!;
+documentMarkRouter.put('/document-marks/policies/:documentType',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const s=await assertPermission(r,'stamp.manage'),type=documentType(r.params.documentType),agencyId=String(r.user!.agencyId),definition=documentMarkTypes.find(x=>x.code===type)!;
 if(!definition.policyManaged)throw new HttpError(409,'Ce document utilise un workflow de marques explicite et ne peut pas recevoir de politique automatique');
 const concession=await target(r,s,agencyId,null);
 const signature=Boolean(r.body.signatureRequired),stamp=Boolean(r.body.stampRequired),behavior=r.body.missingMarkBehavior==='ALLOW_WITHOUT_MARK'?'ALLOW_WITHOUT_MARK':'BLOCK',defaultStamp=txt(r.body.defaultStampId)?num(r.body.defaultStampId):null;
-if(defaultStamp){const[allowed]=await query<RowDataPacket[]>('SELECT st.id FROM service_stamps st JOIN service_stamp_document_types dt ON dt.stamp_id=st.id AND dt.document_type=? WHERE st.id=? AND st.concession_id=? AND st.is_active=TRUE AND st.revoked_at IS NULL',[type,defaultStamp,concession]);
+if(defaultStamp){const[allowed]=await query<RowDataPacket[]>('SELECT st.id FROM service_stamps st JOIN service_stamp_agencies sa ON sa.stamp_id=st.id AND sa.agency_id=? JOIN service_stamp_document_types dt ON dt.stamp_id=st.id AND dt.document_type=? WHERE st.id=? AND st.concession_id=? AND st.is_active=TRUE AND st.revoked_at IS NULL',[agencyId,type,defaultStamp,concession]);
 if(!allowed)throw new HttpError(400,'Cachet par défaut incompatible, inactif ou révoqué')}const saved=await markTransaction(r,async c=>{const[before]=await c.execute<RowDataPacket[]>('SELECT * FROM document_mark_policies WHERE concession_id=? AND agency_scope_key=COALESCE(?,0) AND document_type=? FOR UPDATE',[concession,agencyId,type]);
 await c.execute('INSERT INTO document_mark_policies(concession_id,agency_id,document_type,trigger_status,signature_required,stamp_required,missing_mark_behavior,default_stamp_id,is_active,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE trigger_status=VALUES(trigger_status),signature_required=VALUES(signature_required),stamp_required=VALUES(stamp_required),missing_mark_behavior=VALUES(missing_mark_behavior),default_stamp_id=VALUES(default_stamp_id),is_active=VALUES(is_active),updated_by=VALUES(updated_by)',[concession,agencyId,type,definition.triggerStatus,signature,stamp,behavior,defaultStamp,r.body.isActive!==false,r.user!.sub,r.user!.sub]);
 const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM document_mark_policies WHERE concession_id=? AND agency_scope_key=COALESCE(?,0) AND document_type=?',[concession,agencyId,type]);
@@ -201,7 +210,7 @@ res.json({...saved,id:String(saved.id),concession_id:String(saved.concession_id)
 documentMarkRouter.get('/roles/:roleId/stamps',requirePermission('stamp.view'),asyncHandler(async(r,res)=>{const roleId=num(r.params.roleId),w=scope(r,await assertPermission(r,'stamp.view')),rows=await query<RowDataPacket[]>(`SELECT st.id,st.name,st.document_context,st.is_active,c.name category_name,(SELECT JSON_ARRAYAGG(dt.document_type) FROM service_stamp_document_types dt WHERE dt.stamp_id=st.id) document_contexts,EXISTS(SELECT 1 FROM service_stamp_role_authorizations a WHERE a.stamp_id=st.id AND a.role_id=?) authorized FROM service_stamps st LEFT JOIN service_stamp_categories c ON c.id=st.category_id WHERE ${w.sql} ORDER BY st.name`,[roleId,...w.p]);
 res.json(rows.map(x=>({...x,id:String(x.id),document_contexts:contexts(x.document_contexts,String(x.document_context)),is_active:Boolean(x.is_active),authorized:Boolean(x.authorized)})))}));
 
-documentMarkRouter.put('/roles/:roleId/stamps',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const roleId=num(r.params.roleId),w=scope(r,await assertPermission(r,'stamp.manage')),ids:string[]=Array.isArray(r.body.stampIds)?[...new Set<string>(r.body.stampIds.map((x:unknown)=>num(x)))]:[];
+documentMarkRouter.put('/roles/:roleId/stamps',requirePermission('stamp.manage'),asyncHandler(async(r,res)=>{const roleId=num(r.params.roleId),w=scope(r,await assertPermission(r,'stamp.manage'),'owner'),ids:string[]=Array.isArray(r.body.stampIds)?[...new Set<string>(r.body.stampIds.map((x:unknown)=>num(x)))]:[];
 await markTransaction(r,async c=>{const[role]=await c.execute<RowDataPacket[]>('SELECT id FROM roles WHERE id=? AND is_active=TRUE FOR UPDATE',[roleId]);
 if(!role[0])throw new HttpError(404,'Rôle actif introuvable');
 if(ids.length){const[valid]=await c.execute<RowDataPacket[]>(`SELECT st.id FROM service_stamps st WHERE st.id IN (${ids.map(()=>'?').join(',')}) AND st.is_active=TRUE AND st.revoked_at IS NULL AND ${w.sql}`,[...ids,...w.p]);

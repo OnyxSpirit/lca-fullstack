@@ -31,6 +31,7 @@ const collectiveCodes = new Set([
   "delivery.service.price",
   "reporting.view",
   "stamp.manage",
+  "stamp.assign_agencies",
   "stamp.use",
   "stamp.view",
   "vehicles.archive",

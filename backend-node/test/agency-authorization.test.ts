@@ -49,9 +49,10 @@ test('PH2C2A prédicats SQL sûrs refusent historique et règles permissives',as
  await assert.rejects(()=>resolveAgencyDataScope(request({p:'AGENCY'}),'p',{agencyColumn:'x.agency_id OR 1=1'}),/UNSAFE/);
 });
 
-test('PH2C2A autorisation centrale reste SUPER_ADMIN système sans délégation implicite',async()=>{
- assert.equal(await assertCentralAgencyPermission(request({central:'GLOBAL'},'10',true),'central'),'GLOBAL');
- await assert.rejects(()=>assertCentralAgencyPermission(request({central:'GLOBAL'}),'central'),/centrale insuffisante/);
+test('CORRECTIF-ERP-GLOBAL-01 autorisation centrale délégable avec scope AGENCY',async()=>{
+ assert.equal(await assertCentralAgencyPermission(request({central:'GLOBAL'},'10',true),'central'),'AGENCY');
+ assert.equal(await assertCentralAgencyPermission(request({central:'AGENCY'}),'central'),'AGENCY');
+ await assert.rejects(()=>assertCentralAgencyPermission(request({central:'OWN'}),'central'),/scope AGENCY/);
  await assert.rejects(()=>assertCentralAgencyPermission(request({},'10',true),'central'),/centrale insuffisante/);
 });
 

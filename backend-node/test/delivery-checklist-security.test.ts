@@ -8,7 +8,8 @@ const rbac=readFileSync(new URL('../src/modules/rbac/rbac.service.ts',import.met
 
 test('SEC-01/02 la configuration collective exige une autorisation centrale',()=>{
   assert.match(configRoute,/requireCentralAgencyPermission/);
-  assert.match(configRoute,/!request\.agencyRbac\?\.isSuperAdmin\|\|!request\.agencyRbac\.permissions\.has\(permission\)/);
+  assert.match(configRoute,/permissions\.get\(permission\)!=='AGENCY'/);
+  assert.doesNotMatch(configRoute,/isSuperAdmin/);
 });
 test('SEC-03/04 lecture et gestion exigent des permissions distinctes',()=>{
   assert.match(configRoute,/get\('\/delivery-checklist-config',requirePermission\('delivery\.checklist\.config\.view'\)/);
@@ -28,9 +29,9 @@ test('SEC-06B la modification d’un type restaure son association de catégorie
   assert.match(configRoute,/UPDATE delivery_checklist_items SET category_id=\?,name=\?,description=\?,is_mandatory=\?,sort_order=\?/);
   assert.match(configRoute,/COALESCE\(MAX\(sort_order\),0\)\+10 next_order/);
 });
-test('SEC-07/08 le contexte central peut cibler explicitement une concession',()=>{
-  assert.match(configRoute,/requested!=null&&requested!==''\)return idOf\(requested\)/);
-  assert.match(configRoute,/return String\(actor\.concession_id\)/);
+test('SEC-07/08 le contexte central reste borné à la concession active',()=>{
+  assert.match(configRoute,/idOf\(requested\)!==actorConcession/);
+  assert.match(configRoute,/Concession hors du contexte autorisé/);
 });
 test('SEC-09/10 aucune permission non pertinente ni bypass de rôle local',()=>{
   assert.doesNotMatch(configRoute,/delivery\.view|delivery\.schedule|role\.code|roles\.includes|SUPER_ADMIN/);

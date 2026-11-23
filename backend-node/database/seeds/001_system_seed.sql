@@ -320,6 +320,7 @@ INSERT INTO permissions(module,action,code,name,group_name,description,is_active
 ('documents','manage','signature.manage.self','Gérer sa signature','Documents & Gouvernance','Importer, remplacer ou révoquer sa propre signature visuelle',TRUE),
 ('documents','view','stamp.view','Voir les cachets','Documents & Gouvernance','Consulter les cachets institutionnels dans son périmètre',TRUE),
 ('documents','manage','stamp.manage','Gérer les cachets','Documents & Gouvernance','Créer, versionner et désactiver les cachets institutionnels',TRUE),
+('documents','assign','stamp.assign_agencies','Partager les cachets entre agences','Documents & Gouvernance','Gérer les agences autorisées à utiliser un cachet appartenant à l’agence active',TRUE),
 ('documents','use','stamp.use','Utiliser un cachet','Documents & Gouvernance','Apposer un cachet compatible sur un document officiel',TRUE),
 ('documents','apply','document.signature.apply','Apposer sa signature','Documents & Gouvernance','Apposer sa signature visuelle active sur un document compatible',TRUE)
 ON DUPLICATE KEY UPDATE name=VALUES(name),group_name=VALUES(group_name),description=VALUES(description),is_active=TRUE;

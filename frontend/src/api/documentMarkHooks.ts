@@ -2,7 +2,8 @@ import{useMutation,useQuery,useQueryClient}from'@tanstack/react-query';
 import{apiRequest}from'../services/apiClient';
 
 export type MarkVersion={id:string;version:number;mimeType:string;fileSize:number;fileHash:string;isActive:boolean;createdAt?:string;revokedAt?:string|null};
-export type ServiceStamp={id:string;name:string;concessionId:string;agencyId:string|null;departmentId:string|null;categoryId:string|null;documentContext:string;documentContexts:string[];isActive:boolean;revokedAt:string|null;revokedBy:string|null;revocationReason:string|null;activeVersion:MarkVersion|null};
+export type ServiceStamp={id:string;name:string;concessionId:string;agencyId:string;ownerAgencyName:string;allowedAgencyIds:string[];departmentId:string|null;categoryId:string|null;documentContext:string;documentContexts:string[];isActive:boolean;revokedAt:string|null;revokedBy:string|null;revocationReason:string|null;activeVersion:MarkVersion|null};
+export type StampAgency={id:string;name:string;code:string;isOwner:boolean};
 export type StampCategory={id:string;name:string;description:string|null;is_active:boolean;is_used:boolean};
 export type DocumentMarkType={code:string;label:string;triggerStatus:string;policyManaged:boolean;stampSupported:boolean};
 export type DocumentMarkPolicy={id:string;document_type:string;agency_id:string|null;signature_required:boolean;stamp_required:boolean;missing_mark_behavior:'BLOCK'|'ALLOW_WITHOUT_MARK';default_stamp_id:string|null;default_stamp_name:string|null;is_active:boolean};
@@ -18,10 +19,12 @@ export const useServiceStamps=(allowed=true)=>useQuery({queryKey:['document-mark
 export const useStampCategories=(allowed=true)=>useQuery({queryKey:['document-marks','categories'],queryFn:()=>apiRequest<StampCategory[]>('/document-marks/categories'),enabled:allowed});
 export const useDocumentMarkTypes=(allowed=true)=>useQuery({queryKey:['document-marks','types'],queryFn:()=>apiRequest<DocumentMarkType[]>('/document-marks/types'),enabled:allowed});
 export const useDocumentMarkPolicies=(allowed=true)=>useQuery({queryKey:['document-marks','policies'],queryFn:()=>apiRequest<DocumentMarkPolicy[]>('/document-marks/policies'),enabled:allowed});
+export const useStampAgencies=(allowed=true)=>useQuery({queryKey:['document-marks','agencies'],queryFn:()=>apiRequest<StampAgency[]>('/document-marks/agencies'),enabled:allowed});
 export const useRoleStamps=(roleId:string|number|undefined,allowed=true)=>useQuery({queryKey:['document-marks','role-stamps',String(roleId??'')],queryFn:()=>apiRequest<RoleStamp[]>(`/roles/${roleId}/stamps`),enabled:Boolean(roleId)&&allowed});
 export const useSaveRoleStamps=()=>{const qc=useQueryClient();return useMutation({mutationFn:({roleId,stampIds}:{roleId:string|number;stampIds:string[]})=>apiRequest(`/roles/${roleId}/stamps`,{method:'PUT',body:JSON.stringify({stampIds})}),onSuccess:(_,v)=>void qc.invalidateQueries({queryKey:['document-marks','role-stamps',String(v.roleId)]})})};
 export const useStampActions=()=>{const qc=useQueryClient(),done=()=>qc.invalidateQueries({queryKey:['document-marks','stamps']});return{
- create:useMutation({mutationFn:({file,documentContexts,...values}:{file:File;name:string;agencyId?:string;departmentId?:string;categoryId?:string;documentContexts:string[]})=>apiRequest('/document-marks/stamps',{method:'POST',body:form(file,{...values,documentContexts:JSON.stringify(documentContexts)})}),onSuccess:done}),
+ create:useMutation({mutationFn:({file,documentContexts,allowedAgencyIds,...values}:{file:File;name:string;departmentId?:string;categoryId?:string;documentContexts:string[];allowedAgencyIds:string[]})=>apiRequest('/document-marks/stamps',{method:'POST',body:form(file,{...values,documentContexts:JSON.stringify(documentContexts),allowedAgencyIds:JSON.stringify(allowedAgencyIds)})}),onSuccess:done}),
+ agencies:useMutation({mutationFn:({id,allowedAgencyIds}:{id:string;allowedAgencyIds:string[]})=>apiRequest(`/document-marks/stamps/${id}/agencies`,{method:'PUT',body:JSON.stringify({allowedAgencyIds})}),onSuccess:done}),
  replace:useMutation({mutationFn:({id,file}:{id:string;file:File})=>apiRequest(`/document-marks/stamps/${id}/version`,{method:'POST',body:form(file)}),onSuccess:done}),
  documents:useMutation({mutationFn:({id,documentContexts}:{id:string;documentContexts:string[]})=>apiRequest(`/document-marks/stamps/${id}/document-types`,{method:'PATCH',body:JSON.stringify({documentContexts})}),onSuccess:done}),
  status:useMutation({mutationFn:({id,isActive}:{id:string;isActive:boolean})=>apiRequest(`/document-marks/stamps/${id}/status`,{method:'PATCH',body:JSON.stringify({isActive})}),onSuccess:done}),

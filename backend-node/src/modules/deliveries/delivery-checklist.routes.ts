@@ -14,12 +14,12 @@ type ConfigPermission='delivery.checklist.config.view'|'delivery.checklist.confi
 const idOf=(value:unknown)=>{const id=String(value??'');if(!/^[1-9]\d*$/.test(id))throw new HttpError(400,'Identifiant invalide');return id};
 const text=(value:unknown,label:string,max:number,required=false)=>{const result=String(value??'').trim();if(required&&!result)throw new HttpError(400,`${label} est requis`);if(result.length>max)throw new HttpError(400,`${label} est trop long`);return result||null};
 async function concession(request:Request,permission:ConfigPermission,requested?:unknown,connection?:PoolConnection){
-  if(!request.agencyRbac?.isSuperAdmin||!request.agencyRbac.permissions.has(permission))throw new HttpError(403,'Autorisation centrale insuffisante');
-  const actorAgency=request.agencyRbac.activeAgencyId;if(!actorAgency)throw new HttpError(403,'Aucune agence active');
+  if(request.rbac?.permissions.get(permission)!=='AGENCY')throw new HttpError(403,'Autorisation centrale insuffisante');
+  const actorAgency=request.agencyRbac?.activeAgencyId;if(!actorAgency)throw new HttpError(403,'Aucune agence active');
   const sql='SELECT concession_id FROM agencies WHERE id=?',rows=connection?(await connection.execute<RowDataPacket[]>(sql,[actorAgency]))[0]:await query<RowDataPacket[]>(sql,[actorAgency]),actor=rows[0];
   if(!actor)throw new HttpError(403,'Concession introuvable');
-  if(requested!=null&&requested!=='')return idOf(requested);
-  return String(actor.concession_id);
+  const actorConcession=String(actor.concession_id);if(requested!=null&&requested!==''&&idOf(requested)!==actorConcession)throw new HttpError(403,'Concession hors du contexte autorisé');
+  return actorConcession;
 }
 async function audit(connection:PoolConnection,request:Request,entityType:string,entityId:string|number|bigint,action:string,oldValues:unknown,newValues:unknown){
   await writeAudit(connection,request,{module:'deliveries',entityType,entityId:String(entityId),action,oldValues,newValues});

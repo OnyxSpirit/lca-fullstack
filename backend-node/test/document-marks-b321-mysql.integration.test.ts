@@ -37,12 +37,11 @@ const png = () => {
 };
 
 test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { skip: !enabled, timeout: 120000 }, async () => {
-  const permissions = ['stamp.view','stamp.manage','stamp.use','signature.view.self','signature.manage.self','document.signature.apply'];
+  const permissions = ['stamp.view','stamp.manage','stamp.use','stamp.assign_agencies','signature.view.self','signature.manage.self','document.signature.apply'];
   const admin = await ensureMysqlHttpAdministrator(permissions);
   const image = png();
   const created = await auth(admin.accessToken, api.post('/api/document-marks/stamps'))
     .field('name', 'Cachet multi-documents B321')
-    .field('agencyId', admin.agencyId)
     .field('documentContexts', JSON.stringify(['QUOTATION','INVOICE']))
     .attach('file', image, { filename: 'cachet-b321.png', contentType: 'image/png' });
   assert.equal(created.status, 201, created.text);
@@ -81,11 +80,28 @@ test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { 
   assert.equal((await auth(viewer.accessToken, api.patch(`/api/document-marks/stamps/${stampId}/document-types`)).send({ documentContexts: ['INVOICE'] })).status, 403);
   const [agency] = await query<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=?', [admin.agencyId]);
   const foreignAgency = await execute('INSERT INTO agencies(concession_id,name,code,is_active) VALUES(?,?,?,TRUE)', [agency!.concession_id, 'Agence B321 étrangère', `B321-${Date.now()}`]);
-  const agencyManager = await createMysqlActor({ label: 'B321 agency manager', agencyId: admin.agencyId, permissions: permissions.map(code => ({ code, scope: 'AGENCY' as const })) });
+  const sharedViewer = await createMysqlActor({ label: 'B321 shared viewer', agencyId: String(foreignAgency.insertId), permissions: [{ code: 'stamp.view', scope: 'AGENCY' }] });
+  const shared = await auth(admin.accessToken, api.put(`/api/document-marks/stamps/${stampId}/agencies`)).send({ allowedAgencyIds: [admin.agencyId, String(foreignAgency.insertId)] });
+  assert.equal(shared.status, 200, shared.text);
+  assert.deepEqual(new Set(shared.body.allowedAgencyIds.map(String)), new Set([admin.agencyId, String(foreignAgency.insertId)]));
+  const sharedList = await auth(sharedViewer.accessToken, api.get('/api/document-marks/stamps'));
+  assert.equal(sharedList.status, 200, sharedList.text);
+  assert.ok(sharedList.body.some((stamp: any) => String(stamp.id) === stampId));
+  const ownerOnly = await auth(admin.accessToken, api.put(`/api/document-marks/stamps/${stampId}/agencies`)).send({ allowedAgencyIds: [] });
+  assert.equal(ownerOnly.status, 200, ownerOnly.text);
+  assert.deepEqual(ownerOnly.body.allowedAgencyIds.map(String), [admin.agencyId]);
+  assert.ok(!(await auth(sharedViewer.accessToken, api.get('/api/document-marks/stamps'))).body.some((stamp: any) => String(stamp.id) === stampId));
+  const agencyManager = await createMysqlActor({ label: 'B321 agency manager', agencyId: admin.agencyId, permissions: permissions.filter(code => code !== 'stamp.assign_agencies').map(code => ({ code, scope: 'AGENCY' as const })) });
+  const unauthorizedShare = await auth(agencyManager.accessToken, api.post('/api/document-marks/stamps'))
+    .field('name', 'Partage interdit').field('allowedAgencyIds', JSON.stringify([String(foreignAgency.insertId)])).field('documentContexts', JSON.stringify(['INVOICE']))
+    .attach('file', image, { filename: 'unauthorized-share.png', contentType: 'image/png' });
+  assert.equal(unauthorizedShare.status, 403, unauthorizedShare.text);
   const crossScope = await auth(agencyManager.accessToken, api.post('/api/document-marks/stamps'))
-    .field('name', 'Cachet hors périmètre').field('agencyId', String(foreignAgency.insertId)).field('documentContexts', JSON.stringify(['INVOICE']))
+    .field('name', 'Cachet agence active').field('agencyId', String(foreignAgency.insertId)).field('documentContexts', JSON.stringify(['INVOICE']))
     .attach('file', image, { filename: 'cross.png', contentType: 'image/png' });
-  assert.equal(crossScope.status, 403, crossScope.text);
+  assert.equal(crossScope.status, 201, crossScope.text);
+  const [derivedOwner] = await query<RowDataPacket[]>('SELECT agency_id FROM service_stamps WHERE id=?', [crossScope.body.id]);
+  assert.equal(String(derivedOwner!.agency_id), admin.agencyId);
 
   assert.equal((await auth(admin.accessToken, api.patch(`/api/document-marks/stamps/${stampId}/status`)).send({ isActive: false })).status, 200);
   const inactivePolicy = await auth(admin.accessToken, api.put('/api/document-marks/policies/INVOICE')).send({ agencyId: admin.agencyId, signatureRequired: false, stampRequired: true, missingMarkBehavior: 'BLOCK', defaultStampId: stampId, isActive: true });

@@ -25,8 +25,9 @@ test('2FA-GOV-03 routes séparent lecture et gestion, avec step-up sur écriture
  const routes=source('src/modules/auth/two-factor-admin.routes.ts'),service=source('src/modules/auth/two-factor-admin.service.ts');
  assert.match(routes,/get\('\/auth\/2fa\/security-settings',requireCentralAgencyPermission\('auth\.2fa\.settings\.view'\)/);
  assert.match(routes,/put\('\/auth\/2fa\/security-settings',requireCentralAgencyPermission\('auth\.2fa\.settings\.manage'\)/);
- assert.match(service,/assertGlobal\(request,'auth\.2fa\.settings\.manage'\);await assertRecentStrongAuthentication/);
- assert.match(service,/request\.agencyRbac\?\.isSuperAdmin/);
+ assert.match(service,/await assertGlobal\(request,'auth\.2fa\.settings\.manage'\);await assertRecentStrongAuthentication/);
+ assert.match(service,/assertCentralAgencyPermission/);
+ assert.doesNotMatch(service,/request\.agencyRbac\?\.isSuperAdmin/);
 });
 
 test('2FA-GOV-04 valeurs typées, bornées, fallback et audit sans secret',()=>{

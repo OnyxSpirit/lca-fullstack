@@ -48,6 +48,13 @@ test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { 
   const stampId = String(created.body.id);
   assert.deepEqual(created.body.documentContexts, ['QUOTATION','INVOICE']);
 
+  const savedPolicy = await auth(admin.accessToken, api.put('/api/document-marks/policies/QUOTATION')).send({ signatureRequired: true, stampRequired: true, missingMarkBehavior: 'BLOCK', defaultStampId: stampId, isActive: true });
+  assert.equal(savedPolicy.status, 200, savedPolicy.text);
+  const policyId=String(savedPolicy.body.id);
+  const matchingStamp=Number((await query<RowDataPacket[]>('SELECT COUNT(*) total FROM service_stamps WHERE id=?',[policyId]))[0]!.total);
+  assert.equal(matchingStamp,0,'Le scénario doit prouver que la lecture ne dépend pas d’un cachet portant le même identifiant que la politique');
+  for(let attempt=0;attempt<2;attempt+=1){const readPolicy=await auth(admin.accessToken,api.get('/api/document-marks/policies'));assert.equal(readPolicy.status,200,readPolicy.text);const restored=readPolicy.body.find((policy:any)=>String(policy.id)===policyId);assert.ok(restored,'La politique doit rester visible après relecture');assert.equal(restored.document_type,'QUOTATION');assert.equal(restored.signature_required,true);assert.equal(restored.stamp_required,true);assert.equal(String(restored.default_stamp_id),stampId);assert.equal(restored.missing_mark_behavior,'BLOCK');assert.equal(restored.is_active,true)}
+
   const mappings = await query<RowDataPacket[]>('SELECT document_type FROM service_stamp_document_types WHERE stamp_id=? ORDER BY document_type', [stampId]);
   assert.deepEqual(mappings.map(row => row.document_type), ['INVOICE','QUOTATION']);
   const firstRead = await auth(admin.accessToken, api.get('/api/document-marks/stamps'));
@@ -81,6 +88,9 @@ test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { 
   const [agency] = await query<RowDataPacket[]>('SELECT concession_id FROM agencies WHERE id=?', [admin.agencyId]);
   const foreignAgency = await execute('INSERT INTO agencies(concession_id,name,code,is_active) VALUES(?,?,?,TRUE)', [agency!.concession_id, 'Agence B321 étrangère', `B321-${Date.now()}`]);
   const sharedViewer = await createMysqlActor({ label: 'B321 shared viewer', agencyId: String(foreignAgency.insertId), permissions: [{ code: 'stamp.view', scope: 'AGENCY' }] });
+  const foreignPolicies=await auth(sharedViewer.accessToken,api.get('/api/document-marks/policies'));
+  assert.equal(foreignPolicies.status,200,foreignPolicies.text);
+  assert.ok(!foreignPolicies.body.some((policy:any)=>String(policy.id)===policyId),'Une politique d’agence ne doit pas fuir vers une agence sœur');
   const shared = await auth(admin.accessToken, api.put(`/api/document-marks/stamps/${stampId}/agencies`)).send({ allowedAgencyIds: [admin.agencyId, String(foreignAgency.insertId)] });
   assert.equal(shared.status, 200, shared.text);
   assert.deepEqual(new Set(shared.body.allowedAgencyIds.map(String)), new Set([admin.agencyId, String(foreignAgency.insertId)]));

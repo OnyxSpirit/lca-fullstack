@@ -10,7 +10,9 @@ const resolver = source('src/modules/document-marks/document-mark-policy.service
 const archive = source('src/modules/documents/business-document.service.ts');
 const layout = source('src/modules/documents/document-layout.ts');
 const commercial = source('src/modules/documents/commercial-document.ts');
+const deliveryRoutes = source('src/modules/deliveries/delivery.routes.ts');
 const settings = source('../frontend/src/modules/settings/DocumentMarksSettings.tsx');
+const policyForm = source('../frontend/src/modules/settings/DocumentPolicyForm.tsx');
 const pad = source('../frontend/src/modules/settings/SignaturePad.tsx');
 const roles = source('../frontend/src/modules/users/RoleManagementPanel.tsx');
 
@@ -43,6 +45,31 @@ test('LOT2 résolution déterministe et contrôle serveur des cachets', () => {
   assert.match(resolver, /st\.is_active=TRUE/);
 });
 
+test('CORRECTIF-SC-001 lecture des politiques utilise un prédicat agence/concession dédié',()=>{
+  assert.match(routes,/p\.concession_id=\? AND \(p\.agency_id=\? OR p\.agency_id IS NULL\)/);
+  assert.doesNotMatch(routes,/w\.sql\.replaceAll\('st\.'\s*,\s*'p\.'\)/);
+});
+
+test('CORRECTIF-SC-002 chaque formulaire de politique possède sa mutation indépendante et des libellés français',()=>{
+  assert.match(settings,/DocumentPolicyForm/);
+  assert.match(policyForm,/mutationKey:\['document-marks','policy',type\.code\]/);
+  assert.match(policyForm,/loading=\{save\.isPending\}/);
+  assert.match(policyForm,/Déclenchement/);
+  assert.doesNotMatch(policyForm,/>\{type\.triggerStatus\}</);
+});
+
+test('CORRECTIF-SC-003 résolution de signature utilise une affectation active dans l’agence du document',()=>{
+  assert.match(resolver,/JOIN user_agencies ua ON ua\.user_id=u\.id AND ua\.agency_id=\? AND ua\.status='ACTIVE'/);
+  assert.doesNotMatch(resolver,/JOIN agencies aa ON aa\.id=u\.agency_id/);
+});
+
+test('CORRECTIF-SC-004 la livraison exige une autorisation de rôle active pour le cachet',()=>{
+  assert.match(deliveryRoutes,/service_stamp_role_authorizations auth/);
+  assert.match(deliveryRoutes,/role\.is_active=TRUE/);
+  assert.match(deliveryRoutes,/ua\.agency_id=\?/);
+  assert.match(deliveryRoutes,/Cachet inactif, non partagé, non autorisé pour votre rôle/);
+});
+
 test('B3.2 affectations multi-documents additives et rétrocompatibles', () => {
   assert.match(multiDocumentMigration, /PRIMARY KEY\(stamp_id,document_type\)/);
   assert.match(multiDocumentMigration, /SELECT id,document_context,created_by FROM service_stamps/);
@@ -50,7 +77,7 @@ test('B3.2 affectations multi-documents additives et rétrocompatibles', () => {
   assert.match(routes, /documentContexts/);
   assert.match(routes, /policyManaged:false/);
   assert.match(settings, /stampSupported/);
-  assert.match(settings, /documentContexts\.includes\(type\.code\)/);
+  assert.match(policyForm, /documentContexts\.includes\(type\.code\)/);
 });
 
 test('LOT2 documents officiels intégrés et historique jamais recalculé', () => {
@@ -71,7 +98,7 @@ test('LOT2 interface: import ou dessin, catégories, politiques et rôles', () =
   assert.match(pad, /onPointerDown/);
   assert.match(pad, /Effacer|Recommencer/);
   assert.match(settings, /Catégories de cachets/);
-  assert.match(settings, /Documents officiels · Politiques/);
+  assert.match(settings, /Documents officiels · Règles d’émission/);
   assert.match(roles, /Cachets autorisés/);
   assert.match(roles, /useSaveRoleStamps/);
 });

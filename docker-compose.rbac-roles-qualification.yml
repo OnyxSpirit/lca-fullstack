@@ -1,0 +1,33 @@
+name: lca-rbac-roles-01
+
+services:
+  mysql-rbac-roles:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: lca_rbac_roles_isolated
+      MYSQL_USER: lca_rbac_roles
+      MYSQL_PASSWORD: rbac_roles_qualification_only
+      MYSQL_ROOT_PASSWORD: rbac_roles_root_qualification_only
+    ports:
+      - "127.0.0.1:33324:3306"
+    volumes:
+      - rbac_roles_mysql_data:/var/lib/mysql
+      - ./deploy/mysql.cnf:/etc/mysql/conf.d/lca.cnf:ro
+      - ./backend-node/database/baseline/001_initial_schema.sql:/docker-entrypoint-initdb.d/001-initial-schema.sql:ro
+      - ./backend-node/database/seeds/001_system_seed.sql:/docker-entrypoint-initdb.d/002-system-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [rbac_roles_private]
+
+volumes:
+  rbac_roles_mysql_data:
+    name: lca-rbac-roles-01_mysql_data
+
+networks:
+  rbac_roles_private:
+    name: lca-rbac-roles-01_private
+    internal: true

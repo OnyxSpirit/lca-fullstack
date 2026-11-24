@@ -17,8 +17,8 @@ import {pageMeta,pageRequest,paged} from '../../shared/pagination.js';
 import {TECHNICAL_PROFILE_FIELDS,effectiveTechnicalValues,parseTechnicalValues,resolveTechnicalProfileByVersion} from './vehicle-technical-profile.js';
 
 export const vehicleRouter=Router();
-const DB_STATUSES=['ordered','in_transit','received','preparation','available','reserved','sold','delivered'];
-export const ADMINISTRABLE_VEHICLE_STATUSES=['ordered','in_transit','received','preparation','available'] as const;
+const DB_STATUSES=['ordered','in_transit','received','preparation','available','demo','reserved','sold','delivered'];
+export const ADMINISTRABLE_VEHICLE_STATUSES=['ordered','in_transit','received','preparation','available','demo'] as const;
 export const COMMERCIAL_PARK_STATUSES=['received','preparation','available','reserved'] as const;
 const ACTIVE_TYPES=['new','used'];
 export const VEHICLE_LOCATION_TYPES=['PARC','SHOWROOM','GARAGE'] as const;
@@ -77,7 +77,7 @@ export function vehicleStatsQuery(request:Request){
   const financialScoped=finance?vehicleScope(request,'vehicles.financials.view','v',request.query.agencyId):null;
   const financialSelect=financialScoped?`,COALESCE(SUM(CASE WHEN v.status IN('received','preparation','available','reserved') AND (${financialScoped.sql}) THEN v.sale_price ELSE 0 END),0) stock_value`:'';
   return{
-    sql:`SELECT COUNT(*) total,SUM(v.status='ordered') ordered,SUM(v.status='in_transit') in_transit,SUM(v.status='received') received,SUM(v.status='preparation') preparation,SUM(v.status='available') available,SUM(v.status='reserved') reserved,SUM(v.status='sold') sold,SUM(v.status='delivered') delivered,SUM(v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)) dormant${financialSelect} FROM vehicles v WHERE ${commercialStockPredicate()} AND v.archived_at IS NULL AND ${scoped.sql}`,
+    sql:`SELECT COUNT(*) total,SUM(v.status='ordered') ordered,SUM(v.status='in_transit') in_transit,SUM(v.status='received') received,SUM(v.status='preparation') preparation,SUM(v.status='available') available,SUM(v.status='demo') demo,SUM(v.status='reserved') reserved,SUM(v.status='sold') sold,SUM(v.status='delivered') delivered,SUM(v.entry_date<DATE_SUB(CURDATE(),INTERVAL 60 DAY)) dormant${financialSelect} FROM vehicles v WHERE ${commercialStockPredicate()} AND v.archived_at IS NULL AND ${scoped.sql}`,
     params:financialScoped?[...financialScoped.params,...scoped.params]:scoped.params,
     finance,
   };
@@ -87,7 +87,7 @@ vehicleRouter.get('/vehicles/stats',requireAgencyBusinessPermission('vehicles.vi
   const statsQuery=vehicleStatsQuery(request);
   const [row]=await query<RowDataPacket[]>(statsQuery.sql,statsQuery.params);
   const availableForSale=Number(row?.available??0);
-  response.json({total:Number(row?.total??0),ordered:Number(row?.ordered??0),inTransit:Number(row?.in_transit??0),received:Number(row?.received??0),preparation:Number(row?.preparation??0),available:availableForSale,availableForSale,reserved:Number(row?.reserved??0),sold:Number(row?.sold??0),delivered:Number(row?.delivered??0),dormant:Number(row?.dormant??0),...(statsQuery.finance?{stockValue:Number(row?.stock_value??0)}:{})});
+  response.json({total:Number(row?.total??0),ordered:Number(row?.ordered??0),inTransit:Number(row?.in_transit??0),received:Number(row?.received??0),preparation:Number(row?.preparation??0),available:availableForSale,availableForSale,demo:Number(row?.demo??0),reserved:Number(row?.reserved??0),sold:Number(row?.sold??0),delivered:Number(row?.delivered??0),dormant:Number(row?.dormant??0),...(statsQuery.finance?{stockValue:Number(row?.stock_value??0)}:{})});
 }));
 
 vehicleRouter.get('/vehicles/location-counts',requireAgencyBusinessPermission('vehicles.view'),asyncHandler(async(request,response)=>{
@@ -242,7 +242,7 @@ vehicleRouter.patch('/vehicles/:id',requireAgencyBusinessPermission('vehicles.up
   assertStockVehicleMutable(before.status);
   if(Object.hasOwn(request.body,'locationId'))throw new HttpError(409,"Utilisez l'action Transférer pour modifier l'affectation physique");
   if(Object.hasOwn(request.body,'vehicleType')&&!ACTIVE_TYPES.includes(txt(request.body.vehicleType)))throw new HttpError(400,'Le type doit être VN ou VO');
-  const allowed:Record<string,string>={vehicleType:'vehicle_type',registrationNumber:'registration_number',bodyType:'body_type',year:'year',firstRegistrationDate:'first_registration_date',color:'color',interiorColor:'interior_color',fuelType:'fuel_type',engine:'engine',transmission:'transmission',fiscalPower:'fiscal_power',realPower:'real_power',co2Emissions:'co2_emissions',mileage:'mileage',supplierId:'supplier_id',notes:'notes'};
+  const allowed:Record<string,string>={vin:'vin',vehicleType:'vehicle_type',registrationNumber:'registration_number',bodyType:'body_type',year:'year',firstRegistrationDate:'first_registration_date',color:'color',interiorColor:'interior_color',fuelType:'fuel_type',engine:'engine',transmission:'transmission',fiscalPower:'fiscal_power',realPower:'real_power',co2Emissions:'co2_emissions',mileage:'mileage',supplierId:'supplier_id',notes:'notes'};
   const numericFields=new Set(['year','fiscalPower','realPower','co2Emissions','mileage','supplierId']);
   const amountFields=new Set(['purchasePrice','refurbishmentCost','transportCost','administrativeCost','additionalCosts','catalogPrice','salePrice','minimumPrice','receptionInitialSalePrice','receptionDefectDiscount']);
   if(hasFinancialPayload(request.body)){await assertAgencyPermissionScope(request,'vehicles.financials.view',String(before.agency_id));Object.assign(allowed,{purchasePrice:'purchase_price',refurbishmentCost:'refurbishment_cost',transportCost:'transport_cost',administrativeCost:'administrative_cost',additionalCosts:'additional_costs',catalogPrice:'catalog_price',salePrice:'sale_price',minimumPrice:'minimum_price'})}
@@ -252,7 +252,8 @@ vehicleRouter.patch('/vehicles/:id',requireAgencyBusinessPermission('vehicles.up
   const sets:string[]=[],params:any[]=[];
   for(const [field,column] of Object.entries(allowed))if(Object.hasOwn(request.body,field)){
     const raw=request.body[field];
-    const value=field==='hasReceptionDefect'?Boolean(raw):amountFields.has(field)?amount(raw,field):numericFields.has(field)?integer(raw,field):field==='registrationNumber'?optional(raw,50)?.toUpperCase()??null:optional(raw,['notes','receptionDefectDescription','receptionDefectDiscountReason'].includes(field)?5000:255);
+    const value=field==='hasReceptionDefect'?Boolean(raw):amountFields.has(field)?amount(raw,field):numericFields.has(field)?integer(raw,field):field==='vin'?String(raw??'').toUpperCase().replace(/[\s-]+/g,''):field==='registrationNumber'?optional(raw,50)?.toUpperCase()??null:optional(raw,['notes','receptionDefectDescription','receptionDefectDiscountReason'].includes(field)?5000:255);
+    if(field==='vin'&&!/^[A-Z0-9]{17}$/.test(String(value)))throw new HttpError(400,'Le VIN doit contenir exactement 17 caractères alphanumériques');
     sets.push(`${column}=?`);params.push(value);
   }
   const technicalTouched=Object.hasOwn(request.body,'technicalValues'),technicalValues=parseTechnicalValues(request.body.technicalValues),technicalScope=txt(request.body.technicalScope)||'vehicle';if(technicalTouched&&!['vehicle','profile'].includes(technicalScope))throw new HttpError(400,'Portée technique invalide');

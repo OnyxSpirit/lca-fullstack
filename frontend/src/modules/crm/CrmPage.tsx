@@ -56,7 +56,6 @@ import { NewLeadModal } from "./NewLeadModal";
 import { Modal } from "../../components/ui/Modal";
 import { TableEmptyState } from "../../components/common/TableEmptyState";
 import { useAuthStore } from "../../stores/authStore";
-import { QuotationModal } from "./QuotationModal";
 import { CrmTestDriveModal } from "./CrmTestDriveModal";
 import { SaleWizardModal } from "../sales/SaleWizardModal";
 import type { Quotation } from "../../types";
@@ -130,7 +129,6 @@ export const CrmPage: React.FC = () => {
     [scheduledAt, setScheduledAt] = useState(""),
     [appointmentDuration, setAppointmentDuration] = useState(30),
     [testDriveLead, setTestDriveLead] = useState<Lead | null>(null),
-    [quotationLead, setQuotationLead] = useState<Lead | null>(null),
     [saleQuotation, setSaleQuotation] = useState<Quotation | null>(null);
   const priorityToDb: Record<string, string> = {
     Basse: "low",
@@ -145,7 +143,7 @@ export const CrmPage: React.FC = () => {
     canUpdateLead = can("crm.prospect.update"),
     canAssignLead = can("crm.prospect.assign");
   const canViewQuotations = can("quotations.view"),
-    canCreateQuotation = can("quotations.create"),
+    canCreateProforma = can("proformas.create"),
     canUpdateQuotation = can("quotations.update"),
     canValidateQuotation = can("quotations.validate"),
     canCancelQuotation = can("quotations.cancel"),
@@ -1531,7 +1529,7 @@ export const CrmPage: React.FC = () => {
             )}
             {(canCreateAppointment ||
               canCreateTestDrive ||
-              canCreateQuotation ||
+              canCreateProforma ||
               canUpdateStage ||
               canLoseLead ||
               canConvertQuotation) && (
@@ -1583,14 +1581,14 @@ export const CrmPage: React.FC = () => {
                       Créer un essai
                     </Button>
                   )}
-                {canCreateQuotation &&
+                {canCreateProforma &&
                   selectedLead.stage !== "GAGNE" &&
                   selectedLead.stage !== "PERDU" && (
                     <Button
                       size="sm"
-                      onClick={() => setQuotationLead(selectedLead)}
+                      onClick={() => navigate(`/proformas?opportunityId=${encodeURIComponent(selectedLead.opportunityId)}`)}
                     >
-                      Créer un devis
+                      Créer une pro forma
                     </Button>
                   )}
                 {canUpdateStage && selectedLead.stage === "OFFRE" && (
@@ -1659,11 +1657,6 @@ export const CrmPage: React.FC = () => {
       <NewLeadModal
         isOpen={isNewLeadOpen}
         onClose={() => setIsNewLeadOpen(false)}
-      />
-      <QuotationModal
-        lead={quotationLead}
-        onClose={() => setQuotationLead(null)}
-        onCreated={() => setSelectedLead(null)}
       />
       <CrmTestDriveModal
         lead={testDriveLead}

@@ -1,0 +1,3 @@
+# Rapport de non-régression
+
+Contrôles réalisés : `git diff --check`, TypeScript backend/frontend, build frontend, 5/5 tests backend et 5/5 tests frontend EVOLUTION-LCA-01, tests de statut stock adaptés, bootstrap MySQL et intégration HTTP/MySQL. Les modules SAV et historiques de devis restent consultables ; seule la création commerciale est bloquée. Une suite globale supplémentaire a dépassé 600 cas mais certains tests PDF ont échoué parce que l'image Node minimale ne contient pas les exécutables Poppler (`pdfinfo`, `pdftotext`, `pdfimages`) ; ces échecs d'environnement ne sont pas comptés comme succès. La recette navigateur complète reste une réserve.

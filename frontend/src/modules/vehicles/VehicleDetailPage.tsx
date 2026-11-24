@@ -78,6 +78,7 @@ export const VehicleDetailPage: React.FC = () => {
     "RECEPTIONNE",
     "PREPARATION",
     "DISPONIBLE",
+    "DEMONSTRATION",
   ];
   const manualStatusOptions =
     vehicle && administrableStatuses.includes(vehicle.status)

@@ -99,8 +99,9 @@ export async function resolveVehicleCommercialSnapshot(executor: SqlExecutor, ve
   const vehicle = rows[0];
   if (!vehicle) return null;
   const profile = await resolveTechnicalProfileByVersion(executor, String(vehicle.version_id));
-  const unitImages = parseJson(vehicle.unit_images, []) as Array<{url: string}>;
-  const profileImages = parseJson(vehicle.profile_images, []) as Array<{url: string}>;
+  const orderedImages=(value:unknown)=>(parseJson(value, []) as Array<{id:number;url:string;isPrimary:boolean;sortOrder:number}>).sort((a,b)=>Number(b.isPrimary)-Number(a.isPrimary)||Number(a.sortOrder)-Number(b.sortOrder)||Number(a.id)-Number(b.id));
+  const unitImages = orderedImages(vehicle.unit_images);
+  const profileImages = orderedImages(vehicle.profile_images);
   return {
     vehicle,
     profile,

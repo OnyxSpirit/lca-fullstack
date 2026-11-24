@@ -163,6 +163,7 @@ export type VehicleStatus =
   | 'RECEPTIONNE'
   | 'PREPARATION'
   | 'DISPONIBLE'
+  | 'DEMONSTRATION'
   | 'RESERVE'
   | 'VENDU'
   | 'LIVRE';

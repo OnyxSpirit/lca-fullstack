@@ -1,0 +1,57 @@
+name: evolution-lca-01
+
+services:
+  mysql-evolution:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: lca_evolution_lca_01
+      MYSQL_USER: lca_evolution
+      MYSQL_PASSWORD: evolution_qualification_only
+      MYSQL_ROOT_PASSWORD: evolution_root_qualification_only
+    ports:
+      - "127.0.0.1:33325:3306"
+    volumes:
+      - evolution_mysql_data:/var/lib/mysql
+      - ./deploy/mysql.cnf:/etc/mysql/conf.d/lca.cnf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [evolution_private]
+
+  test-runner:
+    image: node:22-bookworm-slim
+    working_dir: /workspace/backend-node
+    environment:
+      DB_HOST: mysql-evolution
+      DB_PORT: "3306"
+      DB_USER: lca_evolution
+      DB_PASSWORD: evolution_qualification_only
+      DB_NAME: lca_evolution_lca_01
+      DATABASE_ROOT: /workspace/backend-node/database
+      JWT_SECRET: evolution_lca_01_jwt_qualification_only_32_chars
+      UPLOAD_DIR: /qualification-uploads
+      GED_STORAGE_ROOT: /qualification-ged
+    volumes:
+      - ./:/workspace:ro
+      - evolution_uploads:/qualification-uploads
+      - evolution_ged:/qualification-ged
+    networks: [evolution_private]
+    depends_on:
+      mysql-evolution:
+        condition: service_healthy
+
+volumes:
+  evolution_mysql_data:
+    name: evolution-lca-01_mysql_data
+  evolution_uploads:
+    name: evolution-lca-01_uploads
+  evolution_ged:
+    name: evolution-lca-01_ged
+
+networks:
+  evolution_private:
+    name: evolution-lca-01_private
+    internal: true

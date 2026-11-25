@@ -1,0 +1,18 @@
+Title:           REGISTRE DE QUALIFICATION DOCUMENTAIRE
+Creator:         PDFKit
+Producer:        PDFKit
+CreationDate:    Wed Nov 25 10:31:29 2026 WAT
+Custom Metadata: no
+Metadata Stream: no
+Tagged:          no
+UserProperties:  no
+Suspects:        no
+Form:            none
+JavaScript:      no
+Pages:           4
+Encrypted:       no
+Page size:       595.28 x 841.89 pts (A4)
+Page rot:        0
+File size:       9048 bytes
+Optimized:       no
+PDF version:     1.3

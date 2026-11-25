@@ -1,0 +1,23 @@
+import{mkdir,writeFile}from'node:fs/promises';
+import path from'node:path';
+import{renderCommercialDocument}from'../src/modules/documents/commercial-document.js';
+import{renderOfficialRecord}from'../src/modules/documents/official-record-document.js';
+import{renderBusinessPdf}from'../src/modules/documents/business-document.service.js';
+import{financialWorkbook}from'../src/modules/reports/financial-workbook.js';
+import{financialCsv}from'../src/modules/reports/report.csv.js';
+
+const root=path.resolve(process.cwd(),'../docs/evolutions/evolution-lca-04/preuves'),pdfDir=path.join(root,'pdf'),csvDir=path.join(root,'csv'),xlsxDir=path.join(root,'xlsx');
+await Promise.all([pdfDir,csvDir,xlsxDir].map(folder=>mkdir(folder,{recursive:true})));
+const identity={legalName:'La Congolaise de l’Automobile',tradeName:'LCA',legalForm:'SA',agencyName:'Agence de qualification Évolution',agencyAddress:'1, avenue de l’Indépendance',agencyCity:'Brazzaville',phone:'+242 00 000 00 00',email:'qualification@example.invalid',rccm:'CG-BZV-00-Q01',taxIdentifier:'NIU-Q0001',currencyCode:'XAF',timezone:'Africa/Brazzaville',logoCandidates:[]};
+const header:any={agency_id:'1',number:'PF-QUAL-0001',document_date:'25/11/2026',due_date:'30/11/2026',customer_name:'Société Éléphant & Associés',customer_code:'CLI-00001',customer_phone:'+242 00 000 00 01',customer_email:'client@example.invalid',customer_address:'Brazzaville',related_number:'VENTE-QUAL-01',salesperson_name:'Élodie Çamba',valid_until:'30/11/2026',currency_code:'XAF',tax_mode:'TAXABLE',tax_rate_snapshot:18.9,subtotal:1500000,discount_total:0,tax_total:283500,total:1783500,notes:'Conditions de règlement : virement bancaire.'};
+const item:any={id:'1',vehicle_id:'1',description:'Toyota Land Cruiser - désignation très longue conservant la marque officielle',quantity:1,unit_price:1500000,discount:0,tax_rate:18.9,line_total:1783500,technical_specs_snapshot:JSON.stringify({brand:'Toyota',model:'Land Cruiser',version:'VX',color:'Blanc nacré',engine_type:'Diesel',transmission:'Automatique',mileage:0,vin:'00000000000000001',unknown_factory_code:'ABC-001'}),selected_images_snapshot:JSON.stringify(['/uploads/vehicles/00000000-0000-0000-0000-000000000001.jpg'])};
+await writeFile(path.join(pdfDir,'pro-forma-francisee.pdf'),await renderCommercialDocument('FACTURE PRO FORMA',header,[item],identity));
+const rows=Array.from({length:70},(_,index)=>({reference:`MVT-${String(index+1).padStart(4,'0')}`,status:index%3===0?'PENDING':index%3===1?'APPROVED':'CANCELLED',type:index%2?'BANK_TRANSFER':'CASH',amount:index===69?-25000:1500000+index}));
+await writeFile(path.join(pdfDir,'registre-multipage-francise.pdf'),await renderOfficialRecord({identity,title:'REGISTRE DE QUALIFICATION DOCUMENTAIRE',reference:'QUAL-EVO-14',fields:[{label:'Statut',value:'IN_PROGRESS'},{label:'Type de contrat',value:'FIXED_TERM'},{label:'Mode de paiement',value:'BANK_TRANSFER'}],columns:[{label:'Référence',key:'reference',width:120},{label:'Statut',key:'status',width:120},{label:'Type d’opération',key:'type',width:150},{label:'Montant',key:'amount',width:121,align:'right'}],rows,signatureLabels:['Responsable','Contrôleur']}));
+await writeFile(path.join(pdfDir,'document-accents-francais.pdf'),await renderBusinessPdf('Contrôle des caractères français',[['Statut','APPROVED'],['Résultat','PASSED'],['Texte','é è ê ë à â ç î ï ô ù û ü œ É À Ç'],['Montant','−25 000 XAF']]));
+const csvRows:any[][]=[['Référence','Statut','Mode de paiement','Montant','Observation'],['00001','Approuvé','Virement bancaire',1500000,'Échéance au 25 novembre'],['00002','Annulé','Espèces',-25000,'Texte avec ; séparateur, "guillemets" et\nretour'],['00003','En attente','Carte bancaire',0,'=2+2']];
+await writeFile(path.join(csvDir,'operations-francisees.csv'),financialCsv(csvRows));
+const{book}=financialWorkbook({sheetName:'Mouvements financiers',rows:[['ERP LCA - Synthèse'],['Période','01/11/2026','30/11/2026'],[],['Référence','Statut','Mode de paiement','Montant','Pourcentage'],['00001','Approuvé','Virement bancaire',1500000,.189],['00002','Annulé','Espèces',-25000,0]],headerRow:4,numericColumns:[4,5],currencyColumns:[4]});
+book.getWorksheet(1)!.getColumn(5).numFmt='0.0%';
+await book.xlsx.writeFile(path.join(xlsxDir,'mouvements-financiers.xlsx'));
+console.log(JSON.stringify({pdf:3,csv:1,xlsx:1,financial:{subtotal:header.subtotal,tax:header.tax_total,total:header.total},rows:{pdf:rows.length,csv:csvRows.length-1,xlsx:2}}));

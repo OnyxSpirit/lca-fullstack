@@ -1,0 +1,117 @@
+La Congolaise de l’Automobile — SA
+LCA
+Agence de qualification Évolution
+1, avenue de l’Indépendance, Brazzaville
++242 00 000 00 00 · qualification@example.invalid
+
+
+
+
+FACTURE PRO FORMA                                                                                      Émission : 25/11/2026 · Échéance : 30/11/2026
+
+PF-QUAL-0001
+
+
+   CLIENT                                                                               RÉFÉRENCES
+
+   Société Éléphant & Associés                                                          Vente / devis : VENTE-QUAL-01
+                                                                                        Commercial : Élodie Çamba
+                                                                                        Valable jusqu’au : 30/11/2026
+   CLI-00001
+   +242 00 000 00 01
+   client@example.invalid
+
+
+
+
+ Désignation                                                Qté                          PU HT                Remise        TVA             Total TTC
+
+
+ Toyota Land Cruiser - désignation très longue conservant la marque 1            1.500.000 XAF                 0 XAF     18,9 %        1.783.500 XAF
+ officielle
+
+
+
+
+Conditions de règlement : virement bancaire.
+                                                                                           Sous-total HT                            1.500.000 XAF
+
+                                                                                           Remise                                           0 XAF
+
+                                                                                           TVA 18,9 %                                 283.500 XAF
+
+
+                                                                                           TOTAL TTC                          1.783.500 XAF
+
+
+
+                Signature client                                                                        Pour l’entreprise · Signature / Cachet
+
+
+
+
+                                    La Congolaise de l’Automobile — SA • RCCM : CG-BZV-00-Q01 • NIU : NIU-Q0001
+
+                                       Adresse : 1, avenue de l’Indépendance, Brazzaville • Tél. : +242 00 000 00 00
+                                                                         Page 1 / 3
+La Congolaise de l’Automobile — SA
+LCA
+Agence de qualification Évolution
+1, avenue de l’Indépendance, Brazzaville
++242 00 000 00 00 · qualification@example.invalid
+
+
+
+
+FICHE VÉHICULE 1
+Toyota Land Cruiser - désignation très longue conservant la marque officielle
+
+
+  CARACTÉRISTIQUES TECHNIQUES
+
+  Marque                                                         Toyota
+
+  Modèle                                                         Land Cruiser
+
+  Version                                                        VX
+
+  Couleur                                                        Blanc nacré
+
+  Motorisation                                                   Diesel
+
+  Transmission                                                   Automatique
+
+  Kilométrage                                                    0
+
+  Numéro de châssis (VIN)                                        00000000000000001
+
+  Caractéristique non référencée                                 ABC-001
+
+PHOTOGRAPHIES DU VÉHICULE
+
+
+
+
+                                   La Congolaise de l’Automobile — SA • RCCM : CG-BZV-00-Q01 • NIU : NIU-Q0001
+
+                                     Adresse : 1, avenue de l’Indépendance, Brazzaville • Tél. : +242 00 000 00 00
+                                                                       Page 2 / 3
+La Congolaise de l’Automobile — SA
+LCA
+Agence de qualification Évolution
+1, avenue de l’Indépendance, Brazzaville
++242 00 000 00 00 · qualification@example.invalid
+
+
+
+
+Photographie indisponible lors de la génération.
+
+
+
+
+                                   La Congolaise de l’Automobile — SA • RCCM : CG-BZV-00-Q01 • NIU : NIU-Q0001
+
+                                      Adresse : 1, avenue de l’Indépendance, Brazzaville • Tél. : +242 00 000 00 00
+                                                                        Page 3 / 3
+

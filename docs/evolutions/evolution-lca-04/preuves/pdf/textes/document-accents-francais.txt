@@ -1,0 +1,9 @@
+Contrôle des caractères français
+Statut : Approuvé
+Résultat : Validé
+Texte : é è ê ë à â ç î ï ô ù û ü œ É À Ç
+Montant : "25 000 XAF
+
+
+                                            Document généré le 25/11/2026 10:31:29
+

@@ -16,3 +16,10 @@
 - Ne jamais réinitialiser une base persistante. Sauvegarder puis restaurer sur une instance isolée avant toute correction ; préserver toutes les modifications existantes du répertoire de travail.
 - Aucun commit, push, déploiement ou intervention en production ne doit être effectué par Codex.
 - Les seuls scopes RBAC autorisés sont `OWN` et `AGENCY`. Préserver les habilitations dynamiques par agence et la confidentialité salariale.
+
+## Documents et exports destinés aux utilisateurs
+
+- Tout nouveau document ou export utilisateur doit présenter des libellés, statuts, types d'opérations, noms de fichiers et noms de feuilles Excel en français. Les énumérations techniques ne doivent pas être exposées directement sans justification de traçabilité.
+- Préserver les contrats techniques, les types numériques et formules Excel, les calculs financiers, les permissions et le cloisonnement inter-agences lors de toute adaptation documentaire.
+- Ne jamais réécrire silencieusement un document historique, signé, cacheté, archivé ou doté d'une empreinte. Préserver signatures, cachets, références et intégrité GED.
+- Toute évolution documentaire doit être qualifiée sur de véritables PDF, CSV ou classeurs générés puis relus ; vérifier contenu, encodage, présentation et données métier, pas seulement la signature du fichier.

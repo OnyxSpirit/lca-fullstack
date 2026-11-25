@@ -1,0 +1,5 @@
+﻿"Référence";"Statut";"Mode de paiement";"Montant";"Observation"
+"00001";"Approuvé";"Virement bancaire";"1500000";"Échéance au 25 novembre"
+"00002";"Annulé";"Espèces";"-25000";"Texte avec ; séparateur, ""guillemets"" et
+retour"
+"00003";"En attente";"Carte bancaire";"0";"'=2+2"

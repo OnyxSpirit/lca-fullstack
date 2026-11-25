@@ -9,6 +9,7 @@ import {
   Upload,
   Workflow,
   SlidersHorizontal,
+  PackageSearch,
 } from "lucide-react";
 import { Tabs } from "../../components/ui/Tabs";
 import { Card } from "../../components/ui/Card";
@@ -50,6 +51,7 @@ import {
 } from "./AccountingReferenceManagement";
 import { ServerPagination } from "../../components/common/ServerPagination";
 import { useClientPagination } from "../../components/common/ClientPagination";
+import { InternalStockValuation } from "../hr/InternalStockValuation";
 
 const labels: Record<string, string> = {
   BALANCE_SHEET: "Compte de bilan",
@@ -606,6 +608,7 @@ export function AccountingPage() {
       can("accounting.fiscal.view") && "fiscal",
       can("accounting.journal.view") && "journals",
       can("accounting.mapping.view") && "mappings",
+      can("hr.stock.acquisition.view") && "stock-acquisitions",
     ].filter(Boolean) as string[],
     [tab, setTab] = useState(available[0] ?? "plan"),
     tabs = [
@@ -623,6 +626,7 @@ export function AccountingPage() {
       { id: "fiscal", label: "Exercices", icon: <CalendarRange /> },
       { id: "journals", label: "Journaux", icon: <NotebookTabs /> },
       { id: "mappings", label: "Liaisons", icon: <Link2 /> },
+      { id: "stock-acquisitions", label: "Acquisitions internes", icon: <PackageSearch /> },
     ].filter((x) => available.includes(x.id));
   useEffect(() => {
     if (!available.includes(tab)) setTab(available[0] ?? "plan");
@@ -661,11 +665,13 @@ export function AccountingPage() {
           <Journals />
           <JournalManagement />
         </div>
-      ) : (
+      ) : tab === "mappings" ? (
         <div className="space-y-4">
           <Mappings />
           <MappingManagement />
         </div>
+      ) : (
+        <InternalStockValuation accountingOnly />
       )}
     </TreasuryWorkspace>
   );

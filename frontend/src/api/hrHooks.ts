@@ -192,6 +192,24 @@ export interface StockMovement {
   unit_acquisition_cost: number | null;
   total_acquisition_cost: number | null;
 }
+export interface StockValuation {
+  id:string; agency_id:string; reference:string|null; designation:string; unit:string; agency_name:string;
+  available_quantity:number; acquired_quantity:number; assigned_quantity:number;
+  returned_quantity:number; outstanding_quantity:number; acquisition_value:number|null;
+  available_value:number|null; assigned_value:number|null; held_value:number|null;
+  valuation_complete:boolean;
+}
+export interface StockAcquisition {
+  id:string; item_id:string; item_reference:string|null; designation:string; category:string|null;
+  acquisition_date:string; agency_id:string; agency_name:string; quantity:number;
+  unit_acquisition_cost:number|null; total_acquisition_cost:number|null; movement_reference:string|null;
+  supporting_document_reference:string|null; accounting_reference:string|null; accounted_at:string|null;
+}
+export interface StockAssignment {
+  id:string; item_id:string; employee_profile_id:string; first_name:string; last_name:string;
+  employee_number:string; quantity:number; returned_quantity:number; assigned_at:string;
+  returned_at:string|null; status:'ASSIGNED'|'PARTIALLY_RETURNED'|'RETURNED'; notes:string|null;
+}
 export interface BudgetCategory {
   id: string;
   concession_id: string;
@@ -598,6 +616,9 @@ export const useStockMovementsQuery = (
       apiRequest<StockMovement[]>(`/hr/internal-stock/${itemId}/movements`),
     enabled: enabled && Boolean(itemId),
   });
+export const useStockValuationQuery=(enabled:boolean)=>useQuery({queryKey:['hr','stock','valuation'],queryFn:()=>apiRequest<StockValuation[]>('/hr/internal-stock/valuation'),enabled});
+export const useStockAcquisitionsQuery=(enabled:boolean)=>useQuery({queryKey:['hr','stock','acquisitions'],queryFn:()=>apiRequest<StockAcquisition[]>('/hr/internal-stock/acquisitions'),enabled});
+export const useStockAssignmentsQuery=(itemId:string|undefined,enabled:boolean)=>useQuery({queryKey:['hr','stock',itemId,'assignments'],queryFn:()=>apiRequest<StockAssignment[]>(`/hr/internal-stock/${itemId}/assignments`),enabled:enabled&&Boolean(itemId)});
 export const useBudgetsQuery = (enabled: boolean) => {
   const { userId, signature } = useHrIdentity();
   return useQuery({

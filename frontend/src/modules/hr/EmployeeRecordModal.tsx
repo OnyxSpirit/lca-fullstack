@@ -31,7 +31,6 @@ import type { DocumentRecord } from "../../types/documents";
 import { DocumentPreview } from "../documents/DocumentPreview";
 import { UploadModal } from "../documents/DocumentsGedPage";
 import { EmployeeContractsSection } from "./EmployeeContractsSection";
-import { ContractTypesManager } from "./ContractTypesManager";
 import { ContributionsManager } from "./ContributionsManager";
 import { EmployeeLeavesSection } from "./EmployeeLeavesSection";
 import { LeaveTypesManager } from "./LeaveTypesManager";
@@ -430,7 +429,6 @@ export function EmployeeRecordModal({
           {current && (
             <>
               <ContributionsManager employee={current} />
-              <ContractTypesManager concessionId={current.concession_id} />
               <EmployeeContractsSection employee={current} />
               <LeaveTypesManager employee={current} />
               <EmployeeLeavesSection employee={current} />

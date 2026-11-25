@@ -1,4 +1,4 @@
 # MySQL et migration
 
-MySQL 8.4.11 vérifié. Migration 136 appliquée avec succès sur l’environnement frais isolé après migration 135. Assertions : 5 tables LCA-03, 6 permissions, 0 scope interdit, marqueur is_workshop_technician préservé. Une incohérence historique baseline/migration 094 a été constatée lors de la reconstruction exhaustive et reste une réserve d’outillage.
+MySQL 8.4 vérifié dans l'environnement isolé `evolution-lca-03-final`. Le bootstrap frais a appliqué les 67 migrations jusqu'au niveau 137, avec 0 étape non `APPLIED` et 0 avertissement historique au démarrage. Le contrôle `npm run db:migrations:verify` est vert (104 migrations vérifiées, référence immuable jusqu'à 134 et exception historique déclarée). Les migrations 135, 136, 137 et le runner n'ont pas été modifiés ; aucune migration 138 n'était nécessaire. Les scopes persistés interdits sont au nombre de 0.
 

@@ -1,0 +1,10 @@
+import assert from'node:assert/strict';
+import test from'node:test';
+import{readContractFileSync as readFileSync}from'./helpers/source-contract';
+
+const stock=readFileSync(new URL('../src/modules/hr/InternalStockValuation.tsx',import.meta.url),'utf8'),hr=readFileSync(new URL('../src/modules/hr/HrAdministrationPage.tsx',import.meta.url),'utf8'),accounting=readFileSync(new URL('../src/modules/treasury/AccountingPage.tsx',import.meta.url),'utf8'),contributions=readFileSync(new URL('../src/modules/hr/ContributionsManager.tsx',import.meta.url),'utf8'),employeeRecord=readFileSync(new URL('../src/modules/hr/EmployeeRecordModal.tsx',import.meta.url),'utf8');
+
+test('EVO-40 expose quantités, valeurs, coûts incomplets, affectations et retours dans RH',()=>{assert.match(hr,/InternalStockValuation/);for(const label of['Acquis','Disponible','Affecté','Retourné','Sorti définitivement','Détenu par LCA','Valeur détenue','Coût incomplet'])assert.match(stock,new RegExp(label));assert.match(stock,/Nouvelle affectation/);assert.match(stock,/Retourner/)});
+test('EVO-41 expose les acquisitions dans la comptabilité sans générer d écriture',()=>{assert.match(accounting,/stock-acquisitions/);assert.match(accounting,/Acquisitions internes/);assert.match(stock,/Référence comptable/);assert.match(stock,/ne génère aucune écriture comptable/);assert.match(stock,/acquisitions-stock-interne\.csv/)});
+test('EVO-34 et EVO-35 permettent modification, désactivation, périodes, historique et sélection réellement vide',()=>{assert.match(contributions,/Cotisation modifiée/);assert.match(contributions,/Cotisation désactivée/);assert.match(contributions,/Début d’effet/);assert.match(contributions,/Historique des affectations/);assert.match(contributions,/selection\?\?current/);assert.match(contributions,/assignments:chosen\.map/);assert.doesNotMatch(contributions,/selection\.length\?selection/)});
+test('EVO-42 centralise les modèles de contrat hors de la fiche employé',()=>{assert.doesNotMatch(employeeRecord,/ContractTypesManager/);assert.match(employeeRecord,/EmployeeContractsSection/)});

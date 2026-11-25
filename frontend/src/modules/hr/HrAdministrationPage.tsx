@@ -50,6 +50,7 @@ import { ProviderProfileModal } from "./ProviderProfileModal";
 import { UnifiedPersonnelTable } from "./UnifiedPersonnelTable";
 import { apiRequest } from "../../services/apiClient";
 import { ContributionsManager } from "./ContributionsManager";
+import { InternalStockValuation } from "./InternalStockValuation";
 
 const BudgetExpenseDisbursement = lazy(() =>
   import("./BudgetExpenseDisbursement").then((module) => ({
@@ -516,6 +517,7 @@ export const HrAdministrationPage: React.FC = () => {
       )}
       {tab === "stock" && (
         <>
+          {can("hr.stock.acquisition.view") && <InternalStockValuation />}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Filters
               search={search}

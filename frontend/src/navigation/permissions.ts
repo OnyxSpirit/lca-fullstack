@@ -22,7 +22,7 @@ export const ACCOUNTING_SPACE_PERMISSIONS=[
   'accounting.chart.view','accounting.fiscal.view','accounting.journal.view','accounting.mapping.view',
 ] as const;
 export const canAccessAccounting=(permissions:Record<string,unknown>|undefined)=>
-  ACCOUNTING_SPACE_PERMISSIONS.some(permission=>hasDynamicPermission(permissions,permission));
+  ACCOUNTING_SPACE_PERMISSIONS.some(permission=>hasDynamicPermission(permissions,permission))||hasDynamicPermission(permissions,'hr.stock.acquisition.view');
 export const SETTINGS_SECTION_PERMISSIONS=['settings.general.view','settings.general.manage','settings.documents.view','settings.documents.manage','settings.workshop_rates.view','settings.workshop_rates.manage','settings.agencies.view','settings.agencies.manage','settings.manufacturers.view','delivery.service.view','delivery.service.manage','delivery.checklist.config.view','delivery.checklist.config.manage','workshop.resources.view','workshop.resources.manage','parts.suppliers.view','parts.suppliers.manage','vehicles.assignments.view','vehicles.assignments.manage','stamp.view','stamp.manage'] as const;
 
 export const canAccessSecurityCenter=(permissions:Record<string,unknown>|undefined)=>

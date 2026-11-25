@@ -1,4 +1,6 @@
 # Non-régression
 
-Backend build et lint réussis. Suite backend complète : 363 fichiers, 335 réussis et 28 échoués, exactement le nombre d’échecs de référence LCA-02 ; aucun échec nouveau attribué à LCA-03. Frontend TypeScript/lint réussis. Suite frontend exécutée directement avec le chargeur Node : 231 fichiers, 223 réussis et 8 échoués, exactement la référence LCA-02. Le script npm ordinaire rencontre EPERM sur le socket IPC tsx, contourné sans désactiver de test. Le build Vite transforme 2 554 modules puis échoue sur le nettoyage d’un dist appartenant à un autre UID (EACCES), sans erreur TypeScript.
+Backend build et lint réussis. Suite backend complète du 25/11/2026 : 365 tests, 337 réussis et 28 échoués ; les échecs concernent les réserves historiques hors RH/stock/contrats. Les tests `evolution-lca-03-finalization`, `fin04-remunerations`, `hr-contract-lot11a` et `hr-stock-ux02` sont verts.
+
+Frontend TypeScript/lint réussi. Les quatre assertions finales LCA-03 sont vertes. Le build de qualification est vert dans Docker puis localement via le répertoire dédié `.artifacts/qualification-dist` (2 556 modules). La sortie standard `frontend/dist` reste détenue par l'UID d'un conteneur antérieur ; elle n'a pas été modifiée et n'est pas utilisée par cette qualification.
 

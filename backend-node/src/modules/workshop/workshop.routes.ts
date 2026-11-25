@@ -15,6 +15,7 @@ import {effectiveLaborRates,resolveEffectiveLaborRateSelection} from "../setting
 import { nextDocumentNumber } from "../billing/document-sequence.js";
 import {operationalCandidateSql} from '../users/operational-candidate.js';
 import {renderRepairOrderDocument} from '../documents/commercial-document.js';
+import {renderBusinessPdf} from '../documents/business-document.service.js';
 import{loadWarrantyDocumentContext}from'../documents/warranty-document-context.js';
 import {repairOrderFinancialSummary} from './repair-order-finance.js';
 import {REPAIR_ORDER_IN_WORKSHOP_STATUSES} from './repair-order-status.js';
@@ -29,7 +30,7 @@ import{pageMeta,pageRequest,paged}from'../../shared/pagination.js';
 import{vehicleOriginSnapshot}from'../vehicles/vehicle-commercial.js';
 import{archiveBusinessDocument,archiveInvoice,archiveRepairHandover,archiveRepairQualityControl,historicalBusinessPdf,requireBusinessArchive}from'../documents/business-document.service.js';
 export const workshopRouter = Router();
-type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.order.abandon'|'service.documents.view'|'service.documents.manage'|'service.estimate.supplement.create'|'service.estimate.supplement.approve';
+type ServicePermission='service.order.view'|'service.order.create'|'service.order.update'|'service.order.assign_advisor'|'service.order.assign_technician'|'service.order.receive'|'service.order.diagnose'|'service.order.approve'|'service.order.advance'|'service.order.quality_control'|'service.order.ready'|'service.order.invoice'|'service.order.handover'|'service.order.close'|'service.order.cancel'|'service.order.abandon'|'service.documents.view'|'service.documents.manage'|'service.estimate.supplement.create'|'service.estimate.supplement.approve'|'service.diagnostic.view'|'service.diagnostic.create'|'service.diagnostic.prepare'|'service.diagnostic.accept';
 type WorkshopPermission='workshop.view'|'workshop.plan'|'workshop.assign_technician'|'workshop.assign_bay'|'workshop.bay.view'|'workshop.bay.manage'|'workshop.schedule.view'|'workshop.schedule.manage'|'workshop.intervention.view'|'workshop.intervention.assign'|'workshop.intervention.update'|'workshop.session.view'|'workshop.session.track'|'workshop.session.manage'|'workshop.time.view'|'workshop.time.adjust'|'workshop.technicians.view'|'workshop.technicians.manage'|'workshop.resources.view'|'workshop.resources.manage'|'workshop.productivity.view';
 type PartsReservationPermission='parts.reservation.view'|'parts.reservation.create'|'parts.reservation.consume'|'parts.reservation.release';
 const actionPermission=new WeakMap<Request,ServicePermission>();
@@ -277,7 +278,7 @@ async function detail(id: string, r: Request): Promise<any> {
       [id],
     ),
     query<RowDataPacket[]>(
-      `SELECT i.*,CONCAT_WS(' ',u.first_name,u.last_name) technician_name FROM interventions i LEFT JOIN technicians t ON t.id=i.technician_id LEFT JOIN users u ON u.id=t.user_id WHERE i.repair_order_id=? ORDER BY i.id`,
+      `SELECT i.*,CONCAT_WS(' ',u.first_name,u.last_name) technician_name,COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('employeeId',assigned.employee_profile_id,'name',CONCAT_WS(' ',ep.first_name,ep.last_name))) FROM intervention_technicians assigned JOIN employee_profiles ep ON ep.id=assigned.employee_profile_id WHERE assigned.intervention_id=i.id AND assigned.removed_at IS NULL),JSON_ARRAY()) technician_assignments FROM interventions i LEFT JOIN technicians t ON t.id=i.technician_id LEFT JOIN users u ON u.id=t.user_id WHERE i.repair_order_id=? ORDER BY i.id`,
       [id],
     ),
     query<RowDataPacket[]>(
@@ -387,6 +388,13 @@ workshopRouter.get('/repair-orders/:id/technician-candidates',serviceAccess('ser
   const rows=await query<RowDataPacket[]>(`SELECT DISTINCT u.id user_id,ua.agency_id,CONCAT_WS(' ',u.first_name,u.last_name) name,t.id technician_id ${technicianCandidateFrom} AND (t.id IS NULL OR t.agency_id=? AND t.is_active=TRUE) ORDER BY name`,[ro.agency_id,ro.agency_id]);
   res.json(rows.map(row=>({id:row.technician_id?String(row.technician_id):`u:${row.user_id}`,userId:String(row.user_id),agencyId:String(row.agency_id),name:row.name})));
 }));
+workshopRouter.get('/repair-orders/:id/technician-employees',serviceAccess('service.order.view'),asyncHandler(async(r,res)=>{const ro=await one(idOf(r.params.id),r),rows=await query<RowDataPacket[]>(`SELECT ep.id,ep.user_id,ep.agency_id,CONCAT_WS(' ',ep.first_name,ep.last_name) name FROM employee_profiles ep WHERE ep.agency_id=? AND ep.employment_status='active' AND ep.is_workshop_technician=TRUE ORDER BY ep.last_name,ep.first_name`,[ro.agency_id]);res.json(rows.map(row=>({id:String(row.id),userId:row.user_id==null?null:String(row.user_id),agencyId:String(row.agency_id),name:row.name})))}));
+workshopRouter.put('/repair-orders/:id/interventions/:interventionId/technicians',serviceAccess('service.order.assign_technician'),asyncHandler(async(r,res)=>{
+  const repairOrderId=idOf(r.params.id),interventionId=idOf(r.params.interventionId),ro=await one(repairOrderId,r),employeeIds:string[]=[...new Set<string>((Array.isArray(r.body.employeeIds)?r.body.employeeIds:[]).map((value:unknown)=>idOf(value)))];
+  if(!await permissionCoversAgency(r,'workshop.assign_technician',String(ro.agency_id)))throw new HttpError(403,'Périmètre d’affectation Atelier insuffisant');
+  await workshopTransaction(r,async c=>{const[works]=await c.execute<RowDataPacket[]>('SELECT id,status FROM interventions WHERE id=? AND repair_order_id=? FOR UPDATE',[interventionId,repairOrderId]),work=works[0];if(!work)throw new HttpError(404,'Tâche introuvable');if(['completed','cancelled'].includes(String(work.status)))throw new HttpError(409,'Les affectations historiques de cette tâche sont verrouillées');let eligible:RowDataPacket[]=[];if(employeeIds.length){[eligible]=await c.execute<RowDataPacket[]>(`SELECT id FROM employee_profiles WHERE id IN(${employeeIds.map(()=>'?').join(',')}) AND agency_id=? AND employment_status='active' AND is_workshop_technician=TRUE FOR UPDATE`,[...employeeIds,ro.agency_id]);if(eligible.length!==employeeIds.length)throw new HttpError(409,'Un technicien est inactif, non éligible ou rattaché à une autre agence')}const[current]=await c.execute<RowDataPacket[]>('SELECT employee_profile_id FROM intervention_technicians WHERE intervention_id=? AND removed_at IS NULL FOR UPDATE',[interventionId]),before=new Set(current.map(x=>String(x.employee_profile_id))),after=new Set(employeeIds);for(const employeeId of before)if(!after.has(employeeId))await c.execute('UPDATE intervention_technicians SET removed_at=NOW(),removed_by=? WHERE intervention_id=? AND employee_profile_id=? AND removed_at IS NULL',[r.user!.sub,interventionId,employeeId]);for(const employeeId of after)if(!before.has(employeeId))await c.execute('INSERT INTO intervention_technicians(intervention_id,employee_profile_id,assigned_by,assigned_at,removed_at,removed_by)VALUES(?,?,?,NOW(),NULL,NULL) ON DUPLICATE KEY UPDATE assigned_by=VALUES(assigned_by),assigned_at=NOW(),removed_at=NULL,removed_by=NULL',[interventionId,employeeId,r.user!.sub]);await c.execute("UPDATE interventions SET status=IF(? > 0 AND status='planned','assigned',IF(?=0 AND status='assigned','planned',status)) WHERE id=?",[employeeIds.length,employeeIds.length,interventionId]);await writeAudit(c,r,{module:'workshop',entityType:'intervention',entityId:interventionId,action:'workshop.intervention.technicians.updated',oldValues:{employeeIds:[...before]},newValues:{employeeIds,repairOrderId},context:{mode:'EXPLICIT',agencyId:String(ro.agency_id)}})});
+  emitToAgency(String(ro.agency_id),'workshop:repair-order-updated',{repairOrderId,agencyId:String(ro.agency_id),section:'technicians'});res.json({success:true,employeeIds});
+}));
 workshopRouter.get('/repair-orders/:id/labor-rates',serviceAccess('service.order.view'),asyncHandler(async(r,res)=>{
   const ro=await one(idOf(r.params.id),r),config=await getEffectiveBusinessSettings(String(ro.agency_id));res.json({rates:await effectiveLaborRates(String(ro.agency_id)),currencyCode:config.currencyCode,vatRate:config.vatRate,allowFlatLabor:config.allowFlatLabor});
 }));
@@ -450,6 +458,54 @@ workshopRouter.get('/repair-orders/customer-vehicles',serviceAccess('service.ord
   const rows=await query<RowDataPacket[]>(`SELECT DISTINCT v.id,v.vin,v.registration_number,v.commercial_origin,COALESCE(CONCAT(b.name,' ',m.name,' ',ve.name),CONCAT_WS(' ',v.identity_brand,v.identity_model,v.identity_version)) label FROM vehicles v LEFT JOIN versions ve ON ve.id=v.version_id LEFT JOIN models m ON m.id=ve.model_id LEFT JOIN brands b ON b.id=m.brand_id WHERE (v.agency_id=? OR EXISTS(SELECT 1 FROM customer_vehicles cv_scope WHERE cv_scope.vehicle_id=v.id AND cv_scope.customer_id=? AND cv_scope.agency_id=? AND cv_scope.is_current=TRUE)) AND (EXISTS(SELECT 1 FROM customer_vehicles cv WHERE cv.vehicle_id=v.id AND cv.customer_id=? AND cv.is_current=TRUE) OR EXISTS(SELECT 1 FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.vehicle_id=v.id AND s.customer_id=?) OR EXISTS(SELECT 1 FROM repair_orders ro WHERE ro.vehicle_id=v.id AND ro.customer_id=?)) ORDER BY label`,[agency,customer,agency,customer,customer,customer]);
   res.json(rows.map(row=>({id:String(row.id),vin:row.vin,registrationNumber:row.registration_number,label:row.label,commercialOrigin:row.commercial_origin??'UNKNOWN'})));
 }));
+
+// EVOLUTION-LCA-02 — le diagnostic est persisté avant et indépendamment de tout OR.
+workshopRouter.post('/service-diagnostics/:id/issue',serviceAccess('service.diagnostic.prepare'),asyncHandler(async(r,res)=>{
+  const diagnosticId=idOf(r.params.id),taxMode=r.body.taxMode==='TAX_EXEMPT'?'TAX_EXEMPT':'TAXABLE',justification=taxMode==='TAX_EXEMPT'?txt(r.body.taxJustification,'Justification fiscale',1000,true):null;
+  const result=await workshopTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM service_diagnostics WHERE id=? AND agency_id=? FOR UPDATE',[diagnosticId,r.user!.agencyId]),diagnostic=rows[0];if(!diagnostic||!['FINALIZED','QUOTED'].includes(diagnostic.status))throw new HttpError(409,'Diagnostic non finalisé');const[items]=await c.execute<RowDataPacket[]>('SELECT id FROM service_diagnostic_items WHERE diagnostic_id=? LIMIT 1 FOR UPDATE',[diagnosticId]);if(!items[0])throw new HttpError(409,'Le chiffrage est vide');const quotation=diagnostic.quotation_number??`DEV-SAV-${diagnosticId}-${Date.now()}`;await c.execute("UPDATE service_diagnostic_items SET tax_rate=IF(?='TAXABLE',?,0) WHERE diagnostic_id=?",[taxMode,diagnostic.vat_rate_snapshot,diagnosticId]);await c.execute("UPDATE service_diagnostics d SET status='QUOTED',tax_mode=?,tax_justification=?,quotation_number=?,quoted_at=COALESCE(quoted_at,NOW()),subtotal=(SELECT SUM(line_total) FROM service_diagnostic_items WHERE diagnostic_id=d.id),tax_total=(SELECT SUM(line_total*tax_rate/100) FROM service_diagnostic_items WHERE diagnostic_id=d.id),total=subtotal+tax_total WHERE id=?",[taxMode,justification,quotation,diagnosticId]);return quotation});res.json({id:diagnosticId,quotationNumber:result});
+}));
+workshopRouter.post('/service-diagnostics/:id/accept',serviceAccess('service.diagnostic.accept'),asyncHandler(async(r,res)=>{
+  const diagnosticId=idOf(r.params.id);
+  const result=await workshopTransactionRetry(r,async c=>{
+    const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM service_diagnostics WHERE id=? AND agency_id=? FOR UPDATE',[diagnosticId,r.user!.agencyId]),diagnostic=rows[0];
+    if(!diagnostic)throw new HttpError(404,'Diagnostic introuvable');
+    if(diagnostic.repair_order_id)return{id:String(diagnostic.repair_order_id),duplicate:true,requestId:null};
+    if(diagnostic.status!=='QUOTED')throw new HttpError(409,'Seul un devis émis peut être accepté');
+    const orderNumber=`OR-D${diagnosticId}-${Date.now()}`;
+    const[created]=await c.execute<ResultSetHeader>("INSERT INTO repair_orders(order_number,customer_id,vehicle_id,vehicle_commercial_origin,agency_id,advisor_id,mileage_in,complaint,diagnosis_summary,status,tax_mode,tax_rate_snapshot,tax_justification,tax_selected_by,tax_selected_at,estimated_total,created_by)VALUES(?,?,?,?,?,?,?,?,?,'in_progress',?,?,?,?,NOW(),?,?)",[orderNumber,diagnostic.customer_id,diagnostic.vehicle_id,diagnostic.vehicle_commercial_origin,diagnostic.agency_id,diagnostic.advisor_id,diagnostic.mileage_in,diagnostic.complaint,diagnostic.diagnosis_summary,diagnostic.tax_mode,diagnostic.vat_rate_snapshot,diagnostic.tax_justification,r.user!.sub,diagnostic.total,r.user!.sub]),repairOrderId=String(created.insertId);
+    await c.execute('INSERT INTO diagnostics(repair_order_id,diagnosis,recommendations,diagnosed_at)VALUES(?,?,?,NOW())',[repairOrderId,diagnostic.diagnosis_summary,'Diagnostic préalable '+diagnostic.diagnostic_number]);
+    const[items]=await c.execute<RowDataPacket[]>('SELECT * FROM service_diagnostic_items WHERE diagnostic_id=? ORDER BY id FOR UPDATE',[diagnosticId]),partEstimateIds:Array<{id:string;partId:string;quantity:number}>=[];
+    for(const item of items){const[estimate]=await c.execute<ResultSetHeader>('INSERT INTO repair_order_estimate_items(repair_order_id,item_type,part_id,description,quantity,unit_price,discount,tax_rate,line_total,request_key,created_by)VALUES(?,?,?,?,?,?,?,?,?,?,?)',[repairOrderId,item.item_type,item.part_id,item.description,item.quantity,item.unit_price,item.discount,item.tax_rate,item.line_total,`diagnostic-${diagnosticId}-${item.id}`,r.user!.sub]);if(item.item_type==='part'&&item.part_id)partEstimateIds.push({id:String(estimate.insertId),partId:String(item.part_id),quantity:Number(item.quantity)})}
+    const[customers]=await c.execute<RowDataPacket[]>("SELECT COALESCE(company_name,CONCAT_WS(' ',first_name,last_name),'Client') customer_name FROM customers WHERE id=?",[diagnostic.customer_id]),customerName=String(customers[0]?.customer_name??'Client');
+    const[approval]=await c.execute<ResultSetHeader>('INSERT INTO repair_approvals(repair_order_id,approved,approved_amount,customer_name,notes,comment,recorded_by)VALUES(?,TRUE,?,?,?, ?,?)',[repairOrderId,diagnostic.total,customerName,'Acceptation du devis '+diagnostic.quotation_number,'Acceptation enregistrée depuis le diagnostic',r.user!.sub]);
+    let requestId:null|string=null;
+    if(partEstimateIds.length){const requestNumber=`DPI-${orderNumber}-${approval.insertId}`,[request]=await c.execute<ResultSetHeader>('INSERT INTO sav_part_requests(request_number,repair_order_id,agency_id,accepted_approval_id,created_by)VALUES(?,?,?,?,?)',[requestNumber,repairOrderId,diagnostic.agency_id,approval.insertId,r.user!.sub]);requestId=String(request.insertId);for(const item of partEstimateIds)await c.execute('INSERT INTO sav_part_request_items(request_id,estimate_item_id,part_id,quantity_requested)VALUES(?,?,?,?)',[requestId,item.id,item.partId,item.quantity])}
+    await c.execute("INSERT INTO repair_order_status_history(repair_order_id,new_status,reason,changed_by)VALUES(?,'in_progress','Création automatique après acceptation du devis diagnostic',?)",[repairOrderId,r.user!.sub]);
+    await c.execute("UPDATE service_diagnostics SET status='ACCEPTED',accepted_at=NOW(),accepted_by=?,repair_order_id=? WHERE id=? AND repair_order_id IS NULL",[r.user!.sub,repairOrderId,diagnosticId]);
+    return{id:repairOrderId,duplicate:false,requestId};
+  });
+  if(!result.duplicate){emitToAgency(String(r.user!.agencyId),'workshop:repair-order-created',{id:result.id,diagnosticId,agencyId:String(r.user!.agencyId)});if(result.requestId)emitToAgency(String(r.user!.agencyId),'parts:internal-request-created',{repairOrderId:result.id,requestId:result.requestId,agencyId:String(r.user!.agencyId)})}
+  res.status(result.duplicate?200:201).json(result);
+}));
+workshopRouter.get('/service-diagnostics',serviceAccess('service.diagnostic.view'),asyncHandler(async(r,res)=>{
+  const requested=pageRequest(r.query),where=['d.agency_id=?'],params:any[]=[r.user!.agencyId];
+  if(r.query.status){where.push('d.status=?');params.push(String(r.query.status))}
+  if(r.query.search){const value=`%${String(r.query.search).trim().slice(0,120)}%`;where.push("(d.diagnostic_number LIKE ? OR d.quotation_number LIKE ? OR CONCAT_WS(' ',c.first_name,c.last_name,c.company_name) LIKE ? OR v.vin LIKE ? OR v.registration_number LIKE ?)");params.push(value,value,value,value,value)}
+  const from=`FROM service_diagnostics d JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id WHERE ${where.join(' AND ')}`,[count]=await query<RowDataPacket[]>(`SELECT COUNT(*) total ${from}`,params),meta=pageMeta(count?.total,requested),items=await query<RowDataPacket[]>(`SELECT d.*,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,v.vin,v.registration_number,COALESCE(CONCAT_WS(' ',v.identity_brand,v.identity_model,v.identity_version),v.vin) vehicle_label ${from} ORDER BY d.created_at DESC,d.id DESC LIMIT ? OFFSET ?`,[...params,meta.pageSize,meta.offset]);
+  res.json(paged(items.map(x=>({...x,id:String(x.id),repair_order_id:x.repair_order_id==null?null:String(x.repair_order_id)})),count?.total,meta));
+}));
+workshopRouter.get('/service-diagnostics/:id/document',serviceAccess('service.diagnostic.view'),asyncHandler(async(r,res)=>{const diagnosticId=idOf(r.params.id),[rows]=await query<RowDataPacket[]>(`SELECT d.*,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,v.vin,v.registration_number FROM service_diagnostics d JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id WHERE d.id=? AND d.agency_id=?`,[diagnosticId,r.user!.agencyId]),diagnostic=rows;if(!diagnostic||!['QUOTED','ACCEPTED','REFUSED'].includes(diagnostic.status))throw new HttpError(409,'Devis diagnostic non émis');const items=await query<RowDataPacket[]>('SELECT item_type,description,quantity,unit_price,discount,tax_rate,line_total FROM service_diagnostic_items WHERE diagnostic_id=? ORDER BY id',[diagnosticId]),pdf=await renderBusinessPdf('DEVIS SAV',[["Diagnostic",diagnostic.diagnostic_number],["Devis",diagnostic.quotation_number],["Client",diagnostic.customer_name],["VIN",diagnostic.vin],["Immatriculation",diagnostic.registration_number],["Régime fiscal",diagnostic.tax_mode==='TAXABLE'?'Avec TVA':'Sans TVA'],["Justification fiscale",diagnostic.tax_justification],["Sous-total HT",diagnostic.subtotal],["TVA",diagnostic.tax_total],["Total",diagnostic.total]],items.map(item=>`${item.item_type==='part'?'Pièce':'Main-d’œuvre'} — ${item.description} — ${item.quantity} × ${item.unit_price} — remise ${item.discount} — TVA ${item.tax_rate} % — total HT ${item.line_total}`));res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition',`inline; filename="devis-sav-${diagnostic.quotation_number}.pdf"`);res.send(pdf)}));
+workshopRouter.get('/service-diagnostics/:id',serviceAccess('service.diagnostic.view'),asyncHandler(async(r,res)=>{const diagnosticId=idOf(r.params.id),[rows]=await query<RowDataPacket[]>(`SELECT d.*,COALESCE(c.company_name,CONCAT_WS(' ',c.first_name,c.last_name)) customer_name,v.vin,v.registration_number,COALESCE(CONCAT_WS(' ',v.identity_brand,v.identity_model,v.identity_version),v.vin) vehicle_label FROM service_diagnostics d JOIN customers c ON c.id=d.customer_id JOIN vehicles v ON v.id=d.vehicle_id WHERE d.id=? AND d.agency_id=?`,[diagnosticId,r.user!.agencyId]),diagnostic=rows;if(!diagnostic)throw new HttpError(404,'Diagnostic introuvable');const items=await query<RowDataPacket[]>('SELECT i.*,p.reference part_reference FROM service_diagnostic_items i LEFT JOIN parts p ON p.id=i.part_id WHERE i.diagnostic_id=? ORDER BY i.id',[diagnosticId]);res.json({...diagnostic,id:String(diagnostic.id),repair_order_id:diagnostic.repair_order_id==null?null:String(diagnostic.repair_order_id),items})}));
+workshopRouter.post('/service-diagnostics',serviceAccess('service.diagnostic.create'),asyncHandler(async(r,res)=>{
+  const customer=idOf(r.body.customerId),vehicle=idOf(r.body.vehicleId),agency=await serviceCustomerAgency(r,customer),advisor=idOf(r.body.advisorId??r.user!.sub),mileage=Number(r.body.mileage??0);
+  if(!Number.isInteger(mileage)||mileage<0)throw new HttpError(400,'Kilométrage invalide');
+  const[valid]=await query<RowDataPacket[]>("SELECT v.commercial_origin FROM vehicles v WHERE v.id=? AND (v.agency_id=? OR EXISTS(SELECT 1 FROM customer_vehicles cv WHERE cv.vehicle_id=v.id AND cv.customer_id=? AND cv.agency_id=? AND cv.is_current=TRUE))",[vehicle,agency,customer,agency]);
+  if(!valid)throw new HttpError(409,'Ce véhicule n’est pas lié au client dans cette agence');
+  const settings=await getEffectiveBusinessSettings(agency),number=`DIA-${Date.now()}`,diagnosticId=await workshopTransaction(r,async c=>{await assertAdvisorCandidate(c,advisor,agency);const[x]=await c.execute<ResultSetHeader>("INSERT INTO service_diagnostics(diagnostic_number,customer_id,vehicle_id,agency_id,advisor_id,vehicle_commercial_origin,mileage_in,complaint,diagnosis_summary,vat_rate_snapshot,created_by)VALUES(?,?,?,?,?,?,?,?,?,?,?)",[number,customer,vehicle,agency,advisor,valid.commercial_origin??'UNKNOWN',mileage,txt(r.body.complaint,'Motif',5000,true),txt(r.body.diagnosisSummary,'Diagnostic',5000),settings.vatRate,r.user!.sub]);return String(x.insertId)});
+  emitToAgency(agency,'workshop:diagnostic-created',{id:diagnosticId,diagnosticNumber:number});res.status(201).json({id:diagnosticId,diagnosticNumber:number});
+}));
+workshopRouter.patch('/service-diagnostics/:id',serviceAccess('service.diagnostic.prepare'),asyncHandler(async(r,res)=>{const diagnosticId=idOf(r.params.id),status=String(r.body.status??''),allowed=['IN_PROGRESS','FINALIZED','REFUSED'];if(!allowed.includes(status))throw new HttpError(400,'Statut diagnostic invalide');await workshopTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM service_diagnostics WHERE id=? AND agency_id=? FOR UPDATE',[diagnosticId,r.user!.agencyId]),d=rows[0];if(!d)throw new HttpError(404,'Diagnostic introuvable');if(['ACCEPTED','REFUSED'].includes(d.status))throw new HttpError(409,'Diagnostic déjà clôturé');await c.execute('UPDATE service_diagnostics SET status=?,diagnosis_summary=COALESCE(?,diagnosis_summary),refused_at=IF(?=\'REFUSED\',NOW(),refused_at) WHERE id=?',[status,txt(r.body.diagnosisSummary,'Diagnostic',5000),status,diagnosticId])});res.json({id:diagnosticId,status})}));
+workshopRouter.post('/service-diagnostics/:id/items',serviceAccess('service.diagnostic.prepare'),asyncHandler(async(r,res)=>{const diagnosticId=idOf(r.params.id),type=String(r.body.itemType??''),quantity=Number(r.body.quantity),unitPrice=Number(r.body.unitPrice),discount=Number(r.body.discount??0);if(!['labor','part'].includes(type)||!Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unitPrice)||unitPrice<0||!Number.isFinite(discount)||discount<0)throw new HttpError(400,'Ligne de chiffrage invalide');await workshopTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>('SELECT * FROM service_diagnostics WHERE id=? AND agency_id=? FOR UPDATE',[diagnosticId,r.user!.agencyId]),d=rows[0];if(!d||d.status!=='FINALIZED')throw new HttpError(409,'Le chiffrage est modifiable uniquement avant émission du devis');const rate=d.tax_mode==='TAXABLE'?Number(d.vat_rate_snapshot):0,line=quantity*unitPrice-discount;await c.execute('INSERT INTO service_diagnostic_items(diagnostic_id,item_type,part_id,description,quantity,unit_price,discount,tax_rate,line_total)VALUES(?,?,?,?,?,?,?,?,?)',[diagnosticId,type,r.body.partId?idOf(r.body.partId):null,txt(r.body.description,'Description',500,true),quantity,unitPrice,discount,rate,line]);await c.execute('UPDATE service_diagnostics d SET subtotal=(SELECT COALESCE(SUM(line_total),0) FROM service_diagnostic_items WHERE diagnostic_id=d.id),tax_total=(SELECT COALESCE(SUM(line_total*tax_rate/100),0) FROM service_diagnostic_items WHERE diagnostic_id=d.id),total=subtotal+tax_total WHERE d.id=?',[diagnosticId])});res.status(201).json({success:true})}));
 workshopRouter.get(
   "/repair-orders",
   serviceAccess('service.order.view'),
@@ -513,61 +569,10 @@ workshopRouter.post(
   asyncHandler(async (r, res) => {
     const customer = idOf(r.body.customerId),
       vehicle = idOf(r.body.vehicleId);
-    const agency=await serviceCustomerAgency(r,customer);
-    const mileage=Number(r.body.mileage??0);if(!Number.isInteger(mileage)||mileage<0)throw new HttpError(400,"Kilométrage invalide");
-    const promised=r.body.promisedCompletionAt?dateTime(r.body.promisedCompletionAt,"Fin promise"):null;
-    const [valid] = await query<RowDataPacket[]>(
-      "SELECT c.id,v.commercial_origin,v.commercial_origin_source FROM customers c JOIN vehicles v ON v.id=? WHERE c.id=? AND c.agency_id=? AND (v.agency_id=c.agency_id OR EXISTS(SELECT 1 FROM customer_vehicles cv_scope WHERE cv_scope.customer_id=c.id AND cv_scope.vehicle_id=v.id AND cv_scope.agency_id=c.agency_id AND cv_scope.is_current=TRUE)) AND (EXISTS(SELECT 1 FROM customer_vehicles cv WHERE cv.vehicle_id=v.id AND cv.customer_id=c.id AND cv.is_current=TRUE) OR EXISTS(SELECT 1 FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.vehicle_id=v.id AND s.customer_id=c.id) OR EXISTS(SELECT 1 FROM repair_orders ro WHERE ro.vehicle_id=v.id AND ro.customer_id=c.id))",
-      [vehicle,customer,agency],
-    );
-    if (!valid)
-      throw new HttpError(
-        400,
-        "Ce véhicule n’est pas lié au client dans cette agence",
-      );
-    const expectedOrigin=r.body.expectedVehicleOrigin==null?null:String(r.body.expectedVehicleOrigin);
-    if(expectedOrigin&&!['CONCESSION','EXTERNAL'].includes(expectedOrigin))throw new HttpError(400,'Origine de parcours invalide');
-    if(expectedOrigin&&valid.commercial_origin!==expectedOrigin)throw new HttpError(409,expectedOrigin==='CONCESSION'?'Le parcours interne exige un véhicule de concession':'Le parcours extérieur exige un véhicule extérieur',{code:'VEHICLE_ORIGIN_MISMATCH',expectedOrigin,actualOrigin:valid.commercial_origin});
-    const originSnapshot=vehicleOriginSnapshot(valid.commercial_origin,valid.commercial_origin_source);
-    const appointment=r.body.appointmentId?idOf(r.body.appointmentId):null;
-    const advisor=idOf(r.body.advisorId??r.user!.sub);
-    if(advisor!==r.user!.sub){const assignmentScope=await assertPermission(r,'service.order.assign_advisor');if(assignmentScope==='OWN'||!await permissionCoversAgency(r,'service.order.assign_advisor',String(agency)))throw new HttpError(403,'Périmètre d’affectation du conseiller SAV insuffisant');}
-    const no = `OR-${Date.now()}`;
-    const repairOrderId=await workshopTransaction(r,async c=>{
-      await assertAdvisorCandidate(c,advisor,agency);
-      const contractWarranty=await evaluateVehicleWarranty(vehicle,mileage,c);
-      if(appointment){const [appointments]=await c.execute<RowDataPacket[]>("SELECT id FROM service_appointments WHERE id=? AND customer_id=? AND vehicle_id=? AND agency_id=? FOR UPDATE",[appointment,customer,vehicle,agency]);if(!appointments[0])throw new HttpError(400,"Rendez-vous SAV incompatible");}
-      const [x] = await c.execute<ResultSetHeader>(
-        `INSERT INTO repair_orders(order_number,appointment_id,customer_id,vehicle_id,vehicle_commercial_origin,vehicle_origin_source,agency_id,advisor_id,mileage_in,complaint,diagnosis_summary,status,warranty_covered,warranty_reference,promised_completion_at,created_by)VALUES(?,?,?,?,?,?,?,?,?,?,?,'planned',?,?,?,?)`,
-        [
-          no,
-          appointment,
-          customer,
-          vehicle,
-          originSnapshot.origin,
-          originSnapshot.source,
-          agency,
-          advisor,
-          mileage,
-          txt(r.body.complaint, "Motif", 5000, true),
-          txt(r.body.diagnosisSummary, "Diagnostic", 5000),
-          contractWarranty.status==='ELIGIBLE_CONTRACTUALLY',
-          null,
-          promised,
-          r.user!.sub,
-        ],
-      );
-      await c.execute(
-      `INSERT INTO repair_order_status_history(repair_order_id,new_status,reason,changed_by)VALUES(?,'planned','Ouverture OR',?)`,
-      [x.insertId, r.user!.sub],
-      );if(contractWarranty.status==='ELIGIBLE_CONTRACTUALLY'){await c.execute("INSERT INTO repair_order_warranties(repair_order_id,provider_id,decision_status,allocation_status,decision_comment,created_by,updated_by)VALUES(?,?,'PENDING','UNALLOCATED','Demande initialisée automatiquement depuis la garantie contractuelle du véhicule',?,?)",[x.insertId,contractWarranty.contract!.providerId,r.user!.sub,r.user!.sub]);}if(appointment)await c.execute("UPDATE service_appointments SET status='completed' WHERE id=?",[appointment]);return String(x.insertId);
-    });
-    emitToAgency(agency, "workshop:repair-order-created", {
-      id: repairOrderId,
-      orderNumber: no,
-    });
-    await notify(agency, r.user!.sub, "Nouvel ordre de réparation", no, repairOrderId);
-    res.status(201).json(await detail(repairOrderId, r));
+    void customer;
+    void vehicle;
+    void res;
+    throw new HttpError(409,"La création directe d’un OR est interdite. Enregistrez l’acceptation d’un devis diagnostic.");
   }),
 );
 workshopRouter.patch(

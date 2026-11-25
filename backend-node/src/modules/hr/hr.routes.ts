@@ -780,6 +780,11 @@ hrRouter.patch(
         sets.push("employment_status=?");
         values.push(status);
       }
+      if (Object.hasOwn(body, "isWorkshopTechnician")) {
+        await assertPermission(r, "hr.employee.technician.manage");
+        sets.push("is_workshop_technician=?");
+        values.push(Boolean(body.isWorkshopTechnician));
+      }
       if (!sets.length) throw new HttpError(400, "Aucune modification valide.");
       sets.push("updated_by=?");
       values.push(r.user!.sub);

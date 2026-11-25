@@ -28,6 +28,7 @@ import { ServerPagination } from '../../components/common/ServerPagination';
 import { useAuthStore } from '../../stores/authStore';
 import { ExternalCustomersPanel } from './ExternalCustomersPanel';
 import { SavBillingSection, SavJournalSection, SavReportingSection, SavTransitSection } from './SavBusinessSections';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 
 export const ServiceDashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,10 +42,10 @@ export const ServiceDashboardPage: React.FC = () => {
   const canViewExternalCustomers=can('service.order.view')&&can('customers.view');
 
   const [isNewOrOpen, setIsNewOrOpen] = useState(false);
-  const [activeView,setActiveView]=useState<'orders'|'billing'|'transit'|'journal'|'reporting'|'external-customers'>('orders');
+  const [activeView,setActiveView]=useState<'diagnostics'|'orders'|'billing'|'transit'|'journal'|'reporting'|'external-customers'>('diagnostics');
   const [newOrderCustomerId,setNewOrderCustomerId]=useState<string|undefined>();
   useEffect(()=>{if(repairQuery.data&&repairQuery.data.page!==page)setPage(repairQuery.data.page)},[repairQuery.data,page]);
-  useEffect(()=>{const section=searchParams.get('section');if(section&&['orders','billing','transit','journal','reporting','external-customers'].includes(section))setActiveView(section as typeof activeView)},[searchParams]);
+  useEffect(()=>{const section=searchParams.get('section');if(section&&['diagnostics','orders','billing','transit','journal','reporting','external-customers'].includes(section))setActiveView(section as typeof activeView)},[searchParams]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || selectedStatus !== 'ALL';
 
   return (
@@ -55,19 +56,20 @@ export const ServiceDashboardPage: React.FC = () => {
         breadcrumbs={[{ label: 'Accueil', href: '/dashboard' }, { label: 'Après-Vente' }, { label: 'Ordres de Réparation' }]}
         actions={
           <div className="flex items-center gap-2">
-            {canCreate&&<Button
+            {can('service.diagnostic.create')&&<Button
               variant="primary"
               size="sm"
               icon={<Plus className="w-4 h-4" />}
               onClick={() => setIsNewOrOpen(true)}
             >
-              Ouvrir un OR
+              Nouveau diagnostic
             </Button>}
           </div>
         }
       />
 
       <div className="flex gap-2 overflow-x-auto border-b border-slate-200">{[
+        ['diagnostics','Diagnostics et devis',can('service.diagnostic.view')],
         ['orders','Ordres de réparation',can('service.order.view')],
         ['billing','Facturation SAV',can('service.billing.view')],
         ['transit','Caisse de transit',can('service.transit.view')],
@@ -75,6 +77,8 @@ export const ServiceDashboardPage: React.FC = () => {
         ['reporting','Reporting SAV',can('service.reporting.view')],
         ['external-customers','Clients extérieurs',canViewExternalCustomers],
       ].filter(([, ,visible])=>visible).map(([key,label])=><button key={String(key)} type="button" onClick={()=>setActiveView(key as typeof activeView)} className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-bold ${activeView===key?'border-blue-600 text-blue-700':'border-transparent text-slate-500'}`}>{label}</button>)}</div>
+
+      {activeView==='diagnostics'&&<DiagnosticsPanel/>}
 
       {activeView==='orders'&&<>
       {/* Search and Filters */}

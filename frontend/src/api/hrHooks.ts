@@ -17,6 +17,7 @@ export interface Employee {
   position_title: string | null;
   hire_date: string;
   employment_status: "active" | "inactive" | "departed";
+  is_workshop_technician: boolean;
   avatar_path: string | null;
   account_email: string | null;
   account_active: boolean | null;

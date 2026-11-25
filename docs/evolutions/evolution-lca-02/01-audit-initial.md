@@ -1,0 +1,3 @@
+# Audit initial
+
+L’existant a été conservé : module SAV/Atelier, formulaire de réception, OR historiques, référentiel `employee_profiles`, mouvements `part_movements`, ventes directes, facturation, pagination, exports et RBAC dynamique. Les écarts initiaux étaient l’absence de diagnostic autonome, l’affectation mono-technicien, le client CRM obligatoire en vente directe et un inventaire insuffisamment filtrable. La migration précédente réelle était 134. Aucun module métier indépendant n’a été créé. Après l’interruption, `git diff --check` est resté propre, aucun marqueur de conflit ni fichier source tronqué n’a été trouvé et les seules ressources interrompues étaient des commandes de validation terminées naturellement ; les modifications métier ont été préservées.

@@ -1,0 +1,3 @@
+# Non-régression
+
+Lint TypeScript backend et frontend : réussis. Builds backend et frontend : réussis sous Node 22 ; le build frontend final transforme 2 554 modules. Suite frontend complète sous Node 22 : 1 086/1 094 réussis, 8 échecs statiques hors des fichiers LCA-02 (commercial, CRM, paramètres, essais et véhicules). Suite backend complète sous Node 22 : 2 071 réussis, 28 échecs, 106 ignorés sur 2 205 en 374 828 ms ; les échecs concernent des contrats statiques historiques, garanties, documents commerciaux, pro forma et showroom, hors du parcours LCA-02 qualifié. Le parcours HTTP/MySQL LCA-02 final est intégralement réussi.

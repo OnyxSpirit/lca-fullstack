@@ -16,7 +16,6 @@ CREATE TABLE service_diagnostics (
   diagnosis_summary TEXT NULL,
   status ENUM('RECEIVED','IN_PROGRESS','FINALIZED','QUOTED','REFUSED','ACCEPTED') NOT NULL DEFAULT 'RECEIVED',
   tax_mode ENUM('TAXABLE','TAX_EXEMPT') NOT NULL DEFAULT 'TAXABLE',
-  tax_justification VARCHAR(1000) NULL,
   vat_rate_snapshot DECIMAL(8,4) NOT NULL,
   subtotal DECIMAL(18,2) NOT NULL DEFAULT 0,
   tax_total DECIMAL(18,2) NOT NULL DEFAULT 0,
@@ -90,17 +89,12 @@ ALTER TABLE part_sales
   ADD COLUMN tax_mode ENUM('TAXABLE','EXEMPT') NOT NULL DEFAULT 'TAXABLE' AFTER currency_code;
 
 ALTER TABLE invoices
+  DROP FOREIGN KEY fk_invoice_customer,
   MODIFY customer_id BIGINT UNSIGNED NULL,
   ADD COLUMN third_party_customer_name VARCHAR(200) NULL AFTER customer_id,
   ADD COLUMN third_party_customer_phone VARCHAR(50) NULL AFTER third_party_customer_name,
-  ADD COLUMN third_party_customer_address VARCHAR(500) NULL AFTER third_party_customer_phone;
-
--- Le workflow de retour de vente directe existant journalise déjà ce type.
-ALTER TABLE part_movements
-  MODIFY COLUMN movement_type ENUM(
-    'purchase','sale','repair_order','transfer_in','transfer_out','return',
-    'inventory','adjustment','reservation','release','internal_delivery','sav_return','sale_return'
-  ) NOT NULL;
+  ADD COLUMN third_party_customer_address VARCHAR(500) NULL AFTER third_party_customer_phone,
+  ADD CONSTRAINT fk_invoice_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT;
 
 INSERT INTO permissions(module,action,code,name,group_name,description,is_active) VALUES
 ('service','create','service.diagnostic.create','Créer un diagnostic','SAV / Atelier','Réceptionner un véhicule dans le parcours diagnostic',TRUE),

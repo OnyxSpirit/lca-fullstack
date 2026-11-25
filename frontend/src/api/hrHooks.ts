@@ -50,6 +50,8 @@ export interface EmployeeContractType {
   description: string | null;
   is_active: boolean;
   is_used: boolean;
+  duration_kind: "FIXED_TERM" | "INDEFINITE";
+  standard_duration_months: number | null;
 }
 export interface EmployeeContract {
   id: string;
@@ -58,6 +60,8 @@ export interface EmployeeContract {
   contract_type_id: string;
   type_code_snapshot: string;
   type_name_snapshot: string;
+  duration_kind_snapshot: "FIXED_TERM" | "INDEFINITE";
+  duration_months_snapshot: number | null;
   reference: string;
   start_date: string;
   contractual_end_date: string | null;
@@ -76,6 +80,8 @@ export interface EmployeeContract {
   agency_id: string | null;
   type_is_active: boolean;
 }
+export interface ContributionType{id:string;code:string;label:string;description:string|null;contribution_side:'EMPLOYEE'|'EMPLOYER';calculation_mode:'FIXED'|'PERCENTAGE';calculation_value:number;calculation_base:'BASE_SALARY'|'GROSS_REMUNERATION'|null;periodicity:'MONTHLY'|'ONE_TIME';is_active:boolean}
+export interface EmployeeContributionAssignment extends ContributionType{id:string;contribution_type_id:string;effective_start:string;effective_end:string|null}
 export interface EmployeeLeaveType {
   id: string;
   concession_id: string;
@@ -183,6 +189,8 @@ export interface StockMovement {
   reason: string | null;
   reference: string | null;
   author_name: string | null;
+  unit_acquisition_cost: number | null;
+  total_acquisition_cost: number | null;
 }
 export interface BudgetCategory {
   id: string;
@@ -455,6 +463,8 @@ export const useEmployeeContractTypesQuery = (
       ),
     enabled: enabled && Boolean(concessionId),
   });
+export const useContributionTypesQuery=(enabled=true,activeOnly=false)=>useQuery({queryKey:['hr','contribution-types',activeOnly],queryFn:()=>apiRequest<ContributionType[]>(`/hr/contribution-types?${params({active:activeOnly?'true':undefined})}`),enabled});
+export const useEmployeeContributionsQuery=(employeeId:string|undefined,enabled=true)=>useQuery({queryKey:['hr','employee',employeeId,'contributions'],queryFn:()=>apiRequest<EmployeeContributionAssignment[]>(`/hr/employees/${employeeId}/contributions`),enabled:enabled&&Boolean(employeeId)});
 export const useEmployeeLeavesQuery = (
   employeeId: string | undefined,
   enabled: boolean,
@@ -805,6 +815,8 @@ export function useHrActions() {
         description?: string;
         concessionId?: string;
         isActive?: boolean;
+        durationKind: "FIXED_TERM" | "INDEFINITE";
+        standardDurationMonths: number | null;
       }) =>
         apiRequest(id ? `/hr/contract-types/${id}` : "/hr/contract-types", {
           method: id ? "PATCH" : "POST",

@@ -49,6 +49,7 @@ import { hrProviderContractRouter } from './modules/hr/hr-provider-contract.rout
 import { hrProviderRemunerationRouter } from './modules/hr/hr-provider-remuneration.routes.js';
 import { hrRemunerationRouter } from './modules/hr/hr-remuneration.routes.js';
 import { hrContractRouter } from './modules/hr/hr-contract.routes.js';
+import { hrContributionRouter } from './modules/hr/hr-contribution.routes.js';
 import { hrLeaveRouter } from './modules/hr/hr-leave.routes.js';
 import { hrBonusRouter } from './modules/hr/hr-bonus.routes.js';
 import { treasuryRouter } from './modules/treasury/treasury.routes.js';
@@ -75,7 +76,7 @@ export function createApp() {
   for(const folder of ['avatars','vehicles'])app.use(`/uploads/${folder}`,express.static(path.join(publicUploadRoot,folder),{fallthrough:false,index:false}));
   app.get('/api/health',(_request,response)=>{response.json({status:'ok',service:'lca-backend-node'});});
   app.use('/api/auth',createAuthRouter());
-  app.use('/api',authenticate,enforceAgencyScope,agencyRbacRouter,twoFactorAdminRouter,fiscalRouter,stampLifecycleRouter,documentMarkRouter,officialDocumentRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrRemunerationRouter,hrProviderRemunerationRouter,hrProviderContractRouter,hrProviderRouter,hrRouter,bankReconciliationRouter,bankReconciliationAdvancedRouter,treasuryRouter,accountingRouter,accountingEntryRouter,accountingIntegrationRouter,accountingAdvancedRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,commercialCatalogRouter,vehicleRouter,showroomRouter,quotationRouter,proformaRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,directPartsPurchaseRouter,partSalesRouter,internalPartsLogisticsRouter,partRouter,warrantyRouter,workshopVehicleRouter,savOperationsRouter,workshopRouter,billingRouter,financialDashboardRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
+  app.use('/api',authenticate,enforceAgencyScope,agencyRbacRouter,twoFactorAdminRouter,fiscalRouter,stampLifecycleRouter,documentMarkRouter,officialDocumentRouter,activityRouter,userRouter,hrBonusRouter,hrLeaveRouter,hrContractRouter,hrContributionRouter,hrRemunerationRouter,hrProviderRemunerationRouter,hrProviderContractRouter,hrProviderRouter,hrRouter,bankReconciliationRouter,bankReconciliationAdvancedRouter,treasuryRouter,accountingRouter,accountingEntryRouter,accountingIntegrationRouter,accountingAdvancedRouter,settingRouter,documentRouter,customerRouter,crmRouter,notificationRouter,vehicleReturnRouter,commercialCatalogRouter,vehicleRouter,showroomRouter,quotationRouter,proformaRouter,saleRouter,deliveryChecklistRouter,deliveryServiceRouter,deliveryRouter,supplierFinanceRouter,directPartsPurchaseRouter,partSalesRouter,internalPartsLogisticsRouter,partRouter,warrantyRouter,workshopVehicleRouter,savOperationsRouter,workshopRouter,billingRouter,financialDashboardRouter,financialReportRouter,extendedReportRouter,reportRouter,dashboardRouter,coreRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

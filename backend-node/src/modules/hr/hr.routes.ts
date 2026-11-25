@@ -1175,6 +1175,8 @@ hrRouter.get(
         quantity: Number(x.quantity),
         quantity_before: Number(x.quantity_before),
         quantity_after: Number(x.quantity_after),
+        unit_acquisition_cost: x.unit_acquisition_cost == null ? null : Number(x.unit_acquisition_cost),
+        total_acquisition_cost: x.total_acquisition_cost == null ? null : Number(x.total_acquisition_cost),
       })),
     );
   }),
@@ -1189,7 +1191,9 @@ hrRouter.post(
     const permission = type === "entry" ? "hr.stock.entry" : "hr.stock.exit";
     await assertPermission(r, permission);
     const quantity = positive(r.body.quantity, "Quantité", 3),
+      unitCost = r.body.unitAcquisitionCost == null || r.body.unitAcquisitionCost === "" ? null : positive(r.body.unitAcquisitionCost, "Prix unitaire d’acquisition", 2),
       movementId = await hrTransaction(r,async (c) => {
+        if (type === "exit" && unitCost) throw new HttpError(400, "Un coût d’acquisition ne peut être saisi que pour une entrée.");
         const item = await stockItem(r, permission, itemId, c, true),
           before = Number(item.current_quantity),
           after =
@@ -1203,7 +1207,7 @@ hrRouter.post(
           [after.toFixed(3), r.user!.sub, itemId],
         );
         const [result] = await c.execute<ResultSetHeader>(
-          "INSERT INTO internal_stock_movements(item_id,agency_id,movement_type,quantity,quantity_before,quantity_after,movement_date,reason,reference,performed_by) VALUES(?,?,?,?,?,?,COALESCE(?,NOW()),?,?,?)",
+          "INSERT INTO internal_stock_movements(item_id,agency_id,movement_type,quantity,quantity_before,quantity_after,unit_acquisition_cost,total_acquisition_cost,movement_date,reason,reference,supporting_document_reference,performed_by) VALUES(?,?,?,?,?,?,?,?,COALESCE(?,NOW()),?,?,?,?)",
           [
             itemId,
             item.agency_id,
@@ -1211,11 +1215,14 @@ hrRouter.post(
             quantity,
             before.toFixed(3),
             after.toFixed(3),
+            unitCost,
+            unitCost == null ? null : (Number(quantity) * Number(unitCost)).toFixed(2),
             r.body.movementDate
               ? `${date(r.body.movementDate, "Date")} 00:00:00`
               : null,
             text(r.body.reason, "Motif", false, 500),
             text(r.body.reference, "Référence", false, 100),
+            text(r.body.supportingDocumentReference, "Référence justificatif", false, 190),
             r.user!.sub,
           ],
         );
@@ -1225,13 +1232,23 @@ hrRouter.post(
           "internal_stock_movement",
           String(result.insertId),
           `stock.${type}`,
-          { itemId, quantity, before, after, agencyId: String(item.agency_id) },
+          { itemId, quantity, before, after, unitAcquisitionCost: unitCost == null ? null : Number(unitCost), totalAcquisitionCost: unitCost == null ? null : Number(quantity) * Number(unitCost), agencyId: String(item.agency_id) },
         );
         return String(result.insertId);
       });
     res.status(201).json({ id: movementId });
   }),
 );
+
+hrRouter.get('/hr/internal-stock/valuation',requirePermission('hr.stock.acquisition.view'),asyncHandler(async(r,res)=>{const scope=await scopeFor(r,'hr.stock.acquisition.view'),p=agencyPredicate(r,scope,'a'),rows=await query<RowDataPacket[]>(`SELECT i.id,i.reference,i.designation,i.unit,i.current_quantity available_quantity,a.name agency_name,COALESCE(ac.acquired_quantity,0) acquired_quantity,ac.acquisition_value,COALESCE(sa.assigned_quantity,0) assigned_quantity,COALESCE(sa.returned_quantity,0) returned_quantity,COALESCE(sa.outstanding_quantity,0) outstanding_quantity,CASE WHEN ac.acquired_quantity>0 AND ac.costed_quantity=ac.acquired_quantity THEN ROUND(i.current_quantity*ac.acquisition_value/ac.acquired_quantity,2) ELSE NULL END available_value,CASE WHEN ac.acquired_quantity>0 AND ac.costed_quantity=ac.acquired_quantity THEN ROUND(COALESCE(sa.outstanding_quantity,0)*ac.acquisition_value/ac.acquired_quantity,2) ELSE NULL END assigned_value,CASE WHEN ac.acquired_quantity>0 AND ac.costed_quantity=ac.acquired_quantity THEN ROUND((i.current_quantity+COALESCE(sa.outstanding_quantity,0))*ac.acquisition_value/ac.acquired_quantity,2) ELSE NULL END held_value,ac.costed_quantity=ac.acquired_quantity valuation_complete FROM internal_stock_items i JOIN agencies a ON a.id=i.agency_id LEFT JOIN(SELECT item_id,SUM(quantity) acquired_quantity,SUM(CASE WHEN unit_acquisition_cost IS NOT NULL THEN quantity ELSE 0 END) costed_quantity,SUM(total_acquisition_cost) acquisition_value FROM internal_stock_movements WHERE movement_type='entry' GROUP BY item_id)ac ON ac.item_id=i.id LEFT JOIN(SELECT item_id,SUM(quantity) assigned_quantity,SUM(returned_quantity) returned_quantity,SUM(quantity-returned_quantity) outstanding_quantity FROM internal_stock_assignments GROUP BY item_id)sa ON sa.item_id=i.id WHERE ${p.sql} ORDER BY i.designation`,p.params);res.json(rows.map(x=>({...x,id:String(x.id),available_quantity:Number(x.available_quantity),acquired_quantity:Number(x.acquired_quantity),assigned_quantity:Number(x.assigned_quantity),returned_quantity:Number(x.returned_quantity),outstanding_quantity:Number(x.outstanding_quantity),acquisition_value:x.acquisition_value==null?null:Number(x.acquisition_value),available_value:x.available_value==null?null:Number(x.available_value),assigned_value:x.assigned_value==null?null:Number(x.assigned_value),held_value:x.held_value==null?null:Number(x.held_value),valuation_complete:Boolean(x.valuation_complete)})))}));
+
+hrRouter.get('/hr/internal-stock/acquisitions',requirePermission('hr.stock.acquisition.view'),asyncHandler(async(r,res)=>{const scope=await scopeFor(r,'hr.stock.acquisition.view'),p=agencyPredicate(r,scope,'a'),rows=await query<RowDataPacket[]>(`SELECT m.id,m.item_id,i.reference item_reference,i.designation,COALESCE(c.name,i.category) category,m.movement_date acquisition_date,a.id agency_id,a.name agency_name,m.quantity,m.unit_acquisition_cost,m.total_acquisition_cost,m.reference movement_reference,m.supporting_document_reference,m.accounting_reference,m.accounted_at FROM internal_stock_movements m JOIN internal_stock_items i ON i.id=m.item_id JOIN agencies a ON a.id=m.agency_id LEFT JOIN internal_stock_categories c ON c.id=i.category_id WHERE m.movement_type='entry' AND m.unit_acquisition_cost IS NOT NULL AND ${p.sql} ORDER BY m.movement_date DESC,m.id DESC`,p.params);res.json(rows.map(x=>({...x,id:String(x.id),item_id:String(x.item_id),agency_id:String(x.agency_id),quantity:Number(x.quantity),unit_acquisition_cost:Number(x.unit_acquisition_cost),total_acquisition_cost:Number(x.total_acquisition_cost)})))}));
+
+hrRouter.get('/hr/internal-stock/:id/assignments',requirePermission('hr.stock.view'),asyncHandler(async(r,res)=>{const itemId=id(r.params.id);await stockItem(r,'hr.stock.view',itemId);const rows=await query<RowDataPacket[]>('SELECT s.*,ep.first_name,ep.last_name,ep.employee_number FROM internal_stock_assignments s JOIN employee_profiles ep ON ep.id=s.employee_profile_id WHERE s.item_id=? ORDER BY s.assigned_at DESC,s.id DESC',[itemId]);res.json(rows.map(x=>({...x,id:String(x.id),item_id:String(x.item_id),employee_profile_id:String(x.employee_profile_id),quantity:Number(x.quantity),returned_quantity:Number(x.returned_quantity)})))}));
+
+hrRouter.post('/hr/internal-stock/:id/assignments',requirePermission('hr.stock.assignment.manage'),asyncHandler(async(r,res)=>{const itemId=id(r.params.id),employeeId=id(r.body.employeeId),quantity=positive(r.body.quantity,'Quantité',3),assignedAt=date(r.body.assignedAt,'Date d’affectation'),assignmentId=await hrTransaction(r,async c=>{const item=await stockItem(r,'hr.stock.assignment.manage',itemId,c,true);const[employees]=await c.execute<RowDataPacket[]>('SELECT id FROM employee_profiles WHERE id=? AND agency_id=? FOR UPDATE',[employeeId,item.agency_id]);if(!employees[0])throw new HttpError(404,'Employé introuvable dans l’agence du stock.');if(Number(quantity)>Number(item.current_quantity))throw new HttpError(409,'Stock disponible insuffisant pour cette affectation.');await c.execute('UPDATE internal_stock_items SET current_quantity=current_quantity-?,updated_by=? WHERE id=?',[quantity,r.user!.sub,itemId]);const[q]=await c.execute<ResultSetHeader>('INSERT INTO internal_stock_assignments(item_id,employee_profile_id,agency_id,quantity,assigned_at,notes,created_by,updated_by)VALUES(?,?,?,?,?,?,?,?)',[itemId,employeeId,item.agency_id,quantity,assignedAt,text(r.body.notes,'Notes',false,500),r.user!.sub,r.user!.sub]);await audit(c,r,'internal_stock_assignment',String(q.insertId),'stock.assignment.created',{itemId,employeeId,quantity:Number(quantity),salaryDeductionCreated:false});return String(q.insertId)});res.status(201).json({id:assignmentId})}));
+
+hrRouter.post('/hr/internal-stock/assignments/:id/return',requirePermission('hr.stock.assignment.manage'),asyncHandler(async(r,res)=>{const assignmentId=id(r.params.id),quantity=positive(r.body.quantity,'Quantité retournée',3),returnedAt=date(r.body.returnedAt,'Date de retour');await hrTransaction(r,async c=>{const[rows]=await c.execute<RowDataPacket[]>('SELECT s.*,i.agency_id FROM internal_stock_assignments s JOIN internal_stock_items i ON i.id=s.item_id WHERE s.id=? FOR UPDATE',[assignmentId]),x=rows[0];if(!x)throw new HttpError(404,'Affectation introuvable.');await assertAgencyTarget(r,'hr.stock.assignment.manage',String(x.agency_id));const remaining=Number(x.quantity)-Number(x.returned_quantity);if(Number(quantity)>remaining)throw new HttpError(409,'La quantité retournée dépasse la quantité encore affectée.');const total=Number(x.returned_quantity)+Number(quantity),status=total===Number(x.quantity)?'RETURNED':'PARTIALLY_RETURNED';await c.execute('UPDATE internal_stock_assignments SET returned_quantity=?,returned_at=?,status=?,updated_by=? WHERE id=?',[total.toFixed(3),returnedAt,status,r.user!.sub,assignmentId]);await c.execute('UPDATE internal_stock_items SET current_quantity=current_quantity+?,updated_by=? WHERE id=?',[quantity,r.user!.sub,x.item_id]);await audit(c,r,'internal_stock_assignment',assignmentId,'stock.assignment.returned',{quantity:Number(quantity),status})});res.json({success:true})}));
 
 hrRouter.get(
   "/hr/budget-categories",

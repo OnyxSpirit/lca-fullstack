@@ -1,0 +1,11 @@
+{
+  "referenceCommit": "a78a76d67d7b1e0b76d54fde80467b11c76f3cf2",
+  "referenceMaximumVersion": 134,
+  "recoveryExceptions": {
+    "135_evolution_lca_02_foundation.sql": {
+      "sha256": "ecf1175b37967d2a58034f639b12ff5b32a21f451f6032a621228b75d259fc8e",
+      "sourceGitBlob": "d96488bb33c923ecf552c834fcefa6847f1e0fb0",
+      "reason": "Artefact exact ayant produit les checksums du journal persistant avant l'échec partiel de l'étape 7."
+    }
+  }
+}

@@ -49,6 +49,7 @@ import { EmployeePhotoField } from "./EmployeePhotoField";
 import { ProviderProfileModal } from "./ProviderProfileModal";
 import { UnifiedPersonnelTable } from "./UnifiedPersonnelTable";
 import { apiRequest } from "../../services/apiClient";
+import { ContributionsManager } from "./ContributionsManager";
 
 const BudgetExpenseDisbursement = lazy(() =>
   import("./BudgetExpenseDisbursement").then((module) => ({
@@ -149,12 +150,12 @@ export const HrAdministrationPage: React.FC = () => {
         { id: "bonuses" as Tab, label: "Primes", show: can("hr.bonus.view") },
         {
           id: "salaries" as Tab,
-          label: "Salaires",
+          label: "Configuration salariale",
           show: can("hr.salary.view"),
         },
         {
           id: "remunerations" as Tab,
-          label: "Salaires & rémunérations",
+          label: "Salaires et rémunérations",
           show: can("hr.remuneration.view") || can("hr.provider.remuneration.view"),
         },
         {
@@ -381,6 +382,7 @@ export const HrAdministrationPage: React.FC = () => {
       {tab === "employees"&&<UnifiedPersonnelTable agencies={agencies.data??[]} onEmployee={(id,edit)=>void openEmployee(id,edit)} onProvider={id=>{setSelectedProviderId(id);setProviderModal(true)}} onCreateEmployee={()=>{setEmployeePhoto(null);setRemoveEmployeePhoto(false);setModal('employee-create')}} onCreateProvider={()=>{setSelectedProviderId(undefined);setProviderModal(true)}}/>}
       {tab === "salaries" && (
         <>
+          <Card><h2 className="mb-3 text-sm font-bold">Cotisations</h2><ContributionsManager /></Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Filters
               search={search}
@@ -1508,12 +1510,14 @@ export const HrAdministrationPage: React.FC = () => {
                   className={input}
                   placeholder="Saisir la quantité"
                 />
+                <input name="unitAcquisitionCost" type="number" min="0.01" step="0.01" className={input} placeholder="Prix unitaire d’acquisition (entrée)" />
                 <input name="reason" className={input} placeholder="Motif" />
                 <input
                   name="reference"
                   className={input}
                   placeholder="Référence"
                 />
+                <input name="supportingDocumentReference" className={input} placeholder="Référence justificatif ou facture" />
                 <Button type="submit">Enregistrer</Button>
               </form>
             )}
@@ -1535,6 +1539,7 @@ export const HrAdministrationPage: React.FC = () => {
                 <strong>
                   {x.movement_type === "entry" ? "+" : "−"}
                   {x.quantity} · solde {x.quantity_after}
+                  {x.total_acquisition_cost != null && <> · coût {money(x.total_acquisition_cost)} XAF</>}
                 </strong>
               </div>
             ))}

@@ -41,12 +41,14 @@ services:
       ADMIN_EMAIL: ${QUALIFICATION_ADMIN_EMAIL:-codex-admin@qualification.invalid}
       ADMIN_PASSWORD: ${QUALIFICATION_ADMIN_PASSWORD:?QUALIFICATION_ADMIN_PASSWORD requis}
       TRUST_PROXY_HOPS: 0
-      UPLOAD_DIR: /app/qualification-uploads
-      GED_STORAGE_DIR: /app/qualification-ged
+      UPLOAD_DIR: /app/uploads
+      GED_STORAGE_DIR: /app/ged-storage
       DATABASE_ROOT: /app/database
     volumes:
-      - qualification_uploads:/app/qualification-uploads
-      - qualification_ged:/app/qualification-ged
+      # Ces chemins existent déjà dans l'image et appartiennent à l'utilisateur
+      # node ; un volume nommé vide en hérite sans chmod/chown récursif du projet.
+      - qualification_uploads:/app/uploads
+      - qualification_ged:/app/ged-storage
       - ./backend-node/database:/app/database:ro
     command: ["sh", "-c", "node dist/scripts/database-bootstrap.js && node dist/scripts/seed-admin.js && node dist/server.js"]
     depends_on:

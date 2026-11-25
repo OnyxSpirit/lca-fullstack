@@ -7,12 +7,16 @@
   "version": "0.0.0",
 
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
 
   "scripts": {
 
     "dev": "vite --port=3000 --host=0.0.0.0",
 
     "build": "vite build",
+    "build:qualification": "VITE_BUILD_OUT_DIR=.artifacts/qualification-dist vite build",
 
     "test": "tsx --test --test-concurrency=1 test/**/*.test.ts",
 

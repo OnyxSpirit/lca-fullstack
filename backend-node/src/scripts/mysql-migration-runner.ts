@@ -4,6 +4,7 @@ import type {Connection,RowDataPacket} from 'mysql2/promise';
 export type MigrationPhase='before-step'|'after-statement-before-journal'|'before-migration-journal';
 export type MigrationFaultHook=(event:{phase:MigrationPhase;version:number;step:number;kind:'DDL'|'DML'})=>void|Promise<void>;
 type StepRow=RowDataPacket&{step_no:number;statement_checksum:string;status:'RUNNING'|'APPLIED'|'FAILED_SAFE'|'FAILED_PARTIAL';kind:'DDL'|'DML'};
+type ForeignKeyReplacement={table:string;name:string;sourceColumns:string[];referencedTable:string;referencedColumns:string[];deleteRule:string;updateRule:string;middleSql:string};
 
 export class SimulatedMigrationInterruption extends Error{}
 
@@ -77,6 +78,66 @@ function topLevelDefinitions(statement:string):string[]{
   if(current.trim())definitions.push(current.trim());return definitions;
 }
 
+function topLevelCommaParts(value:string):string[]{
+  const parts:string[]=[];let current='',depth=0,quote='',escaped=false;
+  for(const character of value){
+    if(quote){current+=character;if(escaped){escaped=false;continue}if(character==='\\'){escaped=true;continue}if(character===quote)quote='';continue}
+    if(character==="'"||character==='"'||character==='`'){quote=character;current+=character;continue}
+    if(character==='('){depth++;current+=character;continue}if(character===')'){depth--;current+=character;continue}
+    if(character===','&&depth===0){if(current.trim())parts.push(current.trim());current='';continue}current+=character;
+  }
+  if(current.trim())parts.push(current.trim());return parts;
+}
+
+function foreignKeyReplacement(statement:string):ForeignKeyReplacement|null{
+  const alter=/^ALTER\s+TABLE\s+(`?[a-zA-Z0-9_]+`?)\s+([\s\S]+)$/i.exec(statement.trim());if(!alter)return null;
+  const table=identifier(alter[1]!),actions=topLevelCommaParts(alter[2]!);
+  const drop=actions.find(action=>/^DROP\s+FOREIGN\s+KEY\b/i.test(action));
+  const add=actions.find(action=>/^ADD\s+CONSTRAINT\b[\s\S]*?\bFOREIGN\s+KEY\b/i.test(action));
+  if(!drop||!add)return null;
+  const dropMatch=/^DROP\s+FOREIGN\s+KEY\s+`?([a-zA-Z0-9_]+)`?$/i.exec(drop);
+  const addMatch=/^ADD\s+CONSTRAINT\s+`?([a-zA-Z0-9_]+)`?\s+FOREIGN\s+KEY\s*\(([^)]+)\)\s+REFERENCES\s+`?([a-zA-Z0-9_]+)`?\s*\(([^)]+)\)([\s\S]*)$/i.exec(add);
+  if(!dropMatch||!addMatch||identifier(dropMatch[1]!)!==identifier(addMatch[1]!))return null;
+  const tail=addMatch[5]!,rule=(kind:'DELETE'|'UPDATE')=>new RegExp(`ON\\s+${kind}\\s+(RESTRICT|CASCADE|SET\\s+NULL|NO\\s+ACTION)`,'i').exec(tail)?.[1]?.toUpperCase().replace(/\s+/g,' ')??'RESTRICT';
+  const columns=(value:string)=>value.split(',').map(column=>identifier(column.trim()));
+  const middle=actions.filter(action=>action!==drop&&action!==add);
+  if(!middle.length)return null;
+  return{table,name:identifier(dropMatch[1]!),sourceColumns:columns(addMatch[2]!),referencedTable:identifier(addMatch[3]!),referencedColumns:columns(addMatch[4]!),deleteRule:rule('DELETE'),updateRule:rule('UPDATE'),middleSql:`ALTER TABLE \`${table}\` ${middle.join(', ')}`};
+}
+
+async function foreignKeyMatches(connection:Connection,replacement:ForeignKeyReplacement):Promise<'MATCH'|'ABSENT'|'INCOMPATIBLE'>{
+  const[rows]=await connection.execute<RowDataPacket[]>(`SELECT k.column_name,k.referenced_table_name,k.referenced_column_name,r.delete_rule,r.update_rule,k.ordinal_position
+    FROM information_schema.key_column_usage k JOIN information_schema.referential_constraints r
+      ON r.constraint_schema=k.constraint_schema AND r.table_name=k.table_name AND r.constraint_name=k.constraint_name
+    WHERE k.constraint_schema=DATABASE() AND k.table_name=? AND k.constraint_name=? ORDER BY k.ordinal_position`,[replacement.table,replacement.name]);
+  if(!rows.length)return'ABSENT';
+  const source=rows.map(row=>String(row.COLUMN_NAME??row.column_name)),referenced=rows.map(row=>String(row.REFERENCED_COLUMN_NAME??row.referenced_column_name));
+  const normalizedRule=(value:unknown)=>String(value).toUpperCase()==='NO ACTION'?'RESTRICT':String(value).toUpperCase();
+  const first=rows[0]!,same=source.join(',')===replacement.sourceColumns.join(',')&&referenced.join(',')===replacement.referencedColumns.join(',')&&String(first.REFERENCED_TABLE_NAME??first.referenced_table_name)===replacement.referencedTable&&normalizedRule(first.DELETE_RULE??first.delete_rule)===replacement.deleteRule&&normalizedRule(first.UPDATE_RULE??first.update_rule)===replacement.updateRule;
+  return same?'MATCH':'INCOMPATIBLE';
+}
+
+async function foreignKeyReplacementState(connection:Connection,statement:string,replacement:ForeignKeyReplacement):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
+  const modified=expectedModifiedColumn(statement),columns=[...expectedAddedColumns(statement),...(modified?[modified]:[])];
+  const states=await Promise.all(columns.map(column=>modifiedColumnState(connection,replacement.table,column))),foreignKey=await foreignKeyMatches(connection,replacement);
+  if(states.every(state=>state==='SATISFIED')&&foreignKey==='MATCH')return'SATISFIED';
+  if(states.every(state=>state!=='SATISFIED')&&foreignKey==='MATCH')return'ABSENT';
+  return'AMBIGUOUS';
+}
+
+async function executeForeignKeyReplacement(connection:Connection,statement:string,replacement:ForeignKeyReplacement){
+  const modified=expectedModifiedColumn(statement),columns=[...expectedAddedColumns(statement),...(modified?[modified]:[])];
+  let states=await Promise.all(columns.map(column=>modifiedColumnState(connection,replacement.table,column)));let foreignKey=await foreignKeyMatches(connection,replacement);
+  if(foreignKey==='INCOMPATIBLE')throw new Error(`MIGRATION_FOREIGN_KEY_INCOMPATIBLE: ${replacement.table}.${replacement.name}`);
+  if(states.every(state=>state==='SATISFIED')&&foreignKey==='MATCH')return;
+  if(states.some(state=>state==='SATISFIED')&&states.some(state=>state!=='SATISFIED'))throw new Error(`MIGRATION_DDL_AMBIGUOUS: colonnes partiellement conformes dans ${replacement.table}`);
+  if(foreignKey==='MATCH'){await connection.query(`ALTER TABLE \`${replacement.table}\` DROP FOREIGN KEY \`${replacement.name}\``);foreignKey='ABSENT'}
+  if(states.some(state=>state!=='SATISFIED')){await connection.query(replacement.middleSql);states=await Promise.all(columns.map(column=>modifiedColumnState(connection,replacement.table,column)))}
+  if(!states.every(state=>state==='SATISFIED'))throw new Error(`MIGRATION_DDL_AMBIGUOUS: colonnes non conformes dans ${replacement.table}`);
+  if(foreignKey==='ABSENT')await connection.query(`ALTER TABLE \`${replacement.table}\` ADD CONSTRAINT \`${replacement.name}\` FOREIGN KEY (${replacement.sourceColumns.map(column=>`\`${column}\``).join(',')}) REFERENCES \`${replacement.referencedTable}\` (${replacement.referencedColumns.map(column=>`\`${column}\``).join(',')}) ON DELETE ${replacement.deleteRule} ON UPDATE ${replacement.updateRule}`);
+  if(await foreignKeyReplacementState(connection,statement,replacement)!=='SATISFIED')throw new Error(`MIGRATION_POSTCONDITION_FAILED: clé étrangère ${replacement.table}.${replacement.name}`);
+}
+
 async function createTableState(connection:Connection,statement:string,table:string):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
   if(!await objectExists(connection,'table',table))return'ABSENT';
   const definitions=topLevelDefinitions(statement),columns:ExpectedColumn[]=[],indexes:string[]=[],constraints:string[]=[];
@@ -91,6 +152,7 @@ async function createTableState(connection:Connection,statement:string,table:str
 }
 
 export async function ddlState(connection:Connection,statement:string,strictDefinition=false):Promise<'SATISFIED'|'ABSENT'|'AMBIGUOUS'>{
+  const replacement=foreignKeyReplacement(statement);if(replacement)return foreignKeyReplacementState(connection,statement,replacement);
   const createIndex=/^CREATE\s+(?:UNIQUE\s+)?INDEX\s+(`?[a-zA-Z0-9_]+`?)\s+ON\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
   if(createIndex)return await objectExists(connection,'index',identifier(createIndex[2]!),identifier(createIndex[1]!))?'SATISFIED':'ABSENT';
   const create=/^CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(`?[a-zA-Z0-9_]+`?)/i.exec(statement);
@@ -141,7 +203,8 @@ export async function executeResilientMigration(connection:Connection,migration:
   for(let index=0;index<statements.length;index++){
     const step=index+1,statement=statements[index]!,statementHash=hash(statement),kind=isDdl(statement)?'DDL':'DML',previous=recorded.get(step);
     if(previous&&previous.statement_checksum!==statementHash&&previous.status!=='FAILED_SAFE')throw new Error(`MIGRATION_CHECKSUM_MISMATCH: ${migration.name} étape ${step}`);
-    if(previous?.status==='FAILED_PARTIAL')throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; état automatique non prouvable, intervention requise`);
+    const replacement=kind==='DDL'?foreignKeyReplacement(statement):null;
+    if(previous?.status==='FAILED_PARTIAL'&&!replacement)throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; état automatique non prouvable, intervention requise`);
     if(previous?.status==='FAILED_SAFE'){
       if(kind!=='DDL'||await ddlState(connection,statement)!=='ABSENT')throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; l’état sûr précédent ne correspond plus au schéma`);
     }
@@ -149,7 +212,7 @@ export async function executeResilientMigration(connection:Connection,migration:
       if(kind==='DDL'&&await ddlState(connection,statement)!=='SATISFIED')throw new Error(`MIGRATION_SCHEMA_DIVERGED: ${migration.name} étape ${step}`);
       continue;
     }
-    if(previous?.status==='RUNNING'&&kind==='DDL'){
+    if(previous?.status==='RUNNING'&&kind==='DDL'&&!replacement){
       const state=await ddlState(connection,statement);
       if(state==='SATISFIED'){
         await connection.execute(`UPDATE schema_migration_steps SET status='APPLIED',error_message=NULL,applied_at=NOW() WHERE version=? AND step_no=?`,[migration.version,step]);
@@ -172,7 +235,7 @@ export async function executeResilientMigration(connection:Connection,migration:
       await connection.execute(`INSERT INTO schema_migration_steps(version,migration_name,step_no,statement_checksum,kind,status) VALUES(?,?,?,?,?,'RUNNING') ON DUPLICATE KEY UPDATE migration_name=VALUES(migration_name),statement_checksum=VALUES(statement_checksum),kind=VALUES(kind),status='RUNNING',error_message=NULL,started_at=NOW(),applied_at=NULL`,[migration.version,migration.name,step,statementHash,kind]);
       console.log(`Migration ${migration.name} étape ${step}: RUNNING DDL`);
       try{
-        await connection.query(statement);
+        if(replacement)await executeForeignKeyReplacement(connection,statement,replacement);else await connection.query(statement);
         await faultHook?.({phase:'after-statement-before-journal',version:migration.version,step,kind});
         await connection.execute(`UPDATE schema_migration_steps SET status='APPLIED',applied_at=NOW() WHERE version=? AND step_no=?`,[migration.version,step]);
       }catch(error){if(error instanceof SimulatedMigrationInterruption)throw error;const state=await ddlState(connection,statement);if(state==='ABSENT'){const message=(error instanceof Error?error.message:String(error)).slice(0,500);await connection.execute(`UPDATE schema_migration_steps SET status='FAILED_SAFE',error_message=? WHERE version=? AND step_no=?`,[message,migration.version,step]);throw new Error(`MIGRATION_FAILED_SAFE: ${migration.name} étape ${step}; aucune postcondition appliquée, SQL corrigeable puis reprise autorisée`,{cause:error})}await markFailed(connection,migration.version,step,error);throw new Error(`MIGRATION_FAILED_PARTIAL: ${migration.name} étape ${step}; DDL peut persister, intervention requise`,{cause:error});}

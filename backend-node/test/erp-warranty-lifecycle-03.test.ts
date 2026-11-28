@@ -11,11 +11,11 @@ test('WL03-09 API directe conserve le verrou PENDING',()=>assert.match(workshop,
 test('WL03-10 APPROVED autorise la suite',()=>assert.match(service,/if\(rows\[0\]\?\.decision_status==='PENDING'\)throw/));
 test('WL03-11 REJECTED autorise le SAV hors prise en charge',()=>assert.match(warranty,/decision==='APPROVED'\?'DRAFT':'CONFIRMED'/));
 test('WL03-12 REJECTED ne modifie pas le contrat véhicule',()=>assert.doesNotMatch(warranty,/UPDATE vehicle_warranty_contracts/));
-test('WL03-13 un nouvel OR réévalue le contrat persistant',()=>assert.match(workshop,/evaluateVehicleWarranty\(vehicle,mileage,c\)/));
+test('WL03-13 un nouvel OR réévalue le contrat persistant',()=>assert.match(workshop,/evaluateVehicleWarranty\(String\(diagnostic\.vehicle_id\),Number\(diagnostic\.mileage_in\),c\)/));
 test('WL03-14 expiration par date',()=>{assert.match(eligibility,/expiry_date<NOW\(\)/);assert.match(eligibility,/EXPIRED_BY_DATE/)});
 test('WL03-15 dépassement kilométrique',()=>assert.match(eligibility,/currentMileage!>Number\(contract\.mileage_limit\).*EXPIRED_BY_MILEAGE/s));
 test('WL03-16 limite NULL sans comparaison à zéro',()=>assert.match(eligibility,/contract\.mileage_limit!=null/));
-test('WL03-17 kilométrage réception autoritaire',()=>{assert.match(workshop,/evaluateVehicleWarranty\(vehicle,mileage,c\)/);assert.match(workshop,/inspection\[0\]\?\.mileage/)});
+test('WL03-17 kilométrage du diagnostic accepté autoritaire à la création',()=>assert.match(workshop,/evaluateVehicleWarranty\(String\(diagnostic\.vehicle_id\),Number\(diagnostic\.mileage_in\),c\)/));
 test('WL03-18 APPLICABLE non ACTIVE reste non éligible',()=>assert.match(eligibility,/status!=='ACTIVE'.*PENDING_ACTIVATION/s));
 test('WL03-19 UNDETERMINED distinct de NOT_COVERED',()=>{assert.match(eligibility,/UNDETERMINED' as const/);assert.match(eligibility,/NOT_COVERED' as const/)});
 test('WL03-20 détail reconstruit contrat et demande',()=>{assert.match(workshop,/vehicleWarranty/);assert.match(workshop,/warrantyDetail/)});

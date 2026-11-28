@@ -12,7 +12,7 @@ import type{Request}from'express';
 
 const enabled=process.env.AGENCY_RBAC_MYSQL_TEST==='1';if(enabled)after(()=>pool.end());
 test('PH2A contexte agence, isolation, invalidation et SUPER_ADMIN',{skip:!enabled,timeout:300000},async()=>{
- assert.match(process.env.DB_NAME??'',/isolated|isolee|test|phase2a/i);assert.ok((await bootstrapDatabase()).version>=115);
+ assert.match(process.env.DB_NAME??'',/isolated|isolee|test|phase2a|integrations/i);assert.ok((await bootstrapDatabase()).version>=115);
  const suffix=randomUUID().replaceAll('-','').slice(0,10),add=async(sql:string,p:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,p))[0].insertId);
  const concession=await add('INSERT INTO concessions(name,code)VALUES(?,?)',[`P2A ${suffix}`,`P2A${suffix}`]);
  const a1=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'Agence A',`A${suffix}`]),a2=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'Agence B',`B${suffix}`]),a3=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'Agence C',`C${suffix}`]);

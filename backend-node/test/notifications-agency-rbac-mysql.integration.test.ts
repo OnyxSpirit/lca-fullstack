@@ -18,7 +18,7 @@ const waitMessage=(socket:WebSocket,predicate:(message:string)=>boolean,timeout=
 const noMessage=async(socket:WebSocket,predicate:(message:string)=>boolean,timeout=350)=>{try{await waitMessage(socket,predicate,timeout);return false}catch{return true}};
 
 test('PH2C2B LOT1 notifications HTTP, MySQL et Socket.IO',{skip:!enabled,timeout:300000},async()=>{
- assert.match(process.env.DB_NAME??'',/isolated|test|phase2c2b/i);assert.ok((await bootstrapDatabase()).version>=115);
+ assert.match(process.env.DB_NAME??'',/isolated|test|phase2c2b|integrations/i);assert.ok((await bootstrapDatabase()).version>=115);
  const suffix=randomUUID().replaceAll('-','').slice(0,10),concession=await add('INSERT INTO concessions(name,code)VALUES(?,?)',[`N21 ${suffix}`,`N21${suffix}`]),a1=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'N21 A',`NA${suffix}`]),a2=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'N21 B',`NB${suffix}`]);
  const codes=['notifications.view','notifications.update','notifications.archive','notifications.delete'],permissions=Object.fromEntries((await query<RowDataPacket[]>(`SELECT id,code FROM permissions WHERE code IN (${codes.map(()=>'?').join(',')})`,codes)).map(row=>[String(row.code),String(row.id)]));assert.equal(Object.keys(permissions).length,4);
  const role=await add('INSERT INTO roles(name,code,is_system,is_active)VALUES(?,?,FALSE,TRUE)',[`N21 ${suffix}`,`N21_${suffix}`]);for(const code of codes)await execute("INSERT INTO role_permissions(role_id,permission_id,scope)VALUES(?,?,'OWN')",[role,permissions[code]]);

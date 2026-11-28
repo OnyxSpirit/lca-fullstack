@@ -39,7 +39,7 @@ test('SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4',{sk
   const sale=await insert('INSERT INTO sales(sale_number,customer_id,agency_id) VALUES(?,?,?)',[`SAV-S-${suffix}`,customer,agencyA]);
   await pool.execute('INSERT INTO sale_items(sale_id,vehicle_id,description) VALUES(?,?,?)',[sale,vehicle,'Véhicule client']);
   const order=await auth(api.post('/api/repair-orders')).send({customerId:customer,vehicleId:vehicle,advisorId:advisor,complaint:'Contrôle atelier'});
-  assert.equal(order.status,201,JSON.stringify(order.body));const orId=order.body.id as string,route=(suffixPath:string)=>`/api/repair-orders/${orId}${suffixPath}`;
+  assert.equal(order.status,409,JSON.stringify(order.body));const orId=await insert("INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,complaint,status,created_by) VALUES(?,?,?,?,?,?,'planned',?)",[`OR-SAV0409-${suffix}`,customer,vehicle,agencyA,advisor,'Contrôle atelier',admin.id]),route=(suffixPath:string)=>`/api/repair-orders/${orId}${suffixPath}`;
   const candidates=await auth(api.get(route('/technician-candidates')));assert.equal(candidates.status,200,JSON.stringify(candidates.body));
   const users=new Set(candidates.body.map((x:{userId:string})=>x.userId));
   for(const allowed of [techA,techConcession,techGlobal])assert.ok(users.has(allowed),allowed);

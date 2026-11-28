@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: WSS Nginx : upgrade accepté avec session persistée et refusé avec jeton invalide
+ok 1 - WSS Nginx : upgrade accepté avec session persistée et refusé avec jeton invalide
+  ---
+  duration_ms: 2246.880277
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5673.635077

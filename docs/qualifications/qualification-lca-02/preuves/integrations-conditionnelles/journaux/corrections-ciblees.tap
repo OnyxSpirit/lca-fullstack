@@ -1,0 +1,143 @@
+TAP version 13
+# Subtest: SA1-SA3 configuration obligatoire, explicite et robuste avant accès DB
+ok 1 - SA1-SA3 configuration obligatoire, explicite et robuste avant accès DB
+  ---
+  duration_ms: 4.206872
+  type: 'test'
+  ...
+# Subtest: SA12 le wrapper ne journalise ni secret ni hash
+ok 2 - SA12 le wrapper ne journalise ni secret ni hash
+  ---
+  duration_ms: 5.976717
+  type: 'test'
+  ...
+# Subtest: SA4-SA11 et SA13-SA16 provisioning atomique sur MySQL jetable
+not ok 3 - SA4-SA11 et SA13-SA16 provisioning atomique sur MySQL jetable
+  ---
+  duration_ms: 23.325069
+  type: 'test'
+  location: '/app/test/admin-provisioning-security.test.ts:1:1712'
+  failureType: 'testCodeFailure'
+  error: 'connect ECONNREFUSED 127.0.0.1:3306'
+  code: 'ECONNREFUSED'
+  stack: |-
+    TestContext.<anonymous> (/app/test/admin-provisioning-security.test.ts:41:36)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4
+not ok 4 - B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4
+  ---
+  duration_ms: 3800.641419
+  type: 'test'
+  location: '/app/test/document-marks-b321-mysql.integration.test.ts:1:1663'
+  failureType: 'testCodeFailure'
+  error: |-
+    Le scénario doit prouver que la lecture ne dépend pas d’un cachet portant le même identifiant que la politique
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/app/test/document-marks-b321-mysql.integration.test.ts:60:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# {
+#   method: 'POST',
+#   route: '/api/service-diagnostics/1/accept',
+#   code: 'ER_BAD_FIELD_ERROR',
+#   errno: 1054,
+#   sqlState: '42S22',
+#   message: "Unknown column 'origin_source' in 'field list'",
+#   stack: "Error: Unknown column 'origin_source' in 'field list'\\n" +
+#     '    at <anonymous> (/app/src/modules/workshop/workshop.routes.ts:474:78)\\n' +
+#     '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\\n' +
+#     '    at async transaction (/app/src/config/database.ts:32:19)\\n' +
+#     '    at async transactionWithDeadlockRetry (/app/src/config/database.ts:42:16)\\n' +
+#     '    at async <anonymous> (/app/src/modules/workshop/workshop.routes.ts:469:16)'
+# }
+# Subtest: Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4
+not ok 5 - Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4
+  ---
+  duration_ms: 7900.530959
+  type: 'test'
+  location: '/app/test/lot14c2-mysql-api.integration.test.ts:1:737'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"statusCode":500,"message":"Erreur interne du serveur"}
+    
+    500 !== 201
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 201
+  actual: 500
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/app/test/lot14c2-mysql-api.integration.test.ts:55:1057)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: PR-02 et SAV-OR-03 sur MySQL 8.4 isolé
+ok 6 - PR-02 et SAV-OR-03 sur MySQL 8.4 isolé
+  ---
+  duration_ms: 12022.091196
+  type: 'test'
+  ...
+# Résumé migrations: niveau 137, 0 avertissement(s) historique(s)
+# Subtest: cycle statut rôle, permissions, sessions et multi-agences sur MySQL 8.4
+ok 7 - cycle statut rôle, permissions, sessions et multi-agences sur MySQL 8.4
+  ---
+  duration_ms: 13518.459582
+  type: 'test'
+  ...
+# Subtest: session valide + permission atteint la route, permission absente est un 403 RBAC et non un 401
+ok 8 - session valide + permission atteint la route, permission absente est un 403 RBAC et non un 401
+  ---
+  duration_ms: 121.264682
+  type: 'test'
+  ...
+# Subtest: AGENCY autorise la ressource de la même agence et masque une agence sœur
+ok 9 - AGENCY autorise la ressource de la même agence et masque une agence sœur
+  ---
+  duration_ms: 19.227985
+  type: 'test'
+  ...
+# Subtest: JWT sans sid, sid inconnu et session révoquée restent refusés par AUTH
+ok 10 - JWT sans sid, sid inconnu et session révoquée restent refusés par AUTH
+  ---
+  duration_ms: 17.19061
+  type: 'test'
+  ...
+# Subtest: SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4
+ok 11 - SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4
+  ---
+  duration_ms: 35765.899872
+  type: 'test'
+  ...
+# Subtest: PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé
+ok 12 - PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé
+  ---
+  duration_ms: 18414.709601
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 9
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 127081.799249

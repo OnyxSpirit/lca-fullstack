@@ -1,0 +1,6 @@
+Commande : npm run db:migrations:verify
+Date de qualification : 2026-11-26
+Résultat : réussi
+Migrations vérifiées : 104
+Référence immuable : a78a76d67d7b1e0b76d54fde80467b11c76f3cf2 jusqu’à 134
+Exception : 1 exception de récupération documentée

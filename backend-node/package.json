@@ -13,6 +13,7 @@
     "lint": "tsc --noEmit",
     "test": "NODE_ENV=test DB_HOST=127.0.0.1 DB_USER=test DB_PASSWORD=test DB_NAME=test JWT_ACCESS_SECRET=12345678901234567890123456789012 JWT_REFRESH_SECRET=abcdefghijklmnopqrstuvwxyz123456 node --experimental-test-module-mocks --import tsx --test --test-concurrency=1 'test/**/*.test.ts'",
     "test:qualification": "node --import tsx --test --test-concurrency=1 test/qualification-finale/reference-database.qualification.ts && node --import tsx --test --test-concurrency=1 test/qualification-finale/reference-api.qualification.ts",
+    "test:integrations:qualification": "sh scripts/qualification-conditional-integrations.sh",
     "seed:admin": "tsx src/scripts/seed-admin.ts",
     "db:bootstrap": "node dist/scripts/database-bootstrap.js",
     "db:migrations:status": "node dist/scripts/database-migration-status.js",

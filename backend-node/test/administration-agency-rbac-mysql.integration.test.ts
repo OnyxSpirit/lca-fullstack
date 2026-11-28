@@ -12,7 +12,7 @@ const enabled=process.env.ADMIN_AGENCY_MYSQL_TEST==='1';if(enabled)after(()=>poo
 const add=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
 
 test('PH2C2B LOT2 administration centrale et habilitations locales',{skip:!enabled,timeout:300000},async()=>{
- assert.match(process.env.DB_NAME??'',/isolated|test|phase2c2b/i);assert.ok((await bootstrapDatabase()).version>=115);
+ assert.match(process.env.DB_NAME??'',/isolated|test|phase2c2b|integrations/i);assert.ok((await bootstrapDatabase()).version>=115);
  const suffix=randomUUID().replaceAll('-','').slice(0,10),concession=await add('INSERT INTO concessions(name,code)VALUES(?,?)',[`A22 ${suffix}`,`A22${suffix}`]),a1=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'A22 A',`A${suffix}`]),a2=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'A22 B',`B${suffix}`]);
  const permissionIds=Object.fromEntries((await query<RowDataPacket[]>("SELECT id,code FROM permissions WHERE code IN ('users.view','users.assign_agency','users.assign_role','roles.view')")).map(row=>[String(row.code),String(row.id)]));
  const managerRole=await add('INSERT INTO roles(name,code,is_system,is_active)VALUES(?,?,FALSE,TRUE)',[`A22 manager ${suffix}`,`A22_MANAGER_${suffix}`]);for(const code of Object.keys(permissionIds))await execute("INSERT INTO role_permissions(role_id,permission_id,scope)VALUES(?,?,'AGENCY')",[managerRole,permissionIds[code]]);

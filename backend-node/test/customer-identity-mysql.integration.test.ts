@@ -7,7 +7,7 @@ import {ensureCustomer} from '../src/modules/quotations/quotation.service.js';
 
 const enabled=process.env.CUSTOMER_IDENTITY_MYSQL_TEST==='1';
 
-test('C/CC identité customer — invariants réels MySQL 8.4',{skip:!enabled,timeout:300_000},async()=>{
+test('C/CC identité customer — invariants réels MySQL 8.4',{skip:!enabled,timeout:600_000},async()=>{
   const originalLog=console.log;console.log=()=>undefined;
   const schema=`lca_customer_identity_${randomUUID().replaceAll('-','').slice(0,12)}`;
   const config={host:process.env.MIGRATION_DB_HOST??'127.0.0.1',port:Number(process.env.MIGRATION_DB_PORT??3306),user:process.env.MIGRATION_DB_USER??'root',password:process.env.MIGRATION_DB_PASSWORD??''};

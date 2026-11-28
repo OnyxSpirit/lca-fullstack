@@ -48,8 +48,8 @@ test('SETTINGS-FE-06 devise affichée vient de Settings, pas d’un XAF décorat
 
 test('SETTINGS-FE-07 erreurs, loading et double clic utilisent les mutations',()=>{
   assert.match(page,/description: error instanceof Error \? error\.message/);
-  assert.match(page,/loading=\{updateConcession\.isPending\}/);
-  assert.match(page,/loading=\{updateSettings\.isPending\}/);
+  assert.match(page,/loading=\{updateConcession\.isPending\|\|updateSettings\.isPending\}/);
+  assert.match(page,/disabled=\{updateConcession\.isPending\|\|updateSettings\.isPending\}/);
   assert.match(page,/loading=\{agencyActions\.create\.isPending\}/);
 });
 

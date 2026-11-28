@@ -6,14 +6,14 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('TEST-DRIVE-03 le CRM dissocie le devis de l’étape technique de l’essai',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx');
-  assert.match(page,/canCreateQuotation=can\('quotations\.create'\)/);
-  assert.match(page,/canCreateQuotation&&selectedLead\.stage!==['"]GAGNE['"]&&selectedLead\.stage!==['"]PERDU['"]/);
+  assert.match(page,/canCreateProforma=can\(['"]proformas\.create['"]\)/);
+  assert.match(page,/canCreateProforma\s*&&\s*selectedLead\.stage\s*!==\s*['"]GAGNE['"]\s*&&\s*selectedLead\.stage\s*!==\s*['"]PERDU['"]/);
   assert.doesNotMatch(page,/disabled=\{!selectedLead\.canCreateQuotation\}/);
 });
 
 test('TEST-DRIVE-05 le retour synchronise Showroom, CRM et véhicules sans piloter le devis',()=>{
   const page=read('../src/modules/crm/CrmPage.tsx'),hooks=read('../src/api/erpHooks.ts'),bootstrap=read('../src/components/AppBootstrap.tsx');
-  assert.match(page,/setQuotationLead\(selectedLead\)/);
+  assert.match(page,/navigate\(`\/proformas\?opportunityId=/);
   const completeDrive=hooks.slice(hooks.indexOf('completeDrive: useMutation'),hooks.indexOf('cancelDrive: useMutation'));
   assert.match(completeDrive,/erpKeys\.leads/);
   assert.match(completeDrive,/erpKeys\.vehicles/);

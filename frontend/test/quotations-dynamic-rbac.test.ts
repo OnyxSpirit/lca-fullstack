@@ -9,9 +9,9 @@ test('QUOTE-FE-01/02 : lecture Devis et requêtes sont conditionnées par quotat
   assert.match(quotations,/useQuotationsPageQuery\(\{ page, pageSize, sortBy, sortOrder \}, canView\)/);assert.match(hooks,/requestEnabled&&Boolean\(opportunityId\)/);
 });
 
-test('QUOTE-FE-03/04/05/06 : créer, valider, annuler et convertir utilisent des permissions indépendantes',()=>{
+test('QUOTE-FE-03/04/05/06 : pro forma, validation, annulation et conversion utilisent des permissions indépendantes',()=>{
   const crm=read('../src/modules/crm/CrmPage.tsx');
-  for(const permission of ['quotations.create','quotations.validate','quotations.cancel','quotations.convert','sales.create'])assert.ok(crm.includes(`can('${permission}')`),permission);
+  for(const permission of ['proformas.create','quotations.validate','quotations.cancel','quotations.convert','sales.create'])assert.ok(crm.includes(`can('${permission}')`),permission);
   assert.match(crm,/canConvertQuotation=can\('quotations\.convert'\)&&can\('sales\.create'\)/);
   assert.doesNotMatch(crm,/crm\.offer\.prepare/);
 });

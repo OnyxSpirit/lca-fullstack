@@ -57,7 +57,7 @@ export class RbacTestSessionFixture {
       : [];
   }
 
-  handles(sql:string){return sql.includes('refresh_tokens')||sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('JOIN user_roles ur')||sql.includes('FROM user_agencies ua JOIN agencies a')||sql.includes('SELECT r.id,r.code,r.name FROM user_agencies')||sql.includes('SELECT p.code,rp.scope FROM user_agencies')||sql.includes('SELECT ua.id FROM user_agencies ua WHERE ua.user_id=?')||sql.includes('SELECT uar.role_id,rp.permission_id FROM user_agency_roles uar')||sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles')||sql.includes('SELECT p.code,rp.scope FROM role_permissions')}
+  handles(sql:string){return sql.includes('refresh_tokens')||sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('user_roles ur')||sql.includes('FROM user_agencies ua JOIN agencies a')||sql.includes('SELECT r.id,r.code,r.name FROM user_agencies')||sql.includes('SELECT p.code,rp.scope FROM user_agencies')||sql.includes('SELECT ua.id FROM user_agencies ua WHERE ua.user_id=?')||sql.includes('SELECT uar.role_id,rp.permission_id FROM user_agency_roles uar')||sql.includes('SELECT r.id,r.code,r.is_system FROM users u JOIN user_roles')||sql.includes('SELECT p.code,rp.scope FROM role_permissions')}
 
   async query<T extends RowDataPacket[]>(sql: string, params: unknown[] = []): Promise<T> {
     if (sql.includes('SELECT rt.active_agency_id,rt.agency_context_version FROM refresh_tokens rt')) {
@@ -69,8 +69,9 @@ export class RbacTestSessionFixture {
       return (rows.length&&user?[{active_agency_id:user.agencyId,agency_context_version:0}]:[]) as T;
     }
     if (sql.includes('JOIN refresh_tokens rt')) return this.authRows(params) as T;
-    if (sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('JOIN user_roles ur')) {
+    if (sql.includes("r.code='SUPER_ADMIN'")&&sql.includes('user_roles ur')) {
       const role=this.roles.get(this.userRoles.get(String(params[0]))??'');
+      if(sql.includes('individually_required'))return [{super_admin:role?.active&&role.isSystem&&role.code==='SUPER_ADMIN'?1:0,individually_required:0,role_required:0,enabled_at:null,reset_required:0}] as T;
       return (role?.active&&role.isSystem&&role.code==='SUPER_ADMIN'?[{allowed:1}]:[]) as T;
     }
     if (sql.includes('FROM user_agencies ua JOIN agencies a')&&sql.includes("ua.status='ACTIVE'")) {

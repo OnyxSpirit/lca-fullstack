@@ -12,7 +12,7 @@ const enabled=process.env.CRM_AGENCY_MYSQL_TEST==='1';if(enabled)after(()=>pool.
 const add=async(sql:string,params:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,params))[0].insertId);
 
 test('RBAC CRM isole les agences et revalide les écritures',{skip:!enabled,timeout:300000},async()=>{
- assert.match(process.env.DB_NAME??'',/isolated|test|rbac/i);assert.ok((await bootstrapDatabase()).version>=116);
+ assert.match(process.env.DB_NAME??'',/isolated|test|rbac|integrations/i);assert.ok((await bootstrapDatabase()).version>=116);
  const suffix=randomUUID().replaceAll('-','').slice(0,10),concession=await add('INSERT INTO concessions(name,code)VALUES(?,?)',[`CRM ${suffix}`,`CRM${suffix}`]),agencyA=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'CRM A',`CA${suffix}`]),agencyB=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'CRM B',`CB${suffix}`]);
  const permissions=['crm.prospect.view','crm.prospect.create','crm.prospect.update','crm.prospect.assign','crm.pipeline.advance','crm.prospect.lose','crm.activity.view','crm.activity.create','crm.appointment.create'],permissionRows=await query<RowDataPacket[]>(`SELECT id,code FROM permissions WHERE code IN (${permissions.map(()=>'?').join(',')})`,permissions);assert.equal(permissionRows.length,permissions.length);
  const agencyRole=await add('INSERT INTO roles(name,code,is_system,is_active)VALUES(?,?,FALSE,TRUE)',[`CRM agency ${suffix}`,`CRM_AGENCY_${suffix}`]),ownRole=await add('INSERT INTO roles(name,code,is_system,is_active)VALUES(?,?,FALSE,TRUE)',[`CRM own ${suffix}`,`CRM_OWN_${suffix}`]);

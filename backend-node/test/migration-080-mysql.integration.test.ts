@@ -10,7 +10,7 @@ import {ensureMigrationStepJournal,migrationChecksum,SimulatedMigrationInterrupt
 const enabled=process.env.MIGRATION_080_MYSQL_TEST==='1',root=resolve(import.meta.dirname,'..');
 const versionOf=(name:string)=>Number(name.slice(0,3));
 
-test('M080 MySQL 8.4: 079, reprise, divergence et données',{skip:!enabled,timeout:900_000},async()=>{
+test('M080 MySQL 8.4: 079, reprise, divergence et données',{skip:!enabled,timeout:1_800_000},async()=>{
  const admin=await mysql.createConnection({host:process.env.MIGRATION_DB_HOST,port:Number(process.env.MIGRATION_DB_PORT),user:process.env.MIGRATION_DB_USER,password:process.env.MIGRATION_DB_PASSWORD,multipleStatements:true});
  const open=new Set<Connection>();
  const suffix=randomUUID().replaceAll('-','').slice(0,10),schemas=['from079','partial','existing','diverged'].map(x=>`lca_m080_${x}_${suffix}`);

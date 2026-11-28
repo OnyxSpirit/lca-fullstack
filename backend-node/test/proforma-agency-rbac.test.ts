@@ -4,9 +4,9 @@ import {test} from 'node:test';
 
 const source=readFileSync(new URL('../src/modules/proformas/proforma.routes.ts',import.meta.url),'utf8');
 
-test('PROFORMA-AGENCY-01 les huit routes exigent OWN/AGENCY',()=>{
-  assert.equal([...source.matchAll(/proformaRouter\.(?:get|post|patch|put|delete)\(/g)].length,8);
-  assert.equal([...source.matchAll(/requireAgencyBusinessPermission\('/g)].length,8);
+test('PROFORMA-AGENCY-01 les neuf routes exigent OWN/AGENCY',()=>{
+  assert.equal([...source.matchAll(/proformaRouter\.(?:get|post|patch|put|delete)\(/g)].length,9);
+  assert.equal([...source.matchAll(/requireAgencyBusinessPermission\('/g)].length,9);
   assert.doesNotMatch(source,/requirePermission\(|request\.rbac|request\.user!?\.?agencyId|GLOBAL|CONCESSION/);
 });
 

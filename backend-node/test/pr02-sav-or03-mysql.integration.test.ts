@@ -98,10 +98,11 @@ test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
   const several=await auth(api.get('/api/repair-orders/customer-vehicles').query({customerId:customerMulti}),agencyUser.token);
   assert.deepEqual(several.body.map((item:{id:string})=>item.id).sort(),[vehicleM1,vehicleM2].sort());
   const forgedClient=await auth(api.post('/api/repair-orders'),agencyUser.token).send({customerId:customerB,vehicleId:vehicleB,advisorId:agencyUser.id,agencyId:agencyB,complaint:'Interdit'});
-  assert.equal(forgedClient.status,403,JSON.stringify(forgedClient.body));
+  assert.equal(forgedClient.status,409,JSON.stringify(forgedClient.body));
   const order=await auth(api.post('/api/repair-orders'),agencyUser.token).send({customerId:customerA,vehicleId:vehicleA,advisorId:agencyUser.id,complaint:'Contrôle atelier'});
-  assert.equal(order.status,201,JSON.stringify(order.body));
-  const reloaded=await auth(api.get(`/api/repair-orders/${order.body.id}`));
+  assert.equal(order.status,409,JSON.stringify(order.body));
+  const orderId=await insert("INSERT INTO repair_orders(order_number,customer_id,vehicle_id,agency_id,advisor_id,complaint,status,created_by) VALUES(?,?,?,?,?,?,'planned',?)",[`OR-PR02-${suffix}`,customerA,vehicleA,agencyA,agencyUser.id,'Contrôle atelier',agencyUser.id]);
+  const reloaded=await auth(api.get(`/api/repair-orders/${orderId}`));
   assert.equal(reloaded.status,200,JSON.stringify(reloaded.body));
   assert.equal(String(reloaded.body.customer_id),customerA);
   assert.equal(String(reloaded.body.vehicle_id),vehicleA);
@@ -115,7 +116,7 @@ test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
   const concessionAdvisors=await auth(api.get('/api/repair-orders/advisor-candidates').query({targetAgency:agencyB}),concessionUser.token);
 	  assert.equal(concessionAdvisors.status,403);
   const concessionOrder=await auth(api.post('/api/repair-orders'),concessionUser.token).send({customerId:customerB,vehicleId:vehicleB,advisorId:concessionUser.id,complaint:'Agence sœur'});
-	  assert.equal(concessionOrder.status,403,JSON.stringify(concessionOrder.body));
+	  assert.equal(concessionOrder.status,409,JSON.stringify(concessionOrder.body));
   const globalRole=await makeRole('PolyvalentAgenceTer',servicePermissions,'AGENCY');
   const globalUser=await makeUser(globalRole,agencyA,'Global');
   const globalCustomers=await auth(api.get('/api/repair-orders/customer-candidates'),globalUser.token);
@@ -123,7 +124,7 @@ test('PR-02 et SAV-OR-03 sur MySQL 8.4 isolé', {skip:!enabled},async()=>{
   const globalAdvisors=await auth(api.get('/api/repair-orders/advisor-candidates').query({targetAgency:agencyC}),globalUser.token);
 	  assert.equal(globalAdvisors.status,403);
   const globalOrder=await auth(api.post('/api/repair-orders'),globalUser.token).send({customerId:customerC,vehicleId:vehicleC,advisorId:globalUser.id,complaint:'Autre concession'});
-	  assert.equal(globalOrder.status,403,JSON.stringify(globalOrder.body));
+	  assert.equal(globalOrder.status,409,JSON.stringify(globalOrder.body));
   const emptyRole=await makeRole('ConseillerSAVSansPermission',[],'AGENCY');
   const emptyUser=await makeUser(emptyRole,agencyA,'SansPermission');
   const noPrivilege=await auth(api.get('/api/repair-orders/customer-candidates'),emptyUser.token);

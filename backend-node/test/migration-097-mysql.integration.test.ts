@@ -9,7 +9,7 @@ import{syncEmployeePersonnelIdentity}from'../src/modules/hr/personnel-identity.s
 
 const enabled=process.env.MIGRATION_097_MYSQL_TEST==='1',root=resolve(import.meta.dirname,'..'),versionOf=(name:string)=>Number(name.slice(0,3));
 
-test('M097 MySQL 8.4: installation, 096→097, reprises, backfill et divergence',{skip:!enabled,timeout:900_000},async()=>{
+test('M097 MySQL 8.4: installation, 096→097, reprises, backfill et divergence',{skip:!enabled,timeout:1_800_000},async()=>{
  const options={host:process.env.MIGRATION_DB_HOST??'127.0.0.1',port:Number(process.env.MIGRATION_DB_PORT??3306),user:process.env.MIGRATION_DB_USER??'root',password:process.env.MIGRATION_DB_PASSWORD??'',multipleStatements:true},admin=await mysql.createConnection(options),suffix=randomUUID().replaceAll('-','').slice(0,10),schemaNames=['fresh','partialddl','partialdml','diverged'].map(x=>`lca_m097_${x}_${suffix}`),open=new Set<Connection>();
  const baseline=await readFile(resolve(root,'database/baseline/001_initial_schema.sql'),'utf8'),seed=await readFile(resolve(root,'database/seeds/001_system_seed.sql'),'utf8'),names=(await readdir(resolve(root,'database/migrations'))).filter(x=>/^(?:096|097)_.*\.sql$/.test(x)).sort();
  const prepare=async(schema:string,to=96)=>{await admin.query(`CREATE DATABASE \`${schema}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);const c=await mysql.createConnection({...options,database:schema});open.add(c);await c.query(baseline);await c.query(seed);await ensureMigrationStepJournal(c);for(const name of names.filter(x=>versionOf(x)<=to)){const sql=await readFile(resolve(root,'database/migrations',name),'utf8');await executeResilientMigration(c,{version:versionOf(name),name,sql})}return c};

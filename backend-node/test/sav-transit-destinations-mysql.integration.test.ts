@@ -9,7 +9,7 @@ import{createMysqlActor}from'./helpers/mysql-auth-session-fixture.js';
 
 const enabled=process.env.SAV_TRANSIT_MYSQL_TEST==='1';if(enabled)after(()=>pool.end());
 test('SAV transit destinations respecte scope, agence, mapping, compte et concession',{skip:!enabled,timeout:300000},async()=>{
- assert.match(process.env.DB_NAME??'',/isolated|test|rbac114/i);assert.ok((await bootstrapDatabase()).version>=114);
+ assert.match(process.env.DB_NAME??'',/isolated|test|rbac114|integrations/i);assert.ok((await bootstrapDatabase()).version>=114);
  const add=async(sql:string,p:unknown[]=[])=>String((await pool.execute<ResultSetHeader>(sql,p))[0].insertId),suffix=Date.now().toString(36);
  const concession=await add('INSERT INTO concessions(name,code)VALUES(?,?)',[`Transit ${suffix}`,`TR${suffix}`]),otherConcession=await add('INSERT INTO concessions(name,code)VALUES(?,?)',[`Transit autre ${suffix}`,`TX${suffix}`]);
  const agency=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'Agence transit',`TRA${suffix}`]),otherAgency=await add('INSERT INTO agencies(concession_id,name,code)VALUES(?,?,?)',[concession,'Autre agence',`TRB${suffix}`]);

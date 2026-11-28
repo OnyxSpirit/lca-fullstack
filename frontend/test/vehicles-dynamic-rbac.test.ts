@@ -38,7 +38,7 @@ test('le frontend résout les URL /uploads sur l’origine backend',()=>{
 
 test('les statuts réservée, vendue et livrée ne sont jamais proposés manuellement',()=>{
   const detail=read('../src/modules/vehicles/VehicleDetailPage.tsx');
-  assert.match(detail,/administrableStatuses:VehicleStatus\[\]=\['COMMANDE','EN_TRANSIT','RECEPTIONNE','PREPARATION','DISPONIBLE',?\]/);
+  assert.match(detail,/administrableStatuses:VehicleStatus\[\]=\['COMMANDE','EN_TRANSIT','RECEPTIONNE','PREPARATION','DISPONIBLE','DEMONSTRATION',?\]/);
   assert.match(detail,/administrableStatuses\.includes\(vehicle\.status\)/);
   const declaration=detail.slice(detail.indexOf('const administrableStatuses'),detail.indexOf('const manualStatusOptions'));
   assert.doesNotMatch(declaration,/(?:RESERVE|VENDU|LIVRE)/);

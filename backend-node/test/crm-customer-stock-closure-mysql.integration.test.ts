@@ -13,7 +13,7 @@ if(enabled)after(()=>pool.end());
 const add=async(sql:string,params:unknown[]=[])=>String((await execute(sql,params)as ResultSetHeader).insertId);
 
 test('clôture CRM Client Stock fonctionne réellement sur MySQL et HTTP',{skip:!enabled,timeout:300000},async()=>{
-  assert.match(process.env.DB_NAME??'',/test/i);
+  assert.match(process.env.DB_NAME??'',/test|integrations/i);
   assert.ok((await bootstrapDatabase()).version>=127);
   const suffix=randomUUID().replaceAll('-','').slice(0,10),concession=await add('INSERT INTO concessions(name,code,currency_code)VALUES(?,?,?)',[`Clôture ${suffix}`,`CL${suffix}`,'XAF']),agencyA=await add('INSERT INTO agencies(concession_id,name,code,is_active)VALUES(?,?,?,TRUE)',[concession,'Source',`SA${suffix}`]),agencyB=await add('INSERT INTO agencies(concession_id,name,code,is_active)VALUES(?,?,?,TRUE)',[concession,'Destination',`DA${suffix}`]),agencyInactive=await add('INSERT INTO agencies(concession_id,name,code,is_active)VALUES(?,?,?,FALSE)',[concession,'Inactive',`IA${suffix}`]);
   const permissions=['vehicles.view','vehicles.assign_agency','vehicles.assignments.view'],actor=await createMysqlActor({label:`Closure ${suffix}`,agencyId:agencyA,permissions:permissions.map(code=>({code,scope:'AGENCY'}))});

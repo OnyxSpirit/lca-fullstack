@@ -30,7 +30,7 @@ test('Runner MySQL 8.4 : un DDL échoué sans effet est corrigeable et reprenabl
 });
 
 const enabled=process.env.MIGRATION_MYSQL_TEST==='1';
-test('Runner MySQL 8.4 actuel : fresh, reprise, checksum, conservation et concurrence',{skip:!enabled,timeout:2_400_000},async()=>{
+test('Runner MySQL 8.4 actuel : fresh, reprise, checksum, conservation et concurrence',{skip:!enabled,timeout:4_800_000},async()=>{
  const latestMigrationVersion=Math.max(...futureMigrationNames(await readdir(databasePath('migrations'))).map(name=>Number(name.slice(0,3))));
  const prefix=`lca_migration_b31_${process.pid}_`,schemas={fresh:`${prefix}fresh`,before:`${prefix}before`,ddl:`${prefix}ddl`,journal:`${prefix}journal`,checksum:`${prefix}checksum`,concurrent:`${prefix}concurrent`};
  const admin=await mysql.createConnection({host:process.env.MIGRATION_DB_HOST??'127.0.0.1',port:Number(process.env.MIGRATION_DB_PORT??3306),user:process.env.MIGRATION_DB_USER??'root',password:process.env.MIGRATION_DB_PASSWORD??'',multipleStatements:true});

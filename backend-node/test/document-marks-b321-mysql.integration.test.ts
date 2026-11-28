@@ -40,6 +40,7 @@ test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { 
   const permissions = ['stamp.view','stamp.manage','stamp.use','stamp.assign_agencies','signature.view.self','signature.manage.self','document.signature.apply'];
   const admin = await ensureMysqlHttpAdministrator(permissions);
   const image = png();
+  await execute('ALTER TABLE service_stamps AUTO_INCREMENT=1000000');
   const created = await auth(admin.accessToken, api.post('/api/document-marks/stamps'))
     .field('name', 'Cachet multi-documents B321')
     .field('documentContexts', JSON.stringify(['QUOTATION','INVOICE']))
@@ -48,11 +49,11 @@ test('B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4', { 
   const stampId = String(created.body.id);
   assert.deepEqual(created.body.documentContexts, ['QUOTATION','INVOICE']);
 
+  await execute('ALTER TABLE document_mark_policies AUTO_INCREMENT=2000000');
   const savedPolicy = await auth(admin.accessToken, api.put('/api/document-marks/policies/QUOTATION')).send({ signatureRequired: true, stampRequired: true, missingMarkBehavior: 'BLOCK', defaultStampId: stampId, isActive: true });
   assert.equal(savedPolicy.status, 200, savedPolicy.text);
   const policyId=String(savedPolicy.body.id);
-  const matchingStamp=Number((await query<RowDataPacket[]>('SELECT COUNT(*) total FROM service_stamps WHERE id=?',[policyId]))[0]!.total);
-  assert.equal(matchingStamp,0,'Le scénario doit prouver que la lecture ne dépend pas d’un cachet portant le même identifiant que la politique');
+  assert.notEqual(policyId,stampId,'Le scénario doit employer des identifiants distincts pour la politique et son cachet par défaut');
   for(let attempt=0;attempt<2;attempt+=1){const readPolicy=await auth(admin.accessToken,api.get('/api/document-marks/policies'));assert.equal(readPolicy.status,200,readPolicy.text);const restored=readPolicy.body.find((policy:any)=>String(policy.id)===policyId);assert.ok(restored,'La politique doit rester visible après relecture');assert.equal(restored.document_type,'QUOTATION');assert.equal(restored.signature_required,true);assert.equal(restored.stamp_required,true);assert.equal(String(restored.default_stamp_id),stampId);assert.equal(restored.missing_mark_behavior,'BLOCK');assert.equal(restored.is_active,true)}
 
   const mappings = await query<RowDataPacket[]>('SELECT document_type FROM service_stamp_document_types WHERE stamp_id=? ORDER BY document_type', [stampId]);

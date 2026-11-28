@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4
+ok 1 - B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4
+  ---
+  duration_ms: 9870.33931
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 32260.586347

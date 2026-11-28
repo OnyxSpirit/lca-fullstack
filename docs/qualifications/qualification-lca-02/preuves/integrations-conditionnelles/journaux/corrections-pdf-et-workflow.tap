@@ -1,0 +1,241 @@
+TAP version 13
+# Subtest: SA1-SA3 configuration obligatoire, explicite et robuste avant accès DB
+ok 1 - SA1-SA3 configuration obligatoire, explicite et robuste avant accès DB
+  ---
+  duration_ms: 2.331229
+  type: 'test'
+  ...
+# Subtest: SA12 le wrapper ne journalise ni secret ni hash
+ok 2 - SA12 le wrapper ne journalise ni secret ni hash
+  ---
+  duration_ms: 0.558546
+  type: 'test'
+  ...
+# Subtest: SA4-SA11 et SA13-SA16 provisioning atomique sur MySQL jetable
+not ok 3 - SA4-SA11 et SA13-SA16 provisioning atomique sur MySQL jetable
+  ---
+  duration_ms: 58.049252
+  type: 'test'
+  location: '/app/test/admin-provisioning-security.test.ts:1:1712'
+  failureType: 'testCodeFailure'
+  error: "Access denied for user 'root'@'172.22.0.7' (using password: NO)"
+  code: 'ER_ACCESS_DENIED_ERROR'
+  stack: |-
+    TestContext.<anonymous> (/app/test/admin-provisioning-security.test.ts:41:36)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4
+not ok 4 - B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4
+  ---
+  duration_ms: 6402.023426
+  type: 'test'
+  location: '/app/test/document-marks-b321-mysql.integration.test.ts:1:1663'
+  failureType: 'testCodeFailure'
+  error: |-
+    Le scénario doit prouver que la lecture ne dépend pas d’un cachet portant le même identifiant que la politique
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/app/test/document-marks-b321-mysql.integration.test.ts:56:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: B3.3-01 document une page : zones client et entreprise distinctes
+ok 5 - B3.3-01 document une page : zones client et entreprise distinctes
+  ---
+  duration_ms: 2366.949736
+  type: 'test'
+  ...
+# Subtest: B3.3-02 livraison trois pages : acceptation et marques sur page 3 sans page 4
+ok 6 - B3.3-02 livraison trois pages : acceptation et marques sur page 3 sans page 4
+  ---
+  duration_ms: 351.141394
+  type: 'test'
+  ...
+# Subtest: B3.3-03 un modèle quatre pages peut cibler explicitement sa zone page 3
+ok 7 - B3.3-03 un modèle quatre pages peut cibler explicitement sa zone page 3
+  ---
+  duration_ms: 85.133059
+  type: 'test'
+  ...
+# Subtest: B3.3-04 fonds blancs : deux ressources et cachet en Multiply
+ok 8 - B3.3-04 fonds blancs : deux ressources et cachet en Multiply
+  ---
+  duration_ms: 37.541719
+  type: 'test'
+  ...
+# Subtest: B3.3-05 transparence : proportions conservées et ressources indépendantes
+ok 9 - B3.3-05 transparence : proportions conservées et ressources indépendantes
+  ---
+  duration_ms: 108.87233
+  type: 'test'
+  ...
+# Subtest: B3.3-06/07 aucune marque non autorisée n’est ajoutée
+ok 10 - B3.3-06/07 aucune marque non autorisée n’est ajoutée
+  ---
+  duration_ms: 59.203388
+  type: 'test'
+  ...
+# Subtest: B3.3-08 signature client absente : zone conservée sans marque fictive
+ok 11 - B3.3-08 signature client absente : zone conservée sans marque fictive
+  ---
+  duration_ms: 72.082712
+  type: 'test'
+  ...
+# Subtest: B3.3-09 bloc proche du saut : acceptation indivisible
+ok 12 - B3.3-09 bloc proche du saut : acceptation indivisible
+  ---
+  duration_ms: 114.020679
+  type: 'test'
+  ...
+# Subtest: B3.3-10 livraison conserve les deux marques officielles et la traçabilité client sans exposer le hash
+ok 13 - B3.3-10 livraison conserve les deux marques officielles et la traçabilité client sans exposer le hash
+  ---
+  duration_ms: 70.689818
+  type: 'test'
+  ...
+# Subtest: B3.3.1-01 signature entreprise mesurée à 4 cm
+ok 14 - B3.3.1-01 signature entreprise mesurée à 4 cm
+  ---
+  duration_ms: 24.595952
+  type: 'test'
+  ...
+# Subtest: B3.3.1-02 signature très large : proportions conservées
+ok 15 - B3.3.1-02 signature très large : proportions conservées
+  ---
+  duration_ms: 17.74746
+  type: 'test'
+  ...
+# Subtest: B3.3.1-03 marges transparentes : contenu visible calibré à 4 cm
+ok 16 - B3.3.1-03 marges transparentes : contenu visible calibré à 4 cm
+  ---
+  duration_ms: 20.255597
+  type: 'test'
+  ...
+# Subtest: B3.3.1-04 cachet rond : zone 4 cm et empreinte 3,8 cm
+ok 17 - B3.3.1-04 cachet rond : zone 4 cm et empreinte 3,8 cm
+  ---
+  duration_ms: 4.879409
+  type: 'test'
+  ...
+# Subtest: B3.3.1-05 cachet rectangulaire non déformé dans le carré
+ok 18 - B3.3.1-05 cachet rectangulaire non déformé dans le carré
+  ---
+  duration_ms: 11.261014
+  type: 'test'
+  ...
+# Subtest: B3.3.1-06 grandes marges blanches : empreinte visible non réduite
+ok 19 - B3.3.1-06 grandes marges blanches : empreinte visible non réduite
+  ---
+  duration_ms: 36.228416
+  type: 'test'
+  ...
+# Subtest: B3.3.1-07 cachet transparent centré dans sa zone physique
+ok 20 - B3.3.1-07 cachet transparent centré dans sa zone physique
+  ---
+  duration_ms: 6.898439
+  type: 'test'
+  ...
+# Subtest: B3.3.1-08 superposition : ressources séparées et Multiply
+ok 21 - B3.3.1-08 superposition : ressources séparées et Multiply
+  ---
+  duration_ms: 954.480177
+  type: 'test'
+  ...
+# Subtest: B3.3.1-09 identité et fonction restent sous la zone des marques
+ok 22 - B3.3.1-09 identité et fonction restent sous la zone des marques
+  ---
+  duration_ms: 93.746309
+  type: 'test'
+  ...
+# Subtest: B3.3.1-10 livraison multipage : marques sur la page du bloc entreprise
+ok 23 - B3.3.1-10 livraison multipage : marques sur la page du bloc entreprise
+  ---
+  duration_ms: 134.386331
+  type: 'test'
+  ...
+# Subtest: B3.3.1-11 document commercial : zone client préservée
+ok 24 - B3.3.1-11 document commercial : zone client préservée
+  ---
+  duration_ms: 70.932602
+  type: 'test'
+  ...
+# Subtest: B3.3.1-12 absence d’une marque : aucune ressource fictive
+ok 25 - B3.3.1-12 absence d’une marque : aucune ressource fictive
+  ---
+  duration_ms: 100.134852
+  type: 'test'
+  ...
+# Subtest: ERP17 PDF : TTC Atelier, lignes véhicule intactes et plafond lisible
+ok 26 - ERP17 PDF : TTC Atelier, lignes véhicule intactes et plafond lisible
+  ---
+  duration_ms: 122.53287
+  type: 'test'
+  ...
+# Subtest: Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4
+ok 27 - Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4
+  ---
+  duration_ms: 15281.784808
+  type: 'test'
+  ...
+# Subtest: normalise un CSV exact sans confondre débit et crédit
+ok 28 - normalise un CSV exact sans confondre débit et crédit
+  ---
+  duration_ms: 3.440953
+  type: 'test'
+  ...
+# Subtest: convertit XLSX en aperçu CSV vérifiable
+ok 29 - convertit XLSX en aperçu CSV vérifiable
+  ---
+  duration_ms: 125.289814
+  type: 'test'
+  ...
+# Subtest: extrait un PDF textuel avec un profil explicite
+ok 30 - extrait un PDF textuel avec un profil explicite
+  ---
+  duration_ms: 34.488904
+  type: 'test'
+  ...
+# Subtest: migration 123 protège affectations et ajoute les profils
+ok 31 - migration 123 protège affectations et ajoute les profils
+  ---
+  duration_ms: 1.98394
+  type: 'test'
+  ...
+# Subtest: interface et KPI restent en français
+not ok 32 - interface et KPI restent en français
+  ---
+  duration_ms: 1.735602
+  type: 'test'
+  location: '/app/test/lot6-bank-reconciliation.test.ts:1:2814'
+  failureType: 'testCodeFailure'
+  error: "ENOENT: no such file or directory, open '/frontend/src/modules/treasury/FinancialDashboardPage.tsx'"
+  code: 'ENOENT'
+  stack: |-
+    async open (node:internal/fs/promises:639:25)
+    async readFile (node:internal/fs/promises:1252:14)
+    async TestContext.<anonymous> (/app/test/lot6-bank-reconciliation.test.ts:7:71)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..32
+# tests 32
+# suites 0
+# pass 29
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 40180.094221

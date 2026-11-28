@@ -1,0 +1,2453 @@
+TAP version 13
+# Migration 080_document_mark_policies.sql: PENDING
+# Migration 080_document_mark_policies.sql étape 1: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 1: APPLIED
+# Migration 080_document_mark_policies.sql étape 2: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 2: APPLIED
+# Migration 080_document_mark_policies.sql étape 3: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 3: APPLIED
+# Migration 080_document_mark_policies.sql étape 4: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 4: APPLIED
+# Migration 080_document_mark_policies.sql étape 5: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 5: APPLIED
+# Migration 080_document_mark_policies.sql étape 6: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 6: APPLIED
+# Migration 080_document_mark_policies.sql: APPLIED
+# Migration 081_activity_territorial_context.sql: PENDING
+# Migration 081_activity_territorial_context.sql étape 1: RUNNING DDL
+# Migration 081_activity_territorial_context.sql étape 1: APPLIED
+# Migration 081_activity_territorial_context.sql: APPLIED
+# Migration 082_stamp_revocation.sql: PENDING
+# Migration 082_stamp_revocation.sql étape 1: RUNNING DDL
+# Migration 082_stamp_revocation.sql étape 1: APPLIED
+# Migration 082_stamp_revocation.sql: APPLIED
+# Migration 083_financial_workflow_hardening.sql: PENDING
+# Migration 083_financial_workflow_hardening.sql étape 1: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 1: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 2: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 2: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 3: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 3: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 4: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 4: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 5: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 5: APPLIED
+# Migration 083_financial_workflow_hardening.sql: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: PENDING
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: RUNNING DML
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: APPLIED
+# Migration 085_treasury_account_attachment.sql: PENDING
+# Migration 085_treasury_account_attachment.sql étape 1: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 1: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 2: RUNNING DML
+# Migration 085_treasury_account_attachment.sql étape 2: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 3: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 3: APPLIED
+# Migration 085_treasury_account_attachment.sql: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: PENDING
+# Migration 086_hr_expense_cancel_permission.sql étape 1: RUNNING DML
+# Migration 086_hr_expense_cancel_permission.sql étape 1: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: APPLIED
+# Migration 087_two_factor_authentication.sql: PENDING
+# Migration 087_two_factor_authentication.sql étape 1: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 1: APPLIED
+# Migration 087_two_factor_authentication.sql étape 2: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 2: APPLIED
+# Migration 087_two_factor_authentication.sql étape 3: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 3: APPLIED
+# Migration 087_two_factor_authentication.sql étape 4: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 4: APPLIED
+# Migration 087_two_factor_authentication.sql étape 5: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 5: APPLIED
+# Migration 087_two_factor_authentication.sql étape 6: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 6: APPLIED
+# Migration 087_two_factor_authentication.sql étape 7: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 7: APPLIED
+# Migration 087_two_factor_authentication.sql: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: PENDING
+# Migration 088_two_factor_strong_authentication.sql étape 1: RUNNING DDL
+# Migration 088_two_factor_strong_authentication.sql étape 1: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: APPLIED
+# Migration 089_two_factor_security_governance.sql: PENDING
+# Migration 089_two_factor_security_governance.sql étape 1: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 1: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 2: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 2: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 3: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 3: APPLIED
+# Migration 089_two_factor_security_governance.sql: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: PENDING
+# Migration 090_two_factor_trusted_devices.sql étape 1: RUNNING DDL
+# Migration 090_two_factor_trusted_devices.sql étape 1: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: PENDING
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: APPLIED
+# Migration 092_service_stamp_document_types.sql: PENDING
+# Migration 092_service_stamp_document_types.sql étape 1: RUNNING DDL
+# Migration 092_service_stamp_document_types.sql étape 1: APPLIED
+# Migration 092_service_stamp_document_types.sql étape 2: RUNNING DML
+# Migration 092_service_stamp_document_types.sql étape 2: APPLIED
+# Migration 092_service_stamp_document_types.sql: APPLIED
+# Migration 093_vehicle_location_garages.sql: PENDING
+# Migration 093_vehicle_location_garages.sql étape 1: RUNNING DDL
+# Migration 093_vehicle_location_garages.sql étape 1: APPLIED
+# Migration 093_vehicle_location_garages.sql: APPLIED
+# Migration 094_notification_historical_context.sql: PENDING
+# Migration 094_notification_historical_context.sql étape 1: RUNNING DDL
+# Migration 094_notification_historical_context.sql étape 1: APPLIED
+# Migration 094_notification_historical_context.sql: APPLIED
+# Migration 095_vehicle_reception_defect.sql: PENDING
+# Migration 095_vehicle_reception_defect.sql étape 1: RUNNING DDL
+# Migration 095_vehicle_reception_defect.sql étape 1: APPLIED
+# Migration 095_vehicle_reception_defect.sql: APPLIED
+# Migration 096_hr_employee_photos.sql: PENDING
+# Migration 096_hr_employee_photos.sql étape 1: RUNNING DDL
+# Migration 096_hr_employee_photos.sql étape 1: APPLIED
+# Migration 096_hr_employee_photos.sql: APPLIED
+# Migration 097_personnel_provider_foundation.sql: PENDING
+# Migration 097_personnel_provider_foundation.sql étape 1: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 1: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 2: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 2: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 3: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 3: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 4: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 4: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 5: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 5: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 6: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 6: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 7: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 7: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 8: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 8: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 9: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 9: APPLIED
+# Migration 097_personnel_provider_foundation.sql: APPLIED
+# Migration 098_hr_provider_permissions.sql: PENDING
+# Migration 098_hr_provider_permissions.sql étape 1: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 1: APPLIED
+# Migration 098_hr_provider_permissions.sql étape 2: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 2: APPLIED
+# Migration 098_hr_provider_permissions.sql: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: PENDING
+# Migration 099_provider_contracts_and_ged.sql étape 1: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 1: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 2: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 2: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 3: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 3: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 4: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 4: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 5: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 5: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 6: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 6: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: APPLIED
+# Migration 100_provider_remunerations.sql: PENDING
+# Migration 100_provider_remunerations.sql étape 1: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 1: APPLIED
+# Migration 100_provider_remunerations.sql étape 2: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 2: APPLIED
+# Migration 100_provider_remunerations.sql étape 3: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 3: APPLIED
+# Migration 100_provider_remunerations.sql étape 4: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 4: APPLIED
+# Migration 100_provider_remunerations.sql: APPLIED
+# Migration 101_provider_remuneration_finance.sql: PENDING
+# Migration 101_provider_remuneration_finance.sql étape 1: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 1: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 2: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 2: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 3: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 3: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 4: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 4: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 5: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 5: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 6: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 6: APPLIED
+# Migration 101_provider_remuneration_finance.sql: APPLIED
+# Migration 102_settings_section_permissions.sql: PENDING
+# Migration 102_settings_section_permissions.sql étape 1: RUNNING DML
+# Migration 102_settings_section_permissions.sql étape 1: APPLIED
+# Migration 102_settings_section_permissions.sql: APPLIED
+# Migration 103_crm_commercial_documents.sql: PENDING
+# Migration 103_crm_commercial_documents.sql étape 1: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 1: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 2: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 2: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 3: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 3: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 4: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 4: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 5: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 5: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 6: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 6: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 7: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 7: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 8: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 8: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 9: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 9: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 10: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 10: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 11: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 11: APPLIED
+# Migration 103_crm_commercial_documents.sql: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: PENDING
+# Migration 104_vehicle_technical_enrichment.sql étape 1: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 1: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql étape 2: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 2: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: PENDING
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: RUNNING DDL
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: PENDING
+# Migration 106_sav_parts_internal_logistics.sql étape 1: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 1: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 2: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 2: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 3: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 3: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 4: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 4: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 5: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 5: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 6: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 6: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 7: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 7: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 8: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 8: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 9: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 9: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 10: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 10: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: APPLIED
+# Migration 107_parts_counter_sales.sql: PENDING
+# Migration 107_parts_counter_sales.sql étape 1: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 1: APPLIED
+# Migration 107_parts_counter_sales.sql étape 2: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 2: APPLIED
+# Migration 107_parts_counter_sales.sql étape 3: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 3: APPLIED
+# Migration 107_parts_counter_sales.sql étape 4: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 4: APPLIED
+# Migration 107_parts_counter_sales.sql étape 5: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 5: APPLIED
+# Migration 107_parts_counter_sales.sql: APPLIED
+# Migration 108_parts_direct_purchases.sql: PENDING
+# Migration 108_parts_direct_purchases.sql étape 1: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 1: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 2: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 2: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 3: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 3: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 4: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 4: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 5: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 5: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 6: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 6: APPLIED
+# Migration 108_parts_direct_purchases.sql: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: PENDING
+# Migration 109_workshop_estimate_supplements.sql étape 1: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 1: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 2: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 2: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 3: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 3: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 4: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 4: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 5: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 5: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 6: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 6: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: PENDING
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: RUNNING DML
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: APPLIED
+# Migration 111_sav_operations_finance.sql: PENDING
+# Migration 111_sav_operations_finance.sql étape 1: RUNNING DDL
+# Migration 111_sav_operations_finance.sql étape 1: APPLIED
+# Migration 111_sav_operations_finance.sql étape 2: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 2: APPLIED
+# Migration 111_sav_operations_finance.sql étape 3: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 3: APPLIED
+# Migration 111_sav_operations_finance.sql: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: PENDING
+# Migration 112_sav_transit_treasury_integration.sql étape 1: RUNNING DDL
+# Migration 112_sav_transit_treasury_integration.sql étape 1: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: PENDING
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: PENDING
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: APPLIED
+# Migration 115_active_agency_session_context.sql: PENDING
+# Migration 115_active_agency_session_context.sql étape 1: RUNNING DDL
+# Migration 115_active_agency_session_context.sql étape 1: APPLIED
+# Migration 115_active_agency_session_context.sql étape 2: RUNNING DML
+# Migration 115_active_agency_session_context.sql étape 2: APPLIED
+# Migration 115_active_agency_session_context.sql: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: PENDING
+# Migration 116_crm_lead_agency_provenance.sql étape 1: RUNNING DDL
+# Migration 116_crm_lead_agency_provenance.sql étape 1: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql étape 2: RUNNING DML
+# Migration 116_crm_lead_agency_provenance.sql étape 2: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: APPLIED
+# Migration 117_role_name_collisions.sql: PENDING
+# Migration 117_role_name_collisions.sql étape 1: ALREADY SATISFIED
+# Migration 117_role_name_collisions.sql: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql: PENDING
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: RUNNING DML
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql étape 2: ALREADY SATISFIED
+# Migration 118_sales_opportunity_uniqueness.sql: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: PENDING
+# Migration 119_accounting_syscohada_foundation.sql étape 1: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 1: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 2: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 2: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 3: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 3: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 4: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 4: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 5: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 5: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 6: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 6: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 7: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 7: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 8: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 8: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 9: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 9: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 10: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 10: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 11: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 11: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: PENDING
+# Migration 120_accounting_double_entry_engine.sql étape 1: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 1: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 2: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 2: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 3: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 3: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 4: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 4: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 5: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 5: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 6: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 6: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 7: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 7: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: APPLIED
+# Migration 121_accounting_automation.sql: PENDING
+# Migration 121_accounting_automation.sql étape 1: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 1: APPLIED
+# Migration 121_accounting_automation.sql étape 2: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 2: APPLIED
+# Migration 121_accounting_automation.sql étape 3: RUNNING DML
+# Migration 121_accounting_automation.sql étape 3: APPLIED
+# Migration 121_accounting_automation.sql étape 4: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 4: APPLIED
+# Migration 121_accounting_automation.sql étape 5: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 5: APPLIED
+# Migration 121_accounting_automation.sql étape 6: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 6: APPLIED
+# Migration 121_accounting_automation.sql étape 7: RUNNING DML
+# Migration 121_accounting_automation.sql étape 7: APPLIED
+# Migration 121_accounting_automation.sql étape 8: RUNNING DML
+# Migration 121_accounting_automation.sql étape 8: APPLIED
+# Migration 121_accounting_automation.sql: APPLIED
+# Migration 122_accounting_advanced.sql: PENDING
+# Migration 122_accounting_advanced.sql étape 1: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 1: APPLIED
+# Migration 122_accounting_advanced.sql étape 2: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 2: APPLIED
+# Migration 122_accounting_advanced.sql étape 3: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 3: APPLIED
+# Migration 122_accounting_advanced.sql étape 4: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 4: APPLIED
+# Migration 122_accounting_advanced.sql étape 5: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 5: APPLIED
+# Migration 122_accounting_advanced.sql étape 6: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 6: APPLIED
+# Migration 122_accounting_advanced.sql étape 7: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 7: APPLIED
+# Migration 122_accounting_advanced.sql étape 8: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 8: APPLIED
+# Migration 122_accounting_advanced.sql étape 9: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 9: APPLIED
+# Migration 122_accounting_advanced.sql étape 10: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 10: APPLIED
+# Migration 122_accounting_advanced.sql étape 11: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 11: APPLIED
+# Migration 122_accounting_advanced.sql étape 12: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 12: APPLIED
+# Migration 122_accounting_advanced.sql: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: PENDING
+# Migration 123_bank_reconciliation_advanced.sql étape 1: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 1: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 2: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 2: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 3: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 3: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 4: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 4: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 5: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 5: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 6: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 6: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 7: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 7: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 8: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 8: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 9: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 9: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: PENDING
+# Migration 124_accounting_automation_control_repair.sql étape 1: ALREADY SATISFIED
+# Migration 124_accounting_automation_control_repair.sql étape 2: RUNNING DML
+# Migration 124_accounting_automation_control_repair.sql étape 2: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: PENDING
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: APPLIED
+# Migration 126_billing_payment_ged_link.sql: PENDING
+# Migration 126_billing_payment_ged_link.sql étape 1: RUNNING DDL
+# Migration 126_billing_payment_ged_link.sql étape 1: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 2: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 2: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 3: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 3: APPLIED
+# Migration 126_billing_payment_ged_link.sql: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: PENDING
+# Migration 127_crm_customer_stock_closure.sql étape 1: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 1: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 2: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 2: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 3: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 3: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 4: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 4: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 5: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 5: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: APPLIED
+# Migration 128_proforma_lifecycle.sql: PENDING
+# Migration 128_proforma_lifecycle.sql étape 1: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 1: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 2: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 2: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 3: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 3: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 4: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 4: APPLIED
+# Migration 128_proforma_lifecycle.sql: APPLIED
+# Migration 129_sav_part_movement_types.sql: PENDING
+# Migration 129_sav_part_movement_types.sql étape 1: RUNNING DDL
+# Migration 129_sav_part_movement_types.sql étape 1: APPLIED
+# Migration 129_sav_part_movement_types.sql: APPLIED
+# Migration 130_enterprise_tax_management.sql: PENDING
+# Migration 130_enterprise_tax_management.sql étape 1: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 1: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 2: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 2: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 3: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 3: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 4: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 4: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 5: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 5: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 6: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 6: APPLIED
+# Migration 130_enterprise_tax_management.sql: APPLIED
+# Migration 131_rbac_two_scopes.sql: PENDING
+# Migration 131_rbac_two_scopes.sql étape 1: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 1: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 2: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 2: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 3: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 3: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 4: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 4: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 5: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 5: APPLIED
+# Migration 131_rbac_two_scopes.sql: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: PENDING
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: RUNNING DML
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: RUNNING DDL
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: PENDING
+# Migration 133_service_stamp_agency_assignments.sql étape 1: RUNNING DDL
+# Migration 133_service_stamp_agency_assignments.sql étape 1: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 2: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 2: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 3: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 3: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 4: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 4: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: PENDING
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: PENDING
+# Migration 135_evolution_lca_02_foundation.sql étape 1: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 1: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 2: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 2: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 3: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 3: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 4: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 4: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 5: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 5: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 6: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 6: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 7: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 7: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 8: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 8: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 9: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 9: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: PENDING
+# Migration 136_evolution_lca_03_foundation.sql étape 1: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 1: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 2: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 2: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 3: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 3: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 4: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 4: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 5: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 5: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 6: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 6: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 7: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 7: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 8: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 8: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 9: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 9: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 10: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 10: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 11: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 11: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 12: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 12: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 13: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 13: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 14: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 14: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 15: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 15: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: PENDING
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: APPLIED
+# Résumé migrations: niveau 137, 0 avertissement(s) historique(s)
+# Migration 080_document_mark_policies.sql: PENDING
+# Migration 080_document_mark_policies.sql étape 1: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 1: APPLIED
+# Migration 080_document_mark_policies.sql étape 2: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 2: APPLIED
+# Migration 080_document_mark_policies.sql étape 3: RUNNING DDL
+# Migration 080_document_mark_policies.sql: PENDING
+# Migration 080_document_mark_policies.sql étape 3: RECOVERED
+# Migration 080_document_mark_policies.sql étape 4: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 4: APPLIED
+# Migration 080_document_mark_policies.sql étape 5: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 5: APPLIED
+# Migration 080_document_mark_policies.sql étape 6: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 6: APPLIED
+# Migration 080_document_mark_policies.sql: APPLIED
+# Migration 081_activity_territorial_context.sql: PENDING
+# Migration 081_activity_territorial_context.sql étape 1: RUNNING DDL
+# Migration 081_activity_territorial_context.sql étape 1: APPLIED
+# Migration 081_activity_territorial_context.sql: APPLIED
+# Migration 082_stamp_revocation.sql: PENDING
+# Migration 082_stamp_revocation.sql étape 1: RUNNING DDL
+# Migration 082_stamp_revocation.sql étape 1: APPLIED
+# Migration 082_stamp_revocation.sql: APPLIED
+# Migration 083_financial_workflow_hardening.sql: PENDING
+# Migration 083_financial_workflow_hardening.sql étape 1: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 1: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 2: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 2: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 3: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 3: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 4: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 4: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 5: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 5: APPLIED
+# Migration 083_financial_workflow_hardening.sql: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: PENDING
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: RUNNING DML
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: APPLIED
+# Migration 085_treasury_account_attachment.sql: PENDING
+# Migration 085_treasury_account_attachment.sql étape 1: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 1: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 2: RUNNING DML
+# Migration 085_treasury_account_attachment.sql étape 2: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 3: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 3: APPLIED
+# Migration 085_treasury_account_attachment.sql: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: PENDING
+# Migration 086_hr_expense_cancel_permission.sql étape 1: RUNNING DML
+# Migration 086_hr_expense_cancel_permission.sql étape 1: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: APPLIED
+# Migration 087_two_factor_authentication.sql: PENDING
+# Migration 087_two_factor_authentication.sql étape 1: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 1: APPLIED
+# Migration 087_two_factor_authentication.sql étape 2: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 2: APPLIED
+# Migration 087_two_factor_authentication.sql étape 3: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 3: APPLIED
+# Migration 087_two_factor_authentication.sql étape 4: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 4: APPLIED
+# Migration 087_two_factor_authentication.sql étape 5: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 5: APPLIED
+# Migration 087_two_factor_authentication.sql étape 6: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 6: APPLIED
+# Migration 087_two_factor_authentication.sql étape 7: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 7: APPLIED
+# Migration 087_two_factor_authentication.sql: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: PENDING
+# Migration 088_two_factor_strong_authentication.sql étape 1: RUNNING DDL
+# Migration 088_two_factor_strong_authentication.sql étape 1: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: APPLIED
+# Migration 089_two_factor_security_governance.sql: PENDING
+# Migration 089_two_factor_security_governance.sql étape 1: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 1: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 2: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 2: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 3: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 3: APPLIED
+# Migration 089_two_factor_security_governance.sql: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: PENDING
+# Migration 090_two_factor_trusted_devices.sql étape 1: RUNNING DDL
+# Migration 090_two_factor_trusted_devices.sql étape 1: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: PENDING
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: APPLIED
+# Migration 092_service_stamp_document_types.sql: PENDING
+# Migration 092_service_stamp_document_types.sql étape 1: RUNNING DDL
+# Migration 092_service_stamp_document_types.sql étape 1: APPLIED
+# Migration 092_service_stamp_document_types.sql étape 2: RUNNING DML
+# Migration 092_service_stamp_document_types.sql étape 2: APPLIED
+# Migration 092_service_stamp_document_types.sql: APPLIED
+# Migration 093_vehicle_location_garages.sql: PENDING
+# Migration 093_vehicle_location_garages.sql étape 1: RUNNING DDL
+# Migration 093_vehicle_location_garages.sql étape 1: APPLIED
+# Migration 093_vehicle_location_garages.sql: APPLIED
+# Migration 094_notification_historical_context.sql: PENDING
+# Migration 094_notification_historical_context.sql étape 1: RUNNING DDL
+# Migration 094_notification_historical_context.sql étape 1: APPLIED
+# Migration 094_notification_historical_context.sql: APPLIED
+# Migration 095_vehicle_reception_defect.sql: PENDING
+# Migration 095_vehicle_reception_defect.sql étape 1: RUNNING DDL
+# Migration 095_vehicle_reception_defect.sql étape 1: APPLIED
+# Migration 095_vehicle_reception_defect.sql: APPLIED
+# Migration 096_hr_employee_photos.sql: PENDING
+# Migration 096_hr_employee_photos.sql étape 1: RUNNING DDL
+# Migration 096_hr_employee_photos.sql étape 1: APPLIED
+# Migration 096_hr_employee_photos.sql: APPLIED
+# Migration 097_personnel_provider_foundation.sql: PENDING
+# Migration 097_personnel_provider_foundation.sql étape 1: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 1: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 2: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 2: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 3: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 3: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 4: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 4: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 5: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 5: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 6: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 6: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 7: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 7: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 8: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 8: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 9: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 9: APPLIED
+# Migration 097_personnel_provider_foundation.sql: APPLIED
+# Migration 098_hr_provider_permissions.sql: PENDING
+# Migration 098_hr_provider_permissions.sql étape 1: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 1: APPLIED
+# Migration 098_hr_provider_permissions.sql étape 2: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 2: APPLIED
+# Migration 098_hr_provider_permissions.sql: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: PENDING
+# Migration 099_provider_contracts_and_ged.sql étape 1: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 1: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 2: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 2: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 3: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 3: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 4: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 4: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 5: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 5: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 6: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 6: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: APPLIED
+# Migration 100_provider_remunerations.sql: PENDING
+# Migration 100_provider_remunerations.sql étape 1: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 1: APPLIED
+# Migration 100_provider_remunerations.sql étape 2: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 2: APPLIED
+# Migration 100_provider_remunerations.sql étape 3: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 3: APPLIED
+# Migration 100_provider_remunerations.sql étape 4: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 4: APPLIED
+# Migration 100_provider_remunerations.sql: APPLIED
+# Migration 101_provider_remuneration_finance.sql: PENDING
+# Migration 101_provider_remuneration_finance.sql étape 1: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 1: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 2: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 2: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 3: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 3: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 4: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 4: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 5: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 5: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 6: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 6: APPLIED
+# Migration 101_provider_remuneration_finance.sql: APPLIED
+# Migration 102_settings_section_permissions.sql: PENDING
+# Migration 102_settings_section_permissions.sql étape 1: RUNNING DML
+# Migration 102_settings_section_permissions.sql étape 1: APPLIED
+# Migration 102_settings_section_permissions.sql: APPLIED
+# Migration 103_crm_commercial_documents.sql: PENDING
+# Migration 103_crm_commercial_documents.sql étape 1: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 1: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 2: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 2: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 3: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 3: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 4: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 4: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 5: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 5: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 6: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 6: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 7: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 7: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 8: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 8: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 9: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 9: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 10: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 10: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 11: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 11: APPLIED
+# Migration 103_crm_commercial_documents.sql: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: PENDING
+# Migration 104_vehicle_technical_enrichment.sql étape 1: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 1: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql étape 2: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 2: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: PENDING
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: RUNNING DDL
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: PENDING
+# Migration 106_sav_parts_internal_logistics.sql étape 1: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 1: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 2: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 2: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 3: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 3: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 4: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 4: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 5: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 5: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 6: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 6: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 7: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 7: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 8: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 8: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 9: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 9: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 10: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 10: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: APPLIED
+# Migration 107_parts_counter_sales.sql: PENDING
+# Migration 107_parts_counter_sales.sql étape 1: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 1: APPLIED
+# Migration 107_parts_counter_sales.sql étape 2: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 2: APPLIED
+# Migration 107_parts_counter_sales.sql étape 3: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 3: APPLIED
+# Migration 107_parts_counter_sales.sql étape 4: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 4: APPLIED
+# Migration 107_parts_counter_sales.sql étape 5: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 5: APPLIED
+# Migration 107_parts_counter_sales.sql: APPLIED
+# Migration 108_parts_direct_purchases.sql: PENDING
+# Migration 108_parts_direct_purchases.sql étape 1: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 1: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 2: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 2: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 3: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 3: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 4: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 4: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 5: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 5: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 6: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 6: APPLIED
+# Migration 108_parts_direct_purchases.sql: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: PENDING
+# Migration 109_workshop_estimate_supplements.sql étape 1: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 1: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 2: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 2: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 3: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 3: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 4: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 4: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 5: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 5: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 6: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 6: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: PENDING
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: RUNNING DML
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: APPLIED
+# Migration 111_sav_operations_finance.sql: PENDING
+# Migration 111_sav_operations_finance.sql étape 1: RUNNING DDL
+# Migration 111_sav_operations_finance.sql étape 1: APPLIED
+# Migration 111_sav_operations_finance.sql étape 2: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 2: APPLIED
+# Migration 111_sav_operations_finance.sql étape 3: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 3: APPLIED
+# Migration 111_sav_operations_finance.sql: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: PENDING
+# Migration 112_sav_transit_treasury_integration.sql étape 1: RUNNING DDL
+# Migration 112_sav_transit_treasury_integration.sql étape 1: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: PENDING
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: PENDING
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: APPLIED
+# Migration 115_active_agency_session_context.sql: PENDING
+# Migration 115_active_agency_session_context.sql étape 1: RUNNING DDL
+# Migration 115_active_agency_session_context.sql étape 1: APPLIED
+# Migration 115_active_agency_session_context.sql étape 2: RUNNING DML
+# Migration 115_active_agency_session_context.sql étape 2: APPLIED
+# Migration 115_active_agency_session_context.sql: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: PENDING
+# Migration 116_crm_lead_agency_provenance.sql étape 1: RUNNING DDL
+# Migration 116_crm_lead_agency_provenance.sql étape 1: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql étape 2: RUNNING DML
+# Migration 116_crm_lead_agency_provenance.sql étape 2: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: APPLIED
+# Migration 117_role_name_collisions.sql: PENDING
+# Migration 117_role_name_collisions.sql étape 1: ALREADY SATISFIED
+# Migration 117_role_name_collisions.sql: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql: PENDING
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: RUNNING DML
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql étape 2: ALREADY SATISFIED
+# Migration 118_sales_opportunity_uniqueness.sql: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: PENDING
+# Migration 119_accounting_syscohada_foundation.sql étape 1: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 1: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 2: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 2: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 3: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 3: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 4: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 4: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 5: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 5: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 6: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 6: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 7: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 7: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 8: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 8: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 9: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 9: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 10: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 10: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 11: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 11: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: PENDING
+# Migration 120_accounting_double_entry_engine.sql étape 1: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 1: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 2: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 2: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 3: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 3: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 4: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 4: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 5: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 5: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 6: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 6: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 7: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 7: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: APPLIED
+# Migration 121_accounting_automation.sql: PENDING
+# Migration 121_accounting_automation.sql étape 1: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 1: APPLIED
+# Migration 121_accounting_automation.sql étape 2: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 2: APPLIED
+# Migration 121_accounting_automation.sql étape 3: RUNNING DML
+# Migration 121_accounting_automation.sql étape 3: APPLIED
+# Migration 121_accounting_automation.sql étape 4: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 4: APPLIED
+# Migration 121_accounting_automation.sql étape 5: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 5: APPLIED
+# Migration 121_accounting_automation.sql étape 6: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 6: APPLIED
+# Migration 121_accounting_automation.sql étape 7: RUNNING DML
+# Migration 121_accounting_automation.sql étape 7: APPLIED
+# Migration 121_accounting_automation.sql étape 8: RUNNING DML
+# Migration 121_accounting_automation.sql étape 8: APPLIED
+# Migration 121_accounting_automation.sql: APPLIED
+# Migration 122_accounting_advanced.sql: PENDING
+# Migration 122_accounting_advanced.sql étape 1: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 1: APPLIED
+# Migration 122_accounting_advanced.sql étape 2: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 2: APPLIED
+# Migration 122_accounting_advanced.sql étape 3: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 3: APPLIED
+# Migration 122_accounting_advanced.sql étape 4: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 4: APPLIED
+# Migration 122_accounting_advanced.sql étape 5: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 5: APPLIED
+# Migration 122_accounting_advanced.sql étape 6: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 6: APPLIED
+# Migration 122_accounting_advanced.sql étape 7: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 7: APPLIED
+# Migration 122_accounting_advanced.sql étape 8: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 8: APPLIED
+# Migration 122_accounting_advanced.sql étape 9: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 9: APPLIED
+# Migration 122_accounting_advanced.sql étape 10: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 10: APPLIED
+# Migration 122_accounting_advanced.sql étape 11: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 11: APPLIED
+# Migration 122_accounting_advanced.sql étape 12: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 12: APPLIED
+# Migration 122_accounting_advanced.sql: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: PENDING
+# Migration 123_bank_reconciliation_advanced.sql étape 1: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 1: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 2: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 2: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 3: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 3: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 4: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 4: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 5: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 5: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 6: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 6: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 7: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 7: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 8: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 8: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 9: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 9: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: PENDING
+# Migration 124_accounting_automation_control_repair.sql étape 1: ALREADY SATISFIED
+# Migration 124_accounting_automation_control_repair.sql étape 2: RUNNING DML
+# Migration 124_accounting_automation_control_repair.sql étape 2: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: PENDING
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: APPLIED
+# Migration 126_billing_payment_ged_link.sql: PENDING
+# Migration 126_billing_payment_ged_link.sql étape 1: RUNNING DDL
+# Migration 126_billing_payment_ged_link.sql étape 1: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 2: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 2: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 3: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 3: APPLIED
+# Migration 126_billing_payment_ged_link.sql: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: PENDING
+# Migration 127_crm_customer_stock_closure.sql étape 1: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 1: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 2: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 2: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 3: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 3: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 4: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 4: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 5: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 5: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: APPLIED
+# Migration 128_proforma_lifecycle.sql: PENDING
+# Migration 128_proforma_lifecycle.sql étape 1: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 1: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 2: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 2: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 3: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 3: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 4: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 4: APPLIED
+# Migration 128_proforma_lifecycle.sql: APPLIED
+# Migration 129_sav_part_movement_types.sql: PENDING
+# Migration 129_sav_part_movement_types.sql étape 1: RUNNING DDL
+# Migration 129_sav_part_movement_types.sql étape 1: APPLIED
+# Migration 129_sav_part_movement_types.sql: APPLIED
+# Migration 130_enterprise_tax_management.sql: PENDING
+# Migration 130_enterprise_tax_management.sql étape 1: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 1: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 2: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 2: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 3: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 3: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 4: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 4: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 5: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 5: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 6: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 6: APPLIED
+# Migration 130_enterprise_tax_management.sql: APPLIED
+# Migration 131_rbac_two_scopes.sql: PENDING
+# Migration 131_rbac_two_scopes.sql étape 1: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 1: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 2: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 2: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 3: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 3: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 4: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 4: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 5: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 5: APPLIED
+# Migration 131_rbac_two_scopes.sql: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: PENDING
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: RUNNING DML
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: RUNNING DDL
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: PENDING
+# Migration 133_service_stamp_agency_assignments.sql étape 1: RUNNING DDL
+# Migration 133_service_stamp_agency_assignments.sql étape 1: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 2: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 2: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 3: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 3: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 4: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 4: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: PENDING
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: PENDING
+# Migration 135_evolution_lca_02_foundation.sql étape 1: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 1: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 2: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 2: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 3: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 3: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 4: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 4: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 5: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 5: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 6: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 6: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 7: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 7: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 8: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 8: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 9: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 9: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: PENDING
+# Migration 136_evolution_lca_03_foundation.sql étape 1: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 1: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 2: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 2: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 3: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 3: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 4: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 4: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 5: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 5: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 6: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 6: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 7: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 7: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 8: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 8: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 9: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 9: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 10: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 10: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 11: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 11: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 12: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 12: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 13: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 13: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 14: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 14: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 15: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 15: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: PENDING
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: APPLIED
+# Résumé migrations: niveau 137, 0 avertissement(s) historique(s)
+# Migration 080_document_mark_policies.sql: PENDING
+# Migration 080_document_mark_policies.sql étape 1: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 1: APPLIED
+# Migration 080_document_mark_policies.sql étape 2: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 2: APPLIED
+# Migration 080_document_mark_policies.sql étape 3: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 3: APPLIED
+# Migration 080_document_mark_policies.sql étape 4: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 4: APPLIED
+# Migration 080_document_mark_policies.sql étape 5: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 5: APPLIED
+# Migration 080_document_mark_policies.sql étape 6: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 6: APPLIED
+# Migration 080_document_mark_policies.sql: APPLIED
+# Migration 081_activity_territorial_context.sql: PENDING
+# Migration 081_activity_territorial_context.sql étape 1: RUNNING DDL
+# Migration 081_activity_territorial_context.sql étape 1: APPLIED
+# Migration 081_activity_territorial_context.sql: APPLIED
+# Migration 082_stamp_revocation.sql: PENDING
+# Migration 082_stamp_revocation.sql étape 1: RUNNING DDL
+# Migration 082_stamp_revocation.sql étape 1: APPLIED
+# Migration 082_stamp_revocation.sql: APPLIED
+# Migration 083_financial_workflow_hardening.sql: PENDING
+# Migration 083_financial_workflow_hardening.sql étape 1: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 1: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 2: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 2: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 3: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 3: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 4: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 4: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 5: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 5: APPLIED
+# Migration 083_financial_workflow_hardening.sql: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: PENDING
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: RUNNING DML
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: APPLIED
+# Migration 085_treasury_account_attachment.sql: PENDING
+# Migration 085_treasury_account_attachment.sql étape 1: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 1: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 2: RUNNING DML
+# Migration 085_treasury_account_attachment.sql étape 2: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 3: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 3: APPLIED
+# Migration 085_treasury_account_attachment.sql: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: PENDING
+# Migration 086_hr_expense_cancel_permission.sql étape 1: RUNNING DML
+# Migration 086_hr_expense_cancel_permission.sql étape 1: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: APPLIED
+# Migration 087_two_factor_authentication.sql: PENDING
+# Migration 087_two_factor_authentication.sql étape 1: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 1: APPLIED
+# Migration 087_two_factor_authentication.sql étape 2: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 2: APPLIED
+# Migration 087_two_factor_authentication.sql étape 3: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 3: APPLIED
+# Migration 087_two_factor_authentication.sql étape 4: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 4: APPLIED
+# Migration 087_two_factor_authentication.sql étape 5: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 5: APPLIED
+# Migration 087_two_factor_authentication.sql étape 6: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 6: APPLIED
+# Migration 087_two_factor_authentication.sql étape 7: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 7: APPLIED
+# Migration 087_two_factor_authentication.sql: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: PENDING
+# Migration 088_two_factor_strong_authentication.sql étape 1: RUNNING DDL
+# Migration 088_two_factor_strong_authentication.sql étape 1: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: APPLIED
+# Migration 089_two_factor_security_governance.sql: PENDING
+# Migration 089_two_factor_security_governance.sql étape 1: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 1: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 2: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 2: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 3: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 3: APPLIED
+# Migration 089_two_factor_security_governance.sql: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: PENDING
+# Migration 090_two_factor_trusted_devices.sql étape 1: RUNNING DDL
+# Migration 090_two_factor_trusted_devices.sql étape 1: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: PENDING
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: APPLIED
+# Migration 092_service_stamp_document_types.sql: PENDING
+# Migration 092_service_stamp_document_types.sql étape 1: RUNNING DDL
+# Migration 092_service_stamp_document_types.sql étape 1: APPLIED
+# Migration 092_service_stamp_document_types.sql étape 2: RUNNING DML
+# Migration 092_service_stamp_document_types.sql étape 2: APPLIED
+# Migration 092_service_stamp_document_types.sql: APPLIED
+# Migration 093_vehicle_location_garages.sql: PENDING
+# Migration 093_vehicle_location_garages.sql étape 1: RUNNING DDL
+# Migration 093_vehicle_location_garages.sql étape 1: APPLIED
+# Migration 093_vehicle_location_garages.sql: APPLIED
+# Migration 094_notification_historical_context.sql: PENDING
+# Migration 094_notification_historical_context.sql étape 1: RUNNING DDL
+# Migration 094_notification_historical_context.sql étape 1: APPLIED
+# Migration 094_notification_historical_context.sql: APPLIED
+# Migration 095_vehicle_reception_defect.sql: PENDING
+# Migration 095_vehicle_reception_defect.sql étape 1: RUNNING DDL
+# Migration 095_vehicle_reception_defect.sql étape 1: APPLIED
+# Migration 095_vehicle_reception_defect.sql: APPLIED
+# Migration 096_hr_employee_photos.sql: PENDING
+# Migration 096_hr_employee_photos.sql étape 1: RUNNING DDL
+# Migration 096_hr_employee_photos.sql étape 1: APPLIED
+# Migration 096_hr_employee_photos.sql: APPLIED
+# Migration 097_personnel_provider_foundation.sql: PENDING
+# Migration 097_personnel_provider_foundation.sql étape 1: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 1: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 2: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 2: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 3: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 3: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 4: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 4: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 5: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 5: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 6: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 6: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 7: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 7: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 8: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 8: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 9: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 9: APPLIED
+# Migration 097_personnel_provider_foundation.sql: APPLIED
+# Migration 098_hr_provider_permissions.sql: PENDING
+# Migration 098_hr_provider_permissions.sql étape 1: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 1: APPLIED
+# Migration 098_hr_provider_permissions.sql étape 2: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 2: APPLIED
+# Migration 098_hr_provider_permissions.sql: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: PENDING
+# Migration 099_provider_contracts_and_ged.sql étape 1: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 1: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 2: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 2: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 3: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 3: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 4: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 4: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 5: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 5: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 6: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 6: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: APPLIED
+# Migration 100_provider_remunerations.sql: PENDING
+# Migration 100_provider_remunerations.sql étape 1: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 1: APPLIED
+# Migration 100_provider_remunerations.sql étape 2: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 2: APPLIED
+# Migration 100_provider_remunerations.sql étape 3: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 3: APPLIED
+# Migration 100_provider_remunerations.sql étape 4: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 4: APPLIED
+# Migration 100_provider_remunerations.sql: APPLIED
+# Migration 101_provider_remuneration_finance.sql: PENDING
+# Migration 101_provider_remuneration_finance.sql étape 1: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 1: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 2: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 2: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 3: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 3: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 4: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 4: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 5: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 5: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 6: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 6: APPLIED
+# Migration 101_provider_remuneration_finance.sql: APPLIED
+# Migration 102_settings_section_permissions.sql: PENDING
+# Migration 102_settings_section_permissions.sql étape 1: RUNNING DML
+# Migration 102_settings_section_permissions.sql étape 1: APPLIED
+# Migration 102_settings_section_permissions.sql: APPLIED
+# Migration 103_crm_commercial_documents.sql: PENDING
+# Migration 103_crm_commercial_documents.sql étape 1: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 1: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 2: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 2: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 3: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 3: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 4: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 4: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 5: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 5: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 6: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 6: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 7: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 7: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 8: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 8: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 9: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 9: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 10: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 10: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 11: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 11: APPLIED
+# Migration 103_crm_commercial_documents.sql: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: PENDING
+# Migration 104_vehicle_technical_enrichment.sql étape 1: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 1: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql étape 2: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 2: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: PENDING
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: RUNNING DDL
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: PENDING
+# Migration 106_sav_parts_internal_logistics.sql étape 1: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 1: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 2: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 2: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 3: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 3: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 4: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 4: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 5: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 5: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 6: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 6: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 7: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 7: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 8: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 8: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 9: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 9: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 10: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 10: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: APPLIED
+# Migration 107_parts_counter_sales.sql: PENDING
+# Migration 107_parts_counter_sales.sql étape 1: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 1: APPLIED
+# Migration 107_parts_counter_sales.sql étape 2: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 2: APPLIED
+# Migration 107_parts_counter_sales.sql étape 3: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 3: APPLIED
+# Migration 107_parts_counter_sales.sql étape 4: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 4: APPLIED
+# Migration 107_parts_counter_sales.sql étape 5: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 5: APPLIED
+# Migration 107_parts_counter_sales.sql: APPLIED
+# Migration 108_parts_direct_purchases.sql: PENDING
+# Migration 108_parts_direct_purchases.sql étape 1: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 1: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 2: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 2: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 3: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 3: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 4: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 4: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 5: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 5: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 6: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 6: APPLIED
+# Migration 108_parts_direct_purchases.sql: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: PENDING
+# Migration 109_workshop_estimate_supplements.sql étape 1: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 1: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 2: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 2: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 3: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 3: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 4: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 4: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 5: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 5: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 6: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 6: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: PENDING
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: RUNNING DML
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: APPLIED
+# Migration 111_sav_operations_finance.sql: PENDING
+# Migration 111_sav_operations_finance.sql étape 1: RUNNING DDL
+# Migration 111_sav_operations_finance.sql étape 1: APPLIED
+# Migration 111_sav_operations_finance.sql étape 2: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 2: APPLIED
+# Migration 111_sav_operations_finance.sql étape 3: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 3: APPLIED
+# Migration 111_sav_operations_finance.sql: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: PENDING
+# Migration 112_sav_transit_treasury_integration.sql étape 1: RUNNING DDL
+# Migration 112_sav_transit_treasury_integration.sql étape 1: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: PENDING
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: PENDING
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: APPLIED
+# Migration 115_active_agency_session_context.sql: PENDING
+# Migration 115_active_agency_session_context.sql étape 1: RUNNING DDL
+# Migration 115_active_agency_session_context.sql étape 1: APPLIED
+# Migration 115_active_agency_session_context.sql étape 2: RUNNING DML
+# Migration 115_active_agency_session_context.sql étape 2: APPLIED
+# Migration 115_active_agency_session_context.sql: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: PENDING
+# Migration 116_crm_lead_agency_provenance.sql étape 1: RUNNING DDL
+# Migration 116_crm_lead_agency_provenance.sql étape 1: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql étape 2: RUNNING DML
+# Migration 116_crm_lead_agency_provenance.sql étape 2: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: APPLIED
+# Migration 117_role_name_collisions.sql: PENDING
+# Migration 117_role_name_collisions.sql étape 1: ALREADY SATISFIED
+# Migration 117_role_name_collisions.sql: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql: PENDING
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: RUNNING DML
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql étape 2: ALREADY SATISFIED
+# Migration 118_sales_opportunity_uniqueness.sql: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: PENDING
+# Migration 119_accounting_syscohada_foundation.sql étape 1: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 1: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 2: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 2: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 3: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 3: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 4: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 4: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 5: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 5: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 6: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 6: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 7: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 7: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 8: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 8: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 9: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 9: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 10: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 10: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 11: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 11: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: PENDING
+# Migration 120_accounting_double_entry_engine.sql étape 1: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 1: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 2: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 2: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 3: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 3: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 4: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 4: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 5: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 5: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 6: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 6: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 7: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 7: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: APPLIED
+# Migration 121_accounting_automation.sql: PENDING
+# Migration 121_accounting_automation.sql étape 1: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 1: APPLIED
+# Migration 121_accounting_automation.sql étape 2: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 2: APPLIED
+# Migration 121_accounting_automation.sql étape 3: RUNNING DML
+# Migration 121_accounting_automation.sql étape 3: APPLIED
+# Migration 121_accounting_automation.sql étape 4: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 4: APPLIED
+# Migration 121_accounting_automation.sql étape 5: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 5: APPLIED
+# Migration 121_accounting_automation.sql étape 6: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 6: APPLIED
+# Migration 121_accounting_automation.sql étape 7: RUNNING DML
+# Migration 121_accounting_automation.sql étape 7: APPLIED
+# Migration 121_accounting_automation.sql étape 8: RUNNING DML
+# Migration 121_accounting_automation.sql étape 8: APPLIED
+# Migration 121_accounting_automation.sql: APPLIED
+# Migration 122_accounting_advanced.sql: PENDING
+# Migration 122_accounting_advanced.sql étape 1: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 1: APPLIED
+# Migration 122_accounting_advanced.sql étape 2: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 2: APPLIED
+# Migration 122_accounting_advanced.sql étape 3: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 3: APPLIED
+# Migration 122_accounting_advanced.sql étape 4: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 4: APPLIED
+# Migration 122_accounting_advanced.sql étape 5: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 5: APPLIED
+# Migration 122_accounting_advanced.sql étape 6: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 6: APPLIED
+# Migration 122_accounting_advanced.sql étape 7: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 7: APPLIED
+# Migration 122_accounting_advanced.sql étape 8: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 8: APPLIED
+# Migration 122_accounting_advanced.sql étape 9: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 9: APPLIED
+# Migration 122_accounting_advanced.sql étape 10: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 10: APPLIED
+# Migration 122_accounting_advanced.sql étape 11: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 11: APPLIED
+# Migration 122_accounting_advanced.sql étape 12: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 12: APPLIED
+# Migration 122_accounting_advanced.sql: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: PENDING
+# Migration 123_bank_reconciliation_advanced.sql étape 1: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 1: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 2: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 2: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 3: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 3: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 4: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 4: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 5: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 5: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 6: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 6: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 7: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 7: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 8: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 8: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 9: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 9: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: PENDING
+# Migration 124_accounting_automation_control_repair.sql étape 1: ALREADY SATISFIED
+# Migration 124_accounting_automation_control_repair.sql étape 2: RUNNING DML
+# Migration 124_accounting_automation_control_repair.sql étape 2: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: PENDING
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: APPLIED
+# Migration 126_billing_payment_ged_link.sql: PENDING
+# Migration 126_billing_payment_ged_link.sql étape 1: RUNNING DDL
+# Migration 126_billing_payment_ged_link.sql étape 1: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 2: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 2: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 3: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 3: APPLIED
+# Migration 126_billing_payment_ged_link.sql: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: PENDING
+# Migration 127_crm_customer_stock_closure.sql étape 1: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 1: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 2: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 2: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 3: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 3: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 4: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 4: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 5: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 5: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: APPLIED
+# Migration 128_proforma_lifecycle.sql: PENDING
+# Migration 128_proforma_lifecycle.sql étape 1: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 1: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 2: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 2: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 3: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 3: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 4: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 4: APPLIED
+# Migration 128_proforma_lifecycle.sql: APPLIED
+# Migration 129_sav_part_movement_types.sql: PENDING
+# Migration 129_sav_part_movement_types.sql étape 1: RUNNING DDL
+# Migration 129_sav_part_movement_types.sql étape 1: APPLIED
+# Migration 129_sav_part_movement_types.sql: APPLIED
+# Migration 130_enterprise_tax_management.sql: PENDING
+# Migration 130_enterprise_tax_management.sql étape 1: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 1: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 2: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 2: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 3: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 3: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 4: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 4: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 5: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 5: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 6: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 6: APPLIED
+# Migration 130_enterprise_tax_management.sql: APPLIED
+# Migration 131_rbac_two_scopes.sql: PENDING
+# Migration 131_rbac_two_scopes.sql étape 1: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 1: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 2: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 2: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 3: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 3: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 4: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 4: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 5: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 5: APPLIED
+# Migration 131_rbac_two_scopes.sql: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: PENDING
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: RUNNING DML
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: RUNNING DDL
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: PENDING
+# Migration 133_service_stamp_agency_assignments.sql étape 1: RUNNING DDL
+# Migration 133_service_stamp_agency_assignments.sql étape 1: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 2: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 2: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 3: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 3: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 4: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 4: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: PENDING
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: PENDING
+# Migration 135_evolution_lca_02_foundation.sql étape 1: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 1: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 2: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 2: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 3: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 3: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 4: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 4: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 5: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 5: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 6: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 6: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 7: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 7: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 8: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 8: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 9: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 9: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: PENDING
+# Migration 136_evolution_lca_03_foundation.sql étape 1: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 1: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 2: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 2: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 3: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 3: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 4: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 4: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 5: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 5: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 6: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 6: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 7: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 7: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 8: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 8: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 9: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 9: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 10: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 10: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 11: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 11: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 12: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 12: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 13: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 13: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 14: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 14: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 15: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 15: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: PENDING
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: APPLIED
+# Résumé migrations: niveau 137, 0 avertissement(s) historique(s)
+# Migration 080_document_mark_policies.sql: PENDING
+# Migration 080_document_mark_policies.sql: APPLIED
+# Résumé migrations: niveau 137, 0 avertissement(s) historique(s)
+# Migration 080_document_mark_policies.sql: PENDING
+# Migration 080_document_mark_policies.sql étape 1: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 1: APPLIED
+# Migration 080_document_mark_policies.sql étape 2: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 2: APPLIED
+# Migration 080_document_mark_policies.sql étape 3: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 3: APPLIED
+# Migration 080_document_mark_policies.sql étape 4: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 4: APPLIED
+# Migration 080_document_mark_policies.sql étape 5: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 5: APPLIED
+# Migration 080_document_mark_policies.sql étape 6: RUNNING DDL
+# Migration 080_document_mark_policies.sql étape 6: APPLIED
+# Migration 080_document_mark_policies.sql: APPLIED
+# Migration 081_activity_territorial_context.sql: PENDING
+# Migration 081_activity_territorial_context.sql étape 1: RUNNING DDL
+# Migration 081_activity_territorial_context.sql étape 1: APPLIED
+# Migration 081_activity_territorial_context.sql: APPLIED
+# Migration 082_stamp_revocation.sql: PENDING
+# Migration 082_stamp_revocation.sql étape 1: RUNNING DDL
+# Migration 082_stamp_revocation.sql étape 1: APPLIED
+# Migration 082_stamp_revocation.sql: APPLIED
+# Migration 083_financial_workflow_hardening.sql: PENDING
+# Migration 083_financial_workflow_hardening.sql étape 1: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 1: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 2: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 2: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 3: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 3: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 4: RUNNING DDL
+# Migration 083_financial_workflow_hardening.sql étape 4: APPLIED
+# Migration 083_financial_workflow_hardening.sql étape 5: RUNNING DML
+# Migration 083_financial_workflow_hardening.sql étape 5: APPLIED
+# Migration 083_financial_workflow_hardening.sql: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: PENDING
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: RUNNING DML
+# Migration 084_rbac_system_permission_bootstrap.sql étape 1: APPLIED
+# Migration 084_rbac_system_permission_bootstrap.sql: APPLIED
+# Migration 085_treasury_account_attachment.sql: PENDING
+# Migration 085_treasury_account_attachment.sql étape 1: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 1: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 2: RUNNING DML
+# Migration 085_treasury_account_attachment.sql étape 2: APPLIED
+# Migration 085_treasury_account_attachment.sql étape 3: RUNNING DDL
+# Migration 085_treasury_account_attachment.sql étape 3: APPLIED
+# Migration 085_treasury_account_attachment.sql: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: PENDING
+# Migration 086_hr_expense_cancel_permission.sql étape 1: RUNNING DML
+# Migration 086_hr_expense_cancel_permission.sql étape 1: APPLIED
+# Migration 086_hr_expense_cancel_permission.sql: APPLIED
+# Migration 087_two_factor_authentication.sql: PENDING
+# Migration 087_two_factor_authentication.sql étape 1: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 1: APPLIED
+# Migration 087_two_factor_authentication.sql étape 2: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 2: APPLIED
+# Migration 087_two_factor_authentication.sql étape 3: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 3: APPLIED
+# Migration 087_two_factor_authentication.sql étape 4: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 4: APPLIED
+# Migration 087_two_factor_authentication.sql étape 5: RUNNING DDL
+# Migration 087_two_factor_authentication.sql étape 5: APPLIED
+# Migration 087_two_factor_authentication.sql étape 6: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 6: APPLIED
+# Migration 087_two_factor_authentication.sql étape 7: RUNNING DML
+# Migration 087_two_factor_authentication.sql étape 7: APPLIED
+# Migration 087_two_factor_authentication.sql: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: PENDING
+# Migration 088_two_factor_strong_authentication.sql étape 1: RUNNING DDL
+# Migration 088_two_factor_strong_authentication.sql étape 1: APPLIED
+# Migration 088_two_factor_strong_authentication.sql: APPLIED
+# Migration 089_two_factor_security_governance.sql: PENDING
+# Migration 089_two_factor_security_governance.sql étape 1: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 1: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 2: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 2: APPLIED
+# Migration 089_two_factor_security_governance.sql étape 3: RUNNING DML
+# Migration 089_two_factor_security_governance.sql étape 3: APPLIED
+# Migration 089_two_factor_security_governance.sql: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: PENDING
+# Migration 090_two_factor_trusted_devices.sql étape 1: RUNNING DDL
+# Migration 090_two_factor_trusted_devices.sql étape 1: APPLIED
+# Migration 090_two_factor_trusted_devices.sql: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: PENDING
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 1: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: RUNNING DML
+# Migration 091_two_factor_trusted_device_deletion.sql étape 2: APPLIED
+# Migration 091_two_factor_trusted_device_deletion.sql: APPLIED
+# Migration 092_service_stamp_document_types.sql: PENDING
+# Migration 092_service_stamp_document_types.sql étape 1: RUNNING DDL
+# Migration 092_service_stamp_document_types.sql étape 1: APPLIED
+# Migration 092_service_stamp_document_types.sql étape 2: RUNNING DML
+# Migration 092_service_stamp_document_types.sql étape 2: APPLIED
+# Migration 092_service_stamp_document_types.sql: APPLIED
+# Migration 093_vehicle_location_garages.sql: PENDING
+# Migration 093_vehicle_location_garages.sql étape 1: RUNNING DDL
+# Migration 093_vehicle_location_garages.sql étape 1: APPLIED
+# Migration 093_vehicle_location_garages.sql: APPLIED
+# Migration 094_notification_historical_context.sql: PENDING
+# Migration 094_notification_historical_context.sql étape 1: RUNNING DDL
+# Migration 094_notification_historical_context.sql étape 1: APPLIED
+# Migration 094_notification_historical_context.sql: APPLIED
+# Migration 095_vehicle_reception_defect.sql: PENDING
+# Migration 095_vehicle_reception_defect.sql étape 1: RUNNING DDL
+# Migration 095_vehicle_reception_defect.sql étape 1: APPLIED
+# Migration 095_vehicle_reception_defect.sql: APPLIED
+# Migration 096_hr_employee_photos.sql: PENDING
+# Migration 096_hr_employee_photos.sql étape 1: RUNNING DDL
+# Migration 096_hr_employee_photos.sql étape 1: APPLIED
+# Migration 096_hr_employee_photos.sql: APPLIED
+# Migration 097_personnel_provider_foundation.sql: PENDING
+# Migration 097_personnel_provider_foundation.sql étape 1: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 1: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 2: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 2: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 3: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 3: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 4: RUNNING DDL
+# Migration 097_personnel_provider_foundation.sql étape 4: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 5: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 5: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 6: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 6: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 7: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 7: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 8: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 8: APPLIED
+# Migration 097_personnel_provider_foundation.sql étape 9: RUNNING DML
+# Migration 097_personnel_provider_foundation.sql étape 9: APPLIED
+# Migration 097_personnel_provider_foundation.sql: APPLIED
+# Migration 098_hr_provider_permissions.sql: PENDING
+# Migration 098_hr_provider_permissions.sql étape 1: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 1: APPLIED
+# Migration 098_hr_provider_permissions.sql étape 2: RUNNING DML
+# Migration 098_hr_provider_permissions.sql étape 2: APPLIED
+# Migration 098_hr_provider_permissions.sql: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: PENDING
+# Migration 099_provider_contracts_and_ged.sql étape 1: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 1: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 2: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 2: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 3: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 3: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 4: RUNNING DDL
+# Migration 099_provider_contracts_and_ged.sql étape 4: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 5: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 5: APPLIED
+# Migration 099_provider_contracts_and_ged.sql étape 6: RUNNING DML
+# Migration 099_provider_contracts_and_ged.sql étape 6: APPLIED
+# Migration 099_provider_contracts_and_ged.sql: APPLIED
+# Migration 100_provider_remunerations.sql: PENDING
+# Migration 100_provider_remunerations.sql étape 1: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 1: APPLIED
+# Migration 100_provider_remunerations.sql étape 2: RUNNING DDL
+# Migration 100_provider_remunerations.sql étape 2: APPLIED
+# Migration 100_provider_remunerations.sql étape 3: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 3: APPLIED
+# Migration 100_provider_remunerations.sql étape 4: RUNNING DML
+# Migration 100_provider_remunerations.sql étape 4: APPLIED
+# Migration 100_provider_remunerations.sql: APPLIED
+# Migration 101_provider_remuneration_finance.sql: PENDING
+# Migration 101_provider_remuneration_finance.sql étape 1: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 1: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 2: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 2: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 3: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 3: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 4: RUNNING DDL
+# Migration 101_provider_remuneration_finance.sql étape 4: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 5: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 5: APPLIED
+# Migration 101_provider_remuneration_finance.sql étape 6: RUNNING DML
+# Migration 101_provider_remuneration_finance.sql étape 6: APPLIED
+# Migration 101_provider_remuneration_finance.sql: APPLIED
+# Migration 102_settings_section_permissions.sql: PENDING
+# Migration 102_settings_section_permissions.sql étape 1: RUNNING DML
+# Migration 102_settings_section_permissions.sql étape 1: APPLIED
+# Migration 102_settings_section_permissions.sql: APPLIED
+# Migration 103_crm_commercial_documents.sql: PENDING
+# Migration 103_crm_commercial_documents.sql étape 1: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 1: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 2: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 2: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 3: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 3: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 4: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 4: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 5: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 5: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 6: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 6: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 7: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 7: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 8: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 8: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 9: RUNNING DDL
+# Migration 103_crm_commercial_documents.sql étape 9: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 10: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 10: APPLIED
+# Migration 103_crm_commercial_documents.sql étape 11: RUNNING DML
+# Migration 103_crm_commercial_documents.sql étape 11: APPLIED
+# Migration 103_crm_commercial_documents.sql: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: PENDING
+# Migration 104_vehicle_technical_enrichment.sql étape 1: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 1: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql étape 2: RUNNING DDL
+# Migration 104_vehicle_technical_enrichment.sql étape 2: APPLIED
+# Migration 104_vehicle_technical_enrichment.sql: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: PENDING
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: RUNNING DDL
+# Migration 105_vehicle_stock_warranty_assignment.sql étape 1: APPLIED
+# Migration 105_vehicle_stock_warranty_assignment.sql: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: PENDING
+# Migration 106_sav_parts_internal_logistics.sql étape 1: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 1: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 2: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 2: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 3: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 3: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 4: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 4: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 5: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 5: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 6: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 6: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 7: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 7: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 8: RUNNING DDL
+# Migration 106_sav_parts_internal_logistics.sql étape 8: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 9: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 9: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql étape 10: RUNNING DML
+# Migration 106_sav_parts_internal_logistics.sql étape 10: APPLIED
+# Migration 106_sav_parts_internal_logistics.sql: APPLIED
+# Migration 107_parts_counter_sales.sql: PENDING
+# Migration 107_parts_counter_sales.sql étape 1: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 1: APPLIED
+# Migration 107_parts_counter_sales.sql étape 2: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 2: APPLIED
+# Migration 107_parts_counter_sales.sql étape 3: RUNNING DDL
+# Migration 107_parts_counter_sales.sql étape 3: APPLIED
+# Migration 107_parts_counter_sales.sql étape 4: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 4: APPLIED
+# Migration 107_parts_counter_sales.sql étape 5: RUNNING DML
+# Migration 107_parts_counter_sales.sql étape 5: APPLIED
+# Migration 107_parts_counter_sales.sql: APPLIED
+# Migration 108_parts_direct_purchases.sql: PENDING
+# Migration 108_parts_direct_purchases.sql étape 1: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 1: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 2: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 2: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 3: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 3: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 4: RUNNING DDL
+# Migration 108_parts_direct_purchases.sql étape 4: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 5: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 5: APPLIED
+# Migration 108_parts_direct_purchases.sql étape 6: RUNNING DML
+# Migration 108_parts_direct_purchases.sql étape 6: APPLIED
+# Migration 108_parts_direct_purchases.sql: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: PENDING
+# Migration 109_workshop_estimate_supplements.sql étape 1: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 1: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 2: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 2: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 3: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 3: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 4: RUNNING DDL
+# Migration 109_workshop_estimate_supplements.sql étape 4: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 5: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 5: APPLIED
+# Migration 109_workshop_estimate_supplements.sql étape 6: RUNNING DML
+# Migration 109_workshop_estimate_supplements.sql étape 6: APPLIED
+# Migration 109_workshop_estimate_supplements.sql: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: PENDING
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 1: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: RUNNING DDL
+# Migration 110_parts_returns_exchange_warranty.sql étape 2: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: RUNNING DML
+# Migration 110_parts_returns_exchange_warranty.sql étape 3: APPLIED
+# Migration 110_parts_returns_exchange_warranty.sql: APPLIED
+# Migration 111_sav_operations_finance.sql: PENDING
+# Migration 111_sav_operations_finance.sql étape 1: RUNNING DDL
+# Migration 111_sav_operations_finance.sql étape 1: APPLIED
+# Migration 111_sav_operations_finance.sql étape 2: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 2: APPLIED
+# Migration 111_sav_operations_finance.sql étape 3: RUNNING DML
+# Migration 111_sav_operations_finance.sql étape 3: APPLIED
+# Migration 111_sav_operations_finance.sql: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: PENDING
+# Migration 112_sav_transit_treasury_integration.sql étape 1: RUNNING DDL
+# Migration 112_sav_transit_treasury_integration.sql étape 1: APPLIED
+# Migration 112_sav_transit_treasury_integration.sql: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: PENDING
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 1: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 2: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 3: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: RUNNING DDL
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 4: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 5: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 6: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: RUNNING DML
+# Migration 113_sav_flat_labor_and_tax_mode.sql étape 7: APPLIED
+# Migration 113_sav_flat_labor_and_tax_mode.sql: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: PENDING
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 1: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: RUNNING DDL
+# Migration 114_rbac_multi_agency_foundation.sql étape 2: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 3: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: RUNNING DML
+# Migration 114_rbac_multi_agency_foundation.sql étape 4: APPLIED
+# Migration 114_rbac_multi_agency_foundation.sql: APPLIED
+# Migration 115_active_agency_session_context.sql: PENDING
+# Migration 115_active_agency_session_context.sql étape 1: RUNNING DDL
+# Migration 115_active_agency_session_context.sql étape 1: APPLIED
+# Migration 115_active_agency_session_context.sql étape 2: RUNNING DML
+# Migration 115_active_agency_session_context.sql étape 2: APPLIED
+# Migration 115_active_agency_session_context.sql: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: PENDING
+# Migration 116_crm_lead_agency_provenance.sql étape 1: RUNNING DDL
+# Migration 116_crm_lead_agency_provenance.sql étape 1: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql étape 2: RUNNING DML
+# Migration 116_crm_lead_agency_provenance.sql étape 2: APPLIED
+# Migration 116_crm_lead_agency_provenance.sql: APPLIED
+# Migration 117_role_name_collisions.sql: PENDING
+# Migration 117_role_name_collisions.sql étape 1: ALREADY SATISFIED
+# Migration 117_role_name_collisions.sql: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql: PENDING
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: RUNNING DML
+# Migration 118_sales_opportunity_uniqueness.sql étape 1: APPLIED
+# Migration 118_sales_opportunity_uniqueness.sql étape 2: ALREADY SATISFIED
+# Migration 118_sales_opportunity_uniqueness.sql: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: PENDING
+# Migration 119_accounting_syscohada_foundation.sql étape 1: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 1: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 2: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 2: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 3: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 3: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 4: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 4: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 5: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 5: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 6: RUNNING DDL
+# Migration 119_accounting_syscohada_foundation.sql étape 6: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 7: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 7: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 8: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 8: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 9: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 9: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 10: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 10: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql étape 11: RUNNING DML
+# Migration 119_accounting_syscohada_foundation.sql étape 11: APPLIED
+# Migration 119_accounting_syscohada_foundation.sql: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: PENDING
+# Migration 120_accounting_double_entry_engine.sql étape 1: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 1: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 2: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 2: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 3: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 3: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 4: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 4: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 5: RUNNING DDL
+# Migration 120_accounting_double_entry_engine.sql étape 5: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 6: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 6: APPLIED
+# Migration 120_accounting_double_entry_engine.sql étape 7: RUNNING DML
+# Migration 120_accounting_double_entry_engine.sql étape 7: APPLIED
+# Migration 120_accounting_double_entry_engine.sql: APPLIED
+# Migration 121_accounting_automation.sql: PENDING
+# Migration 121_accounting_automation.sql étape 1: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 1: APPLIED
+# Migration 121_accounting_automation.sql étape 2: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 2: APPLIED
+# Migration 121_accounting_automation.sql étape 3: RUNNING DML
+# Migration 121_accounting_automation.sql étape 3: APPLIED
+# Migration 121_accounting_automation.sql étape 4: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 4: APPLIED
+# Migration 121_accounting_automation.sql étape 5: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 5: APPLIED
+# Migration 121_accounting_automation.sql étape 6: RUNNING DDL
+# Migration 121_accounting_automation.sql étape 6: APPLIED
+# Migration 121_accounting_automation.sql étape 7: RUNNING DML
+# Migration 121_accounting_automation.sql étape 7: APPLIED
+# Migration 121_accounting_automation.sql étape 8: RUNNING DML
+# Migration 121_accounting_automation.sql étape 8: APPLIED
+# Migration 121_accounting_automation.sql: APPLIED
+# Migration 122_accounting_advanced.sql: PENDING
+# Migration 122_accounting_advanced.sql étape 1: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 1: APPLIED
+# Migration 122_accounting_advanced.sql étape 2: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 2: APPLIED
+# Migration 122_accounting_advanced.sql étape 3: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 3: APPLIED
+# Migration 122_accounting_advanced.sql étape 4: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 4: APPLIED
+# Migration 122_accounting_advanced.sql étape 5: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 5: APPLIED
+# Migration 122_accounting_advanced.sql étape 6: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 6: APPLIED
+# Migration 122_accounting_advanced.sql étape 7: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 7: APPLIED
+# Migration 122_accounting_advanced.sql étape 8: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 8: APPLIED
+# Migration 122_accounting_advanced.sql étape 9: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 9: APPLIED
+# Migration 122_accounting_advanced.sql étape 10: RUNNING DDL
+# Migration 122_accounting_advanced.sql étape 10: APPLIED
+# Migration 122_accounting_advanced.sql étape 11: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 11: APPLIED
+# Migration 122_accounting_advanced.sql étape 12: RUNNING DML
+# Migration 122_accounting_advanced.sql étape 12: APPLIED
+# Migration 122_accounting_advanced.sql: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: PENDING
+# Migration 123_bank_reconciliation_advanced.sql étape 1: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 1: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 2: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 2: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 3: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 3: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 4: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 4: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 5: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 5: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 6: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 6: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 7: RUNNING DDL
+# Migration 123_bank_reconciliation_advanced.sql étape 7: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 8: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 8: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql étape 9: RUNNING DML
+# Migration 123_bank_reconciliation_advanced.sql étape 9: APPLIED
+# Migration 123_bank_reconciliation_advanced.sql: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: PENDING
+# Migration 124_accounting_automation_control_repair.sql étape 1: ALREADY SATISFIED
+# Migration 124_accounting_automation_control_repair.sql étape 2: RUNNING DML
+# Migration 124_accounting_automation_control_repair.sql étape 2: APPLIED
+# Migration 124_accounting_automation_control_repair.sql: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: PENDING
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 1: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 2: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 3: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 4: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: RUNNING DDL
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 5: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: RUNNING DML
+# Migration 125_billing_payment_destinations_and_cancellations.sql étape 6: APPLIED
+# Migration 125_billing_payment_destinations_and_cancellations.sql: APPLIED
+# Migration 126_billing_payment_ged_link.sql: PENDING
+# Migration 126_billing_payment_ged_link.sql étape 1: RUNNING DDL
+# Migration 126_billing_payment_ged_link.sql étape 1: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 2: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 2: APPLIED
+# Migration 126_billing_payment_ged_link.sql étape 3: RUNNING DML
+# Migration 126_billing_payment_ged_link.sql étape 3: APPLIED
+# Migration 126_billing_payment_ged_link.sql: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: PENDING
+# Migration 127_crm_customer_stock_closure.sql étape 1: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 1: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 2: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 2: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 3: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 3: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 4: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 4: APPLIED
+# Migration 127_crm_customer_stock_closure.sql étape 5: RUNNING DDL
+# Migration 127_crm_customer_stock_closure.sql étape 5: APPLIED
+# Migration 127_crm_customer_stock_closure.sql: APPLIED
+# Migration 128_proforma_lifecycle.sql: PENDING
+# Migration 128_proforma_lifecycle.sql étape 1: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 1: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 2: RUNNING DDL
+# Migration 128_proforma_lifecycle.sql étape 2: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 3: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 3: APPLIED
+# Migration 128_proforma_lifecycle.sql étape 4: RUNNING DML
+# Migration 128_proforma_lifecycle.sql étape 4: APPLIED
+# Migration 128_proforma_lifecycle.sql: APPLIED
+# Migration 129_sav_part_movement_types.sql: PENDING
+# Migration 129_sav_part_movement_types.sql étape 1: RUNNING DDL
+# Migration 129_sav_part_movement_types.sql étape 1: APPLIED
+# Migration 129_sav_part_movement_types.sql: APPLIED
+# Migration 130_enterprise_tax_management.sql: PENDING
+# Migration 130_enterprise_tax_management.sql étape 1: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 1: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 2: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 2: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 3: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 3: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 4: RUNNING DDL
+# Migration 130_enterprise_tax_management.sql étape 4: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 5: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 5: APPLIED
+# Migration 130_enterprise_tax_management.sql étape 6: RUNNING DML
+# Migration 130_enterprise_tax_management.sql étape 6: APPLIED
+# Migration 130_enterprise_tax_management.sql: APPLIED
+# Migration 131_rbac_two_scopes.sql: PENDING
+# Migration 131_rbac_two_scopes.sql étape 1: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 1: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 2: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 2: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 3: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 3: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 4: RUNNING DML
+# Migration 131_rbac_two_scopes.sql étape 4: APPLIED
+# Migration 131_rbac_two_scopes.sql étape 5: RUNNING DDL
+# Migration 131_rbac_two_scopes.sql étape 5: APPLIED
+# Migration 131_rbac_two_scopes.sql: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: PENDING
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: RUNNING DML
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 1: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: RUNNING DDL
+# Migration 132_rbac_scope_bootstrap_guard.sql étape 2: APPLIED
+# Migration 132_rbac_scope_bootstrap_guard.sql: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: PENDING
+# Migration 133_service_stamp_agency_assignments.sql étape 1: RUNNING DDL
+# Migration 133_service_stamp_agency_assignments.sql étape 1: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 2: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 2: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 3: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 3: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql étape 4: RUNNING DML
+# Migration 133_service_stamp_agency_assignments.sql étape 4: APPLIED
+# Migration 133_service_stamp_agency_assignments.sql: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: PENDING
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 1: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 2: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 3: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: RUNNING DDL
+# Migration 134_vehicle_orders_and_demo_status.sql étape 4: APPLIED
+# Migration 134_vehicle_orders_and_demo_status.sql: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: PENDING
+# Migration 135_evolution_lca_02_foundation.sql étape 1: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 1: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 2: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 2: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 3: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 3: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 4: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 4: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 5: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 5: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 6: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 6: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 7: RUNNING DDL
+# Migration 135_evolution_lca_02_foundation.sql étape 7: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 8: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 8: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql étape 9: RUNNING DML
+# Migration 135_evolution_lca_02_foundation.sql étape 9: APPLIED
+# Migration 135_evolution_lca_02_foundation.sql: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: PENDING
+# Migration 136_evolution_lca_03_foundation.sql étape 1: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 1: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 2: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 2: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 3: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 3: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 4: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 4: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 5: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 5: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 6: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 6: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 7: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 7: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 8: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 8: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 9: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 9: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 10: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 10: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 11: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 11: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 12: RUNNING DDL
+# Migration 136_evolution_lca_03_foundation.sql étape 12: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 13: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 13: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 14: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 14: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql étape 15: RUNNING DML
+# Migration 136_evolution_lca_03_foundation.sql étape 15: APPLIED
+# Migration 136_evolution_lca_03_foundation.sql: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: PENDING
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 1: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: RUNNING DDL
+# Migration 137_evolution_lca_02_post_migration_additions.sql étape 2: APPLIED
+# Migration 137_evolution_lca_02_post_migration_additions.sql: APPLIED
+# Résumé migrations: niveau 137, 0 avertissement(s) historique(s)
+# Migration 080_document_mark_policies.sql: PENDING
+# Subtest: M080 MySQL 8.4: 079, reprise, divergence et données
+ok 1 - M080 MySQL 8.4: 079, reprise, divergence et données
+  ---
+  duration_ms: 1229469.323773
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1232674.141818

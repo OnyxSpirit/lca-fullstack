@@ -16,7 +16,7 @@ test('LOT14B2B-02 identité, fiscalité et agences restent dans le parent',()=>{
   assert.match(page,/tab === 'general'/);
   assert.match(page,/tab === 'agencies'/);
   assert.match(page,/saveIdentity/);
-  assert.match(page,/saveBusiness/);
+  assert.match(page,/updateSettings\.mutateAsync/);
   assert.match(page,/saveAgency/);
 });
 

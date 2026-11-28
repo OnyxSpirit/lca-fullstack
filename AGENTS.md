@@ -16,6 +16,7 @@
 - Ne jamais réinitialiser une base persistante. Sauvegarder puis restaurer sur une instance isolée avant toute correction ; préserver toutes les modifications existantes du répertoire de travail.
 - Aucun commit, push, déploiement ou intervention en production ne doit être effectué par Codex.
 - Les seuls scopes RBAC autorisés sont `OWN` et `AGENCY`. Préserver les habilitations dynamiques par agence et la confidentialité salariale.
+- Toute qualification globale doit inventorier les intégrations conditionnelles applicables, satisfaire leurs prérequis, les exécuter réellement dans les suites dédiées (MySQL, HTTP, WebSocket/WSS et TLS compris) et échouer explicitement si l’une d’elles n’a pas été exécutée ; les tests ignorés de la suite standard ne peuvent jamais être assimilés à des tests qualifiés sans preuve de leur réussite dans le mode approprié.
 
 ## Documents et exports destinés aux utilisateurs
 

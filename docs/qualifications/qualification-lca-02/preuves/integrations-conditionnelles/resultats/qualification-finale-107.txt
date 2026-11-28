@@ -1,0 +1,25 @@
+QUALIFICATION-LCA-02 — résultat consolidé au 2026-11-28
+
+Inventaire AST : 107 tests individuels
+Groupes d’activation : 79
+Intégrations exécutées : 107
+Intégrations réussies : 107
+Intégrations échouées : 0
+Intégrations non qualifiées : 0
+Tests ignorés sans justification : 0
+
+Rapprochement :
+- passe commune : 102 intégrations réussies ; IC-001 et IC-107 ignorées car dédiées ; IC-014, IC-048 et IC-056 annulées par les anciens délais puis rejouées ci-dessous ;
+- IC-001 amorçage administrateur : réussi, admin-provisioning-isole.tap ;
+- IC-014 identité client MySQL : réussi, customer-identity-final.tap ;
+- IC-048 migration 080 : réussi, migration-080-final.tap ;
+- IC-056 runner migrations fresh/reprise/checksum/concurrence : réussi, mysql-migration-runner-final.tap ;
+- IC-107 WSS/TLS : réussi, wss-proxy-reel-rootdb.tap.
+
+Non-régression :
+- backend standard Node.js 22 : 2391 tests, 2284 réussis, 0 échec, 107 ignorés attendus ;
+- frontend Node.js 22 : 1098 réussis, 0 échec ;
+- lint et build backend : réussis ;
+- lint et build frontend : réussis ;
+- immuabilité : 104 migrations vérifiées, réussite ;
+- git diff --check : réussite.

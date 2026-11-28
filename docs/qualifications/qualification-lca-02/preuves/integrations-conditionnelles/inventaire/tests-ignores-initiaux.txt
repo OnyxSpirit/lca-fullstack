@@ -1,0 +1,107 @@
+﹣ SA4-SA11 et SA13-SA16 provisioning atomique sur MySQL jetable (0.124068ms) # SKIP
+﹣ PH2C2B LOT2 administration centrale et habilitations locales (1.313608ms) # SKIP
+﹣ PH2A contexte agence, isolation, invalidation et SUPER_ADMIN (1.068943ms) # SKIP
+﹣ PH2B socket réelle suit uniquement agence active et révocation (0.427288ms) # SKIP
+﹣ AVOIR-REMBOURSEMENT-02 MySQL 8.4 : partiels, idempotence, concurrence et journal (0.702274ms) # SKIP
+﹣ annulation de règlement: neutralisation avant comptabilisation et contrepassation après (0.97144ms) # SKIP
+﹣ BUD-TREAS MySQL 8.4 liaison, concurrence, idempotence, reversal et scopes (0.832642ms) # SKIP
+﹣ CRM-02 MySQL 8.4 sérialise la réservation exclusive des véhicules (1.812456ms) # SKIP
+﹣ CORR-ERP-02E MySQL 8.4 sérialise les créneaux futurs et accepte les bornes adjacentes (0.945598ms) # SKIP
+﹣ INFRA-135 MySQL 8.4 : substitution de FK fraîche et reprises contrôlées (1.122368ms) # SKIP
+﹣ RBAC CRM isole les agences et revalide les écritures (0.967876ms) # SKIP
+﹣ clôture CRM Client Stock fonctionne réellement sur MySQL et HTTP (1.196825ms) # SKIP
+﹣ contacts historisés et archivage CRM persistent via les API réelles (0.225583ms) # SKIP
+﹣ C/CC identité customer — invariants réels MySQL 8.4 (1.507952ms) # SKIP
+﹣ CONC-CHK-01..08 transactions MySQL 8.4 réelles (1.359045ms) # SKIP
+﹣ CONC-DEL-01..05 et CLOSE-DEL-01..04 transactions MySQL réelles (0.689049ms) # SKIP
+﹣ CONC-SVC-01 double ajout même request ID (1.367367ms) # SKIP
+﹣ CONC-SVC-02 ajout vs prix catalogue (0.227124ms) # SKIP
+﹣ CONC-SVC-03 facturation sans doublon (0.148975ms) # SKIP
+﹣ CONC-SVC-04 ajout vs paiement conserve une exposition exacte (0.162259ms) # SKIP
+﹣ CONC-SVC-05 ajout invalide une autorisation Lot 6 trop basse (0.165541ms) # SKIP
+﹣ CONC-SVC-06 ajout vs finalisation est sérialisé (0.195957ms) # SKIP
+﹣ B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4 (1.20397ms) # SKIP
+﹣ LOT13-E2E production HTTP, sécurité, historique et concurrence MySQL (2.58554ms) # SKIP
+﹣ BAREME-03..28 référentiel dynamique, surcharge et snapshots sur MySQL 8.4 (1.154731ms) # SKIP
+﹣ EVOLUTION-LCA-01 MySQL 8.4 et HTTP : commande, réceptions, concurrence, démonstration et pro forma (0.995234ms) # SKIP
+﹣ FIN-01 MySQL 8.4 export réel, remboursements et scopes (0.884762ms) # SKIP
+﹣ FIN-02 MySQL 8.4 workflows RBAC multi-étapes et concurrence (1.678613ms) # SKIP
+﹣ FIN-03 MySQL 8.4 endpoints authentifiés, couverture et concurrence (0.993697ms) # SKIP
+﹣ FIN-04 MySQL 8.4 rémunération, budget, réservation et paiement (0.846014ms) # SKIP
+﹣ FIN-05 MySQL 8.4 facture, dette, budget, paiements concurrents et avoir (1.197888ms) # SKIP
+﹣ FIN-06 MySQL 8.4 API authentifiée et CSV (1.219619ms) # SKIP
+﹣ FIN-07 MySQL 8.4 import, rapprochement, concurrence et immutabilité Treasury (0.804449ms) # SKIP
+﹣ FIN09 MySQL 8.4 protège les réservations contre les sorties libres concurrentes (1.285261ms) # SKIP
+﹣ FISCAL MySQL 8.4 : cycle, RBAC, agence, audit et concurrence (0.859056ms) # SKIP
+﹣ GED HTTP MySQL : upload, scopes, pagination, versions, archive, restauration et audit (1.143402ms) # SKIP
+﹣ RH-BUDGET-AGENCY-01 MySQL 8.4 : cibles et créations respectent les scopes (0.923969ms) # SKIP
+﹣ RH-BUDGET-CATEGORIES-02 MySQL 8.4 : référentiel, RBAC, usages et concurrence (1.101058ms) # SKIP
+﹣ RH-FIX-04 MySQL 8.4 : rallonges RBAC, auto-décision autorisée, scopes, audit et concurrence (0.897482ms) # SKIP
+﹣ RH-REPORTING-UI-01 MySQL 8.4 : agrégations réelles, périodes et scopes sources (0.727921ms) # SKIP
+﹣ RH-AUDIT-01/07 MySQL 8.4 : le payload Personnel intersecte les scopes employé et salaire (0.986059ms) # SKIP
+﹣ RBAC-03 RH-CAT-01..10 MySQL 8.4 : catégories concessionnelles sans bypass système (0.932095ms) # SKIP
+﹣ Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4 (0.828641ms) # SKIP
+﹣ 14C5B MySQL 8.4 : origines, dates financières, déduplication et réconciliation (1.254353ms) # SKIP
+﹣ LOT3 sérialise numérotation et contrepassation sur MySQL 8 (0.761547ms) # SKIP
+﹣ LOT4 découvre et comptabilise une opération éligible une seule fois (0.981963ms) # SKIP
+﹣ MIG-054 historique publié converge vers 056 sans mismatch ni perte (0.859932ms) # SKIP
+﹣ M080 MySQL 8.4: 079, reprise, divergence et données (1.653858ms) # SKIP
+﹣ MIG085 — exécution réelle MySQL 8.4 et invariants historiques (0.892729ms) # SKIP
+﹣ MIG093 — MySQL 8.4 préserve les emplacements, index et clés étrangères (1.095002ms) # SKIP
+﹣ MIG094 — snapshots historiques, reprise et divergence MySQL 8.4 (0.97366ms) # SKIP
+﹣ MIG094 — baseline déjà conforme reconnue sans perte (0.156509ms) # SKIP
+﹣ M097 MySQL 8.4: installation, 096→097, reprises, backfill et divergence (1.120906ms) # SKIP
+﹣ MIG101 — schéma financier prestataires et reprise MySQL 8.4 (1.536634ms) # SKIP
+﹣ Runner MySQL 8.4 : un DDL échoué sans effet est corrigeable et reprenable (0.292225ms) # SKIP
+﹣ Runner MySQL 8.4 actuel : fresh, reprise, checksum, conservation et concurrence (0.179138ms) # SKIP
+﹣ PH2C2B LOT1 notifications HTTP, MySQL et Socket.IO (1.108656ms) # SKIP
+﹣ OPS-UX-01 final: kilométrage strict et conflit Planning concurrent (0.897355ms) # SKIP
+﹣ OPS-UX-01 refuse les quantités physiques décimales par API réelle (1.006409ms) # SKIP
+﹣ PDF GED : une session révoquée perd immédiatement le téléchargement, une nouvelle session légitime le retrouve (1.379507ms) # SKIP
+﹣ B3423 LOT3 MySQL 8.4: identité unifiée et trois rattachements réversibles (0.952402ms) # SKIP
+﹣ PR-02 et SAV-OR-03 sur MySQL 8.4 isolé (0.773226ms) # SKIP
+﹣ PR-03 administration des emplacements sur MySQL 8.4 isolé (1.223137ms) # SKIP
+﹣ PR-04 restitue les emplacements de stock dans la liste sans fuite multi-agence (0.815365ms) # SKIP
+﹣ PR-06 annule sûrement commandes et reliquats sans inverser le stock (0.851783ms) # SKIP
+﹣ PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle de rôle (0.77366ms) # SKIP
+﹣ B3423 LOT2 MySQL 8.4: 096→098, identités, unicité, rattachement et historique salarié (1.061536ms) # SKIP
+﹣ AUD-LCA-013 : pool 2 + file 2 refuse la cinquième requête et rollback une transaction (0.908651ms) # SKIP
+﹣ AUD-LCA-014 : deux uploads de 15 Mio restent bornés et le dépassement est rejeté 413 (0.146169ms) # SKIP
+﹣ cycle statut rôle, permissions, sessions et multi-agences sur MySQL 8.4 (1.147899ms) # SKIP
+﹣ Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persistées (0.974633ms) # SKIP
+﹣ SAV-FINANCE-03 : facture de septembre, paiements et remboursement à leurs dates réelles (0.17759ms) # SKIP
+﹣ Reporting MySQL 8.4 : ventes, marges, annulations et bornes de période (0.125287ms) # SKIP
+﹣ Reporting MySQL 8.4 : stock actuel et CSV respectent chaque périmètre (0.13999ms) # SKIP
+﹣ Reporting MySQL 8.4 : granularités et dates invalides (0.130299ms) # SKIP
+﹣ VENTE-ANNULATION-02 MySQL 8.4 : atomicité, refus financiers et concurrences (1.552749ms) # SKIP
+﹣ SAV-AB MySQL 8.4 : nettoyage, conservation, session et restitution (1.137912ms) # SKIP
+﹣ SAV-OR-UX-03 persiste et isole les actions one-shot par OR (1.158671ms) # SKIP
+﹣ SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4 (1.023211ms) # SKIP
+﹣ SAV-OR-16 à 18 sur MySQL 8.4 : étapes, annulation et finance séparée (1.496464ms) # SKIP
+﹣ SAV-OR-19 : toutes les interventions restent dans l’historique avec leurs scopes (1.057839ms) # SKIP
+﹣ SAV-OR-20 chiffre côté serveur avant décision sans toucher au stock (0.769234ms) # SKIP
+﹣ SAV-OR-21 relie baseline acceptée et réel sans doublon (0.955715ms) # SKIP
+﹣ PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé (0.728928ms) # SKIP
+﹣ SAV transit destinations respecte scope, agence, mapping, compte et concession (1.389136ms) # SKIP
+﹣ VALIDATION-04 garantie totale, partielle, paiements et persistance MySQL 8.4 (1.42649ms) # SKIP
+﹣ DUP-INT-06/07 créations concurrentes et confirmation explicite (1.194658ms) # SKIP
+﹣ CONVERT-INT-10 conversion concurrente atomique (0.307202ms) # SKIP
+﹣ CONVERT-ROLLBACK conserve visite et annule le lead sur erreur opportunité (0.262983ms) # SKIP
+﹣ SCOPE/FK/TRANSITIONS isolent les agences et conservent les relations (0.297436ms) # SKIP
+﹣ CLOSE-TREAS-01..11 invariants financiers réels MySQL 8.4 (1.450998ms) # SKIP
+﹣ TREAS-FLOW MySQL 8.4 courant, transactions et concurrence (1.049392ms) # SKIP
+﹣ TREAS-MAN MySQL 8.4 opérations manuelles, idempotence et concurrence (1.701166ms) # SKIP
+﹣ VALID-ERP-02 MySQL 8.4 sérialise deux créations identiques et accepte les bornes adjacentes (0.790831ms) # SKIP
+﹣ CONC-RET-01 double création sérialisée et unique (2.044084ms) # SKIP
+﹣ CONC-RET-02 approve contre reject: un seul décideur gagne (0.320884ms) # SKIP
+﹣ CONC-RET-03A paiement gagne, résolution relit 15M (0.189278ms) # SKIP
+﹣ CONC-RET-03B résolution gagne, paiement tardif refusé (0.200032ms) # SKIP
+﹣ CONC-RET-04 avoir externe gagne, résolution ne recrédite pas son montant (0.146421ms) # SKIP
+﹣ CONC-RET-05 deux refunds de 7M ne dépassent pas 10M (0.224414ms) # SKIP
+﹣ CONC-RET-06 double résolution: un avoir et un remboursement uniques (0.15088ms) # SKIP
+﹣ CONC-RET-07 double réception: un seul événement (0.1623ms) # SKIP
+﹣ CONC-RET-08 décision stock et vraie vente sont sérialisées dans les deux ordres (0.254368ms) # SKIP
+﹣ CONC-RET-09 retenue gagne puis résolution la fige (0.346388ms) # SKIP
+﹣ CONC-RET-10 CLOSED rend les mutations tardives impossibles (0.182994ms) # SKIP
+﹣ CONC-RET-12 rollback puis retry sans artefact orphelin (0.111701ms) # SKIP
+﹣ WSS Nginx : upgrade accepté avec session persistée et refusé avec jeton invalide (1.425761ms) # SKIP

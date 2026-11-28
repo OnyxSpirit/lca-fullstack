@@ -27,7 +27,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'genera
   switch (status) {
     // Vehicle statuses
     case 'COMMANDE':
-      return <Badge variant="info" dot>Commandé</Badge>;
+      return <Badge variant="info" dot>En commande</Badge>;
     case 'EN_TRANSIT':
       return <Badge variant="purple" dot>En Transit</Badge>;
     case 'RECEPTIONNE':

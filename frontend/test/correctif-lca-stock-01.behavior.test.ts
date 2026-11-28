@@ -1,0 +1,6 @@
+import test from'node:test';import assert from'node:assert/strict';import fs from'node:fs';
+const orders=fs.readFileSync(new URL('../src/modules/vehicles/CommercialCatalogPage.tsx',import.meta.url),'utf8'),stock=fs.readFileSync(new URL('../src/modules/vehicles/VehiclesListPage.tsx',import.meta.url),'utf8');
+test('section simplifiée et bouton Nouvelle commande',()=>{assert.match(orders,/Nouvelle commande/);assert.doesNotMatch(orders,/Nouveau profil \/ modèle|Catégorie technique|Puissance combinée/)});
+test('formulaire limité aux cinq informations autorisées',()=>{for(const value of['Marque \\*','Modèle \\*','Version \\(facultative\\)','Quantité \\*','Photographie illustrative \\(facultative\\)'])assert.match(orders,new RegExp(value))});
+test('tableau, filtres, détail, historique et navigation présents',()=>{for(const value of['Toutes les marques','Tous les modèles','Tous les états','Historique des réceptions','Voir les véhicules'])assert.match(orders,new RegExp(value))});
+test('six KPI sont présents sans KPI Démonstration',()=>{for(const value of['Total véhicules','Stock physique','En commande','Disponibles à la vente','Valeur Marchande du Parc','Stock Dormant'])assert.match(stock,new RegExp(value));assert.doesNotMatch(stock,/stats\?\.demo/)});

@@ -91,7 +91,7 @@ export default function App() {
           <Route path="crm" element={<ModuleGuard module="crm">{lazyPage(<CrmPage />)}</ModuleGuard>} />
           <Route path="showroom" element={<ModuleGuard module="showroom">{lazyPage(<ShowroomPage />)}</ModuleGuard>} />
           <Route path="vehicles" element={<ModuleGuard module="vehicles">{lazyPage(<VehiclesListPage />)}</ModuleGuard>} />
-          <Route path="vehicles/catalog" element={<Navigate to="/vehicles" replace />} />
+          <Route path="vehicles/catalog" element={<Navigate to="/vehicles?section=models" replace />} />
           <Route path="vehicles/:id" element={<ModuleGuard module="vehicles">{lazyPage(<VehicleDetailPage />)}</ModuleGuard>} />
           <Route path="sales" element={<ModuleGuard module="sales">{lazyPage(<SalesListPage />)}</ModuleGuard>} />
           <Route path="sales/quotations" element={<PermissionGuard permission="quotations.view">{lazyPage(<QuotationsPage />)}</PermissionGuard>} />

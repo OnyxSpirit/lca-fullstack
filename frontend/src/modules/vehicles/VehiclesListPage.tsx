@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,useSearchParams } from 'react-router-dom';
 import {
   Car,
   Plus,
@@ -32,10 +32,11 @@ import {ServerPagination} from '../../components/common/ServerPagination';
 
 export const VehiclesListPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams,setSearchParams]=useSearchParams();
   const currentAgency=useAuthStore(state=>state.currentAgency),can=useAuthStore(state=>state.can),permissionScope=useAuthStore(state=>state.permissionScope),canCreate=can('vehicles.create'),canViewFinancials=can('vehicles.financials.view');
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [stockSection,setStockSection]=useState<'units'|'models'>('units');
+  const [stockSection,setStockSection]=useState<'units'|'models'>(()=>searchParams.get('section')==='models'?'models':'units');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [inventoryView, setInventoryView] = useState<'active'|'sold'|'all'>('active');
@@ -46,6 +47,8 @@ export const VehiclesListPage: React.FC = () => {
   const [onlyDormant, setOnlyDormant] = useState(false);
   const [locationType,setLocationType]=useState<''|'PARC'|'SHOWROOM'|'GARAGE'>('');
   const [assignment,setAssignment]=useState('');
+  const [presence,setPresence]=useState<''|'physical'|'ordered'>('');
+  const vehicleOrderId=searchParams.get('vehicleOrderId')??'';
   const [sort,setSort]=useState('brand');
   const [page,setPage]=useState(1);
   const [pageSize,setPageSize]=useState(10);
@@ -54,7 +57,7 @@ export const VehiclesListPage: React.FC = () => {
   const deferredSearch=useDeferredValue(searchQuery);
   const statusToDb:Record<string,string>={COMMANDE:'ordered',EN_TRANSIT:'in_transit',RECEPTIONNE:'received',PREPARATION:'preparation',DISPONIBLE:'available',DEMONSTRATION:'demo',RESERVE:'reserved',VENDU:'sold',LIVRE:'delivered'};
   const implicitAgencyId=implicitVehicleAgencyFilter(permissionScope('vehicles.view'),currentAgency?.id);
-  const vehicleFilters={agencyId:implicitAgencyId,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant,locationType,assignment,sort,page,pageSize};
+  const vehicleFilters={agencyId:implicitAgencyId,view:inventoryView,search:deferredSearch,status:selectedStatus==='ALL'?'':statusToDb[selectedStatus],type:selectedType==='ALL'?'':selectedType,fuel:selectedFuel==='ALL'?'':selectedFuel,brandId:selectedBrand==='ALL'?'':selectedBrand,modelId:selectedModel==='ALL'?'':selectedModel,dormant:onlyDormant,locationType,assignment,presence,vehicleOrderId,sort,page,pageSize};
   const vehiclesQuery=useVehicleListQuery(vehicleFilters);
   const filterOptionsQuery=useVehicleFilterOptionsQuery({agencyId:implicitAgencyId,view:inventoryView,brandId:selectedBrand==='ALL'?'':selectedBrand,locationType});
   const statsQuery=useVehicleStatsQuery(implicitAgencyId),stats=statsQuery.data;
@@ -63,7 +66,7 @@ export const VehiclesListPage: React.FC = () => {
   const filteredTotal=vehiclesQuery.data?.total??0;
   const totalPages=Math.max(1,vehiclesQuery.data?.totalPages??1);
   const brands=filterOptionsQuery.data?.brands??[],models=filterOptionsQuery.data?.models??[],locations=filterOptionsQuery.data?.locations??[];
-  useEffect(()=>setPage(1),[deferredSearch,selectedStatus,inventoryView,selectedFuel,selectedType,selectedBrand,selectedModel,onlyDormant,locationType,assignment,sort,implicitAgencyId]);
+  useEffect(()=>setPage(1),[deferredSearch,selectedStatus,inventoryView,selectedFuel,selectedType,selectedBrand,selectedModel,onlyDormant,locationType,assignment,presence,vehicleOrderId,sort,implicitAgencyId]);
   useEffect(()=>{if(vehiclesQuery.data&&page>Math.max(1,vehiclesQuery.data.totalPages))setPage(Math.max(1,vehiclesQuery.data.totalPages))},[vehiclesQuery.data,page]);
 
   const filteredVehicles = vehicles;
@@ -71,14 +74,14 @@ export const VehiclesListPage: React.FC = () => {
   const availableCount = stats?.availableForSale??stats?.available??0;
   const dormantCount = stats?.dormant??0;
   const totalStockValue = stats?.stockValue??0;
-  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant||locationType||assignment||sort!=='brand');
-  const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false);setLocationType('');setAssignment('');setSort('brand');setPage(1)};
+  const hasFilters=Boolean(searchQuery||inventoryView!=='active'||selectedStatus!=='ALL'||selectedFuel!=='ALL'||selectedType!=='ALL'||selectedBrand!=='ALL'||selectedModel!=='ALL'||onlyDormant||locationType||assignment||presence||vehicleOrderId||sort!=='brand');
+  const resetFilters=()=>{setSearchQuery('');setInventoryView('active');setSelectedStatus('ALL');setSelectedFuel('ALL');setSelectedType('ALL');setSelectedBrand('ALL');setSelectedModel('ALL');setOnlyDormant(false);setLocationType('');setAssignment('');setPresence('');setSearchParams({});setSort('brand');setPage(1)};
 
-  if(stockSection==='models')return <div className="space-y-5"><div className="flex rounded-xl border bg-white p-1"><button className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600" onClick={()=>setStockSection('units')}>Véhicules en stock</button><button className="rounded-lg bg-[#8f1722] px-4 py-2 text-sm font-semibold text-white">Modèles sur commande</button></div><CommercialCatalogPage embedded/></div>;
+  if(stockSection==='models')return <div className="space-y-5"><div className="flex rounded-xl border bg-white p-1"><button className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600" onClick={()=>{setStockSection('units');setSearchParams({})}}>Véhicules en stock</button><button className="rounded-lg bg-[#8f1722] px-4 py-2 text-sm font-semibold text-white">Modèles sur commande</button></div><CommercialCatalogPage embedded/></div>;
 
   return (
     <div className="space-y-6">
-      {can('vehicles.catalog.view')&&<div className="flex rounded-xl border bg-white p-1"><button className="rounded-lg bg-[#8f1722] px-4 py-2 text-sm font-semibold text-white">Véhicules en stock</button><button className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600" onClick={()=>setStockSection('models')}>Modèles sur commande</button></div>}
+      {(can('vehicles.catalog.view')||can('vehicles.catalog.manage'))&&<div className="flex rounded-xl border bg-white p-1"><button className="rounded-lg bg-[#8f1722] px-4 py-2 text-sm font-semibold text-white">Véhicules en stock</button><button className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600" onClick={()=>{setStockSection('models');setSearchParams({section:'models'})}}>Modèles sur commande</button></div>}
       <PageHeader
         title="Parc & Stock Véhicules (VN / VO)"
         subtitle="Catalogue des véhicules neufs et d’occasion en stock concession."
@@ -122,7 +125,10 @@ export const VehiclesListPage: React.FC = () => {
       <VehicleTransfersPanel open={transfersOpen} onClose={()=>setTransfersOpen(false)}/>
 
       {/* KPI Highlights */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <button type="button" onClick={()=>{resetFilters();setPresence('')}} className={`p-4 rounded-xl border text-left ${!presence&&!onlyDormant?'border-[#8f1722] bg-red-50':'bg-white border-slate-200'}`}><span className="text-xs text-slate-500 font-medium">Total véhicules</span><div className="mt-1 text-xl font-bold">{stats?.total??0}</div></button>
+        <button type="button" onClick={()=>{resetFilters();setPresence('physical')}} className={`p-4 rounded-xl border text-left ${presence==='physical'?'border-[#8f1722] bg-red-50':'bg-white border-slate-200'}`}><span className="text-xs text-slate-500 font-medium">Stock physique</span><div className="mt-1 text-xl font-bold">{stats?.physical??0}</div></button>
+        <button type="button" onClick={()=>{resetFilters();setPresence('ordered')}} className={`p-4 rounded-xl border text-left ${presence==='ordered'?'border-[#8f1722] bg-red-50':'bg-white border-slate-200'}`}><span className="text-xs text-slate-500 font-medium">En commande</span><div className="mt-1 text-xl font-bold">{stats?.ordered??0}</div></button>
         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-xs text-slate-500 font-medium">Disponibles à la vente</span>
@@ -206,7 +212,7 @@ export const VehiclesListPage: React.FC = () => {
             className="text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 font-medium focus:outline-none"
           >
             <option value="ALL">Tous statuts</option>
-            <option value="COMMANDE">Commandé</option>
+            <option value="COMMANDE">En commande</option>
             <option value="EN_TRANSIT">En transit</option>
             <option value="RECEPTIONNE">Réceptionné</option>
             <option value="PREPARATION">En préparation</option>

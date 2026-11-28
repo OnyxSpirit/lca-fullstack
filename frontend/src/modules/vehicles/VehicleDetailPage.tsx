@@ -385,6 +385,7 @@ export const VehicleDetailPage: React.FC = () => {
           </div>
         }
       />
+      {vehicle.vehicleOrderId&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">Commande d’origine : <Link className="font-bold underline" to="/vehicles?section=models">consulter les modèles sur commande</Link> · identifiant #{vehicle.vehicleOrderId}</div>}
 
       {/* Top Banner: Photos Gallery & Key Highlights */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -187,6 +187,7 @@ export interface Vehicle {
   model: string;
   version: string;
   versionId?: string;
+  vehicleOrderId?: string|null;
   type: 'Neuf' | 'Occasion' | 'Démo' | 'Véhicule de Courtoisie';
   bodyType: 'Berline' | 'SUV' | 'Break' | 'Coupé' | 'Citadine' | 'Utilitaire';
   year: number;

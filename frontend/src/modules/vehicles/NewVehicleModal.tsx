@@ -299,7 +299,7 @@ export const NewVehicleModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <option value="used">Véhicule d’occasion (VO)</option>
             </select>
           </label>
-          <label className="text-xs font-semibold">Statut initial<select value={form.status} onChange={field("status")} className="mt-1 w-full p-2.5 border rounded-lg"><option value="ordered">Commandé</option><option value="in_transit">En transit</option><option value="received">Réceptionné</option><option value="preparation">En préparation</option><option value="available">Disponible</option></select></label>
+          <label className="text-xs font-semibold">Statut initial<select value={form.status} onChange={field("status")} className="mt-1 w-full p-2.5 border rounded-lg"><option value="ordered">En commande</option><option value="in_transit">En transit</option><option value="received">Réceptionné</option><option value="preparation">En préparation</option><option value="available">Disponible</option></select></label>
           <label className="text-xs font-semibold">
             Marque *
             <input

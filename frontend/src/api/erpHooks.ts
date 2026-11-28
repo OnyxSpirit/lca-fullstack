@@ -103,6 +103,7 @@ const mapVehicle = (r: any): Vehicle => ({
   model: r.model ?? "",
   version: r.version ?? "",
   versionId: s(r.versionId),
+  vehicleOrderId: r.vehicleOrderId==null?null:s(r.vehicleOrderId),
   type: vehicleType[r.vehicleType] ?? r.type ?? "Neuf",
   bodyType: r.bodyType ?? "SUV",
   year: n(r.year),
@@ -514,10 +515,14 @@ export const useCommercialCatalogActions=()=>{const qc=useQueryClient(),done=()=
   orderImages:useMutation({mutationFn:({id,imageIds}:{id:string;imageIds:string[]})=>apiRequest(`/commercial-models/${id}/images/order`,{method:'PATCH',body:JSON.stringify({imageIds})}),onSuccess:done}),
   removeImage:useMutation({mutationFn:({id,imageId}:{id:string;imageId:string})=>apiRequest(`/commercial-models/${id}/images/${imageId}`,{method:'DELETE'}),onSuccess:done}),
 }};
-export interface VehicleOrder{id:string;orderNumber:string;commercialModelId:string;agencyId:string;brand:string;model:string;version:string;orderedAt:string;quantityOrdered:number;quantityReceived:number;quantityRemaining:number;status:'ordered'|'partially_received'|'received'}
-export const useVehicleOrdersQuery=(page=1,pageSize=10,requestEnabled=true)=>useQuery({queryKey:['vehicle-orders',page,pageSize],queryFn:()=>apiRequest<PagedResult<VehicleOrder>>(`/vehicle-orders?page=${page}&pageSize=${pageSize}`),enabled:enabled()&&requestEnabled});
+export interface VehicleOrder{id:string;orderNumber:string;commercialModelId:string|null;brandId:string;modelId:string;versionId:string|null;agencyId:string;agencyName:string;createdByName:string;brand:string;model:string;version:string|null;illustrationUrl:string|null;orderedAt:string;quantityOrdered:number;quantityReceived:number;quantityRemaining:number;status:'ordered'|'partially_received'|'received'}
+export interface VehicleOrderDetail extends VehicleOrder{receipts:Array<{id:string;quantityReceived:number;vehicleIds:string[];receivedAt:string;receivedByName:string}>;vehicles:Array<{id:string;stockNumber:string;vin:string|null;status:string;received:boolean}>}
+export interface VehicleOrderReferences{brands:Array<{id:string;name:string}>;models:Array<{id:string;brandId:string;name:string}>;versions:Array<{id:string;modelId:string;name:string}>}
+export const useVehicleOrderReferencesQuery=(requestEnabled=true)=>useQuery({queryKey:['vehicle-order-references'],queryFn:()=>apiRequest<VehicleOrderReferences>('/vehicle-order-references'),enabled:enabled()&&requestEnabled});
+export const useVehicleOrdersQuery=(filters:{page:number;pageSize:number;search?:string;brandId?:string;modelId?:string;status?:string;agencyId?:string},requestEnabled=true)=>useQuery({queryKey:['vehicle-orders',filters],queryFn:()=>apiRequest<PagedResult<VehicleOrder>>(`/vehicle-orders?${pageParams(filters)}`),enabled:enabled()&&requestEnabled});
+export const useVehicleOrderQuery=(id?:string,requestEnabled=true)=>useQuery({queryKey:['vehicle-orders',id,'detail'],queryFn:()=>apiRequest<VehicleOrderDetail>(`/vehicle-orders/${id}`),enabled:enabled()&&requestEnabled&&Boolean(id)});
 export const useVehicleOrderActions=()=>{const qc=useQueryClient(),done=async()=>{await Promise.all([qc.invalidateQueries({queryKey:['vehicle-orders']}),qc.invalidateQueries({queryKey:erpKeys.vehicles})])};return{
- create:useMutation({mutationFn:(body:{commercialModelId:string;quantity:number;clientRequestId:string})=>apiRequest<VehicleOrder>('/vehicle-orders',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
+ create:useMutation({mutationFn:(body:{brandId:string;modelId:string;versionId?:string;quantity:number;clientRequestId:string;illustration?:{dataUrl:string;name:string}})=>apiRequest<VehicleOrder>('/vehicle-orders',{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
  receive:useMutation({mutationFn:({id,...body}:{id:string;quantity:number;clientRequestId:string})=>apiRequest<VehicleOrder>(`/vehicle-orders/${id}/receipts`,{method:'POST',body:JSON.stringify(body)}),onSuccess:done}),
 }};
 export type QuotationCreateLine={vehicleId?:string;commercialModelId?:string;quantity:number;unitPrice:number;discount:number;description?:string};
@@ -558,6 +563,8 @@ export interface VehicleFilters {
   pageSize?: number;
   locationType?: 'PARC'|'SHOWROOM'|'GARAGE'|'';
   assignment?: string;
+  presence?: 'physical'|'ordered'|'';
+  vehicleOrderId?: string;
   excludeTestDriveReserved?: boolean;
 }
 export interface VehicleListResult {
@@ -598,7 +605,7 @@ export const useVehicleFilterOptionsQuery=(filters:{agencyId?:string;view?:Vehic
   enabled:enabled()&&requestEnabled,
 });
 export interface VehicleStats {
-  total:number; ordered:number; inTransit:number; received:number; preparation:number;
+  total:number; physical:number; ordered:number; inTransit:number; received:number; preparation:number;
   available:number; availableForSale:number; reserved:number; sold:number; delivered:number; dormant:number; stockValue?:number;
 }
 export const useVehicleStatsQuery=(agencyId?:string)=>useQuery({

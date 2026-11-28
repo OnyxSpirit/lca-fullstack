@@ -8,3 +8,5 @@
 - Stock MySQL/HTTP final : réussi, incluant KPI exacts, références libres, doublons, concurrence, idempotence et rollback.
 
 Le build dans `frontend/dist` n'a pas été écrasé à cause de droits préexistants ; l'interruption n'a donc endommagé aucun artefact existant.
+
+Clôture : lint backend final, tests documentaires ciblés 3/3, test de clôture MySQL/HTTP vert et `git diff --check` propre.

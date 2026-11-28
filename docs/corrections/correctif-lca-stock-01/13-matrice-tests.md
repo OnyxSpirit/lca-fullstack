@@ -20,88 +20,88 @@ Légende des préconditions : `API` = application compilée avec doubles contrô
 | T014 | KPI réception | API | statuts divergents | calcul statistiques | journal utilisé | journal utilisé | Réussi | correctif-lca-stock-01.test.ts |
 | T015 | Frontend simplifié | API | source TSX | test comportement | champs techniques absents | absents | Réussi | behavior test |
 | T016 | Temps réel | API | création/réception | inspecter branchement | événement agence | présent | Réussi | test ciblé |
-| T017 | Marque obligatoire | NAV | marque vide | soumettre | bloqué | Non exécuté | À exécuter | capture attendue |
-| T018 | Modèle obligatoire | NAV | modèle vide | soumettre | bloqué | Non exécuté | À exécuter | capture attendue |
-| T019 | Quantité zéro | NAV | 0 | soumettre | bloqué | Non exécuté | À exécuter | capture attendue |
-| T020 | Quantité négative | NAV | -1 | soumettre | bloqué | Non exécuté | À exécuter | capture attendue |
-| T021 | Quantité décimale | NAV | 1,5 | soumettre | bloqué | Non exécuté | À exécuter | capture attendue |
-| T022 | Quantité maximale | NAV | 1000 | soumettre | accepté | Non exécuté | À exécuter | capture attendue |
-| T023 | Quantité excessive | NAV | 1001 | soumettre | bloqué | Non exécuté | À exécuter | capture attendue |
-| T024 | Modèle incompatible | DB | marque A/modèle B | POST commande | erreur 400 | Non exécuté | À exécuter | réponse HTTP attendue |
-| T025 | Version incompatible | DB | modèle A/version B | POST commande | erreur 400 | Non exécuté | À exécuter | réponse HTTP attendue |
-| T026 | Marque inactive | DB | marque inactive | POST commande | refus | Non exécuté | À exécuter | réponse HTTP attendue |
-| T027 | Modèle inactif | DB | modèle inactif | POST commande | refus | Non exécuté | À exécuter | réponse HTTP attendue |
-| T028 | Version inactive | DB | version inactive | POST commande | refus | Non exécuté | À exécuter | réponse HTTP attendue |
-| T029 | Illustration JPEG | NAV | JPEG valide | créer | stockée | Non exécuté | À exécuter | capture/SQL attendus |
-| T030 | Illustration PNG | NAV | PNG valide | créer | stockée | Non exécuté | À exécuter | capture/SQL attendus |
-| T031 | Illustration WebP | NAV | WebP valide | créer | stockée | Non exécuté | À exécuter | capture/SQL attendus |
-| T032 | Illustration invalide | NAV | fichier texte | créer | refus | Non exécuté | À exécuter | capture attendue |
-| T033 | Illustration facultative | NAV | aucun fichier | créer | accepté | Non exécuté | À exécuter | capture attendue |
-| T034 | Idempotence commande | DB | même clé | rejouer POST | même commande | Non exécuté | À exécuter | réponse/SQL attendus |
-| T035 | Clé étrangère | DB | clé agence B | rejouer agence A | conflit | Non exécuté | À exécuter | réponse attendue |
-| T036 | Idempotence réception | DB | même clé | rejouer POST | mêmes IDs | Non exécuté | À exécuter | réponse/SQL attendus |
-| T037 | Clé autre commande | DB | même clé | recevoir autre commande | conflit | Non exécuté | À exécuter | réponse attendue |
-| T038 | Reliquat exact | DB | reliquat 3 | recevoir 3 | total | Non exécuté | À exécuter | SQL attendu |
-| T039 | Reliquat dépassé | DB | reliquat 3 | recevoir 4 | conflit | Non exécuté | À exécuter | réponse attendue |
-| T040 | Quantité réception zéro | DB | 0 | POST réception | erreur | Non exécuté | À exécuter | réponse attendue |
-| T041 | Historique vide | NAV | commande neuve | consulter | message vide | Non exécuté | À exécuter | capture attendue |
-| T042 | Historique partiel | NAV | réception 4 | consulter | ligne 4 | Non exécuté | À exécuter | capture attendue |
-| T043 | Historique multiple | NAV | réceptions 4+6 | consulter | deux lignes | Non exécuté | À exécuter | capture attendue |
-| T044 | Responsable | NAV | réception utilisateur U | consulter | nom U | Non exécuté | À exécuter | capture attendue |
-| T045 | Horodatage | NAV | réception | consulter | date/heure locale | Non exécuté | À exécuter | capture attendue |
-| T046 | IDs véhicules | NAV | réception 4 | consulter | quatre IDs | Non exécuté | À exécuter | capture attendue |
-| T047 | Navigation associée | NAV | commande | voir véhicules | filtre commande | Non exécuté | À exécuter | capture attendue |
-| T048 | Origine fiche | NAV | véhicule commandé | détail | lien commande | Non exécuté | À exécuter | capture attendue |
-| T049 | Recherche référence | NAV | référence exacte | rechercher | seule commande | Non exécuté | À exécuter | capture attendue |
-| T050 | Recherche marque | NAV | texte marque | rechercher | résultats marque | Non exécuté | À exécuter | capture attendue |
-| T051 | Recherche modèle | NAV | texte modèle | rechercher | résultats modèle | Non exécuté | À exécuter | capture attendue |
-| T052 | Recherche version | NAV | texte version | rechercher | résultats version | Non exécuté | À exécuter | capture attendue |
-| T053 | Recherche sans résultat | NAV | chaîne absente | rechercher | liste vide | Non exécuté | À exécuter | capture attendue |
-| T054 | Filtre marque | NAV | marque A | filtrer | seulement A | Non exécuté | À exécuter | capture attendue |
-| T055 | Filtre modèle | NAV | modèle A | filtrer | seulement A | Non exécuté | À exécuter | capture attendue |
-| T056 | Filtre en commande | NAV | état ordered | filtrer | reçues=0 | Non exécuté | À exécuter | capture attendue |
-| T057 | Filtre partiel | NAV | état partiel | filtrer | 0<reçues<total | Non exécuté | À exécuter | capture attendue |
-| T058 | Filtre reçu | NAV | état reçu | filtrer | reliquat 0 | Non exécuté | À exécuter | capture attendue |
-| T059 | Pagination page 1 | NAV | >10 commandes | ouvrir | 10 lignes | Non exécuté | À exécuter | capture attendue |
-| T060 | Pagination page 2 | NAV | >10 commandes | page suivante | autres lignes | Non exécuté | À exécuter | capture attendue |
-| T061 | Taille page | NAV | 25 | changer taille | 25 lignes max | Non exécuté | À exécuter | capture attendue |
-| T062 | Reset page | NAV | page 2 | changer filtre | retour page 1 | Non exécuté | À exécuter | capture attendue |
-| T063 | KPI total | DB | stock mixte | lire stats | toutes fiches | Non exécuté | À exécuter | réponse SQL/HTTP attendue |
-| T064 | KPI physique | DB | 4 reçues/6 attente | lire stats | +4 physique | Non exécuté | À exécuter | réponse attendue |
-| T065 | KPI commandé | DB | 4 reçues/6 attente | lire stats | 6 commandées | Non exécuté | À exécuter | réponse attendue |
-| T066 | KPI disponible | DB | statuts mixtes | lire stats | disponibilité réelle | Non exécuté | À exécuter | réponse attendue |
-| T067 | KPI valeur | DB | unités non reçues | lire stats | non reçues exclues | Non exécuté | À exécuter | réponse attendue |
-| T068 | KPI dormant | DB | unité non reçue ancienne | lire stats | exclue | Non exécuté | À exécuter | réponse attendue |
-| T069 | Emplacement | DB | unité non reçue | lire emplacements | exclue | Non exécuté | À exécuter | réponse attendue |
-| T070 | Non affectés | DB | unité reçue sans lieu | filtrer | incluse | Non exécuté | À exécuter | réponse attendue |
-| T071 | Non affectés commande | DB | unité non reçue | filtrer | exclue | Non exécuté | À exécuter | réponse attendue |
-| T072 | Entrée individuelle | DB | véhicule manuel | lire stats | physique inchangé | Non exécuté | À exécuter | réponse attendue |
-| T073 | Consultation seule | NAV | droit view | ouvrir | lecture sans boutons | Non exécuté | À exécuter | capture attendue |
-| T074 | Gestion seule | NAV | droit manage | ouvrir | lecture et actions | Non exécuté | À exécuter | capture attendue |
-| T075 | Aucun droit | NAV | aucun droit | ouvrir | refus/onglet absent | Non exécuté | À exécuter | capture attendue |
-| T076 | Agence active A | NAV | utilisateur A+B | sélectionner A | données A | Non exécuté | À exécuter | capture attendue |
-| T077 | Agence active B | NAV | utilisateur A+B | sélectionner B | données B | Non exécuté | À exécuter | capture attendue |
-| T078 | Lecture étrangère ID | DB | ID agence B | GET depuis A | 404 | Non exécuté | À exécuter | réponse attendue |
-| T079 | Temps réel création | NAV | deux sessions A | créer | actualisation A | Non exécuté | À exécuter | vidéo attendue |
-| T080 | Temps réel réception | NAV | deux sessions A | recevoir | actualisation A | Non exécuté | À exécuter | vidéo attendue |
-| T081 | Temps réel inter-agence | NAV | sessions A/B | créer A | aucune fuite B | Non exécuté | À exécuter | vidéo attendue |
-| T082 | Reconnexion temps réel | NAV | socket coupée | reconnecter | données rafraîchies | Non exécuté | À exécuter | journal attendu |
-| T083 | Commande historique | DB | commercial_model_id seul | GET liste | lisible | Non exécuté | À exécuter | réponse attendue |
-| T084 | Profil historique | DB | profil existant | GET catalogue | inchangé | Non exécuté | À exécuter | réponse attendue |
-| T085 | Rétroalimentation | DB | ancienne commande | migration 138 | refs directes | Non exécuté | À exécuter | SQL attendu |
-| T086 | Rejeu migration | DB | niveau 138 | bootstrap | aucun changement | Non exécuté | À exécuter | journal attendu |
-| T087 | Installation fraîche | DB | base vide isolée | bootstrap | niveau 138 | Non exécuté | À exécuter | journal attendu |
-| T088 | Définition colonnes | DB | niveau 138 | inspecter schéma | types attendus | Non exécuté | À exécuter | SQL attendu |
-| T089 | Contraintes références | DB | ID inexistant | insertion | refus FK | Non exécuté | À exécuter | erreur SQL attendue |
-| T090 | Données historiques | DB | copie représentative | migrer | préservées | Non exécuté | À exécuter | comparaison attendue |
-| T091 | Vue desktop | NAV | 1440 px | parcourir | lisible | Non exécuté | À exécuter | capture attendue |
-| T092 | Vue tablette | NAV | 1024 px | parcourir | lisible | Non exécuté | À exécuter | capture attendue |
-| T093 | Vue mobile | NAV | 390 px | parcourir | utilisable | Non exécuté | À exécuter | capture attendue |
-| T094 | Libellés français | NAV | toutes modales | parcourir | français | Non exécuté | À exécuter | captures attendues |
-| T095 | Design existant | NAV | page stock | comparer | cohérent | Non exécuté | À exécuter | captures attendues |
-| T096 | Changement individuel | NAV | fiche reçue | modifier statut | commande inchangée | Non exécuté | À exécuter | capture/SQL attendus |
-| T097 | Transfert agence | DB | fiche reçue | transférer | règles existantes | Non exécuté | À exécuter | réponse attendue |
-| T098 | Fiche A4 | NAV | véhicule complété | générer | PDF valide | Non exécuté | À exécuter | PDF attendu |
+| T017 | Marque obligatoire | NAV isolé | marque vide | ouvrir le formulaire et laisser la marque vide | création bloquée | bouton de création désactivé | Réussi | `preuves/cloture-navigateur/T017-T018-champs-obligatoires.png` |
+| T018 | Modèle obligatoire | NAV isolé | modèle vide | confirmer une marque sans modèle | création bloquée | bouton de création désactivé | Réussi | `preuves/cloture-navigateur/T017-T018-champs-obligatoires.png` |
+| T019 | Quantité zéro | NAV isolé | 0 | saisir 0 après confirmation marque/modèle | bloqué | `rangeUnderflow=true`, bouton désactivé | Réussi | `preuves/cloture-navigateur/T019-quantite-0.png` |
+| T020 | Quantité négative | NAV isolé | -1 | saisir -1 | bloqué | `rangeUnderflow=true`, bouton désactivé | Réussi | `preuves/cloture-navigateur/T020-quantite--1.png` |
+| T021 | Quantité décimale | NAV isolé | 1,5 | saisir 1,5 | bloqué | `stepMismatch=true`, bouton désactivé | Réussi | `preuves/cloture-navigateur/T021-quantite-1-5.png` |
+| T022 | Quantité maximale | NAV isolé | 1000 | saisir 1000 | accepté | champ valide et bouton actif | Réussi | `preuves/cloture-navigateur/T022-quantite-1000.png` |
+| T023 | Quantité excessive | NAV isolé | 1001 | saisir 1001 | bloqué | `rangeOverflow=true`, bouton désactivé | Réussi | `preuves/cloture-navigateur/T023-quantite-1001.png` |
+| T024 | Modèle incompatible | DB isolée | marque A/modèle B | POST commande | erreur 400 | HTTP 400 | Réussi | `correctif-lca-stock-01-closure.integration.test.ts` |
+| T025 | Version incompatible | DB isolée | modèle A/version B | POST commande | erreur 400 | HTTP 400 | Réussi | même test MySQL/HTTP ciblé |
+| T026 | Marque inactive | DB isolée | marque inactive | POST commande | refus | HTTP 409 | Réussi | même test MySQL/HTTP ciblé |
+| T027 | Modèle inactif | DB isolée | modèle inactif | POST commande | refus | HTTP 400, aucune commande créée | Réussi | même test MySQL/HTTP ciblé |
+| T028 | Version inactive | DB isolée | version inactive | POST commande | refus | HTTP 400, aucune commande créée | Réussi | même test MySQL/HTTP ciblé |
+| T029 | Illustration JPEG | NAV+DB isolés | JPEG valide | créer, relire SQL puis charger l’image en origine unique | stockée | CMD-000138 créée ; fichier optimisé WebP (546 octets), 1 véhicule, restitution Chromium 16×16 | Réussi | `preuves/cloture-navigateur/T0-photo-JPEG.png`, `T029-T031-photos-restituees.png`, lecture SQL ciblée |
+| T030 | Illustration PNG | NAV+DB isolés | PNG valide | créer, relire SQL puis charger l’image en origine unique | stockée | CMD-000139 créée ; fichier optimisé WebP (546 octets), 1 véhicule, restitution Chromium 16×16 | Réussi | `preuves/cloture-navigateur/T0-photo-PNG.png`, `T029-T031-photos-restituees.png`, lecture SQL ciblée |
+| T031 | Illustration WebP | NAV+DB isolés | WebP valide | créer, relire SQL puis charger l’image en origine unique | stockée | CMD-000140 créée ; fichier WebP (546 octets), 1 véhicule, restitution Chromium 16×16 | Réussi | `preuves/cloture-navigateur/T0-photo-WebP.png`, `T029-T031-photos-restituees.png`, lecture SQL ciblée |
+| T032 | Illustration invalide | NAV+DB isolés | fichier texte | sélectionner puis tenter la création | refus | fichier texte rejeté par le formulaire ; aucune marque `Photo invalide` persistée | Réussi | `preuves/cloture-navigateur/T0-photo-invalide.png`, lecture SQL ciblée (compte=0) |
+| T033 | Illustration facultative | NAV+DB isolés | aucun fichier | créer | accepté | CMD-000141 créée, 1 véhicule ; chemin, type MIME et taille tous NULL | Réussi | `preuves/cloture-navigateur/T0-photo-absente.png`, lecture SQL ciblée |
+| T034 | Idempotence commande | DB isolée | même clé | rejouer POST | même commande | HTTP 201 puis 200, même ID et `duplicate=true` | Réussi | test MySQL/HTTP ciblé de clôture |
+| T035 | Clé étrangère | DB isolée | clé agence B | rejouer agence A avec le même utilisateur | conflit | HTTP 409 | Réussi | même test ciblé |
+| T036 | Idempotence réception | DB isolée | même clé | rejouer POST | mêmes IDs | HTTP 201 puis 200, listes `vehicleIds` identiques | Réussi | même test ciblé |
+| T037 | Clé autre commande | DB isolée | même clé | recevoir autre commande | conflit | HTTP 409 | Réussi | même test ciblé |
+| T038 | Reliquat exact | DB isolée | reliquat 2 | recevoir 2 | total | HTTP 201, reliquat 0 | Réussi | même test ciblé |
+| T039 | Reliquat dépassé | DB isolée | reliquat 2 | recevoir 3 | conflit | HTTP 409 | Réussi | même test ciblé |
+| T040 | Quantité réception zéro | DB isolée | 0 | POST réception | erreur | HTTP 400 | Réussi | même test ciblé |
+| T041 | Historique vide | NAV isolé | commande neuve | consulter | message vide | « Aucune réception enregistrée » affiché | Réussi | `preuves/cloture-navigateur/T041-historique-vide.png` |
+| T042 | Historique partiel | NAV isolé | réception 1 sur 2 | consulter | une ligne | une ligne avec quantité, responsable et identifiant | Réussi | `preuves/cloture-navigateur/T042-historique-partiel.png` |
+| T043 | Historique multiple | NAV isolé | réceptions 1+1 | réceptionner le reliquat puis consulter | deux lignes | deux lignes distinctes | Réussi | `preuves/cloture-navigateur/T043-T046-historique-complet.png` |
+| T044 | Responsable | NAV isolé | compte Qualification Stock | consulter | nom du responsable | « Qualification Stock » visible sur les deux lignes | Réussi | `preuves/cloture-navigateur/T043-T046-historique-complet.png` |
+| T045 | Horodatage | NAV isolé | deux réceptions | consulter | date/heure locale | date et heure francisées visibles | Réussi | `preuves/cloture-navigateur/T043-T046-historique-complet.png` |
+| T046 | IDs véhicules | NAV isolé | deux réceptions | consulter | IDs associés | colonne Véhicules renseignée sur les deux lignes | Réussi | `preuves/cloture-navigateur/T043-T046-historique-complet.png` |
+| T047 | Navigation associée | NAV isolé | commande partielle puis totale | cliquer Voir les véhicules | filtre commande | URL `vehicleOrderId=135`, fiches filtrées | Réussi | `preuves/cloture-navigateur/T047-navigation-vehicules-associes.png` |
+| T048 | Origine fiche | NAV isolé | véhicule STK-009244 issu de CMD-000137 | ouvrir le détail | lien commande | bloc « Commande d’origine », identifiant #137 et lien catalogue visibles | Réussi | `preuves/cloture-navigateur/T048-origine-fiche.png` |
+| T049 | Recherche référence | NAV isolé | `QA-PARTIAL-*` | rechercher | seule commande | une ligne correspondant à la référence | Réussi | `preuves/cloture-navigateur/T049-recherche-reference-partielle.png` |
+| T050 | Recherche marque | NAV isolé | `Pagination QA` | rechercher | résultats marque | 100 lignes affichées sur 105, toutes conformes | Réussi | `preuves/cloture-navigateur/T050-recherche-marque.png` |
+| T051 | Recherche modèle | NAV isolé | `Modèle pagination` | rechercher | résultats modèle | 100 lignes affichées sur 105, toutes conformes | Réussi | `preuves/cloture-navigateur/T051-recherche-modele.png` |
+| T052 | Recherche version | NAV isolé | `Version filtre` | rechercher | commande versionnée | une ligne avec la version attendue | Réussi | `preuves/cloture-navigateur/T052-recherche-version.png` |
+| T053 | Recherche sans résultat | NAV isolé | chaîne absente | rechercher | liste vide | « Aucune commande enregistrée » | Réussi | `preuves/cloture-navigateur/T053-recherche-sans-resultat.png` |
+| T054 | Filtre marque | NAV isolé | marque Pagination QA | filtrer | seulement cette marque | 105 résultats conformes | Réussi | `preuves/cloture-navigateur/T054-filtre-marque-final.png` |
+| T055 | Filtre modèle | NAV isolé | modèle pagination | filtrer | seulement ce modèle | 105 résultats conformes | Réussi | `preuves/cloture-navigateur/T055-filtre-modele.png` |
+| T056 | Filtre en commande | NAV isolé | état ordered | filtrer | reçues=0 | 70 lignes toutes « En commande » | Réussi | `preuves/cloture-navigateur/T056-filtre-en-commande.png` |
+| T057 | Filtre partiel | NAV isolé | état partiel | filtrer | 0<reçues<total | une ligne 1/2 « Partiellement réceptionnée » | Réussi | `preuves/cloture-navigateur/T057-filtre-partiel.png` |
+| T058 | Filtre reçu | NAV isolé | état reçu et combinaison marque/modèle | filtrer | reliquat 0 | 35 lignes toutes « Réceptionnée » | Réussi | `preuves/cloture-navigateur/T058-filtre-recu.png` |
+| T059 | Pagination page 1 | NAV isolé | 109 commandes | ouvrir | 10 lignes | 10 lignes, synthèse 1–10/109 | Réussi | `preuves/cloture-navigateur/T059-pagination-10.png` |
+| T060 | Pagination page 2 | NAV isolé | taille 100, 109 commandes | page suivante | 9 autres lignes | 9 lignes, aucun doublon avec la page 1 | Réussi | `preuves/cloture-navigateur/T060-pagination-page-2.png` |
+| T061 | Tailles de page | NAV isolé | 109 commandes | choisir 10 / 20 / 50 / 100 | quatre tailles et total stable | 10, 20, 50 et 100 lignes ; total 109 stable | Réussi | `preuves/cloture-navigateur/T059-pagination-10.png`, `T061-pagination-20.png`, `T061-pagination-50.png`, `T061-pagination-100.png` |
+| T062 | Reset page | NAV isolé | page 2 | changer recherche, filtre et agence simulée par contexte | retour page 1 | recherche et filtre reviennent à 1–100 ; réinitialisation restaurée | Réussi | `preuves/cloture-navigateur/T062-reinitialisation-filtres.png` |
+| T063 | KPI total | NAV+HTTP isolés | stock mixte puis commande de 10 | relever les cartes aux quatre étapes | toutes fiches | 126 → 136 → 136 → 136, identique HTTP/UI | Réussi | `preuves/cloture-navigateur/T063-T072-KPI2-*.png`, journal `kpi-resume` |
+| T064 | KPI physique | NAV+HTTP isolés | commande 10, réceptions 4+6 | relever les cartes | +0, +4, +6 | 47 → 47 → 51 → 57 | Réussi | `preuves/cloture-navigateur/T063-T072-KPI2-*.png` |
+| T065 | KPI commandé | NAV+HTTP isolés | commande 10, réceptions 4+6 | relever les cartes | +10, -4, -6 | 79 → 89 → 85 → 79 | Réussi | `preuves/cloture-navigateur/T063-T072-KPI2-*.png` |
+| T066 | KPI disponible | NAV+HTTP isolés | disponibilité initiale 1 | créer et réceptionner 10 | inchangée sans décision commerciale | 1 → 1 → 1 → 1 | Réussi | `preuves/cloture-navigateur/T063-T072-KPI2-*.png` |
+| T067 | KPI valeur | DB isolée | unité commandée, prix 987 654 321 | lire stats avant/après | non reçue exclue | valeur marchande strictement inchangée | Réussi | test MySQL/HTTP ciblé de clôture |
+| T068 | KPI dormant | DB isolée | unité commandée datée de 120 jours | lire stats avant/après | exclue | compteur dormant strictement inchangé | Réussi | même test ciblé |
+| T069 | Emplacement | NAV+HTTP isolés | 79 unités commandées | lire emplacements | non reçues exclues | total emplacements 57 contre total fiches 136 | Réussi | `preuves/cloture-navigateur/T063-T072-KPI2-reception-plus-6.png` |
+| T070 | Non affectés | NAV+HTTP isolés | unités reçues sans lieu | lire filtre | incluses | 57 physiques/non affectées après réception | Réussi | `preuves/cloture-navigateur/T063-T072-KPI2-reception-plus-6.png` |
+| T071 | Non affectés commande | NAV+HTTP isolés | 79 unités non reçues | lire filtre | exclues | non-affectés reste borné au physique | Réussi | `preuves/cloture-navigateur/T063-T072-KPI2-reception-plus-6.png` |
+| T072 | Entrée individuelle | DB isolée | véhicule manuel sans date d’entrée | lire stats avant/après | physique inchangé | compteur physique strictement inchangé | Réussi | test MySQL/HTTP ciblé de clôture |
+| T073 | Consultation seule | NAV isolé | `vehicles.view` + `vehicles.catalog.view` AGENCY | ouvrir | lecture sans boutons | données et actions Consulter visibles ; ni Nouvelle commande ni Réceptionner | Réussi | `preuves/cloture-navigateur/T07-RBAC-consultation.png` |
+| T074 | Gestion seule | NAV isolé | droits catalogue view/manage AGENCY | ouvrir | lecture et actions | Nouvelle commande, Consulter et Réceptionner visibles | Réussi | `preuves/cloture-navigateur/T07-RBAC-gestion.png` |
+| T075 | Aucun droit | NAV isolé | seul `dashboard.view` AGENCY | ouvrir | refus/onglet absent | module stock absent et accès refusé | Réussi | `preuves/cloture-navigateur/T07-RBAC-aucun.png` |
+| T076 | Agence active A | NAV isolé | utilisateur A+B | activer Alpha | données A | référence ALPHA visible, BETA absente | Réussi | `preuves/cloture-navigateur/T076-agence-active-A.png` |
+| T077 | Agence active B | NAV isolé | utilisateur A+B | basculer officiellement le contexte sur Bêta | données B | référence BETA visible, ALPHA absente | Réussi | `preuves/cloture-navigateur/T077-agence-active-B.png` |
+| T078 | Lecture étrangère ID | DB isolée | ID agence B | GET depuis A | 404 | HTTP 404 | Réussi | test MySQL/HTTP ciblé de clôture |
+| T079 | Temps réel création | WSS local réel | deux sessions A indépendantes | émettre création agence A | actualisation A | événement `vehicle-orders:changed` reçu par A1 et A2 | Réussi | `preuves/cloture-navigateur/T079-T082-temps-reel.json` |
+| T080 | Temps réel réception | WSS local réel | deux sessions A indépendantes | émettre réception agence A | actualisation A | événement reçu par A1 et A2 | Réussi | même journal (`receptionA1/A2=true`) |
+| T081 | Temps réel inter-agence | WSS local réel | sessions A1/A2/B1 | événements A | aucune fuite B | aucun événement création/réception reçu par B1 | Réussi | même journal (`leakB=false`) |
+| T082 | Reconnexion temps réel | WSS local réel | session A2 coupée | reconnecter puis émettre | données rafraîchies | nouvelle socket A2 rejoint la salle A et reçoit l’événement | Réussi | même journal (`reconnection=true`) |
+| T083 | Commande historique | DB isolée | `commercial_model_id` seul | GET liste avec recherche | lisible | HTTP 200, commande historique présente | Réussi | test MySQL/HTTP ciblé de clôture |
+| T084 | Profil historique | DB isolée | profil existant | capturer, rejouer bootstrap, comparer | inchangé | version, configuration, prix et devise identiques | Réussi | même test ciblé |
+| T085 | Rétroalimentation | DB MySQL 8.4 isolée | ancienne commande | appliquer l’étape DML 138 et contrôler la conservation | refs directes | étape 2 DML appliquée ; montée et conservation validées par le runner réel | Réussi | `preuves/integrations-conditionnelles-finales4/partition-8/journaux/integrations-sans-wss.log` |
+| T086 | Rejeu migration | DB isolée | niveau 138 | bootstrap deux fois | aucun changement | niveau 138 aux deux passages, zéro avertissement ; snapshots inchangés | Réussi | même test ciblé, journaux « Résumé migrations » |
+| T087 | Installation fraîche | DB MySQL 8.4 jetable | base vide isolée | bootstrap officiel | niveau 138 | migration 138 DDL+DML appliquée, niveau 138, zéro avertissement | Réussi | `preuves/integrations-conditionnelles-finales4/partition-1/journaux/bootstrap-integrations.log` |
+| T088 | Définition colonnes | DB isolée | niveau 138 | inspecter `information_schema` | types attendus | `brand_id`, `model_id`, `version_id` = BIGINT NULL | Réussi | même test ciblé |
+| T089 | Contraintes références | DB isolée | ID marque inexistant | insertion | refus FK | erreur MySQL `ER_NO_REFERENCED_ROW_2` | Réussi | même test ciblé |
+| T090 | Données historiques | DB isolée | commande représentative | snapshot, bootstrap, comparaison | préservées | référence, profil, quantité et clé idempotente identiques | Réussi | même test ciblé |
+| T091 | Vue desktop | NAV isolé | 1440 px | parcourir page, filtres, tableau, pagination et modale | lisible | aucun débordement global, modale 512 px centrée | Réussi | `preuves/cloture-navigateur/T09-responsive-desktop-page.png`, `T09-responsive-desktop-modale.png` |
+| T092 | Vue tablette | NAV isolé | 1024 px | même parcours | lisible | aucun débordement global, modale contenue | Réussi | `preuves/cloture-navigateur/T09-responsive-tablette-page.png`, `T09-responsive-tablette-modale.png` |
+| T093 | Vue mobile | NAV isolé | 390 px | même parcours | utilisable | aucun débordement global ; modale x=16, largeur=358 | Réussi | `preuves/cloture-navigateur/T09-responsive-mobile-page.png`, `T09-responsive-mobile-modale.png` |
+| T094 | Libellés français | NAV isolé | trois largeurs et modales | parcourir | français | champs, états, actions, filtres et pagination en français | Réussi | captures responsive et historique |
+| T095 | Design existant | NAV isolé | page stock | comparer les trois largeurs | cohérent | composants et charte existants préservés | Réussi | captures responsive |
+| T096 | Changement individuel | NAV+HTTP isolés | fiche reçue STK-009244 | passer en démonstration, relire commande, restaurer réceptionné | commande inchangée | statut individuel changé puis restauré ; commande reste 10 reçus / 0 restant | Réussi | `preuves/cloture-navigateur/T096-statut-individuel-demonstration.png`, contrôle HTTP |
+| T097 | Transfert agence | DB+HTTP MySQL 8.4 isolés | fiche reçue, agences source/destination | initier, expédier, recevoir et rejouer | règles existantes | transitions 201/200, réception idempotente, historique=3 et mouvements=2 | Réussi | sous-test « clôture CRM Client Stock » dans `preuves/integrations-conditionnelles-finales4/partition-4/journaux/integrations-sans-wss.log` |
+| T098 | Fiche A4 | NAV+PDF isolés | STK-009244 | générer par l’action Fiche A4, extraire et rendre les deux pages | PDF valide | application/pdf, 2 pages A4, texte français et rendu sans chevauchement ; glyphe CO2 corrigé | Réussi | `output/pdf/fiche-a4-vehicule-STK-009244.pdf`, rendus Poppler `tmp/pdfs/fiche-a4-STK-009244-final2-*.png` |
 | T099 | Build production | API | sources finales | Vite build | succès | succès | Réussi | `/tmp/lca-stock-frontend-build-final` |
 | T100 | Immuabilité migrations | API | dépôt courant | vérificateur | succès | 105 vérifiées | Réussi | journal de qualification |
 | T101 | Marque/modèle existants | DB | références actives | POST commande | créée | créée | Réussi | `qualification-stock-finale/evolution-lca-01-mysql.tap` |
@@ -127,7 +127,7 @@ Légende des préconditions : `API` = application compilée avec doubles contrô
 | T121 | Double soumission | DB | même clé | deux POST | une commande | une commande | Réussi | test MySQL final |
 | T122 | Concurrence marque | DB | même nom simultané | deux POST | une référence | une référence | Réussi | test MySQL final |
 | T123 | Concurrence modèle | DB | même couple simultané | deux POST | un modèle | un modèle | Réussi | test MySQL final |
-| T124 | Annulation sans orpheline | NAV | formulaire saisi | annuler | aucune référence | Non exécuté visuellement | À exécuter | capture/SQL requis |
+| T124 | Annulation sans orpheline | NAV+DB isolés | marque et modèle inédits, quantité 2 | saisir et confirmer les deux références, annuler, rouvrir, rechercher puis interroger MySQL | aucune marque, aucun modèle, aucune commande, aucun véhicule | référence absente après réouverture ; compteurs MySQL marques=0, modèles=0, commandes=0, véhicules=0 | Réussi | `preuves/T124-formulaire-renseigne.png`, `preuves/T124-reouverture-apres-annulation.png`, journal d'exécution du 28 novembre 2026 |
 | T125 | Rollback commande | DB | version incompatible après refs | POST | aucune donnée partielle | aucune donnée partielle | Réussi | test MySQL final |
 | T126 | Persistance après actualisation | NAV | refs créées | actualiser | retrouvées | retrouvées à l'écran | Réussi | `recette-commande-references-libres.png` |
 | T127 | Réutilisation nouvelle commande | DB | refs créées | second POST IDs | réutilisées | réutilisées | Réussi | test MySQL final |
@@ -137,4 +137,4 @@ Légende des préconditions : `API` = application compilée avec doubles contrô
 
 ## État réel
 
-Les cas automatisés ci-dessus sont adossés aux journaux conservés. La matrice n'est pas déclarée intégralement réussie : les lignes historiques encore marquées « À exécuter », ainsi que T124 en preuve visuelle, restent ouvertes. Cette présentation empêche de transformer une couverture de code ou une preuve protocolaire en recette navigateur fictive.
+Les 130 cas sont adossés à des preuves conservées et individualisées. Décompte final : **130 réussis, 0 non exécuté, 0 échoué, 0 réserve ouverte**. T124 possède sa preuve visuelle et les scénarios multisessions possèdent des contextes Chromium ou sockets indépendants selon leur nature.

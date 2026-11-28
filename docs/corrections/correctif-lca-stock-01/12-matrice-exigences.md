@@ -16,4 +16,4 @@
 | MySQL 8.4 | Migration 138 appliquée | Conforme |
 | Recette navigateur | Parcours et création avec références libres capturés ; parcours exhaustif restant | Réserve |
 | Non-régression globale | Backend 2 399 sans échec, frontend 1 103 sans échec, intégrations dédiées exécutées | Conforme |
-| Temps réel WSS/TLS | Connexion/reconnexion/révocation réussies ; démonstration visuelle trois sessions restante | Réserve partielle |
+| Temps réel WSS/TLS | Connexion/reconnexion/révocation réussies ; trois sessions A1/A2/B1, propagation agence A et absence de fuite B prouvées | Conforme |

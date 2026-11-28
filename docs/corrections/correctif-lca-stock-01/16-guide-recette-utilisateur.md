@@ -10,3 +10,5 @@
 8. Cliquer **Consulter** pour vérifier date, responsable, quantité et identifiants ; puis **Voir les véhicules**.
 9. Réceptionner le reliquat et vérifier l'état « Réceptionnée » et « En commande » revenu à zéro pour ce lot.
 10. Tester recherche, filtres et pagination 10/20/50/100, puis changer d'agence active pour vérifier l'isolation.
+
+11. Vérifier la fiche A4 rendue, les profils lecture/gestion/refus et les événements temps réel sur deux sessions de l'agence A et une session de l'agence B.

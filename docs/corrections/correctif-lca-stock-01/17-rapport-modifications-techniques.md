@@ -7,3 +7,4 @@
 - Temps réel : événement `vehicle-orders:changed` limité à l'agence.
 - Tests : contrats ciblés backend/frontend, scénario MySQL/HTTP KPI et références libres, suite globale, 107 intégrations conditionnelles rapprochées et banc WSS/TLS.
 - Qualification : partitionnement optionnel du lanceur conditionnel, canonicalisation du répertoire de preuve GED ; comportement par défaut et inventaire 107 inchangés.
+- Clôture : ajout d'un test MySQL/HTTP reproductible, preuves Chromium/WebSocket/PDF et correction documentaire limitée du glyphe `CO2`.

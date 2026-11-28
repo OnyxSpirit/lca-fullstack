@@ -3,6 +3,9 @@ set -eu
 
 proof_root="${QUALIFICATION_PROOF_ROOT:?QUALIFICATION_PROOF_ROOT requis}"
 mkdir -p "$proof_root/journaux" "$proof_root/runtime/ged" "$proof_root/runtime/uploads" "$proof_root/resultats"
+# Les tests de compensation GED comparent des chemins absolus. Canonicaliser ici évite
+# qu'un chemin pourtant identique contenant « .. » soit interprété comme extérieur.
+proof_root="$(cd "$proof_root" && pwd)"
 
 node_major="$(node -p 'process.versions.node.split(`.`)[0]')"
 test "$node_major" = "22" || { echo "Node.js 22 requis, version détectée: $(node --version)" >&2; exit 2; }
@@ -44,6 +47,13 @@ node --import tsx src/scripts/seed-admin.ts > "$proof_root/journaux/seed-admin-i
 
 set +e
 conditional_files="$(node --import tsx scripts/inventory-conditional-integrations.ts | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>console.log([...new Set(JSON.parse(s).rows.map(r=>r.file))].join("\n")))')"
+if [ "${QUALIFICATION_SHARD_COUNT:-}" != "" ]; then
+  shard_count="${QUALIFICATION_SHARD_COUNT}"; shard_index="${QUALIFICATION_SHARD_INDEX:?QUALIFICATION_SHARD_INDEX requis avec QUALIFICATION_SHARD_COUNT}"
+  echo "$shard_count:$shard_index" | grep -Eq '^[1-9][0-9]*:[1-9][0-9]*$' || { echo "Partition de qualification invalide" >&2; exit 4; }
+  test "$shard_index" -le "$shard_count" || { echo "Index de partition supérieur au nombre de partitions" >&2; exit 4; }
+  conditional_files="$(printf '%s\n' "$conditional_files" | awk -v count="$shard_count" -v shard="$shard_index" '((NR-1)%count)+1==shard')"
+  test "$conditional_files" != "" || { echo "Partition conditionnelle vide" >&2; exit 4; }
+fi
 # L’expansion est volontaire : l’inventaire AST ne produit que des chemins internes sans espaces.
 # QUALIFICATION_ALL_BACKEND=1 reste disponible pour exécuter également tous les tests unitaires.
 if [ "${QUALIFICATION_ALL_BACKEND:-0}" = "1" ]; then

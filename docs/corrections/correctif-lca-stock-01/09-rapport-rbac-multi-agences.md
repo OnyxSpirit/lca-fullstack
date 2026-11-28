@@ -1,3 +1,3 @@
 # RBAC et multi-agences
 
-Lecture : `vehicles.catalog.view` ou `vehicles.catalog.manage`. Écriture et réception : `vehicles.catalog.manage`. Toutes les commandes et réceptions sont bornées par l'agence active ; une commande étrangère est absente des listes et renvoie 404 à la réception. Les scopes restent exclusivement `OWN` et `AGENCY`.
+Lecture : `vehicles.catalog.view` ou `vehicles.catalog.manage`. Création de commande, création transactionnelle de références dans ce parcours et réception : `vehicles.catalog.manage`. Ce droit spécialisé ne confère pas les droits généraux de paramétrage central. Le frontend masque les actions sans ce droit et le backend l'impose. Toutes les opérations sont bornées par l'agence active ; les scopes restent exclusivement `OWN` et `AGENCY`.

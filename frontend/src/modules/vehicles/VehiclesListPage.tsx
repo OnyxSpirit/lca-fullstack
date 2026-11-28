@@ -141,7 +141,7 @@ export const VehiclesListPage: React.FC = () => {
 
         {canViewFinancials&&<div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-xs text-slate-500 font-medium">Valeur Marchande du Parc</span>
+            <span className="text-xs text-slate-500 font-medium">Valeur marchande du parc</span>
             <div className="text-xl font-bold text-blue-700 mt-0.5">
               {formatCurrency(totalStockValue,vehicles[0]?.currencyCode??'XAF')}
             </div>
@@ -160,7 +160,7 @@ export const VehiclesListPage: React.FC = () => {
           <div>
             <span className="text-xs text-amber-700 font-semibold flex items-center gap-1">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-              Stock Dormant (&gt; 60 jours)
+              Stock dormant (&gt; 60 jours)
             </span>
             <div className="text-xl font-bold text-rose-600 mt-0.5">
               {dormantCount} véhicules

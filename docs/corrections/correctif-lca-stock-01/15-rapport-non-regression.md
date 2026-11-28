@@ -1,10 +1,10 @@
 # Non-régression
 
-- Backend : build et lint réussis.
-- Frontend : lint et build Vite de production réussis dans `/tmp/lca-stock-frontend-build-final`.
-- Tests ciblés STOCK-01 : réussis.
-- Test MySQL/HTTP EVOLUTION-LCA-01 adapté : réussi sur la recette isolée.
-- Vérification d'immuabilité : réussie hors bac à sable.
-- Suite backend globale : relancée ; les échecs observés concernent des prérequis DB/session/PDF déjà extérieurs au correctif. Le résultat final détaillé doit être conservé avant levée de réserve.
+- Backend Node 22 : lint et build réussis.
+- Frontend Node 22 : lint et build Vite réussis dans `.artifacts/correctif-lca-stock-01-final`.
+- Backend standard : 2 399 tests, 2 292 réussis, 0 échec, 107 ignorés conditionnels (`preuves/backend-standard-final2.tap`).
+- Frontend complet : 1 103 tests, 1 103 réussis, 0 échec, 0 ignoré (`preuves/frontend-complet-final.tap`).
+- Inventaire conditionnel : 107 déclarations dans 80 fichiers. Les 105 cas communs ont été réellement activés dans huit partitions MySQL ; le seul sous-test défaillant a révélé un chemin GED contenant `..`, le lanceur l'a canonicalisé et le fichier complet a réussi au rejeu. Le provisionnement administrateur a ensuite réussi sur base vierge dédiée et le WSS sur banc TLS dédié.
+- Stock MySQL/HTTP final : réussi, incluant KPI exacts, références libres, doublons, concurrence, idempotence et rollback.
 
-Le build dans `frontend/dist` n'a pas été utilisé à cause de droits préexistants ; le même build réussit vers un répertoire isolé.
+Le build dans `frontend/dist` n'a pas été écrasé à cause de droits préexistants ; l'interruption n'a donc endommagé aucun artefact existant.

@@ -1,4 +1,4 @@
-# Matrice de 100 cas individualisés
+# Matrice de 130 cas individualisés
 
 Légende des préconditions : `API` = application compilée avec doubles contrôlés ; `DB` = MySQL 8.4 isolé au niveau 138 ; `NAV` = instance navigateur isolée reconstruite. « À exécuter » n'est jamais présenté comme un succès.
 
@@ -104,3 +104,37 @@ Légende des préconditions : `API` = application compilée avec doubles contrô
 | T098 | Fiche A4 | NAV | véhicule complété | générer | PDF valide | Non exécuté | À exécuter | PDF attendu |
 | T099 | Build production | API | sources finales | Vite build | succès | succès | Réussi | `/tmp/lca-stock-frontend-build-final` |
 | T100 | Immuabilité migrations | API | dépôt courant | vérificateur | succès | 105 vérifiées | Réussi | journal de qualification |
+| T101 | Marque/modèle existants | DB | références actives | POST commande | créée | créée | Réussi | `qualification-stock-finale/evolution-lca-01-mysql.tap` |
+| T102 | Recherche marque existante | NAV | marque existante | saisir son nom | proposition | proposition observée | Réussi | `recette-nouvelle-commande.png` |
+| T103 | Recherche modèle existant | DB | modèle de la marque | lire référentiels | modèle filtré | modèle filtré | Réussi | test MySQL/HTTP final |
+| T104 | Nouvelle marque/nouveau modèle | DB+NAV | noms absents | ajouter puis créer | refs+commande | refs+commande | Réussi | test MySQL + `recette-commande-references-libres.png` |
+| T105 | Marque existante/nouveau modèle | DB | marque active | POST nom modèle | modèle+commande | modèle+commande | Réussi | test MySQL final |
+| T106 | Sans version | DB | version omise | POST | accepté | accepté | Réussi | test MySQL final |
+| T107 | Sans photographie | DB+NAV | illustration omise | POST | accepté | accepté | Réussi | test MySQL + capture |
+| T108 | Avec photographie | DB | PNG valide | POST | stockée | stockée | Réussi | suite backend conditionnelle |
+| T109 | Marque vide | DB | `brandName=''` | POST | 400 | 400 | Réussi | test MySQL final |
+| T110 | Modèle vide | DB | `modelName=''` | POST | 400 | 400 | Réussi | test MySQL final |
+| T111 | Marque espaces | DB | espaces | POST | 400 | 400 | Réussi | test MySQL final |
+| T112 | Modèle espaces | DB | espaces | POST | 400 | 400 | Réussi | test MySQL final |
+| T113 | Casse marque | DB | nom en casse différente | POST | réutilisée | réutilisée | Réussi | test MySQL final |
+| T114 | Casse modèle | DB | nom en casse différente | POST | réutilisé | réutilisé | Réussi | test MySQL final |
+| T115 | Espaces superflus | DB | espaces internes/externes | POST | normalisés | normalisés | Réussi | test MySQL final |
+| T116 | Même modèle, deux marques | DB | deux marques | créer | deux modèles distincts | distincts | Réussi | test MySQL final |
+| T117 | Changement marque | UI | modèle sélectionné | changer marque | modèle/version vidés | contrat UI vérifié | Réussi | behavior frontend |
+| T118 | Modèle incompatible | DB | IDs croisés | POST | 400 | 400 | Réussi | test MySQL final |
+| T119 | Marque inactive | DB | marque inactive | POST | refus français | refus français | Réussi | test MySQL final |
+| T120 | Modèle inactif | DB | modèle inactif | POST | refus français | refus français | Réussi | test MySQL final |
+| T121 | Double soumission | DB | même clé | deux POST | une commande | une commande | Réussi | test MySQL final |
+| T122 | Concurrence marque | DB | même nom simultané | deux POST | une référence | une référence | Réussi | test MySQL final |
+| T123 | Concurrence modèle | DB | même couple simultané | deux POST | un modèle | un modèle | Réussi | test MySQL final |
+| T124 | Annulation sans orpheline | NAV | formulaire saisi | annuler | aucune référence | Non exécuté visuellement | À exécuter | capture/SQL requis |
+| T125 | Rollback commande | DB | version incompatible après refs | POST | aucune donnée partielle | aucune donnée partielle | Réussi | test MySQL final |
+| T126 | Persistance après actualisation | NAV | refs créées | actualiser | retrouvées | retrouvées à l'écran | Réussi | `recette-commande-references-libres.png` |
+| T127 | Réutilisation nouvelle commande | DB | refs créées | second POST IDs | réutilisées | réutilisées | Réussi | test MySQL final |
+| T128 | Référentiels existants | DB | refs créées | requêtes brands/models | présentes | présentes | Réussi | test MySQL final |
+| T129 | Refus sans permission | API | droit view seul | POST | 403 | 403 | Réussi | suites RBAC conditionnelles |
+| T130 | Autorisation/inter-agences | DB | manage agence A/B | créer/lire | isolation | isolation | Réussi | test MySQL + suites RBAC |
+
+## État réel
+
+Les cas automatisés ci-dessus sont adossés aux journaux conservés. La matrice n'est pas déclarée intégralement réussie : les lignes historiques encore marquées « À exécuter », ainsi que T124 en preuve visuelle, restent ouvertes. Cette présentation empêche de transformer une couverture de code ou une preuve protocolaire en recette navigateur fictive.

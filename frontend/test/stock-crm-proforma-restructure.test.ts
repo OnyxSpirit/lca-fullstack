@@ -8,7 +8,7 @@ test('le Stock expose les unités et modèles sur commande sans entrée principa
   const stock=read('../src/modules/vehicles/VehiclesListPage.tsx'),sidebar=read('../src/components/layout/Sidebar.tsx'),app=read('../src/App.tsx');
   assert.match(stock,/Modèles sur commande/);
   assert.doesNotMatch(sidebar,/Catalogue commercial/);
-  assert.match(app,/vehicles\/catalog.*Navigate to="\/vehicles"/s);
+  assert.match(app,/vehicles\/catalog.*Navigate to="\/vehicles\?section=models"/s);
 });
 
 test('la fiche véhicule lance une pro forma avec le véhicule préselectionné',()=>{

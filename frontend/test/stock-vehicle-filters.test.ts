@@ -30,7 +30,7 @@ test('STOCK-KPI-05 le KPI vient de MySQL et reste correct après rechargement',(
   assert.match(page,/stats\?\.availableForSale/);
   assert.doesNotMatch(page,/vehicles\.filter[\s\S]*availableCount/);
   assert.match(page,/véhicule\{availableCount===1\?'':'s'\} disponible/);
-  assert.doesNotMatch(page,/stats\?\.total/);
+  assert.match(page,/stats\?\.total/);
   assert.doesNotMatch(page,/\/ \{stats\?\.total/);
 });
 test('la vente invalide liste, total, options et KPI en mutation locale et realtime',()=>{

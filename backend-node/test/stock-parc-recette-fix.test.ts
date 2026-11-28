@@ -13,7 +13,7 @@ test('R01 compteurs et liste partagent la même vue et la définition canonique 
   assert.equal(vehicleInventoryViewSql('all'),'');
   assert.throws(()=>vehicleInventoryViewSql('invalid'));
   assert.match(routes,/SUM\(v\.vehicle_location_id IS NULL\) unassigned/);
-  assert.match(routes,/assignment==='unassigned'\)clauses\.push\('v\.vehicle_location_id IS NULL'\)/);
+  assert.match(routes,/assignment==='unassigned'\)\{clauses\.push\(`v\.vehicle_location_id IS NULL AND \(v\.vehicle_order_id IS NULL OR \$\{receiptExists\}\)`\)\}/);
   assert.match(routes,/location-counts[\s\S]+vehicleInventoryViewSql\(view\)/);
 });
 

@@ -1,5 +1,5 @@
 # Simplification frontale
 
-Le parcours « Modèles sur commande » expose « Nouvelle commande » et retire l'éditeur technique. Champs visibles : marque, modèle, version facultative, quantité, photographie illustrative facultative. La galerie technique, les caractéristiques, tarifs et disponibilités commerciales ne font plus partie de ce parcours.
+Le parcours « Modèles sur commande » expose « Nouvelle commande » et retire l'éditeur technique. Champs visibles : marque, modèle, version facultative, quantité, photographie illustrative facultative. Marque et modèle utilisent un champ recherchable avec action explicite `+ Ajouter « … »`; une modification de marque réinitialise modèle et version.
 
-La compilation TypeScript, le lint et le build Vite de production passent. La vérification visuelle réelle est réservée dans le rapport 14.
+Le lint TypeScript et le build Vite Node 22 passent. Le `dist` préexistant étant non modifiable, le build a été produit dans `.artifacts/correctif-lca-stock-01-final`. Les captures réelles figurent dans `preuves/recette-*.png`.

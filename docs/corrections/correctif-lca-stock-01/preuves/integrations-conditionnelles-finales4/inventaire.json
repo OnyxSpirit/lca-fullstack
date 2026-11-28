@@ -1,0 +1,1391 @@
+{
+  "count": 107,
+  "generatedAt": "2026-11-28T07:01:51.920Z",
+  "rows": [
+    {
+      "id": "IC-001",
+      "file": "test/admin-provisioning-security.test.ts",
+      "line": 31,
+      "title": "SA4-SA11 et SA13-SA16 provisioning atomique sur MySQL jetable",
+      "condition": "!mysqlEnabled",
+      "activation": [
+        "SEED_ADMIN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const mysqlEnabled=process.env.SEED_ADMIN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-002",
+      "file": "test/administration-agency-rbac-mysql.integration.test.ts",
+      "line": 14,
+      "title": "PH2C2B LOT2 administration centrale et habilitations locales",
+      "condition": "!enabled",
+      "activation": [
+        "ADMIN_AGENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.ADMIN_AGENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-003",
+      "file": "test/agency-rbac-context-mysql.integration.test.ts",
+      "line": 14,
+      "title": "PH2A contexte agence, isolation, invalidation et SUPER_ADMIN",
+      "condition": "!enabled",
+      "activation": [
+        "AGENCY_RBAC_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.AGENCY_RBAC_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-004",
+      "file": "test/agency-realtime-mysql.integration.test.ts",
+      "line": 21,
+      "title": "PH2B socket réelle suit uniquement agence active et révocation",
+      "condition": "!enabled",
+      "activation": [
+        "AGENCY_REALTIME_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.AGENCY_REALTIME_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-005",
+      "file": "test/avoir-remboursement-mysql.integration.test.ts",
+      "line": 13,
+      "title": "AVOIR-REMBOURSEMENT-02 MySQL 8.4 : partiels, idempotence, concurrence et journal",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_REFUND_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_REFUND_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-006",
+      "file": "test/billing-payment-cancellation-accounting-mysql.integration.test.ts",
+      "line": 6,
+      "title": "annulation de règlement: neutralisation avant comptabilisation et contrepassation après",
+      "condition": "process.env.RUN_BILLING_MYSQL!=='1'",
+      "activation": [
+        "RUN_BILLING_MYSQL"
+      ],
+      "prerequisiteDefinitions": []
+    },
+    {
+      "id": "IC-007",
+      "file": "test/budget-treasury-mysql.integration.test.ts",
+      "line": 3,
+      "title": "BUD-TREAS MySQL 8.4 liaison, concurrence, idempotence, reversal et scopes",
+      "condition": "!enabled",
+      "activation": [
+        "BUDGET_TREASURY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.BUDGET_TREASURY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-008",
+      "file": "test/corr-erp-02d-test-drive-mysql.integration.test.ts",
+      "line": 50,
+      "title": "CRM-02 MySQL 8.4 sérialise la réservation exclusive des véhicules",
+      "condition": "!enabled",
+      "activation": [
+        "CORR_ERP_02D_MYSQL"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.CORR_ERP_02D_MYSQL==='1';"
+      ]
+    },
+    {
+      "id": "IC-009",
+      "file": "test/corr-erp-02e-test-drive-mysql.integration.test.ts",
+      "line": 15,
+      "title": "CORR-ERP-02E MySQL 8.4 sérialise les créneaux futurs et accepte les bornes adjacentes",
+      "condition": "!enabled",
+      "activation": [
+        "CORR_ERP_02E_MYSQL"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.CORR_ERP_02E_MYSQL==='1';"
+      ]
+    },
+    {
+      "id": "IC-010",
+      "file": "test/correctif-infrastructure-migration.test.ts",
+      "line": 25,
+      "title": "INFRA-135 MySQL 8.4 : substitution de FK fraîche et reprises contrôlées",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-011",
+      "file": "test/crm-agency-rbac-mysql.integration.test.ts",
+      "line": 14,
+      "title": "RBAC CRM isole les agences et revalide les écritures",
+      "condition": "!enabled",
+      "activation": [
+        "CRM_AGENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.CRM_AGENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-012",
+      "file": "test/crm-customer-stock-closure-mysql.integration.test.ts",
+      "line": 15,
+      "title": "clôture CRM Client Stock fonctionne réellement sur MySQL et HTTP",
+      "condition": "!enabled",
+      "activation": [
+        "CLOSURE_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.CLOSURE_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-013",
+      "file": "test/crm-customer-stock-closure-mysql.integration.test.ts",
+      "line": 52,
+      "title": "contacts historisés et archivage CRM persistent via les API réelles",
+      "condition": "!enabled",
+      "activation": [
+        "CLOSURE_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.CLOSURE_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-014",
+      "file": "test/customer-identity-mysql.integration.test.ts",
+      "line": 10,
+      "title": "C/CC identité customer — invariants réels MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "CUSTOMER_IDENTITY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.CUSTOMER_IDENTITY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-015",
+      "file": "test/delivery-checklist-concurrency-mysql.integration.test.ts",
+      "line": 21,
+      "title": "CONC-CHK-01..08 transactions MySQL 8.4 réelles",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_CHECKLIST_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_CHECKLIST_CONCURRENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-016",
+      "file": "test/delivery-financial-authorization-concurrency-mysql.integration.test.ts",
+      "line": 14,
+      "title": "CONC-DEL-01..05 et CLOSE-DEL-01..04 transactions MySQL réelles",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_FINANCIAL_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_FINANCIAL_CONCURRENCY_MYSQL_TEST==='1',timeline:string[]=[];"
+      ]
+    },
+    {
+      "id": "IC-017",
+      "file": "test/delivery-services-concurrency-mysql.integration.test.ts",
+      "line": 8,
+      "title": "CONC-SVC-01 double ajout même request ID",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-018",
+      "file": "test/delivery-services-concurrency-mysql.integration.test.ts",
+      "line": 9,
+      "title": "CONC-SVC-02 ajout vs prix catalogue",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-019",
+      "file": "test/delivery-services-concurrency-mysql.integration.test.ts",
+      "line": 10,
+      "title": "CONC-SVC-03 facturation sans doublon",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-020",
+      "file": "test/delivery-services-concurrency-mysql.integration.test.ts",
+      "line": 11,
+      "title": "CONC-SVC-04 ajout vs paiement conserve une exposition exacte",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-021",
+      "file": "test/delivery-services-concurrency-mysql.integration.test.ts",
+      "line": 12,
+      "title": "CONC-SVC-05 ajout invalide une autorisation Lot 6 trop basse",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-022",
+      "file": "test/delivery-services-concurrency-mysql.integration.test.ts",
+      "line": 13,
+      "title": "CONC-SVC-06 ajout vs finalisation est sérialisé",
+      "condition": "!enabled",
+      "activation": [
+        "DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.DELIVERY_SERVICE_CONCURRENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-023",
+      "file": "test/document-marks-b321-mysql.integration.test.ts",
+      "line": 39,
+      "title": "B3.2.1 persistance multi-documents, HTTP, audit et RBAC sur MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_B321_MARKS_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled = process.env.LCA_B321_MARKS_TEST === '1';"
+      ]
+    },
+    {
+      "id": "IC-024",
+      "file": "test/document-marks-lot13-mysql.integration.test.ts",
+      "line": 17,
+      "title": "LOT13-E2E production HTTP, sécurité, historique et concurrence MySQL",
+      "condition": "!enabled",
+      "activation": [
+        "LOT13_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LOT13_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-025",
+      "file": "test/dynamic-workshop-labor-rates-mysql.integration.test.ts",
+      "line": 5,
+      "title": "BAREME-03..28 référentiel dynamique, surcharge et snapshots sur MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_LABOR_RATES_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_LABOR_RATES_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-026",
+      "file": "test/evolution-lca-01-mysql.integration.test.ts",
+      "line": 15,
+      "title": "EVOLUTION-LCA-01 MySQL 8.4 et HTTP : commande, réceptions, concurrence, démonstration et pro forma",
+      "condition": "!enabled",
+      "activation": [
+        "EVOLUTION_LCA_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.EVOLUTION_LCA_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-027",
+      "file": "test/fin01-billing-export-mysql.integration.test.ts",
+      "line": 13,
+      "title": "FIN-01 MySQL 8.4 export réel, remboursements et scopes",
+      "condition": "!enabled",
+      "activation": [
+        "FIN01_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FIN01_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-028",
+      "file": "test/fin02-budget-approval-mysql.integration.test.ts",
+      "line": 13,
+      "title": "FIN-02 MySQL 8.4 workflows RBAC multi-étapes et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "FIN02_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FIN02_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-029",
+      "file": "test/fin03-treasury-coverage-mysql.integration.test.ts",
+      "line": 3,
+      "title": "FIN-03 MySQL 8.4 endpoints authentifiés, couverture et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "FIN03_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FIN03_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-030",
+      "file": "test/fin04-remunerations-mysql.integration.test.ts",
+      "line": 3,
+      "title": "FIN-04 MySQL 8.4 rémunération, budget, réservation et paiement",
+      "condition": "!enabled",
+      "activation": [
+        "FIN04_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FIN04_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-031",
+      "file": "test/fin05-supplier-invoices-mysql.integration.test.ts",
+      "line": 3,
+      "title": "FIN-05 MySQL 8.4 facture, dette, budget, paiements concurrents et avoir",
+      "condition": "!enabled",
+      "activation": [
+        "FIN05_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FIN05_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-032",
+      "file": "test/fin06-mysql.integration.test.ts",
+      "line": 3,
+      "title": "FIN-06 MySQL 8.4 API authentifiée et CSV",
+      "condition": "!enabled",
+      "activation": [
+        "FIN06_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FIN06_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-033",
+      "file": "test/fin07-mysql.integration.test.ts",
+      "line": 3,
+      "title": "FIN-07 MySQL 8.4 import, rapprochement, concurrence et immutabilité Treasury",
+      "condition": "!enabled",
+      "activation": [
+        "FIN07_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FIN07_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-034",
+      "file": "test/fin09-mysql.integration.test.ts",
+      "line": 15,
+      "title": "FIN09 MySQL 8.4 protège les réservations contre les sorties libres concurrentes",
+      "condition": "!enabled",
+      "activation": [
+        "FIN09_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled = process.env.FIN09_MYSQL_TEST === '1';"
+      ]
+    },
+    {
+      "id": "IC-035",
+      "file": "test/fiscal-enterprise-mysql.integration.test.ts",
+      "line": 13,
+      "title": "FISCAL MySQL 8.4 : cycle, RBAC, agence, audit et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "FISCAL_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.FISCAL_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-036",
+      "file": "test/ged-http-mysql.integration.test.ts",
+      "line": 15,
+      "title": "GED HTTP MySQL : upload, scopes, pagination, versions, archive, restauration et audit",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_GED_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_GED_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-037",
+      "file": "test/hr-budget-agency-mysql.integration.test.ts",
+      "line": 13,
+      "title": "RH-BUDGET-AGENCY-01 MySQL 8.4 : cibles et créations respectent les scopes",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_HR_BUDGET_AGENCY_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_HR_BUDGET_AGENCY_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-038",
+      "file": "test/hr-budget-categories-mysql.integration.test.ts",
+      "line": 13,
+      "title": "RH-BUDGET-CATEGORIES-02 MySQL 8.4 : référentiel, RBAC, usages et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_HR_BUDGET_CATEGORIES_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_HR_BUDGET_CATEGORIES_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-039",
+      "file": "test/hr-budget-funds-mysql.integration.test.ts",
+      "line": 3,
+      "title": "RH-FIX-04 MySQL 8.4 : rallonges RBAC, auto-décision autorisée, scopes, audit et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_HR_BUDGET_FUNDS_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_HR_BUDGET_FUNDS_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-040",
+      "file": "test/hr-reporting-mysql.integration.test.ts",
+      "line": 13,
+      "title": "RH-REPORTING-UI-01 MySQL 8.4 : agrégations réelles, périodes et scopes sources",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_HR_REPORTING_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_HR_REPORTING_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-041",
+      "file": "test/hr-salary-scope-mysql.integration.test.ts",
+      "line": 13,
+      "title": "RH-AUDIT-01/07 MySQL 8.4 : le payload Personnel intersecte les scopes employé et salaire",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_HR_SALARY_SCOPE_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_HR_SALARY_SCOPE_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-042",
+      "file": "test/hr-stock-governance-mysql.integration.test.ts",
+      "line": 14,
+      "title": "RBAC-03 RH-CAT-01..10 MySQL 8.4 : catégories concessionnelles sans bypass système",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_HR_STOCK_GOVERNANCE_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_HR_STOCK_GOVERNANCE_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-043",
+      "file": "test/lot14c2-mysql-api.integration.test.ts",
+      "line": 16,
+      "title": "Lot 14C.2 — API authentifiées et invariants réels MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "LOT14C2_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LOT14C2_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-044",
+      "file": "test/lot14c5b-workshop-report-mysql.integration.test.ts",
+      "line": 15,
+      "title": "14C5B MySQL 8.4 : origines, dates financières, déduplication et réconciliation",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_14C5B_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_14C5B_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-045",
+      "file": "test/lot3-accounting-mysql.integration.test.ts",
+      "line": 9,
+      "title": "LOT3 sérialise numérotation et contrepassation sur MySQL 8",
+      "condition": "!enabled",
+      "activation": [
+        "RUN_LOT3_MYSQL"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.RUN_LOT3_MYSQL==='1';"
+      ]
+    },
+    {
+      "id": "IC-046",
+      "file": "test/lot4-accounting-automation-mysql.integration.test.ts",
+      "line": 2,
+      "title": "LOT4 découvre et comptabilise une opération éligible une seule fois",
+      "condition": "process.env.RUN_LOT4_MYSQL!=='1'",
+      "activation": [
+        "RUN_LOT4_MYSQL"
+      ],
+      "prerequisiteDefinitions": []
+    },
+    {
+      "id": "IC-047",
+      "file": "test/migration-054-checksum-mysql.integration.test.ts",
+      "line": 8,
+      "title": "MIG-054 historique publié converge vers 056 sans mismatch ni perte",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_054_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_054_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-048",
+      "file": "test/migration-080-mysql.integration.test.ts",
+      "line": 13,
+      "title": "M080 MySQL 8.4: 079, reprise, divergence et données",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_080_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_080_MYSQL_TEST==='1',root=resolve(import.meta.dirname,'..');"
+      ]
+    },
+    {
+      "id": "IC-049",
+      "file": "test/migration-085-mysql.integration.test.ts",
+      "line": 10,
+      "title": "MIG085 — exécution réelle MySQL 8.4 et invariants historiques",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_085_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_085_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-050",
+      "file": "test/migration-093-mysql.integration.test.ts",
+      "line": 9,
+      "title": "MIG093 — MySQL 8.4 préserve les emplacements, index et clés étrangères",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_093_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_093_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-051",
+      "file": "test/migration-094-mysql.integration.test.ts",
+      "line": 10,
+      "title": "MIG094 — snapshots historiques, reprise et divergence MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_094_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_094_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-052",
+      "file": "test/migration-094-mysql.integration.test.ts",
+      "line": 30,
+      "title": "MIG094 — baseline déjà conforme reconnue sans perte",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_094_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_094_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-053",
+      "file": "test/migration-097-mysql.integration.test.ts",
+      "line": 12,
+      "title": "M097 MySQL 8.4: installation, 096→097, reprises, backfill et divergence",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_097_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_097_MYSQL_TEST==='1',root=resolve(import.meta.dirname,'..'),versionOf=(name:string)=>Number(name.slice(0,3));"
+      ]
+    },
+    {
+      "id": "IC-054",
+      "file": "test/migration-101-mysql.integration.test.ts",
+      "line": 10,
+      "title": "MIG101 — schéma financier prestataires et reprise MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_101_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_101_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-055",
+      "file": "test/mysql-migration-runner.test.ts",
+      "line": 13,
+      "title": "Runner MySQL 8.4 : un DDL échoué sans effet est corrigeable et reprenable",
+      "condition": "!process.env.MIGRATION_MYSQL_TEST",
+      "activation": [
+        "MIGRATION_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": []
+    },
+    {
+      "id": "IC-056",
+      "file": "test/mysql-migration-runner.test.ts",
+      "line": 33,
+      "title": "Runner MySQL 8.4 actuel : fresh, reprise, checksum, conservation et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "MIGRATION_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.MIGRATION_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-057",
+      "file": "test/notifications-agency-rbac-mysql.integration.test.ts",
+      "line": 20,
+      "title": "PH2C2B LOT1 notifications HTTP, MySQL et Socket.IO",
+      "condition": "!enabled",
+      "activation": [
+        "NOTIFICATIONS_AGENCY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.NOTIFICATIONS_AGENCY_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-058",
+      "file": "test/ops-ux01-final-mysql.integration.test.ts",
+      "line": 15,
+      "title": "OPS-UX-01 final: kilométrage strict et conflit Planning concurrent",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_OPS_UX01_FINAL_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_OPS_UX01_FINAL_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-059",
+      "file": "test/ops-ux01-mysql.integration.test.ts",
+      "line": 11,
+      "title": "OPS-UX-01 refuse les quantités physiques décimales par API réelle",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_OPS_UX01_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_OPS_UX01_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-060",
+      "file": "test/pdf-session-revocation-mysql.integration.test.ts",
+      "line": 15,
+      "title": "PDF GED : une session révoquée perd immédiatement le téléchargement, une nouvelle session légitime le retrouve",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_PDF_SESSION_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_PDF_SESSION_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-061",
+      "file": "test/personnel-unified-b3423-lot3-mysql.integration.test.ts",
+      "line": 3,
+      "title": "B3423 LOT3 MySQL 8.4: identité unifiée et trois rattachements réversibles",
+      "condition": "!enabled",
+      "activation": [
+        "PROVIDER_LOT3_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.PROVIDER_LOT3_MYSQL_TEST==='1',root=resolve(import.meta.dirname,'..');"
+      ]
+    },
+    {
+      "id": "IC-062",
+      "file": "test/pr02-sav-or03-mysql.integration.test.ts",
+      "line": 15,
+      "title": "PR-02 et SAV-OR-03 sur MySQL 8.4 isolé",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_PR02_SAV03_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_PR02_SAV03_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-063",
+      "file": "test/pr03-locations-mysql.integration.test.ts",
+      "line": 15,
+      "title": "PR-03 administration des emplacements sur MySQL 8.4 isolé",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_PR03_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_PR03_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-064",
+      "file": "test/pr04-parts-location-list-mysql.integration.test.ts",
+      "line": 15,
+      "title": "PR-04 restitue les emplacements de stock dans la liste sans fuite multi-agence",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_PR04_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_PR04_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-065",
+      "file": "test/pr06-purchase-order-cancellation-mysql.integration.test.ts",
+      "line": 15,
+      "title": "PR-06 annule sûrement commandes et reliquats sans inverser le stock",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_PR06_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_PR06_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-066",
+      "file": "test/preproduction-mysql.integration.test.ts",
+      "line": 16,
+      "title": "PREPROD-MYSQL: facture créée/idempotente et suppression transactionnelle de rôle",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_PREPROD_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_PREPROD_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-067",
+      "file": "test/provider-profiles-b3423-lot2-mysql.integration.test.ts",
+      "line": 9,
+      "title": "B3423 LOT2 MySQL 8.4: 096→098, identités, unicité, rattachement et historique salarié",
+      "condition": "!enabled",
+      "activation": [
+        "PROVIDER_LOT2_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.PROVIDER_LOT2_MYSQL_TEST==='1',root=resolve(import.meta.dirname,'..');"
+      ]
+    },
+    {
+      "id": "IC-068",
+      "file": "test/qualification-reserves-mysql.integration.test.ts",
+      "line": 13,
+      "title": "AUD-LCA-013 : pool 2 + file 2 refuse la cinquième requête et rollback une transaction",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_RESERVES_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_RESERVES_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-069",
+      "file": "test/qualification-reserves-mysql.integration.test.ts",
+      "line": 23,
+      "title": "AUD-LCA-014 : deux uploads de 15 Mio restent bornés et le dépassement est rejeté 413",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_RESERVES_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_RESERVES_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-070",
+      "file": "test/rbac-role-status-mysql.integration.test.ts",
+      "line": 15,
+      "title": "cycle statut rôle, permissions, sessions et multi-agences sur MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "RBAC_ROLES_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.RBAC_ROLES_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-071",
+      "file": "test/reporting-mysql.integration.test.ts",
+      "line": 24,
+      "title": "Reporting MySQL 8.4 : réconciliation, scopes et CSV sur données persistées",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_REPORT_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_REPORT_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-072",
+      "file": "test/reporting-mysql.integration.test.ts",
+      "line": 106,
+      "title": "SAV-FINANCE-03 : facture de septembre, paiements et remboursement à leurs dates réelles",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_REPORT_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_REPORT_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-073",
+      "file": "test/reporting-mysql.integration.test.ts",
+      "line": 148,
+      "title": "Reporting MySQL 8.4 : ventes, marges, annulations et bornes de période",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_REPORT_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_REPORT_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-074",
+      "file": "test/reporting-mysql.integration.test.ts",
+      "line": 184,
+      "title": "Reporting MySQL 8.4 : stock actuel et CSV respectent chaque périmètre",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_REPORT_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_REPORT_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-075",
+      "file": "test/reporting-mysql.integration.test.ts",
+      "line": 213,
+      "title": "Reporting MySQL 8.4 : granularités et dates invalides",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_REPORT_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_REPORT_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-076",
+      "file": "test/sale-cancellation-mysql.integration.test.ts",
+      "line": 15,
+      "title": "VENTE-ANNULATION-02 MySQL 8.4 : atomicité, refus financiers et concurrences",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SALE_CANCEL_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SALE_CANCEL_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-077",
+      "file": "test/sav-abandon-or-02-mysql.integration.test.ts",
+      "line": 4,
+      "title": "SAV-AB MySQL 8.4 : nettoyage, conservation, session et restitution",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SAV_ABANDON_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SAV_ABANDON_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-078",
+      "file": "test/sav-or-ux03-mysql.integration.test.ts",
+      "line": 15,
+      "title": "SAV-OR-UX-03 persiste et isole les actions one-shot par OR",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SAV_OR_UX03_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SAV_OR_UX03_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-079",
+      "file": "test/sav-or04-09-mysql.integration.test.ts",
+      "line": 15,
+      "title": "SAV-OR-04 à 09 : techniciens, stock et main-d’œuvre sur MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SAV0409_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SAV0409_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-080",
+      "file": "test/sav-or16-18-mysql.integration.test.ts",
+      "line": 15,
+      "title": "SAV-OR-16 à 18 sur MySQL 8.4 : étapes, annulation et finance séparée",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SAV1618_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SAV1618_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-081",
+      "file": "test/sav-or19-mysql.integration.test.ts",
+      "line": 15,
+      "title": "SAV-OR-19 : toutes les interventions restent dans l’historique avec leurs scopes",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SAV19_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SAV19_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-082",
+      "file": "test/sav-or20-mysql.integration.test.ts",
+      "line": 15,
+      "title": "SAV-OR-20 chiffre côté serveur avant décision sans toucher au stock",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SAV20_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SAV20_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-083",
+      "file": "test/sav-or21-mysql.integration.test.ts",
+      "line": 12,
+      "title": "SAV-OR-21 relie baseline acceptée et réel sans doublon",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_SAV21_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_SAV21_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-084",
+      "file": "test/sav-parts-targeted-mysql.integration.test.ts",
+      "line": 15,
+      "title": "PR-01, SAV-OR-01 et SAV-OR-02 sur MySQL isolé",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_TARGETED_DB_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_TARGETED_DB_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-085",
+      "file": "test/sav-transit-destinations-mysql.integration.test.ts",
+      "line": 11,
+      "title": "SAV transit destinations respecte scope, agence, mapping, compte et concession",
+      "condition": "!enabled",
+      "activation": [
+        "SAV_TRANSIT_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.SAV_TRANSIT_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-086",
+      "file": "test/sav-warranty-validation-mysql.integration.test.ts",
+      "line": 5,
+      "title": "VALIDATION-04 garantie totale, partielle, paiements et persistance MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_WARRANTY_VALIDATION"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_WARRANTY_VALIDATION==='1';"
+      ]
+    },
+    {
+      "id": "IC-087",
+      "file": "test/showroom-integrity-mysql.integration.test.ts",
+      "line": 5,
+      "title": "DUP-INT-06/07 créations concurrentes et confirmation explicite",
+      "condition": "!enabled",
+      "activation": [
+        "SHOWROOM_INTEGRITY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.SHOWROOM_INTEGRITY_MYSQL_TEST==='1',suffix=randomUUID().replaceAll('-','').slice(0,10);"
+      ]
+    },
+    {
+      "id": "IC-088",
+      "file": "test/showroom-integrity-mysql.integration.test.ts",
+      "line": 6,
+      "title": "CONVERT-INT-10 conversion concurrente atomique",
+      "condition": "!enabled",
+      "activation": [
+        "SHOWROOM_INTEGRITY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.SHOWROOM_INTEGRITY_MYSQL_TEST==='1',suffix=randomUUID().replaceAll('-','').slice(0,10);"
+      ]
+    },
+    {
+      "id": "IC-089",
+      "file": "test/showroom-integrity-mysql.integration.test.ts",
+      "line": 7,
+      "title": "CONVERT-ROLLBACK conserve visite et annule le lead sur erreur opportunité",
+      "condition": "!enabled",
+      "activation": [
+        "SHOWROOM_INTEGRITY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.SHOWROOM_INTEGRITY_MYSQL_TEST==='1',suffix=randomUUID().replaceAll('-','').slice(0,10);"
+      ]
+    },
+    {
+      "id": "IC-090",
+      "file": "test/showroom-integrity-mysql.integration.test.ts",
+      "line": 8,
+      "title": "SCOPE/FK/TRANSITIONS isolent les agences et conservent les relations",
+      "condition": "!enabled",
+      "activation": [
+        "SHOWROOM_INTEGRITY_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.SHOWROOM_INTEGRITY_MYSQL_TEST==='1',suffix=randomUUID().replaceAll('-','').slice(0,10);"
+      ]
+    },
+    {
+      "id": "IC-091",
+      "file": "test/treasury-closure-mysql.integration.test.ts",
+      "line": 14,
+      "title": "CLOSE-TREAS-01..11 invariants financiers réels MySQL 8.4",
+      "condition": "!enabled",
+      "activation": [
+        "TREASURY_CLOSURE_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.TREASURY_CLOSURE_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-092",
+      "file": "test/treasury-flow-mysql.integration.test.ts",
+      "line": 3,
+      "title": "TREAS-FLOW MySQL 8.4 courant, transactions et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "TREASURY_FLOW_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.TREASURY_FLOW_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-093",
+      "file": "test/treasury-manual-mysql.integration.test.ts",
+      "line": 3,
+      "title": "TREAS-MAN MySQL 8.4 opérations manuelles, idempotence et concurrence",
+      "condition": "!enabled",
+      "activation": [
+        "TREASURY_MANUAL_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.TREASURY_MANUAL_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-094",
+      "file": "test/valid-erp-02-appointment-mysql.integration.test.ts",
+      "line": 21,
+      "title": "VALID-ERP-02 MySQL 8.4 sérialise deux créations identiques et accepte les bornes adjacentes",
+      "condition": "!enabled",
+      "activation": [
+        "VALID_ERP_02_MYSQL"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VALID_ERP_02_MYSQL==='1';"
+      ]
+    },
+    {
+      "id": "IC-095",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 67,
+      "title": "CONC-RET-01 double création sérialisée et unique",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-096",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 68,
+      "title": "CONC-RET-02 approve contre reject: un seul décideur gagne",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-097",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 69,
+      "title": "CONC-RET-03A paiement gagne, résolution relit 15M",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-098",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 70,
+      "title": "CONC-RET-03B résolution gagne, paiement tardif refusé",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-099",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 71,
+      "title": "CONC-RET-04 avoir externe gagne, résolution ne recrédite pas son montant",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-100",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 72,
+      "title": "CONC-RET-05 deux refunds de 7M ne dépassent pas 10M",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-101",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 73,
+      "title": "CONC-RET-06 double résolution: un avoir et un remboursement uniques",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-102",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 74,
+      "title": "CONC-RET-07 double réception: un seul événement",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-103",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 75,
+      "title": "CONC-RET-08 décision stock et vraie vente sont sérialisées dans les deux ordres",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-104",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 76,
+      "title": "CONC-RET-09 retenue gagne puis résolution la fige",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-105",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 77,
+      "title": "CONC-RET-10 CLOSED rend les mutations tardives impossibles",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-106",
+      "file": "test/vehicle-return-concurrency-mysql.integration.test.ts",
+      "line": 78,
+      "title": "CONC-RET-12 rollback puis retry sans artefact orphelin",
+      "condition": "!enabled",
+      "activation": [
+        "VEHICLE_RETURN_MYSQL_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.VEHICLE_RETURN_MYSQL_TEST==='1';"
+      ]
+    },
+    {
+      "id": "IC-107",
+      "file": "test/wss-proxy-mysql.integration.test.ts",
+      "line": 32,
+      "title": "WSS Nginx : upgrade accepté avec session persistée et refusé avec jeton invalide",
+      "condition": "!enabled",
+      "activation": [
+        "LCA_WSS_PROXY_TEST"
+      ],
+      "prerequisiteDefinitions": [
+        "const enabled=process.env.LCA_WSS_PROXY_TEST==='1';"
+      ]
+    }
+  ]
+}

@@ -31,5 +31,5 @@ test('catalogue, pro forma directe et snapshots sont raccordés de bout en bout'
   assert.match(proforma,/ensureCustomer\(connection,opportunity/);assert.match(proforma,/customer_snapshot/);assert.match(proforma,/if\(current\.status==='issued'\)return/);
   assert.match(pdf,/FACTURE PRO FORMA/);assert.match(pdf,/selected_images_snapshot/);assert.match(pdf,/customer_snapshot/);
   assert.match(ui,/Prospect CRM/);assert.match(ui,/Ajouter un autre véhicule/);assert.match(ui,/imageIds/);assert.match(ui,/document\(s\) récent/);
-  assert.match(catalogUi,/Galerie du modèle/);assert.match(catalogUi,/primaryImage/);assert.match(catalogUi,/orderImages/);assert.match(catalogUi,/removeImage/);
+  assert.match(catalogUi,/Photographie illustrative \(facultative\)/);assert.match(catalogUi,/Nouvelle commande/);assert.doesNotMatch(catalogUi,/Galerie du modèle|primaryImage|orderImages|removeImage/);
 });

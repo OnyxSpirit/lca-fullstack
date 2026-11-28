@@ -1,0 +1,17 @@
+TAP version 13
+# Résumé migrations: niveau 138, 0 avertissement(s) historique(s)
+# Subtest: EVOLUTION-LCA-01 MySQL 8.4 et HTTP : commande, réceptions, concurrence, démonstration et pro forma
+ok 1 - EVOLUTION-LCA-01 MySQL 8.4 et HTTP : commande, réceptions, concurrence, démonstration et pro forma
+  ---
+  duration_ms: 11865.582833
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14745.538299

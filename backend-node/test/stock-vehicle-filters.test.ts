@@ -15,7 +15,7 @@ test('STOCK-FILTER-01 conserve recherche, vue, statut, type, énergie, emplaceme
   assert.match(source,/v\.vehicle_location_id=\?/);
 });
 test('STOCK-FILTER-02/03/04/05 marque et modèle sont des filtres SQL paramétrés et combinables',()=>{
-  assert.match(source,/\[\['brandId','b\.id','marque'\],\['modelId','m\.id','modèle'\]\]/);
+  assert.match(source,/\[\['brandId','COALESCE\(b\.id,vo\.brand_id\)','marque'\],\['modelId','COALESCE\(m\.id,vo\.model_id\)','modèle'\]\]/);
   assert.match(source,/clauses\.push\(`\$\{column\}=\?`\);params\.push\(value\)/);
   assert.match(source,/COUNT\(\*\) total[\s\S]*clauses\.join\(' AND '\)/);
   assert.doesNotMatch(source,/b\.id=\$\{value\}|m\.id=\$\{value\}/);
@@ -29,7 +29,8 @@ test('STOCK-FILTER-08/09/10 les filtres restent exclusivement dans le scope AGEN
 test('STOCK-KPI-01/02/04/06 seul available est compté par MySQL dans le scope courant',()=>{
   assert.match(source,/SUM\(v\.status='available'\) available/);
   assert.match(source,/availableForSale=Number\(row\?\.available/);
-  assert.match(source,/FROM vehicles v WHERE \$\{commercialStockPredicate\(\)\} AND v\.archived_at IS NULL AND \$\{scoped\.sql\}/);
+  assert.match(source,/FROM vehicles v WHERE \$\{commercialStockPredicate\(\)\} AND v\.archived_at IS NULL AND v\.status NOT IN\('sold','delivered'\) AND \$\{scoped\.sql\}/);
+  assert.match(source,/SUM\(NOT \$\{received\}\) ordered/);assert.match(source,/SUM\(\$\{received\}\) physical/);
   assert.match(source,/const availableForSale=Number\(row\?\.available\?\?0\)/);
 });
 test('STOCK-KPI-03 la vente réserve puis vend le véhicule au moment métier existant',()=>{
